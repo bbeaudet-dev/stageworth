@@ -17,12 +17,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { DiaryView } from "@/components/diary-view";
 import {
   ShowRowAccordion,
   type RankedShow,
 } from "@/components/show-row-accordion";
 
-type ViewMode = "list" | "cloud";
+type ViewMode = "list" | "cloud" | "diary";
 
 type ShowType = "musical" | "play" | "opera" | "dance" | "other";
 
@@ -271,42 +272,31 @@ export default function MyShowsScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>My Shows</Text>
         <View style={styles.toggle}>
-          <Pressable
-            style={[
-              styles.toggleButton,
-              viewMode === "list" && styles.toggleButtonActive,
-            ]}
-            onPress={() => setViewMode("list")}
-          >
-            <Text
+          {(["list", "cloud", "diary"] as const).map((mode) => (
+            <Pressable
+              key={mode}
               style={[
-                styles.toggleText,
-                viewMode === "list" && styles.toggleTextActive,
+                styles.toggleButton,
+                viewMode === mode && styles.toggleButtonActive,
               ]}
+              onPress={() => setViewMode(mode)}
             >
-              List
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.toggleButton,
-              viewMode === "cloud" && styles.toggleButtonActive,
-            ]}
-            onPress={() => setViewMode("cloud")}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                viewMode === "cloud" && styles.toggleTextActive,
-              ]}
-            >
-              Cloud
-            </Text>
-          </Pressable>
+              <Text
+                style={[
+                  styles.toggleText,
+                  viewMode === mode && styles.toggleTextActive,
+                ]}
+              >
+                {mode[0].toUpperCase() + mode.slice(1)}
+              </Text>
+            </Pressable>
+          ))}
         </View>
       </View>
 
-      {rankedShows === undefined ? (
+      {viewMode === "diary" ? (
+        <DiaryView />
+      ) : rankedShows === undefined ? (
         <Text style={styles.loading}>Loading...</Text>
       ) : viewMode === "list" ? (
         <DraggableFlatList
