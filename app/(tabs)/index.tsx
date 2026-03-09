@@ -1,7 +1,8 @@
 import { useMutation, useQuery } from "convex/react";
-import { useRef, useState, useCallback, useMemo, memo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
 import {
   ActivityIndicator,
+  type FlatList,
   Keyboard,
   Pressable,
   StyleSheet,
@@ -22,6 +23,8 @@ import {
   ShowRowAccordion,
   type RankedShow,
 } from "@/components/show-row-accordion";
+import { TheatreCloud } from "@/components/theatre-cloud";
+import { ShowDetailModal } from "@/components/show-detail-modal";
 
 type ViewMode = "list" | "cloud" | "diary";
 
@@ -37,7 +40,11 @@ const TYPE_LABELS: Record<ShowType, string> = {
   other: "Other",
 };
 
-const AddShowInput = memo(function AddShowInput() {
+const AddShowInput = memo(function AddShowInput({
+  scrollToEnd,
+}: {
+  scrollToEnd: () => void;
+}) {
   const [isAdding, setIsAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [pendingNames, setPendingNames] = useState<string[]>([]);
@@ -95,6 +102,7 @@ const AddShowInput = memo(function AddShowInput() {
     inputRef.current?.focus();
 
     addToRankings({ showId, tier: "liked", position: Infinity })
+      .then(() => setTimeout(scrollToEnd, 50))
       .finally(() => removePending(name));
   };
 
@@ -114,6 +122,7 @@ const AddShowInput = memo(function AddShowInput() {
       .then((showId) =>
         addToRankings({ showId, tier: "liked", position: Infinity })
       )
+      .then(() => setTimeout(scrollToEnd, 50))
       .finally(() => removePending(trimmed));
   };
 
@@ -142,79 +151,86 @@ const AddShowInput = memo(function AddShowInput() {
     </View>
   ));
 
-  if (!isAdding) {
-    return (
-      <View style={styles.footer}>
-        {pendingRows}
-        <Pressable style={styles.addButton} onPress={() => setIsAdding(true)}>
-          <Text style={styles.addButtonText}>+ Add Show</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  const showResults = query.trim().length > 0;
+  const showResults = isAdding && query.trim().length > 0;
   const showCreateOption = showResults && !hasExactMatch;
 
+  const topResults = useMemo(() => filteredShows.slice(0, 3), [filteredShows]);
+
   return (
-    <View style={styles.footer}>
-      {pendingRows}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputRow}>
-          <TextInput
-            ref={inputRef}
-            style={styles.searchInput}
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search shows..."
-            autoFocus
-            returnKeyType="search"
-            blurOnSubmit={false}
-            onSubmitEditing={handleSubmit}
-            autoCapitalize="words"
-            autoCorrect={false}
-          />
-          <Pressable onPress={handleCancel} style={styles.searchCancel}>
-            <Text style={styles.searchCancelText}>Cancel</Text>
-          </Pressable>
+    <View style={styles.addShowBar}>
+      {showResults && (
+        <View style={styles.resultsOverlay}>
+          {showCreateOption && (
+            <Pressable
+              style={styles.createCustomRow}
+              onPress={handleCreateCustomShow}
+            >
+              <Text style={styles.createCustomText}>
+                Add "{query.trim()}" as custom show
+              </Text>
+            </Pressable>
+          )}
+
+          {filteredShows.length === 0 && !showCreateOption && (
+            <View style={styles.noResults}>
+              <Text style={styles.noResultsText}>No matching shows</Text>
+            </View>
+          )}
+
+          {[...topResults].reverse().map((show) => (
+            <Pressable
+              key={show._id}
+              style={[
+                styles.resultRow,
+                topResults.length === 1 && styles.singleResultHighlight,
+              ]}
+              onPress={() => handleSelectShow(show._id)}
+            >
+              <Text style={styles.resultName} numberOfLines={1}>
+                {show.name}
+              </Text>
+              <Text style={styles.resultType}>
+                {TYPE_LABELS[show.type]}
+              </Text>
+            </Pressable>
+          ))}
         </View>
+      )}
 
-        {showResults && (
-          <View style={styles.resultsList}>
-            {filteredShows.map((show) => (
-              <Pressable
-                key={show._id}
-                style={styles.resultRow}
-                onPress={() => handleSelectShow(show._id)}
-              >
-                <Text style={styles.resultName} numberOfLines={1}>
-                  {show.name}
-                </Text>
-                <Text style={styles.resultType}>
-                  {TYPE_LABELS[show.type]}
-                </Text>
-              </Pressable>
-            ))}
+      {pendingRows}
 
-            {filteredShows.length === 0 && (
-              <View style={styles.noResults}>
-                <Text style={styles.noResultsText}>No matching shows</Text>
-              </View>
-            )}
-
-            {showCreateOption && (
-              <Pressable
-                style={styles.createCustomRow}
-                onPress={handleCreateCustomShow}
-              >
-                <Text style={styles.createCustomText}>
-                  Add "{query.trim()}" as custom show
-                </Text>
-              </Pressable>
-            )}
+      {isAdding ? (
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputRow}>
+            <TextInput
+              ref={inputRef}
+              style={styles.searchInput}
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search shows..."
+              autoFocus
+              returnKeyType="search"
+              blurOnSubmit={false}
+              onSubmitEditing={handleSubmit}
+              autoCapitalize="words"
+              autoCorrect={false}
+            />
+            <Pressable onPress={handleCancel} style={styles.searchCancel}>
+              <Text style={styles.searchCancelText}>Cancel</Text>
+            </Pressable>
           </View>
-        )}
-      </View>
+        </View>
+      ) : (
+        <Pressable
+          style={styles.addButton}
+          onPress={() => {
+            setIsAdding(true);
+            setTimeout(scrollToEnd, 100);
+          }}
+        >
+          <Text style={styles.addButtonText}>+ Add Show</Text>
+        </Pressable>
+      )}
     </View>
   );
 });
@@ -224,22 +240,62 @@ export default function MyShowsScreen() {
   const [expandedShowId, setExpandedShowId] = useState<Id<"shows"> | null>(
     null
   );
+  const [selectedShowId, setSelectedShowId] = useState<Id<"shows"> | null>(
+    null
+  );
+
+  const listRef = useRef<FlatList<RankedShow>>(null);
+
+  const [pendingRemoveIds, setPendingRemoveIds] = useState<Set<Id<"shows">>>(
+    () => new Set()
+  );
 
   const rankedShows = useQuery(api.rankings.getRankedShows);
   const reorder = useMutation(api.rankings.reorder);
+  const removeShow = useMutation(api.rankings.removeShow);
+
+  const [optimisticOrder, setOptimisticOrder] = useState<RankedShow[] | null>(
+    null
+  );
+
+  useEffect(() => {
+    setOptimisticOrder(null);
+  }, [rankedShows]);
+
+  const displayShows = (optimisticOrder ??
+    rankedShows) as RankedShow[] | undefined;
 
   const handleDragEnd = useCallback(
-    async ({ data }: { data: RankedShow[] }) => {
-      if (!rankedShows) return;
-
-      for (let i = 0; i < data.length; i++) {
-        if (data[i]._id !== rankedShows[i]?._id) {
-          await reorder({ showId: data[i]._id, newPosition: i });
-          break;
-        }
-      }
+    async ({
+      data,
+      from,
+      to,
+    }: {
+      data: RankedShow[];
+      from: number;
+      to: number;
+    }) => {
+      if (from === to || !rankedShows) return;
+      const showId = rankedShows[from]._id;
+      setOptimisticOrder(data);
+      await reorder({ showId, newPosition: to });
     },
     [rankedShows, reorder]
+  );
+
+  const handleRemoveShow = useCallback(
+    (showId: Id<"shows">) => {
+      setExpandedShowId(null);
+      setPendingRemoveIds((prev) => new Set(prev).add(showId));
+      removeShow({ showId }).finally(() => {
+        setPendingRemoveIds((prev) => {
+          const next = new Set(prev);
+          next.delete(showId);
+          return next;
+        });
+      });
+    },
+    [removeShow]
   );
 
   const renderItem = useCallback(
@@ -251,24 +307,28 @@ export default function MyShowsScreen() {
             item={item}
             index={index ?? 0}
             isExpanded={expandedShowId === item._id}
+            isRemoving={pendingRemoveIds.has(item._id)}
             onToggle={() =>
               setExpandedShowId((prev) =>
                 prev === item._id ? null : item._id
               )
             }
+            onRemove={() => handleRemoveShow(item._id)}
             drag={drag}
             isActive={isActive}
           />
         </ScaleDecorator>
       );
     },
-    [expandedShowId]
+    [expandedShowId, pendingRemoveIds, handleRemoveShow]
   );
 
-  const renderFooter = useCallback(() => <AddShowInput />, []);
+  const scrollToEnd = useCallback(() => {
+    listRef.current?.scrollToEnd({ animated: true });
+  }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.title}>My Shows</Text>
         <View style={styles.toggle}>
@@ -296,28 +356,49 @@ export default function MyShowsScreen() {
 
       {viewMode === "diary" ? (
         <DiaryView />
-      ) : rankedShows === undefined ? (
+      ) : displayShows === undefined ? (
         <Text style={styles.loading}>Loading...</Text>
       ) : viewMode === "list" ? (
-        <DraggableFlatList
-          data={rankedShows as RankedShow[]}
-          onDragEnd={handleDragEnd}
-          keyExtractor={(item) => item._id}
-          renderItem={renderItem}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>No shows ranked yet.</Text>
-            </View>
-          }
-          ListFooterComponent={renderFooter}
-          contentContainerStyle={styles.listContent}
-        />
-      ) : (
-        <View style={styles.cloudPlaceholder}>
-          <Text style={styles.cloudPlaceholderText}>
-            Theatre Cloud coming soon!
-          </Text>
+        <View style={styles.listWrapper}>
+          <DraggableFlatList
+            ref={listRef}
+            data={displayShows}
+            onDragEnd={handleDragEnd}
+            keyExtractor={(item) => item._id}
+            renderItem={renderItem}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>No shows ranked yet.</Text>
+              </View>
+            }
+            contentContainerStyle={styles.listContent}
+          />
+          <AddShowInput
+            scrollToEnd={scrollToEnd}
+          />
         </View>
+      ) : (
+        <>
+          <TheatreCloud
+            shows={displayShows}
+            onShowPress={(showId) => setSelectedShowId(showId)}
+          />
+          {selectedShowId && (() => {
+            const idx = displayShows.findIndex(
+              (s) => s._id === selectedShowId
+            );
+            const show = idx >= 0 ? displayShows[idx] : null;
+            return (
+              <ShowDetailModal
+                showId={selectedShowId}
+                showName={show?.name ?? ""}
+                rank={idx + 1}
+                onClose={() => setSelectedShowId(null)}
+              />
+            );
+          })()}
+        </>
       )}
     </SafeAreaView>
   );
@@ -379,9 +460,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#999",
   },
+  listWrapper: {
+    flex: 1,
+  },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 72,
     gap: 6,
   },
   pendingRow: {
@@ -402,8 +486,16 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#999",
   },
-  footer: {
-    marginTop: 4,
+  addShowBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#fff",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#e0e0e0",
   },
   addButton: {
     padding: 14,
@@ -412,7 +504,6 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     borderStyle: "dashed",
     alignItems: "center",
-    marginBottom: 24,
   },
   addButtonText: {
     fontSize: 15,
@@ -423,7 +514,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#007AFF",
-    overflow: "hidden",
   },
   searchInputRow: {
     flexDirection: "row",
@@ -442,17 +532,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#999",
   },
-  resultsList: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#ddd",
+  resultsOverlay: {
+    position: "absolute",
+    bottom: "100%",
+    left: 0,
+    right: 0,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    backgroundColor: "#fff",
+    marginBottom: 4,
+    marginHorizontal: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 6,
   },
   resultRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 11,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#eee",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#eee",
   },
   resultName: {
     flex: 1,
@@ -485,15 +589,7 @@ const styles = StyleSheet.create({
     color: "#007AFF",
     fontWeight: "500",
   },
-  cloudPlaceholder: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 32,
-  },
-  cloudPlaceholderText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#666",
+  singleResultHighlight: {
+    backgroundColor: "#e6f7ea",
   },
 });

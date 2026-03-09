@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
+import { resolveImageUrls } from "./helpers";
 
 export const get = query({
   args: {},
@@ -28,17 +29,33 @@ export const getRankedShows = query({
     const shows = await Promise.all(
       rankings.showIds.map(async (showId) => {
         const show = await ctx.db.get(showId);
-        const userShow = await ctx.db
-          .query("userShows")
-          .withIndex("by_user_show", (q) =>
-            q.eq("userId", userId).eq("showId", showId)
-          )
-          .first();
-        return show ? { ...show, tier: userShow?.tier } : null;
+        if (!show) return null;
+        const [userShow, visits] = await Promise.all([
+          ctx.db
+            .query("userShows")
+            .withIndex("by_user_show", (q) =>
+              q.eq("userId", userId).eq("showId", showId)
+            )
+            .first(),
+          ctx.db
+            .query("visits")
+            .withIndex("by_user_show", (q) =>
+              q.eq("userId", userId).eq("showId", showId)
+            )
+            .collect(),
+        ]);
+        return {
+          ...show,
+          images: await resolveImageUrls(ctx, show.images),
+          tier: userShow?.tier,
+          visitCount: visits.length,
+        };
       })
     );
 
-    return shows.filter(Boolean);
+    return shows.filter(
+      (s): s is NonNullable<typeof s> => s !== null
+    );
   },
 });
 
@@ -111,6 +128,15 @@ export const removeShow = mutation({
       .first();
 
     if (userShow) await ctx.db.delete(userShow._id);
+
+    const visits = await ctx.db
+      .query("visits")
+      .withIndex("by_user_show", (q) =>
+        q.eq("userId", userId).eq("showId", args.showId)
+      )
+      .collect();
+
+    await Promise.all(visits.map((v) => ctx.db.delete(v._id)));
   },
 });
 

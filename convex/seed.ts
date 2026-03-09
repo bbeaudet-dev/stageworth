@@ -1,4 +1,10 @@
-import { internalMutation } from "./_generated/server";
+import { v } from "convex/values";
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server";
+import { internal } from "./_generated/api";
 
 const PORTFOLIO_BASE_URL = "https://benbeaudet.com";
 
@@ -10,8 +16,6 @@ interface ShowEntry {
   image: string;
 }
 
-// All 72 shows from the personal portfolio, to populate the shows database.
-// This is the catalog of shows users can select from when adding to their list.
 const SHOWS_CATALOG: ShowEntry[] = [
   { name: "Hadestown", type: "musical", image: "/images-theatre/hadestown.jpg" },
   { name: "Maybe Happy Ending", type: "musical", image: "/images-theatre/maybe-happy-ending.jpg" },
@@ -87,29 +91,84 @@ const SHOWS_CATALOG: ShowEntry[] = [
   { name: "Perfect Crime", type: "play", image: "/images-theatre/perfect-crime.jpg" },
 ];
 
-// Populates the shows table with the catalog above.
-// Run from the Convex dashboard: npx convex run seed:populateShows
-export const populateShows = internalMutation({
-  args: {},
+export const checkShowsEmpty = internalQuery({
   handler: async (ctx) => {
-    const existing = await ctx.db.query("shows").collect();
-    if (existing.length > 0) {
+    const first = await ctx.db.query("shows").first();
+    return !first;
+  },
+});
+
+const showTypeValidator = v.union(
+  v.literal("musical"),
+  v.literal("play"),
+  v.literal("opera"),
+  v.literal("dance"),
+  v.literal("other")
+);
+
+export const insertShow = internalMutation({
+  args: {
+    name: v.string(),
+    type: showTypeValidator,
+    storageId: v.id("_storage"),
+    isUserCreated: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("shows", {
+      name: args.name,
+      type: args.type,
+      images: [args.storageId],
+      isUserCreated: args.isUserCreated,
+    });
+  },
+});
+
+// Populates the shows table with playbill images from benbeaudet.com.
+// Run: npx convex run seed:populateShows
+export const populateShows = internalAction({
+  handler: async (ctx) => {
+    const isEmpty = await ctx.runQuery(internal.seed.checkShowsEmpty);
+    if (!isEmpty) {
       throw new Error(
-        `Shows table already has ${existing.length} entries — clear it first to re-seed`
+        "Shows table already has entries — clear it first to re-seed"
       );
     }
 
+    const BATCH_SIZE = 10;
     let count = 0;
-    for (const show of SHOWS_CATALOG) {
-      await ctx.db.insert("shows", {
-        name: show.name,
-        type: show.type,
-        images: [`${PORTFOLIO_BASE_URL}${show.image}`],
-        isUserCreated: false,
-      });
-      count++;
+    const errors: string[] = [];
+
+    for (let i = 0; i < SHOWS_CATALOG.length; i += BATCH_SIZE) {
+      const batch = SHOWS_CATALOG.slice(i, i + BATCH_SIZE);
+
+      await Promise.all(
+        batch.map(async (show) => {
+          try {
+            const url = `${PORTFOLIO_BASE_URL}${show.image}`;
+            const response = await fetch(url);
+            if (!response.ok) {
+              errors.push(`${show.name}: HTTP ${response.status}`);
+              return;
+            }
+            const blob = await response.blob();
+            const storageId = await ctx.storage.store(blob);
+
+            await ctx.runMutation(internal.seed.insertShow, {
+              name: show.name,
+              type: show.type,
+              storageId,
+              isUserCreated: false,
+            });
+            count++;
+          } catch (e) {
+            errors.push(
+              `${show.name}: ${e instanceof Error ? e.message : String(e)}`
+            );
+          }
+        })
+      );
     }
 
-    return { populated: count };
+    return { populated: count, errors };
   },
 });

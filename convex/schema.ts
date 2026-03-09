@@ -12,7 +12,7 @@ export default defineSchema({
       v.literal("other")
     ),
     subtype: v.optional(v.string()),
-    images: v.array(v.string()),
+    images: v.array(v.id("_storage")),
     isUserCreated: v.boolean(),
   }).index("by_name", ["name"]),
 

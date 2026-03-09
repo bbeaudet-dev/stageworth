@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
+import { resolveImageUrls } from "./helpers";
 
 export const listByShow = query({
   args: { showId: v.id("shows") },
@@ -31,8 +32,14 @@ export const listAllWithShows = query({
       visits.map(async (visit) => {
         let show = showCache.get(visit.showId);
         if (!show) {
-          show = await ctx.db.get(visit.showId);
-          if (show) showCache.set(visit.showId, show);
+          const raw = await ctx.db.get(visit.showId);
+          if (raw) {
+            show = {
+              ...raw,
+              images: await resolveImageUrls(ctx, raw.images),
+            };
+            showCache.set(visit.showId, show);
+          }
         }
         return show ? { ...visit, show } : null;
       })
