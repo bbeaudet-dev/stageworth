@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { memo, useCallback, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Keyboard,
   Pressable,
@@ -186,6 +187,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
   item,
   index,
   isExpanded,
+  isRemoving,
   onToggle,
   onRemove,
   drag,
@@ -194,6 +196,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
   item: RankedShow;
   index: number;
   isExpanded: boolean;
+  isRemoving: boolean;
   onToggle: () => void;
   onRemove: () => void;
   drag: () => void;
@@ -223,6 +226,19 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
     () => <RemoveAction onPress={handleRemovePress} />,
     [handleRemovePress]
   );
+
+  if (isRemoving) {
+    return (
+      <View
+        style={[accordionStyles.showRow, accordionStyles.showRowRemoving]}
+      >
+        <ActivityIndicator size="small" color="#999" style={accordionStyles.removingSpinner} />
+        <Text style={accordionStyles.removingName} numberOfLines={1}>
+          {item.name}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View>
@@ -279,6 +295,18 @@ const accordionStyles = StyleSheet.create({
   showRowExpanded: {
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
+  },
+  showRowRemoving: {
+    opacity: 0.5,
+  },
+  removingSpinner: {
+    width: 36,
+  },
+  removingName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#999",
   },
   removeAction: {
     backgroundColor: "#FF3B30",

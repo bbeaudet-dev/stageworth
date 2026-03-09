@@ -230,22 +230,35 @@ export default function MyShowsScreen() {
     null
   );
 
+  const [pendingRemoveIds, setPendingRemoveIds] = useState<Set<Id<"shows">>>(
+    () => new Set()
+  );
+
   const rankedShows = useQuery(api.rankings.getRankedShows);
   const reorder = useMutation(api.rankings.reorder);
   const removeShow = useMutation(api.rankings.removeShow);
 
   const handleDragEnd = useCallback(
-    async ({ data }: { data: RankedShow[] }) => {
-      if (!rankedShows) return;
-
-      for (let i = 0; i < data.length; i++) {
-        if (data[i]._id !== rankedShows[i]?._id) {
-          await reorder({ showId: data[i]._id, newPosition: i });
-          break;
-        }
-      }
+    async ({ from, to }: { data: RankedShow[]; from: number; to: number }) => {
+      if (from === to || !rankedShows) return;
+      await reorder({ showId: rankedShows[from]._id, newPosition: to });
     },
     [rankedShows, reorder]
+  );
+
+  const handleRemoveShow = useCallback(
+    (showId: Id<"shows">) => {
+      setExpandedShowId(null);
+      setPendingRemoveIds((prev) => new Set(prev).add(showId));
+      removeShow({ showId }).finally(() => {
+        setPendingRemoveIds((prev) => {
+          const next = new Set(prev);
+          next.delete(showId);
+          return next;
+        });
+      });
+    },
+    [removeShow]
   );
 
   const renderItem = useCallback(
@@ -257,22 +270,20 @@ export default function MyShowsScreen() {
             item={item}
             index={index ?? 0}
             isExpanded={expandedShowId === item._id}
+            isRemoving={pendingRemoveIds.has(item._id)}
             onToggle={() =>
               setExpandedShowId((prev) =>
                 prev === item._id ? null : item._id
               )
             }
-            onRemove={() => {
-              setExpandedShowId(null);
-              removeShow({ showId: item._id });
-            }}
+            onRemove={() => handleRemoveShow(item._id)}
             drag={drag}
             isActive={isActive}
           />
         </ScaleDecorator>
       );
     },
-    [expandedShowId, removeShow]
+    [expandedShowId, pendingRemoveIds, handleRemoveShow]
   );
 
   const renderFooter = useCallback(() => <AddShowInput />, []);
