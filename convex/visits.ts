@@ -17,6 +17,33 @@ export const listByShow = query({
   },
 });
 
+export const listAllWithShows = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireConvexUserId(ctx);
+    const visits = await ctx.db
+      .query("visits")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const showCache = new Map<string, any>();
+    const results = await Promise.all(
+      visits.map(async (visit) => {
+        let show = showCache.get(visit.showId);
+        if (!show) {
+          show = await ctx.db.get(visit.showId);
+          if (show) showCache.set(visit.showId, show);
+        }
+        return show ? { ...visit, show } : null;
+      })
+    );
+
+    return results
+      .filter(Boolean)
+      .sort((a: any, b: any) => b.date.localeCompare(a.date));
+  },
+});
+
 export const create = mutation({
   args: {
     showId: v.id("shows"),
