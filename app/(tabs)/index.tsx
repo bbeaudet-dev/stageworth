@@ -22,6 +22,7 @@ import {
   ShowRowAccordion,
   type RankedShow,
 } from "@/components/show-row-accordion";
+import { TheatreCloud } from "@/components/theatre-cloud";
 
 type ViewMode = "list" | "cloud" | "diary";
 
@@ -313,11 +314,13 @@ export default function MyShowsScreen() {
           contentContainerStyle={styles.listContent}
         />
       ) : (
-        <View style={styles.cloudPlaceholder}>
-          <Text style={styles.cloudPlaceholderText}>
-            Theatre Cloud coming soon!
-          </Text>
-        </View>
+        <TheatreCloud
+          shows={rankedShows as RankedShow[]}
+          onShowPress={(showId) => {
+            setExpandedShowId(showId);
+            setViewMode("list");
+          }}
+        />
       )}
     </SafeAreaView>
   );
@@ -484,16 +487,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#007AFF",
     fontWeight: "500",
-  },
-  cloudPlaceholder: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 32,
-  },
-  cloudPlaceholderText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#666",
   },
 });
