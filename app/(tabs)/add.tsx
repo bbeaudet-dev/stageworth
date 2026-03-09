@@ -1,13 +1,13 @@
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function CloudScreen() {
+export default function AddScreen() {
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Theatre Cloud</Text>
+      <Text style={styles.title}>Add</Text>
       <View style={styles.placeholder}>
         <Text style={styles.placeholderText}>
-          Your playbill cloud will appear here once you've ranked some shows.
+          Future home of diary entries, trip planning, and more.
         </Text>
       </View>
     </SafeAreaView>

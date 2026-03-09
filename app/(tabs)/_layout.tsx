@@ -25,18 +25,18 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Rankings",
+          title: "My Shows",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="list.number" color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="cloud"
+        name="add"
         options={{
-          title: "Cloud",
+          title: "Add",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="square.grid.2x2.fill" color={color} />
+            <IconSymbol size={28} name="plus.circle.fill" color={color} />
           ),
         }}
       />

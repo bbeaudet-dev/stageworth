@@ -35,6 +35,7 @@ export const create = mutation({
     ),
     subtype: v.optional(v.string()),
     images: v.array(v.string()),
+    isUserCreated: v.boolean(),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("shows", args);

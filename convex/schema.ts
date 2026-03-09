@@ -13,6 +13,7 @@ export default defineSchema({
     ),
     subtype: v.optional(v.string()),
     images: v.array(v.string()),
+    isUserCreated: v.boolean(),
   }).index("by_name", ["name"]),
 
   users: defineTable({
