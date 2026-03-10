@@ -54,8 +54,13 @@ export const listAllWithShows = query({
 export const create = mutation({
   args: {
     showId: v.id("shows"),
+    productionId: v.optional(v.id("productions")),
     date: v.string(),
-    theatre: v.optional(v.string()),
+    seat: v.optional(v.string()),
+    isMatinee: v.optional(v.boolean()),
+    isPreview: v.optional(v.boolean()),
+    isFinalPerformance: v.optional(v.boolean()),
+    cast: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {

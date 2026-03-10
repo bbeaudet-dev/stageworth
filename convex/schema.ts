@@ -16,6 +16,47 @@ export default defineSchema({
     isUserCreated: v.boolean(),
   }).index("by_name", ["name"]),
 
+  // A specific physical run of a show at a specific venue.
+  // e.g. "Hamilton, original Broadway, Richard Rodgers Theatre, Jul 2015 – Jan 2020"
+  productions: defineTable({
+    showId: v.id("shows"),
+    theatre: v.string(),
+    city: v.optional(v.string()),
+    district: v.union(
+      v.literal("broadway"),
+      v.literal("off_broadway"),
+      v.literal("off_off_broadway"),
+      v.literal("west_end"),
+      v.literal("touring"),
+      v.literal("regional"),
+      v.literal("other")
+    ),
+    // null = not yet announced/unknown
+    previewDate: v.optional(v.string()),
+    // null = not yet announced/unknown; show is "in previews" while openingDate > today
+    openingDate: v.optional(v.string()),
+    // null = no announced closing / open run
+    closingDate: v.optional(v.string()),
+    productionType: v.union(
+      v.literal("original"),
+      v.literal("revival"),
+      v.literal("transfer"),
+      v.literal("touring"),
+      v.literal("concert"),
+      v.literal("workshop"),
+      v.literal("other")
+    ),
+    posterImage: v.optional(v.id("_storage")),
+    // false = seeded/curated data; true = added manually by a user
+    isUserCreated: v.boolean(),
+    // Hook for future sync with IBDB, Playbill, etc.
+    externalId: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  })
+    .index("by_show", ["showId"])
+    .index("by_district", ["district"])
+    .index("by_closing_date", ["closingDate"]),
+
   users: defineTable({
     email: v.string(),
     name: v.optional(v.string()),
@@ -52,11 +93,19 @@ export default defineSchema({
 
   visits: defineTable({
     userId: v.id("users"),
+    // Denormalized from production for easier querying when productionId is absent.
     showId: v.id("shows"),
+    productionId: v.optional(v.id("productions")),
     date: v.string(),
-    theatre: v.optional(v.string()),
+    seat: v.optional(v.string()),
+    isMatinee: v.optional(v.boolean()),
+    isPreview: v.optional(v.boolean()),
+    isFinalPerformance: v.optional(v.boolean()),
+    // Notable cast members seen at this performance.
+    cast: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
   })
     .index("by_user_show", ["userId", "showId"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_user_production", ["userId", "productionId"]),
 });
