@@ -6,6 +6,307 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 
+type ProductionType =
+  | "original"
+  | "revival"
+  | "transfer"
+  | "touring"
+  | "concert"
+  | "workshop"
+  | "other";
+
+type DistrictType =
+  | "broadway"
+  | "off_broadway"
+  | "off_off_broadway"
+  | "west_end"
+  | "touring"
+  | "regional"
+  | "other";
+
+interface ProductionEntry {
+  showName: string;
+  showType: ShowType;
+  theatre: string;
+  city: string;
+  district: DistrictType;
+  previewDate?: string;
+  openingDate?: string;
+  closingDate?: string;
+  productionType: ProductionType;
+}
+
+// All dates sourced directly from Playbill.com on Mar 9, 2026.
+// Long-running shows use original opening dates; current venue listed.
+const BROADWAY_PRODUCTIONS: ProductionEntry[] = [
+  // ── Long-running ─────────────────────────────────────────────────────────
+  {
+    showName: "Chicago",
+    showType: "musical",
+    theatre: "Ambassador Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "1996-10-29",
+    openingDate: "1996-11-14",
+    productionType: "revival",
+  },
+  {
+    showName: "The Lion King",
+    showType: "musical",
+    theatre: "Minskoff Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "1997-10-15",
+    openingDate: "1997-11-13",
+    productionType: "original",
+  },
+  {
+    showName: "Wicked",
+    showType: "musical",
+    theatre: "Gershwin Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2003-09-10",
+    openingDate: "2003-10-30",
+    productionType: "original",
+  },
+  {
+    showName: "The Book of Mormon",
+    showType: "musical",
+    theatre: "Eugene O'Neill Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2011-02-24",
+    openingDate: "2011-03-24",
+    productionType: "original",
+  },
+  {
+    showName: "Aladdin",
+    showType: "musical",
+    theatre: "New Amsterdam Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2014-02-26",
+    openingDate: "2014-03-20",
+    productionType: "original",
+  },
+  {
+    showName: "Hamilton",
+    showType: "musical",
+    theatre: "Richard Rodgers Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2015-07-13",
+    openingDate: "2015-08-06",
+    productionType: "original",
+  },
+  {
+    showName: "Harry Potter and the Cursed Child",
+    showType: "play",
+    theatre: "Lyric Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2018-03-16",
+    openingDate: "2018-04-22",
+    productionType: "original",
+  },
+  {
+    showName: "Moulin Rouge! The Musical",
+    showType: "musical",
+    theatre: "Al Hirschfeld Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2018-06-25",
+    openingDate: "2018-07-25",
+    closingDate: "2026-07-26",
+    productionType: "original",
+  },
+  {
+    showName: "Hadestown",
+    showType: "musical",
+    theatre: "Walter Kerr Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2019-03-22",
+    openingDate: "2019-04-17",
+    productionType: "original",
+  },
+  {
+    showName: "SIX: The Musical",
+    showType: "musical",
+    theatre: "Lena Horne Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2021-10-14",
+    openingDate: "2022-01-25",
+    productionType: "original",
+  },
+  {
+    showName: "MJ The Musical",
+    showType: "musical",
+    theatre: "Neil Simon Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2021-11-30",
+    openingDate: "2022-02-01",
+    productionType: "original",
+  },
+  {
+    showName: "& Juliet",
+    showType: "musical",
+    theatre: "Stephen Sondheim Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2022-10-28",
+    openingDate: "2022-11-17",
+    productionType: "original",
+  },
+  // ── 2024 ──────────────────────────────────────────────────────────────────
+  {
+    showName: "The Great Gatsby",
+    showType: "musical",
+    theatre: "Broadway Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2024-03-29",
+    openingDate: "2024-04-25",
+    productionType: "original",
+  },
+  {
+    showName: "The Outsiders",
+    showType: "musical",
+    theatre: "Bernard B. Jacobs Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2024-03-14",
+    openingDate: "2024-04-11",
+    productionType: "original",
+  },
+  {
+    showName: "Oh, Mary!",
+    showType: "play",
+    theatre: "Lyceum Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2024-06-26",
+    openingDate: "2024-07-11",
+    closingDate: "2026-07-05",
+    productionType: "original",
+  },
+  {
+    showName: "Maybe Happy Ending",
+    showType: "musical",
+    theatre: "Belasco Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2024-10-16",
+    openingDate: "2024-11-12",
+    productionType: "original",
+  },
+  {
+    showName: "Death Becomes Her",
+    showType: "musical",
+    theatre: "Lunt-Fontanne Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2024-10-23",
+    openingDate: "2024-11-21",
+    productionType: "original",
+  },
+  // ── 2025 ──────────────────────────────────────────────────────────────────
+  {
+    showName: "Operation Mincemeat",
+    showType: "musical",
+    theatre: "John Golden Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2025-02-15",
+    openingDate: "2025-03-20",
+    productionType: "original",
+  },
+  {
+    showName: "Buena Vista Social Club",
+    showType: "musical",
+    theatre: "Gerald Schoenfeld Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2025-02-21",
+    openingDate: "2025-03-19",
+    productionType: "original",
+  },
+  {
+    showName: "Just in Time",
+    showType: "musical",
+    theatre: "Circle in the Square Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2025-03-31",
+    openingDate: "2025-04-26",
+    productionType: "original",
+  },
+  {
+    showName: "Stranger Things: The First Shadow",
+    showType: "play",
+    theatre: "Marquis Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2025-03-28",
+    openingDate: "2025-04-22",
+    productionType: "original",
+  },
+  {
+    showName: "Ragtime",
+    showType: "musical",
+    theatre: "Vivian Beaumont Theater",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2025-09-26",
+    openingDate: "2025-10-16",
+    productionType: "revival",
+  },
+  {
+    showName: "Chess",
+    showType: "musical",
+    theatre: "Imperial Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2025-10-15",
+    openingDate: "2025-11-16",
+    productionType: "revival",
+  },
+  {
+    showName: "Two Strangers (Carry a Cake Across New York)",
+    showType: "musical",
+    theatre: "Longacre Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2025-11-01",
+    openingDate: "2025-11-20",
+    productionType: "original",
+  },
+  // ── 2026 — In Previews / Just Opened ─────────────────────────────────────
+  {
+    showName: "Every Brilliant Thing",
+    showType: "play",
+    theatre: "Hudson Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2026-02-21",
+    openingDate: "2026-03-12",
+    productionType: "revival",
+  },
+  {
+    showName: "Death of a Salesman",
+    showType: "play",
+    theatre: "Winter Garden Theatre",
+    city: "New York",
+    district: "broadway",
+    previewDate: "2026-03-06",
+    openingDate: "2026-04-09",
+    productionType: "revival",
+  },
+];
+
 const PORTFOLIO_BASE_URL = "https://benbeaudet.com";
 
 type ShowType = "musical" | "play" | "opera" | "dance" | "other";
@@ -120,6 +421,109 @@ export const insertShow = internalMutation({
       images: [args.storageId],
       isUserCreated: args.isUserCreated,
     });
+  },
+});
+
+// Finds a show by name, or creates it (without image) if it doesn't exist.
+export const findOrCreateShow = internalMutation({
+  args: { name: v.string(), type: showTypeValidator },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("shows")
+      .withIndex("by_name", (q) => q.eq("name", args.name))
+      .first();
+    if (existing) return existing._id;
+    return await ctx.db.insert("shows", {
+      name: args.name,
+      type: args.type,
+      images: [],
+      isUserCreated: false,
+    });
+  },
+});
+
+export const insertProduction = internalMutation({
+  args: {
+    showId: v.id("shows"),
+    theatre: v.string(),
+    city: v.optional(v.string()),
+    district: v.union(
+      v.literal("broadway"),
+      v.literal("off_broadway"),
+      v.literal("off_off_broadway"),
+      v.literal("west_end"),
+      v.literal("touring"),
+      v.literal("regional"),
+      v.literal("other")
+    ),
+    previewDate: v.optional(v.string()),
+    openingDate: v.optional(v.string()),
+    closingDate: v.optional(v.string()),
+    productionType: v.union(
+      v.literal("original"),
+      v.literal("revival"),
+      v.literal("transfer"),
+      v.literal("touring"),
+      v.literal("concert"),
+      v.literal("workshop"),
+      v.literal("other")
+    ),
+  },
+  handler: async (ctx, args) => {
+    // Skip if a production for this show at this theatre already exists.
+    const existing = await ctx.db
+      .query("productions")
+      .withIndex("by_show", (q) => q.eq("showId", args.showId))
+      .filter((q) => q.eq(q.field("theatre"), args.theatre))
+      .first();
+    if (existing) return { skipped: true, id: existing._id };
+
+    const id = await ctx.db.insert("productions", {
+      ...args,
+      isUserCreated: false,
+    });
+    return { skipped: false, id };
+  },
+});
+
+// Seeds the productions table with all current & upcoming Broadway shows.
+// Dates sourced from Playbill.com on Mar 9, 2026.
+// Safe to run multiple times — skips already-existing productions.
+// Run: npx convex run seed:seedBroadwayProductions
+export const seedBroadwayProductions = internalAction({
+  handler: async (ctx) => {
+    let created = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const entry of BROADWAY_PRODUCTIONS) {
+      try {
+        const showId = await ctx.runMutation(internal.seed.findOrCreateShow, {
+          name: entry.showName,
+          type: entry.showType,
+        });
+
+        const result = await ctx.runMutation(internal.seed.insertProduction, {
+          showId,
+          theatre: entry.theatre,
+          city: entry.city,
+          district: entry.district,
+          previewDate: entry.previewDate,
+          openingDate: entry.openingDate,
+          closingDate: entry.closingDate,
+          productionType: entry.productionType,
+        });
+
+        if (result.skipped) skipped++;
+        else created++;
+      } catch (e) {
+        errors.push(
+          `${entry.showName}: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+    }
+
+    return { created, skipped, errors };
   },
 });
 
