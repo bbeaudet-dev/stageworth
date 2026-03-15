@@ -24,7 +24,7 @@ type RankedShow = {
   type: ShowType;
   subtype?: string;
   images: string[];
-  tier?: "liked" | "neutral" | "disliked";
+  tier?: "loved" | "liked" | "okay" | "disliked";
   visitCount: number;
 };
 
@@ -187,6 +187,7 @@ function RemoveAction({ onPress }: { onPress: () => void }) {
 export const ShowRowAccordion = memo(function ShowRowAccordion({
   item,
   index,
+  tierHeader,
   isExpanded,
   isRemoving,
   onToggle,
@@ -196,6 +197,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
 }: {
   item: RankedShow;
   index: number;
+  tierHeader?: string | null;
   isExpanded: boolean;
   isRemoving: boolean;
   onToggle: () => void;
@@ -230,19 +232,23 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
 
   if (isRemoving) {
     return (
-      <View
-        style={[accordionStyles.showRow, accordionStyles.showRowRemoving]}
-      >
-        <ActivityIndicator size="small" color="#999" style={accordionStyles.removingSpinner} />
-        <Text style={accordionStyles.removingName} numberOfLines={1}>
-          {item.name}
-        </Text>
+      <View>
+        {tierHeader ? <Text style={accordionStyles.tierHeader}>{tierHeader}</Text> : null}
+        <View
+          style={[accordionStyles.showRow, accordionStyles.showRowRemoving]}
+        >
+          <ActivityIndicator size="small" color="#999" style={accordionStyles.removingSpinner} />
+          <Text style={accordionStyles.removingName} numberOfLines={1}>
+            {item.name}
+          </Text>
+        </View>
       </View>
     );
   }
 
   return (
     <View>
+      {tierHeader ? <Text style={accordionStyles.tierHeader}>{tierHeader}</Text> : null}
       <Swipeable
         ref={swipeableRef}
         renderRightActions={renderRightActions}
@@ -321,6 +327,16 @@ const accordionStyles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "600",
+  },
+  tierHeader: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#666",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    marginTop: 8,
+    marginBottom: 4,
+    marginLeft: 2,
   },
   rank: {
     fontSize: 14,

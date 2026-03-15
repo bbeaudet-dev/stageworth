@@ -23,6 +23,21 @@ import { TheatreCloud } from "@/components/theatre-cloud";
 import { ShowDetailModal } from "@/components/show-detail-modal";
 
 type ViewMode = "list" | "cloud" | "diary";
+type RankingTier = "loved" | "liked" | "okay" | "disliked";
+
+const TIER_HEADERS: Record<RankingTier, string> = {
+  loved: "Loved It",
+  liked: "Liked It",
+  okay: "It Was Okay",
+  disliked: "Didn't Like It",
+};
+
+function normalizeTier(value: string | undefined): RankingTier {
+  if (value === "loved" || value === "liked" || value === "okay" || value === "disliked") {
+    return value;
+  }
+  return "liked";
+}
 
 export default function MyShowsScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -88,11 +103,19 @@ export default function MyShowsScreen() {
   const renderItem = useCallback(
     ({ item, drag, isActive, getIndex }: RenderItemParams<RankedShow>) => {
       const index = getIndex();
+      const previousItem =
+        typeof index === "number" && index > 0 && displayShows
+          ? displayShows[index - 1]
+          : null;
+      const itemTier = normalizeTier(item.tier);
+      const previousTier = previousItem ? normalizeTier(previousItem.tier) : null;
+      const tierHeader = !previousTier || previousTier !== itemTier ? TIER_HEADERS[itemTier] : null;
       return (
         <ScaleDecorator>
           <ShowRowAccordion
             item={item}
             index={index ?? 0}
+            tierHeader={tierHeader}
             isExpanded={expandedShowId === item._id}
             isRemoving={pendingRemoveIds.has(item._id)}
             onToggle={() =>
@@ -107,7 +130,7 @@ export default function MyShowsScreen() {
         </ScaleDecorator>
       );
     },
-    [expandedShowId, pendingRemoveIds, handleRemoveShow]
+    [displayShows, expandedShowId, pendingRemoveIds, handleRemoveShow]
   );
 
   return (
