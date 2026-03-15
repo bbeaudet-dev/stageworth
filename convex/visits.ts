@@ -3,6 +3,47 @@ import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
 import { resolveImageUrls } from "./helpers";
 
+const TIER_ORDER = ["loved", "liked", "okay", "disliked"] as const;
+type Tier = (typeof TIER_ORDER)[number];
+
+const tierValidator = v.union(
+  v.literal("loved"),
+  v.literal("liked"),
+  v.literal("okay"),
+  v.literal("disliked")
+);
+
+function getTierRank(tier: Tier): number {
+  return TIER_ORDER.indexOf(tier);
+}
+
+function getBottomInsertionIndexForTier(
+  showIds: string[],
+  tierByShowId: Map<string, Tier>,
+  selectedTier: Tier
+) {
+  let lastSameTierIndex = -1;
+  for (let i = 0; i < showIds.length; i += 1) {
+    if (tierByShowId.get(showIds[i]) === selectedTier) {
+      lastSameTierIndex = i;
+    }
+  }
+  if (lastSameTierIndex !== -1) {
+    return lastSameTierIndex + 1;
+  }
+
+  const selectedTierRank = getTierRank(selectedTier);
+  for (let i = 0; i < showIds.length; i += 1) {
+    const tier = tierByShowId.get(showIds[i]);
+    if (!tier) continue;
+    if (getTierRank(tier) > selectedTierRank) {
+      return i;
+    }
+  }
+
+  return showIds.length;
+}
+
 export const listByShow = query({
   args: { showId: v.id("shows") },
   handler: async (ctx, args) => {
@@ -129,6 +170,8 @@ export const createVisit = mutation({
     ),
     notes: v.optional(v.string()),
     keepCurrentRanking: v.optional(v.boolean()),
+    selectedTier: v.optional(tierValidator),
+    completedInsertionIndex: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
@@ -165,19 +208,63 @@ export const createVisit = mutation({
     if (!rankings) throw new Error("Rankings not found");
 
     const alreadyRanked = rankings.showIds.includes(showId);
+    const selectedTier = (args.selectedTier ?? "liked") as Tier;
+    const allUserShows = await ctx.db
+      .query("userShows")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const tierByShowId = new Map(
+      allUserShows.map((userShow) => [userShow.showId, userShow.tier as Tier])
+    );
+    const existingUserShow = allUserShows.find((userShow) => userShow.showId === showId);
 
     if (!alreadyRanked) {
+      const defaultInsertionIndex = getBottomInsertionIndexForTier(
+        rankings.showIds,
+        tierByShowId,
+        selectedTier
+      );
+      const insertionIndex = Math.max(
+        0,
+        Math.min(
+          args.completedInsertionIndex ?? defaultInsertionIndex,
+          rankings.showIds.length
+        )
+      );
+      const nextShowIds = [...rankings.showIds];
+      nextShowIds.splice(insertionIndex, 0, showId);
+
       await ctx.db.patch(rankings._id, {
-        showIds: [...rankings.showIds, showId],
+        showIds: nextShowIds,
       });
       await ctx.db.insert("userShows", {
         userId,
         showId,
-        tier: "liked",
+        tier: selectedTier,
         addedAt: Date.now(),
       });
     } else if (args.keepCurrentRanking) {
       // Intentionally no-op for now. Ranking comparison flow arrives in issue #15.
+    } else {
+      const nextShowIds = rankings.showIds.filter((id) => id !== showId);
+      const tierByShowIdWithoutCurrent = new Map(tierByShowId);
+      tierByShowIdWithoutCurrent.delete(showId);
+
+      const defaultInsertionIndex = getBottomInsertionIndexForTier(
+        nextShowIds,
+        tierByShowIdWithoutCurrent,
+        selectedTier
+      );
+      const insertionIndex = Math.max(
+        0,
+        Math.min(args.completedInsertionIndex ?? defaultInsertionIndex, nextShowIds.length)
+      );
+
+      nextShowIds.splice(insertionIndex, 0, showId);
+      await ctx.db.patch(rankings._id, { showIds: nextShowIds });
+      if (existingUserShow && existingUserShow.tier !== selectedTier) {
+        await ctx.db.patch(existingUserShow._id, { tier: selectedTier });
+      }
     }
 
     const visitId = await ctx.db.insert("visits", {

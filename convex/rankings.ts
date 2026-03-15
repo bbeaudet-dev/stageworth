@@ -3,6 +3,52 @@ import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
 import { resolveImageUrls } from "./helpers";
 
+const TIER_ORDER = ["loved", "liked", "okay", "disliked"] as const;
+type Tier = (typeof TIER_ORDER)[number];
+
+function getTierRank(tier: Tier): number {
+  return TIER_ORDER.indexOf(tier);
+}
+
+function getTierBoundaries(
+  showIds: string[],
+  tierByShowId: Map<string, Tier>,
+  tier: Tier
+) {
+  let start = -1;
+  let end = -1;
+
+  for (let i = 0; i < showIds.length; i += 1) {
+    if (tierByShowId.get(showIds[i]) !== tier) continue;
+    if (start === -1) start = i;
+    end = i;
+  }
+
+  return { start, end };
+}
+
+function getBottomInsertionIndexForTier(
+  showIds: string[],
+  tierByShowId: Map<string, Tier>,
+  selectedTier: Tier
+) {
+  const sameTierBounds = getTierBoundaries(showIds, tierByShowId, selectedTier);
+  if (sameTierBounds.end !== -1) return sameTierBounds.end + 1;
+
+  let insertAt = showIds.length;
+  const selectedTierRank = getTierRank(selectedTier);
+  for (let i = 0; i < showIds.length; i += 1) {
+    const existingTier = tierByShowId.get(showIds[i]);
+    if (!existingTier) continue;
+    if (getTierRank(existingTier) > selectedTierRank) {
+      insertAt = i;
+      break;
+    }
+  }
+
+  return insertAt;
+}
+
 export const get = query({
   args: {},
   handler: async (ctx) => {
@@ -60,8 +106,9 @@ export const getRankedShows = query({
 });
 
 const tierValidator = v.union(
+  v.literal("loved"),
   v.literal("liked"),
-  v.literal("neutral"),
+  v.literal("okay"),
   v.literal("disliked")
 );
 
@@ -168,6 +215,40 @@ export const reorder = mutation({
 
     await ctx.db.patch(rankings._id, { showIds: newShowIds });
 
+    const movedUserShow = await ctx.db
+      .query("userShows")
+      .withIndex("by_user_show", (q) =>
+        q.eq("userId", userId).eq("showId", args.showId)
+      )
+      .first();
+
+    if (movedUserShow) {
+      const allUserShows = await ctx.db
+        .query("userShows")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+      const tierByShowId = new Map(
+        allUserShows.map((userShow) => [userShow.showId, userShow.tier as Tier])
+      );
+
+      const previousShowId =
+        clampedPosition > 0 ? newShowIds[clampedPosition - 1] : null;
+      const nextShowId =
+        clampedPosition < newShowIds.length - 1
+          ? newShowIds[clampedPosition + 1]
+          : null;
+
+      const nextTier = nextShowId ? tierByShowId.get(nextShowId) : undefined;
+      const previousTier = previousShowId
+        ? tierByShowId.get(previousShowId)
+        : undefined;
+
+      const targetTier = nextTier ?? previousTier ?? movedUserShow.tier;
+      if (targetTier !== movedUserShow.tier) {
+        await ctx.db.patch(movedUserShow._id, { tier: targetTier });
+      }
+    }
+
     return { rank: clampedPosition + 1 };
   },
 });
@@ -190,5 +271,46 @@ export const updateTier = mutation({
     if (!userShow) throw new Error("Show not found in user's list");
 
     await ctx.db.patch(userShow._id, { tier: args.tier });
+  },
+});
+
+export const getInsertionPreview = query({
+  args: {
+    selectedTier: tierValidator,
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+    const rankings = await ctx.db
+      .query("userRankings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!rankings) throw new Error("Rankings not found");
+
+    const userShows = await ctx.db
+      .query("userShows")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const tierByShowId = new Map(
+      userShows.map((userShow) => [userShow.showId, userShow.tier as Tier])
+    );
+    const { start, end } = getTierBoundaries(
+      rankings.showIds,
+      tierByShowId,
+      args.selectedTier
+    );
+    const defaultInsertionIndex = getBottomInsertionIndexForTier(
+      rankings.showIds,
+      tierByShowId,
+      args.selectedTier
+    );
+
+    return {
+      totalRanked: rankings.showIds.length,
+      tierStartIndex: start,
+      tierEndIndex: end,
+      defaultInsertionIndex,
+    };
   },
 });
