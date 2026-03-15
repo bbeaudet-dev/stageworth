@@ -97,6 +97,19 @@ export default defineSchema({
     showId: v.id("shows"),
     productionId: v.optional(v.id("productions")),
     date: v.string(),
+    city: v.optional(v.string()),
+    theatre: v.optional(v.string()),
+    district: v.optional(
+      v.union(
+        v.literal("broadway"),
+        v.literal("off_broadway"),
+        v.literal("off_off_broadway"),
+        v.literal("west_end"),
+        v.literal("touring"),
+        v.literal("regional"),
+        v.literal("other")
+      )
+    ),
     seat: v.optional(v.string()),
     isMatinee: v.optional(v.boolean()),
     isPreview: v.optional(v.boolean()),
