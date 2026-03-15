@@ -8,7 +8,7 @@ import {
   matchFont,
 } from "@shopify/react-native-skia";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -33,10 +33,12 @@ interface Placement {
 }
 
 const PLAYBILL_RATIO = 1.5;
-const MAX_WIDTH = 90;
-const MIN_WIDTH = 30;
+const MAX_WIDTH = 115;
+const MIN_WIDTH = 42;
 const ITEM_GAP = 3;
 const CORNER_RADIUS_RATIO = 0.05;
+const FLOAT_AMPLITUDE = 8; // px each playbill can drift from its home position
+const FLOAT_SPEED_BASE = 0.22; // rad/s base drift speed
 const LABEL_FONT_SIZE = 9;
 const LABEL_PADDING = 4;
 const LABEL_MIN_WIDTH = 38;
@@ -355,6 +357,37 @@ export function TheatreCloud({ shows, onShowPress }: TheatreCloudProps) {
 
   const placements = useMemo(() => computeLayout(shows), [shows]);
 
+  // Float animation — each item wanders around its home position
+  const animTimeRef = useRef(0);
+  const [, forceUpdate] = useReducer((n: number) => n + 1, 0);
+
+  useEffect(() => {
+    if (!placements.length) return;
+    const startMs = Date.now();
+    let frameId: number;
+    const tick = () => {
+      animTimeRef.current = (Date.now() - startMs) / 1000;
+      forceUpdate();
+      frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [placements]);
+
+  // Derive animated positions from base placements + sinusoidal float per item
+  const t = animTimeRef.current;
+  const displayPlacements = placements.map((p, i) => {
+    const phaseX = (i * 2.39996) % (2 * Math.PI); // golden-angle phase spread
+    const phaseY = (i * 1.61803) % (2 * Math.PI);
+    const speedX = FLOAT_SPEED_BASE + (i % 5) * 0.04;
+    const speedY = FLOAT_SPEED_BASE * 0.73 + (i % 7) * 0.03;
+    return {
+      ...p,
+      x: p.x + FLOAT_AMPLITUDE * Math.sin(t * speedX + phaseX),
+      y: p.y + FLOAT_AMPLITUDE * Math.cos(t * speedY + phaseY),
+    };
+  });
+
   const initialOffset = useMemo(() => {
     if (placements.length === 0 || size.width === 0) return { x: 0, y: 0 };
     const minX = Math.min(...placements.map((p) => p.x));
@@ -372,12 +405,17 @@ export function TheatreCloud({ shows, onShowPress }: TheatreCloudProps) {
     offsetRef.current = initialOffset;
   }, [initialOffset]);
 
+  // Set to true when the pan gesture activates; reset on each new touch.
+  // The tap handler ignores the event if the user was scrolling.
+  const hasPannedRef = useRef(false);
+
   const pan = useMemo(
     () =>
       Gesture.Pan()
         .runOnJS(true)
         .minDistance(5)
         .onStart(() => {
+          hasPannedRef.current = true;
           panStartRef.current = { ...offsetRef.current };
         })
         .onUpdate((e) => {
@@ -395,10 +433,14 @@ export function TheatreCloud({ shows, onShowPress }: TheatreCloudProps) {
     () =>
       Gesture.Tap()
         .runOnJS(true)
+        .onBegin(() => {
+          hasPannedRef.current = false;
+        })
         .onEnd((e) => {
+          if (hasPannedRef.current) return;
           const hitX = e.x - offsetRef.current.x;
           const hitY = e.y - offsetRef.current.y;
-          for (let i = placements.length - 1; i >= 0; i--) {
+          for (let i = 0; i < placements.length; i++) {
             const p = placements[i];
             if (
               hitX >= p.x &&
@@ -447,7 +489,7 @@ export function TheatreCloud({ shows, onShowPress }: TheatreCloudProps) {
                 { translateY: offset.y },
               ]}
             >
-              {placements.map((p) => (
+              {[...displayPlacements].reverse().map((p) => (
                 <PlaybillItem key={p.showId} placement={p} />
               ))}
             </Group>
