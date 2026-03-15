@@ -28,13 +28,14 @@ export const getByIds = query({
   args: { ids: v.array(v.id("shows")) },
   handler: async (ctx, args) => {
     const shows = await Promise.all(args.ids.map((id) => ctx.db.get(id)));
+    const presentShows = shows.filter(
+      (show): show is NonNullable<typeof show> => show !== null
+    );
     return Promise.all(
-      shows
-        .filter(Boolean)
-        .map(async (show) => ({
-          ...show,
-          images: await resolveImageUrls(ctx, show.images),
-        }))
+      presentShows.map(async (show) => ({
+        ...show,
+        images: await resolveImageUrls(ctx, show.images),
+      }))
     );
   },
 });

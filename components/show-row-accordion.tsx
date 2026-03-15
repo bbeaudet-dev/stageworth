@@ -146,6 +146,7 @@ export function VisitsList({ showId }: { showId: Id<"shows"> }) {
       {visits.map((visit) => {
         const parts = [formatVisitDate(visit.date)];
         if (visit.theatre) parts.push(visit.theatre);
+        if (!visit.theatre && visit.city) parts.push(visit.city);
         return (
           <View key={visit._id} style={accordionStyles.visitRow}>
             <Text style={accordionStyles.visitText} numberOfLines={1}>
