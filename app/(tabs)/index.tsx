@@ -1,5 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useRouter } from "expo-router";
 import {
   Pressable,
   StyleSheet,
@@ -80,6 +82,8 @@ function inferTierAtRankPosition(
 }
 
 export default function MyShowsScreen() {
+  const router = useRouter();
+  const tabBarHeight = useBottomTabBarHeight();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [expandedShowId, setExpandedShowId] = useState<Id<"shows"> | null>(
     null
@@ -386,6 +390,15 @@ export default function MyShowsScreen() {
                 prev === item.show._id ? null : item.show._id
               )
             }
+            onViewShowDetails={() =>
+              router.push({
+                pathname: "/show/[showId]",
+                params: {
+                  showId: String(item.show._id),
+                  name: item.show.name,
+                },
+              })
+            }
             onRemove={() => handleRemoveShow(item.show._id)}
             drag={drag}
             isActive={isActive}
@@ -393,7 +406,7 @@ export default function MyShowsScreen() {
         </ScaleDecorator>
       );
     },
-    [listItems, expandedShowId, pendingRemoveIds, handleRemoveShow, getShowTier]
+    [listItems, expandedShowId, pendingRemoveIds, handleRemoveShow, getShowTier, router]
   );
 
   return (
@@ -442,7 +455,10 @@ export default function MyShowsScreen() {
                 <Text style={styles.emptyText}>No shows ranked yet.</Text>
               </View>
             }
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: tabBarHeight + 24 },
+            ]}
           />
         </View>
       ) : (
@@ -471,6 +487,14 @@ export default function MyShowsScreen() {
                 showName={show?.name ?? ""}
                 rank={rank}
                 rankedCount={rankedCount}
+                onViewShowDetails={() => {
+                  if (!show) return;
+                  setSelectedShowId(null);
+                  router.push({
+                    pathname: "/show/[showId]",
+                    params: { showId: String(show._id), name: show.name },
+                  });
+                }}
                 onClose={() => setSelectedShowId(null)}
               />
             );

@@ -1,6 +1,9 @@
 import { useQuery } from "convex/react";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -36,7 +39,13 @@ function daysUntil(dateStr: string) {
   return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function ProductionCard({ production }: { production: any }) {
+function ProductionCard({
+  production,
+  onPress,
+}: {
+  production: any;
+  onPress: () => void;
+}) {
   const status = getProductionStatus(production);
   const badge = STATUS_BADGE[status] ?? STATUS_BADGE.closed;
   const show = production.show;
@@ -56,7 +65,7 @@ function ProductionCard({ production }: { production: any }) {
   })();
 
   return (
-    <View style={styles.card}>
+    <Pressable style={styles.card} onPress={onPress}>
       <View style={styles.cardHeader}>
         <View style={styles.cardTitles}>
           <Text style={styles.showName} numberOfLines={1}>
@@ -82,11 +91,13 @@ function ProductionCard({ production }: { production: any }) {
           )}
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }
 
 export default function BrowseScreen() {
+  const router = useRouter();
+  const tabBarHeight = useBottomTabBarHeight();
   const [search, setSearch] = useState("");
   const allProductions = useQuery(api.productions.listAll);
 
@@ -142,7 +153,7 @@ export default function BrowseScreen() {
 
       <ScrollView
         style={styles.list}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 24 }]}
         keyboardShouldPersistTaps="handled"
       >
         {allProductions === undefined ? (
@@ -156,7 +167,20 @@ export default function BrowseScreen() {
             <View key={section.title}>
               <Text style={styles.sectionHeader}>{section.title}</Text>
               {section.data.map((production: any) => (
-                <ProductionCard key={production._id} production={production} />
+                <ProductionCard
+                  key={production._id}
+                  production={production}
+                  onPress={() => {
+                    if (!production.show?._id) return;
+                    router.push({
+                      pathname: "/show/[showId]",
+                      params: {
+                        showId: String(production.show._id),
+                        name: production.show?.name ?? "Show",
+                      },
+                    });
+                  }}
+                />
               ))}
             </View>
           ))

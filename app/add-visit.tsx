@@ -1,7 +1,9 @@
 import { useMutation, useQuery } from "convex/react";
-import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useNavigation, useRouter } from "expo-router";
+import { usePreventRemove } from "@react-navigation/native";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
@@ -37,6 +39,15 @@ const TIER_LABELS: Record<RankingTier, string> = {
   liked: "Liked it",
   okay: "It was Okay",
   disliked: "Didn't Like it",
+};
+const TIER_BUTTON_STYLES: Record<
+  RankingTier,
+  { backgroundColor: string; borderColor: string; textColor: string }
+> = {
+  loved: { backgroundColor: "#fbe0ee", borderColor: "#ef5da8", textColor: "#7f2252" },
+  liked: { backgroundColor: "#e2f3e6", borderColor: "#2f8f46", textColor: "#235f31" },
+  okay: { backgroundColor: "#fdf4d8", borderColor: "#e9c84f", textColor: "#755c16" },
+  disliked: { backgroundColor: "#fde6e2", borderColor: "#dd4b39", textColor: "#7d2d23" },
 };
 
 function getTierRank(tier: RankingTier) {
@@ -94,6 +105,7 @@ function getTodayIsoDate() {
 
 export default function AddVisitScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const allShows = useQuery(api.shows.list);
   const rankedShows = useQuery(api.rankings.getRankedShows);
   const visitHistory = useQuery(api.visits.listAllWithShows);
@@ -195,11 +207,34 @@ export default function AddVisitScreen() {
       filteredShows.some((show) => show.name.toLowerCase() === lower)
     );
   }, [filteredShows, query]);
+  const exactMatches = useMemo(() => {
+    const lower = query.trim().toLowerCase();
+    if (!lower) return [];
+    return filteredShows.filter((show) => show.name.toLowerCase() === lower);
+  }, [filteredShows, query]);
 
   const hasSelectedShow = selectedShowId !== null || customShowName !== null;
   const showNameForHeader = selectedShow?.name ?? customShowName ?? "";
   const shouldShowRankingSection =
     hasSelectedShow && !(showContext?.hasRanking && keepCurrentRanking);
+  const hasOfficialProductions = productionOptions.length > 0;
+  const shouldForceOtherLocation =
+    selectedShowId !== null && productions !== undefined && !hasOfficialProductions;
+  const hasUnsavedChanges =
+    query.trim().length > 0 ||
+    hasSelectedShow ||
+    date !== getTodayIsoDate() ||
+    selectedProductionId !== null ||
+    useOtherProduction ||
+    city.trim().length > 0 ||
+    theatre.trim().length > 0 ||
+    notes.trim().length > 0 ||
+    keepCurrentRanking !== true ||
+    selectedTier !== null ||
+    searchLow !== 0 ||
+    searchHigh !== 0 ||
+    rankingResultIndex !== null;
+  const allowRemoveRef = useRef(false);
   const isRankingsLoading = rankedShows === undefined;
   const rankedShowsForRanking = useMemo<RankedShowForRanking[]>(() => {
     const base = ((rankedShows ?? []) as RankedShowForRanking[]).filter(
@@ -280,6 +315,12 @@ export default function AddVisitScreen() {
     setSearchHigh(0);
     setRankingResultIndex(null);
   }, [shouldShowRankingSection]);
+
+  useEffect(() => {
+    if (!shouldForceOtherLocation) return;
+    setUseOtherProduction(true);
+    setSelectedProductionId(null);
+  }, [shouldForceOtherLocation]);
 
   const selectExistingShow = (showId: Id<"shows">) => {
     setSelectedShowId(showId);
@@ -368,16 +409,6 @@ export default function AddVisitScreen() {
     }
   };
 
-  const restartRanking = () => {
-    if (!selectedTier) return;
-    setSearchLow(0);
-    setSearchHigh(
-      rankedShowsForRanking.filter((show) => normalizeTier(show.tier) === selectedTier)
-        .length
-    );
-    setRankingResultIndex(null);
-  };
-
   const handleSave = async () => {
     if (!hasSelectedShow || isSaving) return;
     setIsSaving(true);
@@ -403,11 +434,30 @@ export default function AddVisitScreen() {
             ? predictedResultIndex
             : undefined,
       });
-      router.back();
+      allowRemoveRef.current = true;
+      router.replace("/(tabs)");
     } finally {
       setIsSaving(false);
     }
   };
+
+  usePreventRemove(hasUnsavedChanges && !isSaving && !allowRemoveRef.current, (event) => {
+    Alert.alert(
+      "Discard changes?",
+      "You have unsaved Add Visit details.",
+      [
+        { text: "Keep working", style: "cancel" },
+        {
+          text: "Discard",
+          style: "destructive",
+          onPress: () => {
+            allowRemoveRef.current = true;
+            navigation.dispatch(event.data.action);
+          },
+        },
+      ]
+    );
+  });
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -427,10 +477,8 @@ export default function AddVisitScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Show</Text>
             {hasSelectedShow ? (
               <View style={styles.selectedShowCard}>
-                <Text style={styles.selectedShowLabel}>Selected</Text>
                 <Text style={styles.selectedShowName}>{showNameForHeader}</Text>
                 <Pressable onPress={clearSelection}>
                   <Text style={styles.changeShowText}>Change</Text>
@@ -441,11 +489,18 @@ export default function AddVisitScreen() {
                 <TextInput
                   value={query}
                   onChangeText={setQuery}
-                  placeholder="Search all shows..."
+                  placeholder="Search for a show"
                   style={styles.input}
                   autoFocus
                   autoCapitalize="words"
                   autoCorrect={false}
+                  onSubmitEditing={() => {
+                    if (!query.trim()) return;
+                    const top = searchResults[0];
+                    if (top) {
+                      selectExistingShow(top._id);
+                    }
+                  }}
                 />
                 {allShows !== undefined && (
                   <View style={styles.resultsCard}>
@@ -472,48 +527,33 @@ export default function AddVisitScreen() {
                     {searchResults.map((show) => (
                       (() => {
                         const status = userShowStatusById.get(show._id);
-                        const badges: { label: string; style: "seen" | "added" }[] = [];
-                        const hasSeen = visitedShowIds.has(show._id) || (status?.visitCount ?? 0) > 0;
-                        if (status) {
-                          if (status.isUnranked || status.tier === "unranked") {
-                            badges.push({ label: "Added", style: "added" });
-                          } else {
-                            badges.push({ label: "Seen", style: "seen" });
-                          }
-                        } else if (hasSeen) {
-                          badges.push({ label: "Seen", style: "seen" });
-                        }
+                        const hasSeen =
+                          visitedShowIds.has(show._id) ||
+                          status !== undefined;
 
                         return (
                           <Pressable
                             key={show._id}
-                            style={styles.resultRow}
+                            style={[
+                              styles.resultRow,
+                              query.trim().length > 0 &&
+                              exactMatches.length === 1 &&
+                              searchResults[0]?._id === show._id &&
+                              exactMatches[0]?._id === show._id
+                                ? styles.resultRowExactMatch
+                                : null,
+                            ]}
                             onPress={() => selectExistingShow(show._id)}
                           >
                             <Text style={styles.resultName}>{show.name}</Text>
                             <View style={styles.resultMeta}>
-                              {badges.map((badge) => (
-                                <View
-                                  key={badge.label}
-                                  style={[
-                                    styles.statusBadge,
-                                    badge.style === "seen"
-                                      ? styles.statusBadgeSeen
-                                      : styles.statusBadgeAdded,
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.statusBadgeText,
-                                      badge.style === "seen"
-                                        ? styles.statusBadgeIcon
-                                        : null,
-                                    ]}
-                                  >
-                                    {badge.style === "seen" ? "👁" : badge.label}
+                              {hasSeen ? (
+                                <View style={[styles.statusBadge, styles.statusBadgeSeen]}>
+                                  <Text style={[styles.statusBadgeText, styles.statusBadgeIcon]}>
+                                    👁
                                   </Text>
                                 </View>
-                              ))}
+                              ) : null}
                               <Text style={styles.resultType}>
                                 {TYPE_LABELS[show.type]}
                               </Text>
@@ -543,12 +583,12 @@ export default function AddVisitScreen() {
               </View>
 
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Production / Location</Text>
+                <Text style={styles.sectionTitle}>Location</Text>
                 {selectedShowId ? (
                   <>
                     {productions === undefined ? (
                       <ActivityIndicator size="small" color="#999" />
-                    ) : (
+                    ) : hasOfficialProductions ? (
                       <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
@@ -604,7 +644,7 @@ export default function AddVisitScreen() {
                           </Text>
                         </Pressable>
                       </ScrollView>
-                    )}
+                    ) : null}
                   </>
                 ) : (
                   <Text style={styles.helperText}>
@@ -617,14 +657,14 @@ export default function AddVisitScreen() {
                       style={styles.input}
                       value={city}
                       onChangeText={setCity}
-                      placeholder="City (optional)"
+                      placeholder="City"
                       autoCapitalize="words"
                     />
                     <TextInput
                       style={styles.input}
                       value={theatre}
                       onChangeText={setTheatre}
-                      placeholder="Theatre / venue / movie / pro-shot (optional)"
+                      placeholder="Theatre"
                       autoCapitalize="words"
                     />
                   </View>
@@ -632,7 +672,7 @@ export default function AddVisitScreen() {
               </View>
 
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Ranking</Text>
+                <Text style={styles.sectionTitle}>How was it?</Text>
                 {showContext?.hasRanking && (
                   <Pressable
                     style={styles.keepCurrentRow}
@@ -658,9 +698,21 @@ export default function AddVisitScreen() {
                   <View style={styles.rankingCard}>
                     {selectedTier ? (
                       <View style={styles.selectedTierRow}>
-                        <View>
-                          <Text style={styles.selectedTierLabel}>Tier selected</Text>
-                          <Text style={styles.selectedTierValue}>
+                        <View
+                          style={[
+                            styles.selectedTierPill,
+                            {
+                              backgroundColor: TIER_BUTTON_STYLES[selectedTier].backgroundColor,
+                              borderColor: TIER_BUTTON_STYLES[selectedTier].borderColor,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.selectedTierValue,
+                              { color: TIER_BUTTON_STYLES[selectedTier].textColor },
+                            ]}
+                          >
                             {TIER_LABELS[selectedTier]}
                           </Text>
                         </View>
@@ -670,9 +722,6 @@ export default function AddVisitScreen() {
                       </View>
                     ) : (
                       <>
-                        <Text style={styles.placeholderTitle}>
-                          How did you feel about this show?
-                        </Text>
                         {isRankingsLoading ? (
                           <ActivityIndicator size="small" color="#999" />
                         ) : (
@@ -680,10 +729,21 @@ export default function AddVisitScreen() {
                             {TIER_ORDER.map((tier) => (
                               <Pressable
                                 key={tier}
-                                style={styles.tierButton}
+                                style={[
+                                  styles.tierButton,
+                                  {
+                                    backgroundColor: TIER_BUTTON_STYLES[tier].backgroundColor,
+                                    borderColor: TIER_BUTTON_STYLES[tier].borderColor,
+                                  },
+                                ]}
                                 onPress={() => startTierRanking(tier)}
                               >
-                                <Text style={styles.tierButtonText}>
+                                <Text
+                                  style={[
+                                    styles.tierButtonText,
+                                    { color: TIER_BUTTON_STYLES[tier].textColor },
+                                  ]}
+                                >
                                   {TIER_LABELS[tier]}
                                 </Text>
                               </Pressable>
@@ -745,9 +805,6 @@ export default function AddVisitScreen() {
                             rankedShowsForRanking.length + 1
                           }`}
                         </Text>
-                        <Pressable onPress={restartRanking}>
-                          <Text style={styles.changeShowText}>Restart Ranking</Text>
-                        </Pressable>
                       </View>
                     )}
                   </View>
@@ -843,11 +900,6 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: "#f8f8ff",
   },
-  selectedShowLabel: {
-    fontSize: 12,
-    color: "#777",
-    fontWeight: "500",
-  },
   selectedShowName: {
     fontSize: 17,
     fontWeight: "600",
@@ -906,6 +958,9 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#ededed",
     gap: 8,
+  },
+  resultRowExactMatch: {
+    backgroundColor: "#e2f3e6",
   },
   resultName: {
     fontSize: 14,
@@ -1017,15 +1072,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  selectedTierLabel: {
-    fontSize: 12,
-    color: "#777",
-    fontWeight: "500",
+  selectedTierPill: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   selectedTierValue: {
-    fontSize: 16,
-    color: "#111",
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
   },
   placeholderTitle: {
     fontSize: 14,
@@ -1034,21 +1090,21 @@ const styles = StyleSheet.create({
   },
   tierGrid: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 8,
   },
   tierButton: {
+    flex: 1,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#cfcfcf",
     borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: "#fff",
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
   },
   tierButtonText: {
-    fontSize: 13,
-    color: "#333",
+    fontSize: 12,
     fontWeight: "600",
+    textAlign: "center",
   },
   comparisonBlock: {
     gap: 10,

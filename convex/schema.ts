@@ -95,6 +95,28 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_show", ["userId", "showId"]),
 
+  userLists: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    kind: v.union(v.literal("system"), v.literal("custom")),
+    systemKey: v.optional(
+      v.union(
+        v.literal("want_to_see"),
+        v.literal("look_into"),
+        v.literal("not_interested"),
+        v.literal("uncategorized")
+      )
+    ),
+    description: v.optional(v.string()),
+    isPublic: v.boolean(),
+    showIds: v.array(v.id("shows")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_systemKey", ["userId", "systemKey"])
+    .index("by_user_name", ["userId", "name"]),
+
   visits: defineTable({
     userId: v.id("users"),
     // Denormalized from production for easier querying when productionId is absent.

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
 import { resolveImageUrls } from "./helpers";
+import { removeShowFromSystemLists } from "./listRules";
 
 const TIER_ORDER = ["loved", "liked", "okay", "disliked", "unranked"] as const;
 type Tier = (typeof TIER_ORDER)[number];
@@ -306,6 +307,12 @@ export const createVisit = mutation({
       district: args.district,
       notes: args.notes,
     });
+
+    await removeShowFromSystemLists(ctx, userId, showId, [
+      "want_to_see",
+      "look_into",
+      "uncategorized",
+    ]);
 
     return { showId, visitId, alreadyRanked };
   },

@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
 import { resolveImageUrls } from "./helpers";
 import { getProductionStatus } from "../utils/productions";
+import { addShowToAllUsersUncategorizedIfEligible } from "./listRules";
 
 export { getProductionStatus } from "../utils/productions";
 
@@ -145,7 +146,26 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     await requireConvexUserId(ctx);
-    return await ctx.db.insert("productions", { ...args, isUserCreated: true });
+    const productionId = await ctx.db.insert("productions", {
+      ...args,
+      isUserCreated: true,
+    });
+
+    const todayDate = new Date().toISOString().split("T")[0];
+    const status = getProductionStatus(
+      {
+        previewDate: args.previewDate,
+        openingDate: args.openingDate,
+        closingDate: args.closingDate,
+      },
+      todayDate
+    );
+
+    if (status !== "closed") {
+      await addShowToAllUsersUncategorizedIfEligible(ctx, args.showId);
+    }
+
+    return productionId;
   },
 });
 

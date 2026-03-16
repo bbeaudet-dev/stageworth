@@ -4,9 +4,15 @@ interface ActionsMenuProps {
   visible: boolean;
   onClose: () => void;
   onAddVisit: () => void;
+  onCreateList: () => void;
 }
 
-export function ActionsMenu({ visible, onClose, onAddVisit }: ActionsMenuProps) {
+export function ActionsMenu({
+  visible,
+  onClose,
+  onAddVisit,
+  onCreateList,
+}: ActionsMenuProps) {
   if (!visible) return null;
 
   return (
@@ -14,12 +20,11 @@ export function ActionsMenu({ visible, onClose, onAddVisit }: ActionsMenuProps) 
       <Pressable style={styles.backdrop} onPress={onClose} />
       <View style={styles.menuAnchor} pointerEvents="box-none">
         <View style={styles.sheet}>
-          <Text style={styles.title}>Actions</Text>
           <Pressable style={styles.optionButton} onPress={onAddVisit}>
-            <Text style={styles.optionTitle}>Add Visit</Text>
-            <Text style={styles.optionSubtitle}>
-              Log a visit and attach it to a show
-            </Text>
+            <Text style={styles.optionTitle}>Add a Visit</Text>
+          </Pressable>
+          <Pressable style={styles.optionButton} onPress={onCreateList}>
+            <Text style={styles.optionTitle}>Create a List</Text>
           </Pressable>
         </View>
       </View>
@@ -57,13 +62,6 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 8,
   },
-  title: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#999",
-    marginBottom: 8,
-    paddingHorizontal: 6,
-  },
   optionButton: {
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
@@ -71,15 +69,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     backgroundColor: "#f8f8ff",
+    marginBottom: 8,
   },
   optionTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: "#111",
-  },
-  optionSubtitle: {
-    marginTop: 2,
-    fontSize: 13,
-    color: "#666",
   },
 });

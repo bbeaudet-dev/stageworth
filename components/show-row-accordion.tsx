@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
+import { useRouter } from "expo-router";
 import { memo, useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -125,6 +126,7 @@ function AddVisitForm({
 }
 
 export function VisitsList({ showId }: { showId: Id<"shows"> }) {
+  const router = useRouter();
   const [isAdding, setIsAdding] = useState(false);
   const visits = useQuery(api.visits.listByShow, { showId });
   const removeVisit = useMutation(api.visits.remove);
@@ -149,9 +151,19 @@ export function VisitsList({ showId }: { showId: Id<"shows"> }) {
         if (!visit.theatre && visit.city) parts.push(visit.city);
         return (
           <View key={visit._id} style={accordionStyles.visitRow}>
-            <Text style={accordionStyles.visitText} numberOfLines={1}>
-              {parts.join("  ·  ")}
-            </Text>
+            <Pressable
+              style={accordionStyles.visitTextWrap}
+              onPress={() =>
+                router.push({
+                  pathname: "/visit/[visitId]",
+                  params: { visitId: String(visit._id) },
+                })
+              }
+            >
+              <Text style={accordionStyles.visitText} numberOfLines={1}>
+                {parts.join("  ·  ")}
+              </Text>
+            </Pressable>
             <Pressable
               onPress={() => removeVisit({ visitId: visit._id })}
               hitSlop={8}
@@ -193,6 +205,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
   isRemoving,
   onToggle,
   onRemove,
+  onViewShowDetails,
   drag,
   isActive,
 }: {
@@ -204,6 +217,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
   isRemoving: boolean;
   onToggle: () => void;
   onRemove: () => void;
+  onViewShowDetails: () => void;
   drag: () => void;
   isActive: boolean;
 }) {
@@ -289,10 +303,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
         enabled={!isActive}
         overshootRight={false}
       >
-        <Pressable
-          onPress={onToggle}
-          onLongPress={drag}
-          disabled={isActive}
+        <View
           style={[
             accordionStyles.showRow,
             isActive && accordionStyles.showRowActive,
@@ -300,14 +311,24 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
           ]}
         >
           <Text style={accordionStyles.rank}>{rankLabel ?? `#${index + 1}`}</Text>
-          <Text style={accordionStyles.showName} numberOfLines={1}>
-            {item.name}
-          </Text>
-          <Text style={accordionStyles.chevron}>
-            {isExpanded ? "▾" : "▸"}
-          </Text>
-          <Text style={accordionStyles.dragHandle}>☰</Text>
-        </Pressable>
+          <Pressable
+            style={accordionStyles.showNameWrap}
+            onPress={onViewShowDetails}
+            disabled={isActive}
+          >
+            <Text style={accordionStyles.showName} numberOfLines={1}>
+              {item.name}
+            </Text>
+          </Pressable>
+          <Pressable onPress={onToggle} disabled={isActive} hitSlop={8}>
+            <Text style={accordionStyles.chevron}>
+              {isExpanded ? "▾" : "▸"}
+            </Text>
+          </Pressable>
+          <Pressable onLongPress={drag} disabled={isActive} hitSlop={8}>
+            <Text style={accordionStyles.dragHandle}>☰</Text>
+          </Pressable>
+        </View>
       </Swipeable>
 
       {isExpanded && <VisitsList showId={item._id} />}
@@ -385,9 +406,12 @@ const accordionStyles = StyleSheet.create({
     color: "#333",
   },
   showName: {
-    flex: 1,
     fontSize: 15,
     fontWeight: "500",
+  },
+  showNameWrap: {
+    flex: 1,
+    paddingVertical: 2,
   },
   chevron: {
     fontSize: 14,
@@ -424,8 +448,10 @@ const accordionStyles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 6,
   },
-  visitText: {
+  visitTextWrap: {
     flex: 1,
+  },
+  visitText: {
     fontSize: 13,
     color: "#555",
   },

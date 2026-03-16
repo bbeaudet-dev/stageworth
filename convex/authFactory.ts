@@ -10,6 +10,10 @@ import type { GenericMutationCtx } from "convex/server";
 import { components, internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import authConfig from "./auth.config";
+import {
+  ensureDefaultSystemLists,
+  getEligibleUncategorizedShowIds,
+} from "./listRules";
 
 const authFunctions: AuthFunctions = internal.auth;
 
@@ -81,6 +85,9 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           userId,
           showIds: [],
         });
+
+        const uncategorizedSeedShowIds = await getEligibleUncategorizedShowIds(ctx);
+        await ensureDefaultSystemLists(ctx, userId, uncategorizedSeedShowIds);
       },
     },
   },

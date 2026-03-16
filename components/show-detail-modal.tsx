@@ -7,6 +7,7 @@ interface ShowDetailModalProps {
   showName: string;
   rank: number | null;
   rankedCount: number;
+  onViewShowDetails: () => void;
   onClose: () => void;
 }
 
@@ -15,6 +16,7 @@ export function ShowDetailModal({
   showName,
   rank,
   rankedCount,
+  onViewShowDetails,
   onClose,
 }: ShowDetailModalProps) {
   return (
@@ -38,6 +40,9 @@ export function ShowDetailModal({
               <Text style={styles.closeText}>✕</Text>
             </Pressable>
           </View>
+          <Pressable style={styles.viewDetailsRow} onPress={onViewShowDetails}>
+            <Text style={styles.viewDetailsText}>View Show Details</Text>
+          </Pressable>
           {showId && <VisitsList showId={showId} />}
         </View>
       </View>
@@ -86,5 +91,16 @@ const styles = StyleSheet.create({
   closeText: {
     fontSize: 18,
     color: "#999",
+  },
+  viewDetailsRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#e5e5e5",
+  },
+  viewDetailsText: {
+    fontSize: 13,
+    color: "#007AFF",
+    fontWeight: "600",
   },
 });

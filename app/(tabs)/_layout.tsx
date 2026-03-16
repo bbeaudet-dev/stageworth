@@ -104,6 +104,13 @@ export default function TabLayout() {
           setShowActionsMenu(false);
           router.push("/add-visit");
         }}
+        onCreateList={() => {
+          setShowActionsMenu(false);
+          router.push({
+            pathname: "/(tabs)/profile",
+            params: { createList: "1" },
+          });
+        }}
       />
     </>
   );
