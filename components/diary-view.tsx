@@ -1,7 +1,8 @@
 import { useQuery } from "convex/react";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useRouter } from "expo-router";
 import { useMemo } from "react";
-import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "@/convex/_generated/api";
 
@@ -41,11 +42,17 @@ function getGroupLabel(dateStr: string, now: Date): string {
   });
 }
 
-function DiaryCard({ visit }: { visit: VisitWithShow }) {
+function DiaryCard({
+  visit,
+  onPress,
+}: {
+  visit: VisitWithShow;
+  onPress: () => void;
+}) {
   const imageUrl = visit.show.images[0];
 
   return (
-    <View style={cardStyles.card}>
+    <Pressable style={cardStyles.card} onPress={onPress}>
       {imageUrl ? (
         <Image source={{ uri: imageUrl }} style={cardStyles.image} />
       ) : (
@@ -53,11 +60,12 @@ function DiaryCard({ visit }: { visit: VisitWithShow }) {
           <Text style={cardStyles.placeholderEmoji}>🎭</Text>
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }
 
 export function DiaryView() {
+  const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
   const visits = useQuery(api.visits.listAllWithShows);
 
@@ -111,7 +119,16 @@ export function DiaryView() {
           <Text style={styles.sectionLabel}>{group.label}</Text>
           <View style={styles.grid}>
             {group.visits.map((visit) => (
-              <DiaryCard key={visit._id} visit={visit} />
+              <DiaryCard
+                key={visit._id}
+                visit={visit}
+                onPress={() =>
+                  router.push({
+                    pathname: "/visit/[visitId]",
+                    params: { visitId: String(visit._id) },
+                  })
+                }
+              />
             ))}
           </View>
         </View>

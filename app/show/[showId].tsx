@@ -36,6 +36,31 @@ export default function ShowDetailScreen() {
           <Text style={styles.subtle}>{productions?.length ?? 0} productions available</Text>
         </View>
 
+        <View style={styles.card}>
+          <Text style={styles.heading}>Visits</Text>
+          {visits === undefined ? (
+            <Text style={styles.subtle}>Loading...</Text>
+          ) : visits.length === 0 ? (
+            <Text style={styles.subtle}>No visits for this show yet.</Text>
+          ) : (
+            visits.map((visit) => (
+              <Pressable
+                key={visit._id}
+                style={styles.visitRow}
+                onPress={() =>
+                  router.push({
+                    pathname: "/visit/[visitId]",
+                    params: { visitId: String(visit._id) },
+                  })
+                }
+              >
+                <Text style={styles.visitRowText}>{visit.date}</Text>
+                <Text style={styles.visitRowChevron}>▸</Text>
+              </Pressable>
+            ))
+          )}
+        </View>
+
         <Pressable
           style={styles.primaryButton}
           onPress={() => router.push("/add-visit")}
@@ -61,6 +86,23 @@ const styles = StyleSheet.create({
   heading: { fontSize: 12, color: "#777", textTransform: "uppercase", letterSpacing: 0.4 },
   value: { fontSize: 18, color: "#222", fontWeight: "700" },
   subtle: { fontSize: 13, color: "#666" },
+  visitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#e8e8e8",
+    paddingVertical: 10,
+  },
+  visitRowText: {
+    fontSize: 14,
+    color: "#333",
+    fontWeight: "500",
+  },
+  visitRowChevron: {
+    fontSize: 14,
+    color: "#9a9a9a",
+  },
   primaryButton: {
     borderRadius: 10,
     backgroundColor: "#1f1f1f",

@@ -137,12 +137,7 @@ export default function ListDetailScreen() {
             <Text style={styles.infoButtonText}>What is this list?</Text>
           </Pressable>
         ) : (
-          <Pressable style={styles.infoButton} onPress={() => setShowSearchOpen((prev) => !prev)}>
-            <IconSymbol size={14} name={showSearchOpen ? "xmark.circle" : "plus.circle"} color="#2c67b8" />
-            <Text style={styles.infoButtonText}>
-              {showSearchOpen ? "Close add show" : "Add show"}
-            </Text>
-          </Pressable>
+          <View />
         )}
       </View>
       {showInfo && isSystemList ? (
@@ -202,39 +197,13 @@ export default function ListDetailScreen() {
         </View>
       ) : null}
 
-      {showSearchOpen && !isSeen && regularList ? (
-        <View style={styles.addShowBlock}>
-          <TextInput
-            style={styles.addShowInput}
-            value={showQuery}
-            onChangeText={setShowQuery}
-            placeholder="Search shows to add..."
-            autoCapitalize="words"
-          />
-          <View style={styles.addShowResults}>
-            {filteredShowResults.length === 0 ? (
-              <Text style={styles.noSearchResultsText}>No matches.</Text>
-            ) : (
-              filteredShowResults.map((show) => (
-                <Pressable
-                  key={show._id}
-                  style={styles.addShowRow}
-                  onPress={() => onAddShow(show._id)}
-                  disabled={isAddingShow}
-                >
-                  <Text style={styles.addShowName}>{show.name}</Text>
-                </Pressable>
-              ))
-            )}
-          </View>
-        </View>
-      ) : null}
-
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         {rows.length === 0 ? (
-          <Text style={styles.emptyText}>
-            {isSeen ? "No shows in this list yet." : "No shows in this list yet. Add one above."}
-          </Text>
+          <Text style={styles.emptyText}>No shows in this list yet.</Text>
         ) : (
           rows.map((show) => (
             <Pressable
@@ -251,6 +220,52 @@ export default function ListDetailScreen() {
             </Pressable>
           ))
         )}
+
+        {!isSeen ? (
+          <View style={styles.addShowContainer}>
+            <Pressable
+              style={styles.addShowToggle}
+              onPress={() => setShowSearchOpen((prev) => !prev)}
+            >
+              <IconSymbol
+                size={14}
+                name={showSearchOpen ? "xmark.circle" : "plus.circle"}
+                color="#2c67b8"
+              />
+              <Text style={styles.infoButtonText}>
+                {showSearchOpen ? "Cancel" : "Add show"}
+              </Text>
+            </Pressable>
+
+            {showSearchOpen && regularList ? (
+              <View style={styles.addShowBlock}>
+                <TextInput
+                  style={styles.addShowInput}
+                  value={showQuery}
+                  onChangeText={setShowQuery}
+                  placeholder="Search shows to add..."
+                  autoCapitalize="words"
+                />
+                <View style={styles.addShowResults}>
+                  {filteredShowResults.length === 0 ? (
+                    <Text style={styles.noSearchResultsText}>No matches.</Text>
+                  ) : (
+                    filteredShowResults.map((show) => (
+                      <Pressable
+                        key={show._id}
+                        style={styles.addShowRow}
+                        onPress={() => onAddShow(show._id)}
+                        disabled={isAddingShow}
+                      >
+                        <Text style={styles.addShowName}>{show.name}</Text>
+                      </Pressable>
+                    ))
+                  )}
+                </View>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -380,9 +395,17 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   addShowBlock: {
-    marginHorizontal: 16,
-    marginTop: 10,
     gap: 8,
+  },
+  addShowContainer: {
+    marginTop: 8,
+    gap: 8,
+  },
+  addShowToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
   },
   addShowInput: {
     borderRadius: 10,
