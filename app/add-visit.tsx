@@ -130,6 +130,13 @@ export default function AddVisitScreen() {
   );
 
   const productionOptions = productions ?? [];
+  const userShowStatusById = useMemo(() => {
+    const map = new Map<Id<"shows">, UserShowStatus>();
+    for (const status of (rankedShows ?? []) as UserShowStatus[]) {
+      map.set(status._id, status);
+    }
+    return map;
+  }, [rankedShows]);
 
   const filteredShows = useMemo(() => {
     const trimmed = query.trim();
@@ -453,16 +460,50 @@ export default function AddVisitScreen() {
                       </View>
                     )}
                     {searchResults.map((show) => (
-                      <Pressable
-                        key={show._id}
-                        style={styles.resultRow}
-                        onPress={() => selectExistingShow(show._id)}
-                      >
-                        <Text style={styles.resultName}>{show.name}</Text>
-                        <Text style={styles.resultType}>
-                          {TYPE_LABELS[show.type]}
-                        </Text>
-                      </Pressable>
+                      (() => {
+                        const status = userShowStatusById.get(show._id);
+                        const badges: { label: string; style: "seen" | "ranked" | "added" }[] = [];
+                        if (status?.visitCount && status.visitCount > 0) {
+                          badges.push({ label: "Seen", style: "seen" });
+                        }
+                        if (status) {
+                          if (status.isUnranked || status.tier === "unranked") {
+                            badges.push({ label: "Added", style: "added" });
+                          } else {
+                            badges.push({ label: "Ranked", style: "ranked" });
+                          }
+                        }
+
+                        return (
+                          <Pressable
+                            key={show._id}
+                            style={styles.resultRow}
+                            onPress={() => selectExistingShow(show._id)}
+                          >
+                            <Text style={styles.resultName}>{show.name}</Text>
+                            <View style={styles.resultMeta}>
+                              <Text style={styles.resultType}>
+                                {TYPE_LABELS[show.type]}
+                              </Text>
+                              {badges.map((badge) => (
+                                <View
+                                  key={badge.label}
+                                  style={[
+                                    styles.statusBadge,
+                                    badge.style === "seen"
+                                      ? styles.statusBadgeSeen
+                                      : badge.style === "ranked"
+                                        ? styles.statusBadgeRanked
+                                        : styles.statusBadgeAdded,
+                                  ]}
+                                >
+                                  <Text style={styles.statusBadgeText}>{badge.label}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          </Pressable>
+                        );
+                      })()
                     ))}
                   </View>
                 )}
@@ -858,6 +899,32 @@ const styles = StyleSheet.create({
   resultType: {
     fontSize: 12,
     color: "#888",
+  },
+  resultMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  statusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  statusBadgeSeen: {
+    backgroundColor: "#dff3ff",
+  },
+  statusBadgeRanked: {
+    backgroundColor: "#e8f6e8",
+  },
+  statusBadgeAdded: {
+    backgroundColor: "#f1f1f1",
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#444",
+    letterSpacing: 0.25,
+    textTransform: "uppercase",
   },
   productionRow: {
     gap: 8,
