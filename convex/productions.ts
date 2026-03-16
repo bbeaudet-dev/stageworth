@@ -2,10 +2,10 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
 import { resolveImageUrls } from "./helpers";
-import { getProductionStatus } from "../utils/productions";
+import { getProductionStatus } from "../src/utils/productions";
 import { addShowToAllUsersUncategorizedIfEligible } from "./listRules";
 
-export { getProductionStatus } from "../utils/productions";
+export { getProductionStatus } from "../src/utils/productions";
 
 const today = () => new Date().toISOString().split("T")[0];
 

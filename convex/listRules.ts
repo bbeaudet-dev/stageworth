@@ -1,6 +1,6 @@
 import type { GenericMutationCtx } from "convex/server";
 import type { DataModel, Id } from "./_generated/dataModel";
-import { getProductionStatus } from "../utils/productions";
+import { getProductionStatus } from "../src/utils/productions";
 
 export const SYSTEM_LIST_KEYS = [
   "want_to_see",
