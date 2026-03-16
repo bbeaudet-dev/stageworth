@@ -74,16 +74,19 @@ export default defineSchema({
   userRankings: defineTable({
     userId: v.id("users"),
     showIds: v.array(v.id("shows")),
+    wouldSeeAgainLineIndex: v.optional(v.number()),
+    stayedHomeLineIndex: v.optional(v.number()),
   }).index("by_user", ["userId"]),
 
   // Junction table: per-show metadata for each user.
-  // Stores the tier (liked/neutral/disliked) and when the show was added.
+  // Stores the tier (loved/liked/okay/disliked) and when the show was added.
   userShows: defineTable({
     userId: v.id("users"),
     showId: v.id("shows"),
     tier: v.union(
+      v.literal("loved"),
       v.literal("liked"),
-      v.literal("neutral"),
+      v.literal("okay"),
       v.literal("disliked")
     ),
     addedAt: v.number(),

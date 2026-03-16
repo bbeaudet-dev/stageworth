@@ -24,7 +24,7 @@ type RankedShow = {
   type: ShowType;
   subtype?: string;
   images: string[];
-  tier?: "liked" | "neutral" | "disliked";
+  tier?: "loved" | "liked" | "okay" | "disliked";
   visitCount: number;
 };
 
@@ -187,6 +187,7 @@ function RemoveAction({ onPress }: { onPress: () => void }) {
 export const ShowRowAccordion = memo(function ShowRowAccordion({
   item,
   index,
+  tierHeader,
   isExpanded,
   isRemoving,
   onToggle,
@@ -196,6 +197,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
 }: {
   item: RankedShow;
   index: number;
+  tierHeader?: { label: string; color: string; textColor?: string } | null;
   isExpanded: boolean;
   isRemoving: boolean;
   onToggle: () => void;
@@ -230,19 +232,55 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
 
   if (isRemoving) {
     return (
-      <View
-        style={[accordionStyles.showRow, accordionStyles.showRowRemoving]}
-      >
-        <ActivityIndicator size="small" color="#999" style={accordionStyles.removingSpinner} />
-        <Text style={accordionStyles.removingName} numberOfLines={1}>
-          {item.name}
-        </Text>
+      <View>
+        {tierHeader ? (
+          <View
+            style={[
+              accordionStyles.tierBadge,
+              { backgroundColor: tierHeader.color },
+            ]}
+          >
+            <Text
+              style={[
+                accordionStyles.tierBadgeText,
+                tierHeader.textColor ? { color: tierHeader.textColor } : null,
+              ]}
+            >
+              {tierHeader.label}
+            </Text>
+          </View>
+        ) : null}
+        <View
+          style={[accordionStyles.showRow, accordionStyles.showRowRemoving]}
+        >
+          <ActivityIndicator size="small" color="#999" style={accordionStyles.removingSpinner} />
+          <Text style={accordionStyles.removingName} numberOfLines={1}>
+            {item.name}
+          </Text>
+        </View>
       </View>
     );
   }
 
   return (
     <View>
+      {tierHeader ? (
+        <View
+          style={[
+            accordionStyles.tierBadge,
+            { backgroundColor: tierHeader.color },
+          ]}
+        >
+          <Text
+            style={[
+              accordionStyles.tierBadgeText,
+              tierHeader.textColor ? { color: tierHeader.textColor } : null,
+            ]}
+          >
+            {tierHeader.label}
+          </Text>
+        </View>
+      ) : null}
       <Swipeable
         ref={swipeableRef}
         renderRightActions={renderRightActions}
@@ -321,6 +359,22 @@ const accordionStyles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "600",
+  },
+  tierBadge: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 8,
+    marginBottom: 4,
+    marginLeft: 2,
+  },
+  tierBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#111",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
   },
   rank: {
     fontSize: 14,
