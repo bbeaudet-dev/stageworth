@@ -96,6 +96,7 @@ export default function AddVisitScreen() {
   const router = useRouter();
   const allShows = useQuery(api.shows.list);
   const rankedShows = useQuery(api.rankings.getRankedShows);
+  const visitHistory = useQuery(api.visits.listAllWithShows);
   const createVisit = useMutation(api.visits.createVisit);
 
   const [query, setQuery] = useState("");
@@ -137,6 +138,15 @@ export default function AddVisitScreen() {
     }
     return map;
   }, [rankedShows]);
+  const visitedShowIds = useMemo(() => {
+    const ids = new Set<Id<"shows">>();
+    for (const visit of (visitHistory ?? []).filter(
+      (entry): entry is NonNullable<typeof entry> => entry !== null
+    )) {
+      ids.add(visit.showId as Id<"shows">);
+    }
+    return ids;
+  }, [visitHistory]);
 
   const filteredShows = useMemo(() => {
     const trimmed = query.trim();
@@ -462,16 +472,16 @@ export default function AddVisitScreen() {
                     {searchResults.map((show) => (
                       (() => {
                         const status = userShowStatusById.get(show._id);
-                        const badges: { label: string; style: "seen" | "ranked" | "added" }[] = [];
-                        if (status?.visitCount && status.visitCount > 0) {
-                          badges.push({ label: "Seen", style: "seen" });
-                        }
+                        const badges: { label: string; style: "seen" | "added" }[] = [];
+                        const hasSeen = visitedShowIds.has(show._id) || (status?.visitCount ?? 0) > 0;
                         if (status) {
                           if (status.isUnranked || status.tier === "unranked") {
                             badges.push({ label: "Added", style: "added" });
                           } else {
-                            badges.push({ label: "Ranked", style: "ranked" });
+                            badges.push({ label: "Seen", style: "seen" });
                           }
+                        } else if (hasSeen) {
+                          badges.push({ label: "Seen", style: "seen" });
                         }
 
                         return (
@@ -482,9 +492,6 @@ export default function AddVisitScreen() {
                           >
                             <Text style={styles.resultName}>{show.name}</Text>
                             <View style={styles.resultMeta}>
-                              <Text style={styles.resultType}>
-                                {TYPE_LABELS[show.type]}
-                              </Text>
                               {badges.map((badge) => (
                                 <View
                                   key={badge.label}
@@ -492,14 +499,24 @@ export default function AddVisitScreen() {
                                     styles.statusBadge,
                                     badge.style === "seen"
                                       ? styles.statusBadgeSeen
-                                      : badge.style === "ranked"
-                                        ? styles.statusBadgeRanked
-                                        : styles.statusBadgeAdded,
+                                      : styles.statusBadgeAdded,
                                   ]}
                                 >
-                                  <Text style={styles.statusBadgeText}>{badge.label}</Text>
+                                  <Text
+                                    style={[
+                                      styles.statusBadgeText,
+                                      badge.style === "seen"
+                                        ? styles.statusBadgeIcon
+                                        : null,
+                                    ]}
+                                  >
+                                    {badge.style === "seen" ? "👁" : badge.label}
+                                  </Text>
                                 </View>
                               ))}
+                              <Text style={styles.resultType}>
+                                {TYPE_LABELS[show.type]}
+                              </Text>
                             </View>
                           </Pressable>
                         );
@@ -891,7 +908,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   resultName: {
-    flex: 1,
     fontSize: 14,
     fontWeight: "500",
     color: "#222",
@@ -907,14 +923,11 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     borderRadius: 999,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   statusBadgeSeen: {
     backgroundColor: "#dff3ff",
-  },
-  statusBadgeRanked: {
-    backgroundColor: "#e8f6e8",
   },
   statusBadgeAdded: {
     backgroundColor: "#f1f1f1",
@@ -925,6 +938,11 @@ const styles = StyleSheet.create({
     color: "#444",
     letterSpacing: 0.25,
     textTransform: "uppercase",
+  },
+  statusBadgeIcon: {
+    fontSize: 11,
+    letterSpacing: 0,
+    textTransform: "none",
   },
   productionRow: {
     gap: 8,
