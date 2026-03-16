@@ -19,7 +19,7 @@ export type CloudShow = {
   name: string;
   type: ShowType;
   images: string[];
-  tier?: "loved" | "liked" | "okay" | "disliked";
+  tier?: "loved" | "liked" | "okay" | "disliked" | "unranked";
 };
 
 interface Placement {

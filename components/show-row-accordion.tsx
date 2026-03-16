@@ -24,7 +24,7 @@ type RankedShow = {
   type: ShowType;
   subtype?: string;
   images: string[];
-  tier?: "loved" | "liked" | "okay" | "disliked";
+  tier?: "loved" | "liked" | "okay" | "disliked" | "unranked";
   visitCount: number;
 };
 
@@ -187,6 +187,7 @@ function RemoveAction({ onPress }: { onPress: () => void }) {
 export const ShowRowAccordion = memo(function ShowRowAccordion({
   item,
   index,
+  rankLabel,
   tierHeader,
   isExpanded,
   isRemoving,
@@ -197,6 +198,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
 }: {
   item: RankedShow;
   index: number;
+  rankLabel?: string;
   tierHeader?: { label: string; color: string; textColor?: string } | null;
   isExpanded: boolean;
   isRemoving: boolean;
@@ -297,7 +299,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
             isExpanded && accordionStyles.showRowExpanded,
           ]}
         >
-          <Text style={accordionStyles.rank}>#{index + 1}</Text>
+          <Text style={accordionStyles.rank}>{rankLabel ?? `#${index + 1}`}</Text>
           <Text style={accordionStyles.showName} numberOfLines={1}>
             {item.name}
           </Text>

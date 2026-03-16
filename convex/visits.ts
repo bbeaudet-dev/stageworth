@@ -3,10 +3,19 @@ import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
 import { resolveImageUrls } from "./helpers";
 
-const TIER_ORDER = ["loved", "liked", "okay", "disliked"] as const;
+const TIER_ORDER = ["loved", "liked", "okay", "disliked", "unranked"] as const;
 type Tier = (typeof TIER_ORDER)[number];
+type RankedTier = Exclude<Tier, "unranked">;
 
 const tierValidator = v.union(
+  v.literal("loved"),
+  v.literal("liked"),
+  v.literal("okay"),
+  v.literal("disliked"),
+  v.literal("unranked")
+);
+
+const rankedTierValidator = v.union(
   v.literal("loved"),
   v.literal("liked"),
   v.literal("okay"),
@@ -170,7 +179,7 @@ export const createVisit = mutation({
     ),
     notes: v.optional(v.string()),
     keepCurrentRanking: v.optional(v.boolean()),
-    selectedTier: v.optional(tierValidator),
+    selectedTier: v.optional(rankedTierValidator),
     completedInsertionIndex: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -208,7 +217,7 @@ export const createVisit = mutation({
     if (!rankings) throw new Error("Rankings not found");
 
     const alreadyRanked = rankings.showIds.includes(showId);
-    const selectedTier = (args.selectedTier ?? "liked") as Tier;
+    const selectedTier = args.selectedTier as RankedTier | undefined;
     const allUserShows = await ctx.db
       .query("userShows")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -217,35 +226,55 @@ export const createVisit = mutation({
       allUserShows.map((userShow) => [userShow.showId, userShow.tier as Tier])
     );
     const existingUserShow = allUserShows.find((userShow) => userShow.showId === showId);
+    const shouldRank = selectedTier !== undefined || args.completedInsertionIndex !== undefined;
 
     if (!alreadyRanked) {
-      const defaultInsertionIndex = getBottomInsertionIndexForTier(
-        rankings.showIds,
-        tierByShowId,
-        selectedTier
-      );
-      const insertionIndex = Math.max(
-        0,
-        Math.min(
-          args.completedInsertionIndex ?? defaultInsertionIndex,
-          rankings.showIds.length
-        )
-      );
-      const nextShowIds = [...rankings.showIds];
-      nextShowIds.splice(insertionIndex, 0, showId);
+      if (!shouldRank) {
+        if (!existingUserShow) {
+          await ctx.db.insert("userShows", {
+            userId,
+            showId,
+            tier: "unranked",
+            addedAt: Date.now(),
+          });
+        } else if (existingUserShow.tier !== "unranked") {
+          await ctx.db.patch(existingUserShow._id, { tier: "unranked" });
+        }
+      } else {
+        const effectiveTier = selectedTier ?? "liked";
+        const defaultInsertionIndex = getBottomInsertionIndexForTier(
+          rankings.showIds,
+          tierByShowId,
+          effectiveTier
+        );
+        const insertionIndex = Math.max(
+          0,
+          Math.min(
+            args.completedInsertionIndex ?? defaultInsertionIndex,
+            rankings.showIds.length
+          )
+        );
+        const nextShowIds = [...rankings.showIds];
+        nextShowIds.splice(insertionIndex, 0, showId);
 
-      await ctx.db.patch(rankings._id, {
-        showIds: nextShowIds,
-      });
-      await ctx.db.insert("userShows", {
-        userId,
-        showId,
-        tier: selectedTier,
-        addedAt: Date.now(),
-      });
+        await ctx.db.patch(rankings._id, {
+          showIds: nextShowIds,
+        });
+        if (!existingUserShow) {
+          await ctx.db.insert("userShows", {
+            userId,
+            showId,
+            tier: effectiveTier,
+            addedAt: Date.now(),
+          });
+        } else if (existingUserShow.tier !== effectiveTier) {
+          await ctx.db.patch(existingUserShow._id, { tier: effectiveTier });
+        }
+      }
     } else if (args.keepCurrentRanking) {
       // Intentionally no-op for now. Ranking comparison flow arrives in issue #15.
     } else {
+      const effectiveTier = selectedTier ?? "liked";
       const nextShowIds = rankings.showIds.filter((id) => id !== showId);
       const tierByShowIdWithoutCurrent = new Map(tierByShowId);
       tierByShowIdWithoutCurrent.delete(showId);
@@ -253,7 +282,7 @@ export const createVisit = mutation({
       const defaultInsertionIndex = getBottomInsertionIndexForTier(
         nextShowIds,
         tierByShowIdWithoutCurrent,
-        selectedTier
+        effectiveTier
       );
       const insertionIndex = Math.max(
         0,
@@ -262,8 +291,8 @@ export const createVisit = mutation({
 
       nextShowIds.splice(insertionIndex, 0, showId);
       await ctx.db.patch(rankings._id, { showIds: nextShowIds });
-      if (existingUserShow && existingUserShow.tier !== selectedTier) {
-        await ctx.db.patch(existingUserShow._id, { tier: selectedTier });
+      if (existingUserShow && existingUserShow.tier !== effectiveTier) {
+        await ctx.db.patch(existingUserShow._id, { tier: effectiveTier });
       }
     }
 

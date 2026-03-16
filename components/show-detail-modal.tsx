@@ -5,7 +5,8 @@ import { VisitsList } from "@/components/show-row-accordion";
 interface ShowDetailModalProps {
   showId: Id<"shows"> | null;
   showName: string;
-  rank: number;
+  rank: number | null;
+  rankedCount: number;
   onClose: () => void;
 }
 
@@ -13,6 +14,7 @@ export function ShowDetailModal({
   showId,
   showName,
   rank,
+  rankedCount,
   onClose,
 }: ShowDetailModalProps) {
   return (
@@ -26,7 +28,9 @@ export function ShowDetailModal({
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.card}>
           <View style={styles.header}>
-            <Text style={styles.rank}>#{rank}</Text>
+            <Text style={styles.rank}>
+              {rank === null ? "Unranked" : `#${rank} / ${rankedCount}`}
+            </Text>
             <Text style={styles.title} numberOfLines={2}>
               {showName}
             </Text>

@@ -23,7 +23,8 @@ import { TheatreCloud } from "@/components/theatre-cloud";
 import { ShowDetailModal } from "@/components/show-detail-modal";
 
 type ViewMode = "list" | "cloud" | "diary";
-type RankingTier = "loved" | "liked" | "okay" | "disliked";
+type RankingTier = "loved" | "liked" | "okay" | "disliked" | "unranked";
+type RankedTier = Exclude<RankingTier, "unranked">;
 type SpecialLine = "wouldSeeAgain" | "stayedHome";
 type ListItem =
   | { key: string; kind: "show"; show: RankedShow }
@@ -38,6 +39,7 @@ const TIER_HEADERS: Record<
   liked: { label: "Liked It", color: "#2f8f46", textColor: "#fff" },
   okay: { label: "It Was Okay", color: "#e9c84f", textColor: "#111" },
   disliked: { label: "Didn't Like It", color: "#dd4b39", textColor: "#fff" },
+  unranked: { label: "Unranked", color: "#b3b3b3", textColor: "#111" },
 };
 const LINE_META: Record<SpecialLine, { label: string; color: string; arrow: string }> = {
   wouldSeeAgain: {
@@ -53,9 +55,27 @@ const LINE_META: Record<SpecialLine, { label: string; color: string; arrow: stri
 };
 
 function normalizeTier(value: string | undefined): RankingTier {
-  if (value === "loved" || value === "liked" || value === "okay" || value === "disliked") {
+  if (
+    value === "loved" ||
+    value === "liked" ||
+    value === "okay" ||
+    value === "disliked" ||
+    value === "unranked"
+  ) {
     return value;
   }
+  return "liked";
+}
+
+function inferTierAtRankPosition(
+  rankedShows: RankedShow[],
+  insertAt: number
+): RankedTier {
+  const prev = insertAt > 0 ? normalizeTier(rankedShows[insertAt - 1]?.tier) : null;
+  if (prev && prev !== "unranked") return prev;
+  const next =
+    insertAt < rankedShows.length ? normalizeTier(rankedShows[insertAt]?.tier) : null;
+  if (next && next !== "unranked") return next;
   return "liked";
 }
 
@@ -76,6 +96,8 @@ export default function MyShowsScreen() {
   const rankingsMeta = useQuery(api.rankings.get);
   const reorder = useMutation(api.rankings.reorder);
   const removeShow = useMutation(api.rankings.removeShow);
+  const rankUnrankedShow = useMutation(api.rankings.rankUnrankedShow);
+  const unrankShow = useMutation(api.rankings.unrankShow);
   const updateSpecialLinePosition = useMutation(
     api.rankings.updateSpecialLinePosition
   );
@@ -186,15 +208,66 @@ export default function MyShowsScreen() {
           (show) => show._id === movedItem.show._id
         );
         if (newPosition === -1) return;
+        const movedTier = getShowTier(movedItem.show);
+        const rankedAfterDrag = showData.filter(
+          (show) => getShowTier(show) !== "unranked" || show._id === movedItem.show._id
+        );
+        const rankPositionAfterDrag = rankedAfterDrag.findIndex(
+          (show) => show._id === movedItem.show._id
+        );
 
         if (fromPosition !== -1 && newPosition !== fromPosition) {
           setOptimisticOrder(showData);
-          mutationQueueRef.current = mutationQueueRef.current
-            .then(() => reorder({ showId: movedItem.show._id, newPosition }))
-            .then(() => undefined)
-            .catch((error) => {
-              console.error("Failed to reorder show:", error);
-            });
+          if (movedTier === "unranked") {
+            const rankedOnly = displayShows.filter(
+              (show) => getShowTier(show) !== "unranked"
+            );
+            const nextTier = inferTierAtRankPosition(rankedOnly, rankPositionAfterDrag);
+            setOptimisticTierByShowId((prev) => ({
+              ...prev,
+              [movedItem.show._id]: nextTier,
+            }));
+            mutationQueueRef.current = mutationQueueRef.current
+              .then(() =>
+                rankUnrankedShow({
+                  showId: movedItem.show._id,
+                  newPosition: rankPositionAfterDrag,
+                  tier: nextTier,
+                })
+              )
+              .then(() => undefined)
+              .catch((error) => {
+                console.error("Failed to rank unranked show:", error);
+              });
+          } else {
+            const firstUnrankedIndex = showData.findIndex(
+              (show) =>
+                show._id !== movedItem.show._id && getShowTier(show) === "unranked"
+            );
+            const droppedAfterUnranked =
+              firstUnrankedIndex !== -1 && newPosition >= firstUnrankedIndex;
+            if (droppedAfterUnranked) {
+              setOptimisticTierByShowId((prev) => ({
+                ...prev,
+                [movedItem.show._id]: "unranked",
+              }));
+              mutationQueueRef.current = mutationQueueRef.current
+                .then(() => unrankShow({ showId: movedItem.show._id }))
+                .then(() => undefined)
+                .catch((error) => {
+                  console.error("Failed to unrank show:", error);
+                });
+            } else {
+              mutationQueueRef.current = mutationQueueRef.current
+                .then(() =>
+                  reorder({ showId: movedItem.show._id, newPosition: rankPositionAfterDrag })
+                )
+                .then(() => undefined)
+                .catch((error) => {
+                  console.error("Failed to reorder show:", error);
+                });
+            }
+          }
         }
         return;
       }
@@ -220,7 +293,10 @@ export default function MyShowsScreen() {
       displayShows,
       listItems,
       reorder,
+      rankUnrankedShow,
+      unrankShow,
       updateSpecialLinePosition,
+      getShowTier,
     ]
   );
 
@@ -293,12 +369,15 @@ export default function MyShowsScreen() {
       const showIndex = listItems
         ?.slice(0, listIndex + 1)
         .filter((listItem) => listItem.kind === "show").length;
+      const tier = getShowTier(item.show);
+      const rankLabel = tier === "unranked" ? "—" : undefined;
 
       return (
         <ScaleDecorator>
           <ShowRowAccordion
             item={item.show}
             index={(showIndex ?? 1) - 1}
+            rankLabel={rankLabel}
             tierHeader={null}
             isExpanded={expandedShowId === item.show._id}
             isRemoving={pendingRemoveIds.has(item.show._id)}
@@ -314,7 +393,7 @@ export default function MyShowsScreen() {
         </ScaleDecorator>
       );
     },
-    [listItems, expandedShowId, pendingRemoveIds, handleRemoveShow]
+    [listItems, expandedShowId, pendingRemoveIds, handleRemoveShow, getShowTier]
   );
 
   return (
@@ -377,11 +456,21 @@ export default function MyShowsScreen() {
               (s) => s._id === selectedShowId
             );
             const show = idx >= 0 ? showsForDisplay[idx] : null;
+            const isUnranked = show ? getShowTier(show) === "unranked" : false;
+            const rankedCount = showsForDisplay.filter(
+              (s) => getShowTier(s) !== "unranked"
+            ).length;
+            const rank = isUnranked
+              ? null
+              : showsForDisplay
+                  .filter((s) => getShowTier(s) !== "unranked")
+                  .findIndex((s) => s._id === selectedShowId) + 1;
             return (
               <ShowDetailModal
                 showId={selectedShowId}
                 showName={show?.name ?? ""}
-                rank={idx + 1}
+                rank={rank}
+                rankedCount={rankedCount}
                 onClose={() => setSelectedShowId(null)}
               />
             );

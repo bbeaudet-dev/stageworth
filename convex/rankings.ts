@@ -3,8 +3,9 @@ import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
 import { resolveImageUrls } from "./helpers";
 
-const TIER_ORDER = ["loved", "liked", "okay", "disliked"] as const;
+const TIER_ORDER = ["loved", "liked", "okay", "disliked", "unranked"] as const;
 type Tier = (typeof TIER_ORDER)[number];
+type RankedTier = Exclude<Tier, "unranked">;
 
 function getTierRank(tier: Tier): number {
   return TIER_ORDER.indexOf(tier);
@@ -72,40 +73,78 @@ export const getRankedShows = query({
 
     if (!rankings) return [];
 
-    const shows = await Promise.all(
+    const userShows = await ctx.db
+      .query("userShows")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const userShowById = new Map(
+      userShows.map((userShow) => [userShow.showId, userShow])
+    );
+    const rankedShowIds = new Set(rankings.showIds);
+
+    const rankedShows = await Promise.all(
       rankings.showIds.map(async (showId) => {
         const show = await ctx.db.get(showId);
         if (!show) return null;
-        const [userShow, visits] = await Promise.all([
-          ctx.db
-            .query("userShows")
-            .withIndex("by_user_show", (q) =>
-              q.eq("userId", userId).eq("showId", showId)
-            )
-            .first(),
-          ctx.db
-            .query("visits")
-            .withIndex("by_user_show", (q) =>
-              q.eq("userId", userId).eq("showId", showId)
-            )
-            .collect(),
-        ]);
+        const visits = await ctx.db
+          .query("visits")
+          .withIndex("by_user_show", (q) =>
+            q.eq("userId", userId).eq("showId", showId)
+          )
+          .collect();
         return {
           ...show,
           images: await resolveImageUrls(ctx, show.images),
-          tier: userShow?.tier,
+          tier: (userShowById.get(showId)?.tier ?? "liked") as Tier,
           visitCount: visits.length,
+          isUnranked: false,
         };
       })
     );
 
-    return shows.filter(
+    const unrankedUserShows = userShows
+      .filter(
+        (userShow) =>
+          userShow.tier === "unranked" || !rankedShowIds.has(userShow.showId)
+      )
+      .sort((a, b) => b.addedAt - a.addedAt);
+
+    const unrankedShows = await Promise.all(
+      unrankedUserShows.map(async (userShow) => {
+        const show = await ctx.db.get(userShow.showId);
+        if (!show) return null;
+        const visits = await ctx.db
+          .query("visits")
+          .withIndex("by_user_show", (q) =>
+            q.eq("userId", userId).eq("showId", userShow.showId)
+          )
+          .collect();
+        return {
+          ...show,
+          images: await resolveImageUrls(ctx, show.images),
+          tier: "unranked" as const,
+          visitCount: visits.length,
+          isUnranked: true,
+        };
+      })
+    );
+
+    return [...rankedShows, ...unrankedShows].filter(
       (s): s is NonNullable<typeof s> => s !== null
     );
   },
 });
 
 const tierValidator = v.union(
+  v.literal("loved"),
+  v.literal("liked"),
+  v.literal("okay"),
+  v.literal("disliked"),
+  v.literal("unranked")
+);
+
+const rankedTierValidator = v.union(
   v.literal("loved"),
   v.literal("liked"),
   v.literal("okay"),
@@ -274,6 +313,75 @@ export const updateTier = mutation({
   },
 });
 
+export const rankUnrankedShow = mutation({
+  args: {
+    showId: v.id("shows"),
+    newPosition: v.number(),
+    tier: rankedTierValidator,
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+    const rankings = await ctx.db
+      .query("userRankings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!rankings) throw new Error("Rankings not found");
+    if (rankings.showIds.includes(args.showId)) {
+      throw new Error("Show is already ranked");
+    }
+
+    const userShow = await ctx.db
+      .query("userShows")
+      .withIndex("by_user_show", (q) =>
+        q.eq("userId", userId).eq("showId", args.showId)
+      )
+      .first();
+    if (!userShow) throw new Error("Show not found in user's list");
+
+    const clampedPosition = Math.max(
+      0,
+      Math.min(args.newPosition, rankings.showIds.length)
+    );
+    const nextShowIds = [...rankings.showIds];
+    nextShowIds.splice(clampedPosition, 0, args.showId);
+
+    await ctx.db.patch(rankings._id, { showIds: nextShowIds });
+    await ctx.db.patch(userShow._id, { tier: args.tier as RankedTier });
+
+    return { rank: clampedPosition + 1 };
+  },
+});
+
+export const unrankShow = mutation({
+  args: {
+    showId: v.id("shows"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+    const rankings = await ctx.db
+      .query("userRankings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    if (!rankings) throw new Error("Rankings not found");
+
+    if (!rankings.showIds.includes(args.showId)) return;
+
+    const nextShowIds = rankings.showIds.filter((id) => id !== args.showId);
+    await ctx.db.patch(rankings._id, { showIds: nextShowIds });
+
+    const userShow = await ctx.db
+      .query("userShows")
+      .withIndex("by_user_show", (q) =>
+        q.eq("userId", userId).eq("showId", args.showId)
+      )
+      .first();
+    if (userShow) {
+      await ctx.db.patch(userShow._id, { tier: "unranked" });
+    }
+  },
+});
+
 const specialLineValidator = v.union(
   v.literal("wouldSeeAgain"),
   v.literal("stayedHome")
@@ -309,7 +417,7 @@ export const updateSpecialLinePosition = mutation({
 
 export const getInsertionPreview = query({
   args: {
-    selectedTier: tierValidator,
+    selectedTier: rankedTierValidator,
   },
   handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
