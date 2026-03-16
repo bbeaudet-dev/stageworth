@@ -1,4 +1,5 @@
 import { useQuery } from "convex/react";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useMemo } from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -57,6 +58,7 @@ function DiaryCard({ visit }: { visit: VisitWithShow }) {
 }
 
 export function DiaryView() {
+  const tabBarHeight = useBottomTabBarHeight();
   const visits = useQuery(api.visits.listAllWithShows);
 
   const groups = useMemo(() => {
@@ -102,7 +104,7 @@ export function DiaryView() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 24 }]}
     >
       {groups.map((group) => (
         <View key={group.label} style={styles.section}>
@@ -126,7 +128,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
   },
   centered: {
     flex: 1,

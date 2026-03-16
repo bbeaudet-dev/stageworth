@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import {
   Pressable,
   StyleSheet,
@@ -80,6 +81,7 @@ function inferTierAtRankPosition(
 }
 
 export default function MyShowsScreen() {
+  const tabBarHeight = useBottomTabBarHeight();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [expandedShowId, setExpandedShowId] = useState<Id<"shows"> | null>(
     null
@@ -442,7 +444,10 @@ export default function MyShowsScreen() {
                 <Text style={styles.emptyText}>No shows ranked yet.</Text>
               </View>
             }
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: tabBarHeight + 24 },
+            ]}
           />
         </View>
       ) : (

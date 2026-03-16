@@ -1,4 +1,5 @@
 import { useQuery } from "convex/react";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useState } from "react";
 import {
   ScrollView,
@@ -87,6 +88,7 @@ function ProductionCard({ production }: { production: any }) {
 }
 
 export default function BrowseScreen() {
+  const tabBarHeight = useBottomTabBarHeight();
   const [search, setSearch] = useState("");
   const allProductions = useQuery(api.productions.listAll);
 
@@ -142,7 +144,7 @@ export default function BrowseScreen() {
 
       <ScrollView
         style={styles.list}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 24 }]}
         keyboardShouldPersistTaps="handled"
       >
         {allProductions === undefined ? (
