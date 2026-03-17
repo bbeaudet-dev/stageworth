@@ -30,6 +30,13 @@ function formatVisitDate(dateStr: string) {
   });
 }
 
+function getFirstName(name?: string | null, fallback?: string) {
+  const trimmed = name?.trim();
+  if (!trimmed) return fallback ?? "";
+  const first = trimmed.split(/\s+/)[0];
+  return first || fallback || "";
+}
+
 export default function CommunityScreen() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<FeedTab>("following");
@@ -88,7 +95,7 @@ export default function CommunityScreen() {
         ) : null}
         {!isLoading
           ? posts.map((post) => {
-              const actorLabel = post.actor.name?.trim() || post.actor.username;
+              const actorLabel = getFirstName(post.actor.name, post.actor.username);
               const location = [formatVisitDate(post.visitDate), post.theatre, post.city]
                 .filter(Boolean)
                 .join(" - ");
@@ -96,6 +103,16 @@ export default function CommunityScreen() {
                 <View key={post._id} style={styles.postCard}>
                   <View style={styles.postRow}>
                     <View style={styles.postMain}>
+                      <Pressable
+                        onPress={() =>
+                          router.push({
+                            pathname: "/user/[username]",
+                            params: { username: post.actor.username },
+                          })
+                        }
+                      >
+                        <Text style={styles.actorHandleText}>@{post.actor.username}</Text>
+                      </Pressable>
                       <Text style={styles.postTitle}>
                         <Text
                           style={styles.actorText}
@@ -231,6 +248,11 @@ const styles = StyleSheet.create({
   actorText: {
     fontWeight: "700",
     color: "#2f62d8",
+  },
+  actorHandleText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#4d4d4d",
   },
   showText: {
     fontWeight: "700",

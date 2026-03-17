@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { Stack, useRouter } from "expo-router";
+import { Redirect, Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -10,7 +10,6 @@ import { AccountSection } from "@/features/profile/components/AccountSection";
 import { authClient, useSession } from "@/lib/auth-client";
 
 export default function AccountSettingsScreen() {
-  const router = useRouter();
   const { data: session, isPending } = useSession();
   const myProfile = useQuery(api.profiles.getMyProfile);
   const updateMyProfile = useMutation(api.profiles.updateMyProfile);
@@ -26,12 +25,6 @@ export default function AccountSettingsScreen() {
     setBioDraft(myProfile.bio ?? "");
     setLocationDraft(myProfile.location ?? "");
   }, [myProfile]);
-
-  useEffect(() => {
-    if (isPending) return;
-    if (session) return;
-    router.replace("/sign-in");
-  }, [isPending, router, session]);
 
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
@@ -49,6 +42,10 @@ export default function AccountSettingsScreen() {
   const handleSignOut = async () => {
     await authClient.signOut();
   };
+
+  if (!isPending && !session) {
+    return <Redirect href="/sign-in" />;
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>

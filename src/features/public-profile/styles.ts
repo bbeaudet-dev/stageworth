@@ -18,10 +18,17 @@ export const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: "#fff",
   },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
   displayName: {
     fontSize: 24,
     fontWeight: "700",
     color: "#111",
+    flexShrink: 1,
   },
   username: {
     fontSize: 14,
@@ -77,6 +84,34 @@ export const styles = StyleSheet.create({
     color: "#222",
     fontWeight: "700",
     fontSize: 14,
+  },
+  inlineFollowButton: {
+    borderRadius: 999,
+    backgroundColor: "#1f1f1f",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inlineFollowButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  inlineSecondaryButton: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#ccc",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  inlineSecondaryButtonText: {
+    color: "#222",
+    fontWeight: "700",
+    fontSize: 12,
   },
   listRow: {
     borderRadius: 10,

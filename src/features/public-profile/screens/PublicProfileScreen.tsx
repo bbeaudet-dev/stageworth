@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { ScrollView, Text, Pressable } from "react-native";
+import { ScrollView, Text, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
@@ -15,6 +15,7 @@ export default function PublicProfileScreen() {
     api.profiles.getPublicProfileByUsername,
     username ? { username } : "skip"
   );
+  const currentUserId = useQuery(api.auth.getConvexUserIdQuery);
   const followUser = useMutation(api.social.followUser);
   const unfollowUser = useMutation(api.social.unfollowUser);
 
@@ -29,6 +30,7 @@ export default function PublicProfileScreen() {
   };
 
   const displayName = profile?.name?.trim() || profile?.username || "Profile";
+  const isOwnProfile = profile ? currentUserId === profile._id : false;
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -43,12 +45,26 @@ export default function PublicProfileScreen() {
         {profile === undefined ? <Text style={styles.loading}>Loading profile...</Text> : null}
         {profile === null ? <Text style={styles.loading}>User not found.</Text> : null}
         {profile ? (
-          <Pressable style={styles.card}>
-            <Text style={styles.displayName}>{displayName}</Text>
+          <View style={styles.card}>
+            <View style={styles.nameRow}>
+              <Text style={styles.displayName}>{displayName}</Text>
+              {!isOwnProfile ? (
+                <Pressable
+                  style={profile.viewerFollows ? styles.inlineSecondaryButton : styles.inlineFollowButton}
+                  onPress={handleFollow}
+                >
+                  <Text
+                    style={profile.viewerFollows ? styles.inlineSecondaryButtonText : styles.inlineFollowButtonText}
+                  >
+                    {profile.viewerFollows ? "Unfollow" : "Follow"}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
             <Text style={styles.username}>@{profile.username}</Text>
             {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
             {profile.location ? <Text style={styles.location}>{profile.location}</Text> : null}
-            <Pressable style={styles.countRow}>
+            <View style={styles.countRow}>
               <Pressable
                 style={styles.countButton}
                 onPress={() =>
@@ -71,20 +87,8 @@ export default function PublicProfileScreen() {
               >
                 <Text style={styles.countText}>{profile.followingCount} following</Text>
               </Pressable>
-            </Pressable>
-            {!profile.viewerIsSelf ? (
-              <Pressable
-                style={profile.viewerFollows ? styles.secondaryButton : styles.followButton}
-                onPress={handleFollow}
-              >
-                <Text
-                  style={profile.viewerFollows ? styles.secondaryButtonText : styles.followButtonText}
-                >
-                  {profile.viewerFollows ? "Following" : "Follow"}
-                </Text>
-              </Pressable>
-            ) : null}
-          </Pressable>
+            </View>
+          </View>
         ) : null}
       </ScrollView>
     </SafeAreaView>
