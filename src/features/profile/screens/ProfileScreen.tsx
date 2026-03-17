@@ -1,21 +1,22 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { Image } from "expo-image";
+import { useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ScrollView, Text, TextInput } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useProfileListsData } from "@/features/profile/hooks/useProfileListsData";
 import { styles } from "@/features/profile/styles";
 import { ListsSection } from "@/features/profile/components/ListsSection";
-import { AccountSection } from "@/features/profile/components/AccountSection";
-import { authClient, useSession } from "@/lib/auth-client";
 
 export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const params = useLocalSearchParams<{ createList?: string }>();
-  const { data: session } = useSession();
+  const myProfile = useQuery(api.profiles.getMyProfile);
   const { profileLists, visibleLists, initializeSystemLists, createCustomList, toggleVisibility } =
     useProfileListsData();
 
@@ -39,10 +40,6 @@ export default function ProfileScreen() {
     }, 40);
     return () => clearTimeout(timeout);
   }, [params.createList, router]);
-
-  const handleSignOut = async () => {
-    await authClient.signOut();
-  };
 
   const handleCreateCustomList = async () => {
     const trimmed = newListName.trim();
@@ -78,13 +75,51 @@ export default function ProfileScreen() {
     }
   };
 
+  const displayName = myProfile?.name?.trim() || myProfile?.username || "You";
+  const username = myProfile?.username ?? "";
+  const initials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part: string) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 24 }]}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Profile</Text>
+        <View style={styles.profileHeaderRow}>
+          <Text style={styles.title}>Profile</Text>
+          <Pressable
+            style={styles.menuButton}
+            onPress={() => router.push("/account-settings")}
+          >
+            <Text style={styles.menuButtonText}>☰</Text>
+          </Pressable>
+        </View>
+        <View style={styles.profileHero}>
+          {myProfile?.avatarUrl ? (
+            <Image source={{ uri: myProfile.avatarUrl }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <Text style={styles.avatarFallbackText}>{initials || "U"}</Text>
+            </View>
+          )}
+          <Text style={styles.profileName}>{displayName}</Text>
+          {username ? <Text style={styles.profileUsername}>@{username}</Text> : null}
+          <View style={styles.profileCountsRow}>
+            <Text style={styles.profileCountText}>
+              {myProfile?.followerCount ?? 0} followers
+            </Text>
+            <Text style={styles.profileCountText}>
+              {myProfile?.followingCount ?? 0} following
+            </Text>
+          </View>
+          {myProfile?.bio ? <Text style={styles.profileBio}>{myProfile.bio}</Text> : null}
+          {myProfile?.location ? <Text style={styles.profileLocation}>{myProfile.location}</Text> : null}
+        </View>
         <ListsSection
           isShowingCreateInput={isShowingCreateInput}
           setIsShowingCreateInput={setIsShowingCreateInput}
@@ -109,11 +144,6 @@ export default function ProfileScreen() {
             })
           }
           errorMessage={errorMessage}
-        />
-        <AccountSection
-          email={session?.user?.email ?? "Unknown"}
-          name={session?.user?.name ?? undefined}
-          onSignOut={handleSignOut}
         />
       </ScrollView>
     </SafeAreaView>

@@ -61,6 +61,9 @@ export default defineSchema({
     email: v.string(),
     name: v.optional(v.string()),
     username: v.string(),
+    bio: v.optional(v.string()),
+    location: v.optional(v.string()),
+    avatarImage: v.optional(v.id("_storage")),
     betterAuthUserId: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -147,4 +150,29 @@ export default defineSchema({
     .index("by_user_show", ["userId", "showId"])
     .index("by_user", ["userId"])
     .index("by_user_production", ["userId", "productionId"]),
+
+  follows: defineTable({
+    followerUserId: v.id("users"),
+    followingUserId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_follower", ["followerUserId"])
+    .index("by_following", ["followingUserId"])
+    .index("by_follower_following", ["followerUserId", "followingUserId"]),
+
+  activityPosts: defineTable({
+    actorUserId: v.id("users"),
+    type: v.union(v.literal("visit_created")),
+    visitId: v.id("visits"),
+    showId: v.id("shows"),
+    productionId: v.optional(v.id("productions")),
+    visitDate: v.string(),
+    notes: v.optional(v.string()),
+    city: v.optional(v.string()),
+    theatre: v.optional(v.string()),
+    rankAtPost: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_createdAt", ["createdAt"])
+    .index("by_actor_createdAt", ["actorUserId", "createdAt"]),
 });

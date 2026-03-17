@@ -216,6 +216,7 @@ export const createVisit = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();
     if (!rankings) throw new Error("Rankings not found");
+    let finalRankingShowIds = [...rankings.showIds];
 
     const alreadyRanked = rankings.showIds.includes(showId);
     const selectedTier = args.selectedTier as RankedTier | undefined;
@@ -261,6 +262,7 @@ export const createVisit = mutation({
         await ctx.db.patch(rankings._id, {
           showIds: nextShowIds,
         });
+        finalRankingShowIds = nextShowIds;
         if (!existingUserShow) {
           await ctx.db.insert("userShows", {
             userId,
@@ -292,6 +294,7 @@ export const createVisit = mutation({
 
       nextShowIds.splice(insertionIndex, 0, showId);
       await ctx.db.patch(rankings._id, { showIds: nextShowIds });
+      finalRankingShowIds = nextShowIds;
       if (existingUserShow && existingUserShow.tier !== effectiveTier) {
         await ctx.db.patch(existingUserShow._id, { tier: effectiveTier });
       }
@@ -306,6 +309,22 @@ export const createVisit = mutation({
       theatre: args.theatre,
       district: args.district,
       notes: args.notes,
+    });
+
+    const rankingIndex = finalRankingShowIds.indexOf(showId);
+    const trimmedNotes = args.notes?.trim();
+    await ctx.db.insert("activityPosts", {
+      actorUserId: userId,
+      type: "visit_created",
+      visitId,
+      showId,
+      productionId: args.productionId,
+      visitDate: args.date,
+      notes: trimmedNotes && trimmedNotes.length > 0 ? trimmedNotes : undefined,
+      city: args.city,
+      theatre: args.theatre,
+      rankAtPost: rankingIndex === -1 ? undefined : rankingIndex + 1,
+      createdAt: Date.now(),
     });
 
     await removeShowFromSystemLists(ctx, userId, showId, [

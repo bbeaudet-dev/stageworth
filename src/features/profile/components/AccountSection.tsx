@@ -4,19 +4,19 @@ import { styles } from "@/features/profile/styles";
 
 export function AccountSection({
   email,
-  name,
+  username,
   onSignOut,
 }: {
   email: string;
-  name?: string;
+  username?: string;
   onSignOut: () => void;
 }) {
   return (
     <>
       <View style={styles.info}>
         <Text style={styles.label}>Signed in as</Text>
-        <Text style={styles.email}>{email}</Text>
-        {name ? <Text style={styles.name}>{name}</Text> : null}
+        {username ? <Text style={styles.email}>@{username}</Text> : null}
+        <Text style={styles.name}>{email}</Text>
       </View>
 
       <Pressable style={styles.signOutButton} onPress={onSignOut}>
