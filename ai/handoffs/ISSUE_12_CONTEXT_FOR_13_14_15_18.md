@@ -1,4 +1,4 @@
-# Issue #12 Handoff Context (for #13, #14, #15, #18)
+¨# Issue #12 Handoff Context (for #13, #14, #15, #18)
 
 ## Objective
 - Capture the outcomes of Issue #12 implementation and summarize the decisions that directly affect upcoming work, especially issues `#13`, `#14`, `#15`, and `#18`.

@@ -5,6 +5,13 @@ import {
   internalQuery,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import {
+  isLikelyLowQualityShowName,
+  mapExternalTypeToShowType,
+  normalizeShowName,
+  type ShowType,
+} from "./showNormalization";
 
 type ProductionType =
   | "original"
@@ -309,8 +316,6 @@ const BROADWAY_PRODUCTIONS: ProductionEntry[] = [
 
 const PORTFOLIO_BASE_URL = "https://benbeaudet.com";
 
-type ShowType = "musical" | "play" | "opera" | "dance" | "other";
-
 interface ShowEntry {
   name: string;
   type: ShowType;
@@ -415,11 +420,26 @@ export const insertShow = internalMutation({
     isUserCreated: v.boolean(),
   },
   handler: async (ctx, args) => {
+    const normalizedName = normalizeShowName(args.name);
+    if (!normalizedName) {
+      throw new Error("Show name is required");
+    }
+
+    const existing = await ctx.db
+      .query("shows")
+      .withIndex("by_normalized_name", (q) =>
+        q.eq("normalizedName", normalizedName)
+      )
+      .first();
+    if (existing) return existing._id;
+
     return await ctx.db.insert("shows", {
       name: args.name,
+      normalizedName,
       type: args.type,
       images: [args.storageId],
       isUserCreated: args.isUserCreated,
+      externalSource: "seed",
     });
   },
 });
@@ -428,6 +448,19 @@ export const insertShow = internalMutation({
 export const findOrCreateShow = internalMutation({
   args: { name: v.string(), type: showTypeValidator },
   handler: async (ctx, args) => {
+    const normalizedName = normalizeShowName(args.name);
+    if (!normalizedName) {
+      throw new Error("Show name is required");
+    }
+
+    const existingByNormalizedName = await ctx.db
+      .query("shows")
+      .withIndex("by_normalized_name", (q) =>
+        q.eq("normalizedName", normalizedName)
+      )
+      .first();
+    if (existingByNormalizedName) return existingByNormalizedName._id;
+
     const existing = await ctx.db
       .query("shows")
       .withIndex("by_name", (q) => q.eq("name", args.name))
@@ -435,10 +468,223 @@ export const findOrCreateShow = internalMutation({
     if (existing) return existing._id;
     return await ctx.db.insert("shows", {
       name: args.name,
+      normalizedName,
       type: args.type,
       images: [],
       isUserCreated: false,
+      externalSource: "seed",
     });
+  },
+});
+
+const wikidataImportEntryValidator = v.object({
+  name: v.string(),
+  wikidataId: v.string(),
+  type: v.optional(showTypeValidator),
+  rawType: v.optional(v.string()),
+  sourceConfidence: v.optional(v.number()),
+});
+
+type ImportReason =
+  | "empty_name"
+  | "invalid_wikidata_id"
+  | "low_quality_name"
+  | "unmappable_type"
+  | "duplicate_external"
+  | "duplicate_normalized";
+
+function addReasonCount(reasonCounts: Record<string, number>, reason: ImportReason) {
+  reasonCounts[reason] = (reasonCounts[reason] ?? 0) + 1;
+}
+
+// Validated bulk import for historical shows from Wikidata exports.
+// Safe to re-run: duplicate checks happen by external ID and normalized name.
+// Run: npx convex run seed:importWikidataShows '{"entries":[...], "dryRun": true}'
+export const importWikidataShows = internalMutation({
+  args: {
+    entries: v.array(wikidataImportEntryValidator),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const reasonCounts: Record<string, number> = {};
+    const possibleDuplicates: Array<{
+      incomingName: string;
+      existingName: string;
+      wikidataId: string;
+      existingShowId: string;
+    }> = [];
+
+    type ShowLookup = {
+      _id: Id<"shows">;
+      name: string;
+      normalizedName: string;
+      externalSource?: string;
+      externalId?: string;
+    };
+
+    const existingShows = await ctx.db.query("shows").collect();
+    const existingByExternal = new Map<string, ShowLookup>();
+    const existingByNormalized = new Map<string, ShowLookup>();
+    const batchByExternal = new Map<string, { name: string }>();
+    const batchByNormalized = new Map<string, { name: string }>();
+
+    for (const show of existingShows) {
+      if (show.externalSource && show.externalId) {
+        existingByExternal.set(`${show.externalSource}:${show.externalId}`, show);
+      }
+      existingByNormalized.set(show.normalizedName, show);
+    }
+
+    let inserted = 0;
+    let patched = 0;
+    let quarantined = 0;
+    let skipped = 0;
+
+    for (const entry of args.entries) {
+      const normalizedName = normalizeShowName(entry.name);
+      if (!normalizedName) {
+        quarantined += 1;
+        addReasonCount(reasonCounts, "empty_name");
+        continue;
+      }
+      if (!/^Q\d+$/.test(entry.wikidataId)) {
+        quarantined += 1;
+        addReasonCount(reasonCounts, "invalid_wikidata_id");
+        continue;
+      }
+      if (isLikelyLowQualityShowName(entry.name)) {
+        quarantined += 1;
+        addReasonCount(reasonCounts, "low_quality_name");
+        continue;
+      }
+
+      const mappedType =
+        entry.type ?? (entry.rawType ? mapExternalTypeToShowType(entry.rawType) : null);
+      if (!mappedType) {
+        quarantined += 1;
+        addReasonCount(reasonCounts, "unmappable_type");
+        continue;
+      }
+
+      const externalKey = `wikidata:${entry.wikidataId}`;
+      const batchExternal = batchByExternal.get(externalKey);
+      if (batchExternal) {
+        skipped += 1;
+        addReasonCount(reasonCounts, "duplicate_external");
+        possibleDuplicates.push({
+          incomingName: entry.name,
+          existingName: batchExternal.name,
+          wikidataId: entry.wikidataId,
+          existingShowId: "batch",
+        });
+        continue;
+      }
+
+      const existingExternal = existingByExternal.get(externalKey);
+      if (existingExternal) {
+        skipped += 1;
+        addReasonCount(reasonCounts, "duplicate_external");
+        continue;
+      }
+
+      const existingNormalized = existingByNormalized.get(normalizedName);
+      if (existingNormalized) {
+        skipped += 1;
+        addReasonCount(reasonCounts, "duplicate_normalized");
+        possibleDuplicates.push({
+          incomingName: entry.name,
+          existingName: existingNormalized.name,
+          wikidataId: entry.wikidataId,
+          existingShowId: existingNormalized._id,
+        });
+
+        if (
+          !dryRun &&
+          !existingNormalized.externalSource &&
+          !existingNormalized.externalId
+        ) {
+          const patchData: {
+            normalizedName: string;
+            externalSource: string;
+            externalId: string;
+            sourceConfidence?: number;
+          } = {
+            normalizedName,
+            externalSource: "wikidata",
+            externalId: entry.wikidataId,
+          };
+          if (entry.sourceConfidence !== undefined) {
+            patchData.sourceConfidence = Math.max(
+              0,
+              Math.min(1, entry.sourceConfidence)
+            );
+          }
+
+          await ctx.db.patch(existingNormalized._id, {
+            ...patchData,
+          });
+          existingNormalized.externalSource = "wikidata";
+          existingNormalized.externalId = entry.wikidataId;
+          existingNormalized.normalizedName = normalizedName;
+          patched += 1;
+          existingByExternal.set(externalKey, existingNormalized);
+        }
+        continue;
+      }
+
+      const batchNormalized = batchByNormalized.get(normalizedName);
+      if (batchNormalized) {
+        skipped += 1;
+        addReasonCount(reasonCounts, "duplicate_normalized");
+        possibleDuplicates.push({
+          incomingName: entry.name,
+          existingName: batchNormalized.name,
+          wikidataId: entry.wikidataId,
+          existingShowId: "batch",
+        });
+        continue;
+      }
+
+      if (!dryRun) {
+        const sourceConfidence =
+          entry.sourceConfidence !== undefined
+            ? Math.max(0, Math.min(1, entry.sourceConfidence))
+            : undefined;
+        const createdId = await ctx.db.insert("shows", {
+          name: entry.name.trim(),
+          normalizedName,
+          type: mappedType,
+          images: [],
+          isUserCreated: false,
+          externalSource: "wikidata",
+          externalId: entry.wikidataId,
+          sourceConfidence,
+        });
+
+        const created = await ctx.db.get(createdId);
+        if (created) {
+          existingByExternal.set(externalKey, created);
+          existingByNormalized.set(normalizedName, created);
+        }
+      }
+      batchByExternal.set(externalKey, { name: entry.name.trim() });
+      batchByNormalized.set(normalizedName, {
+        name: entry.name.trim(),
+      });
+      inserted += 1;
+    }
+
+    return {
+      dryRun,
+      processed: args.entries.length,
+      inserted,
+      patched,
+      skipped,
+      quarantined,
+      reasonCounts,
+      possibleDuplicates,
+    };
   },
 });
 
@@ -700,5 +946,370 @@ export const populateShows = internalAction({
     }
 
     return { populated: count, errors };
+  },
+});
+
+function dedupeShowIdList(ids: Id<"shows">[]): Id<"shows">[] {
+  const seen = new Set<string>();
+  const out: Id<"shows">[] = [];
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+async function getShowByName(ctx: any, name: string) {
+  return ctx.db
+    .query("shows")
+    .withIndex("by_name", (q: any) => q.eq("name", name))
+    .first();
+}
+
+async function mergeShowIntoCanonical(
+  ctx: any,
+  sourceShowId: Id<"shows">,
+  targetShowId: Id<"shows">
+) {
+  // productions.showId
+  const sourceProductions = await ctx.db
+    .query("productions")
+    .withIndex("by_show", (q: any) => q.eq("showId", sourceShowId))
+    .collect();
+  for (const production of sourceProductions) {
+    const existingTargetProduction = await ctx.db
+      .query("productions")
+      .withIndex("by_show", (q: any) => q.eq("showId", targetShowId))
+      .filter((q: any) => q.eq(q.field("theatre"), production.theatre))
+      .first();
+    if (existingTargetProduction) {
+      await ctx.db.delete(production._id);
+    } else {
+      await ctx.db.patch(production._id, { showId: targetShowId });
+    }
+  }
+
+  // visits.showId
+  const visits = await ctx.db.query("visits").collect();
+  for (const visit of visits) {
+    if (visit.showId === sourceShowId) {
+      await ctx.db.patch(visit._id, { showId: targetShowId });
+    }
+  }
+
+  // userShows.showId
+  const sourceUserShows = await ctx.db
+    .query("userShows")
+    .collect();
+  for (const userShow of sourceUserShows) {
+    if (userShow.showId !== sourceShowId) continue;
+    const targetUserShow = await ctx.db
+      .query("userShows")
+      .withIndex("by_user_show", (q: any) =>
+        q.eq("userId", userShow.userId).eq("showId", targetShowId)
+      )
+      .first();
+    if (targetUserShow) {
+      await ctx.db.delete(userShow._id);
+    } else {
+      await ctx.db.patch(userShow._id, { showId: targetShowId });
+    }
+  }
+
+  // userRankings.showIds
+  const rankings = await ctx.db.query("userRankings").collect();
+  for (const ranking of rankings) {
+    if (!ranking.showIds.includes(sourceShowId)) continue;
+    const remapped = ranking.showIds.map((id: Id<"shows">) =>
+      id === sourceShowId ? targetShowId : id
+    );
+    await ctx.db.patch(ranking._id, { showIds: dedupeShowIdList(remapped) });
+  }
+
+  // userLists.showIds
+  const lists = await ctx.db.query("userLists").collect();
+  for (const list of lists) {
+    if (!list.showIds.includes(sourceShowId)) continue;
+    const remapped = list.showIds.map((id: Id<"shows">) =>
+      id === sourceShowId ? targetShowId : id
+    );
+    await ctx.db.patch(list._id, { showIds: dedupeShowIdList(remapped) });
+  }
+
+  // activityPosts.showId
+  const activityPosts = await ctx.db.query("activityPosts").collect();
+  for (const post of activityPosts) {
+    if (post.showId === sourceShowId) {
+      await ctx.db.patch(post._id, { showId: targetShowId });
+    }
+  }
+
+  await ctx.db.delete(sourceShowId);
+}
+
+async function hasShowReferences(ctx: any, showId: Id<"shows">) {
+  const [productions, visits, userShows, rankings, lists, posts] = await Promise.all([
+    ctx.db
+      .query("productions")
+      .withIndex("by_show", (q: any) => q.eq("showId", showId))
+      .first(),
+    ctx.db.query("visits").collect(),
+    ctx.db.query("userShows").collect(),
+    ctx.db.query("userRankings").collect(),
+    ctx.db.query("userLists").collect(),
+    ctx.db.query("activityPosts").collect(),
+  ]);
+
+  if (productions) return true;
+  if (visits.some((v: any) => v.showId === showId)) return true;
+  if (userShows.some((u: any) => u.showId === showId)) return true;
+  if (rankings.some((r: any) => r.showIds.includes(showId))) return true;
+  if (lists.some((l: any) => l.showIds.includes(showId))) return true;
+  if (posts.some((p: any) => p.showId === showId)) return true;
+  return false;
+}
+
+// Cleanup helper for imported catalog noise and known title merges.
+// Run:
+// npx convex run seed:cleanupShowCatalog '{"canonicalName":"SIX: The Musical","aliasNames":["Six"],"removeNames":["balugrastim"]}'
+export const cleanupShowCatalog = internalMutation({
+  args: {
+    canonicalName: v.string(),
+    aliasNames: v.array(v.string()),
+    removeNames: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const merged: string[] = [];
+    const removed: string[] = [];
+    const skipped: string[] = [];
+
+    const canonical = await getShowByName(ctx, args.canonicalName);
+    if (!canonical) {
+      throw new Error(`Canonical show not found: ${args.canonicalName}`);
+    }
+
+    for (const aliasName of args.aliasNames) {
+      const alias = await getShowByName(ctx, aliasName);
+      if (!alias) {
+        skipped.push(`${aliasName} (not found)`);
+        continue;
+      }
+      if (alias._id === canonical._id) {
+        skipped.push(`${aliasName} (same as canonical)`);
+        continue;
+      }
+      await mergeShowIntoCanonical(ctx, alias._id, canonical._id);
+      merged.push(aliasName);
+    }
+
+    for (const name of args.removeNames) {
+      const show = await getShowByName(ctx, name);
+      if (!show) {
+        skipped.push(`${name} (not found)`);
+        continue;
+      }
+      const referenced = await hasShowReferences(ctx, show._id);
+      if (referenced) {
+        skipped.push(`${name} (has references)`);
+        continue;
+      }
+      await ctx.db.delete(show._id);
+      removed.push(name);
+    }
+
+    return { canonical: canonical.name, merged, removed, skipped };
+  },
+});
+
+function stripGenericTypeTag(name: string): string {
+  return name
+    .replace(/\s*\((musical|play|opera|operetta|revue|film)\)\s*$/i, "")
+    .trim();
+}
+
+interface CleanupDecision {
+  showId: Id<"shows">;
+  oldName: string;
+  newName: string;
+  type: string;
+  action: "rename" | "keep_disambiguated";
+}
+
+function buildShowTitleCleanupDecisions(shows: any[]) {
+  const byId = new Map<string, any>(shows.map((s) => [s._id, s]));
+  const strippedById = new Map<string, string>();
+  for (const show of shows) {
+    strippedById.set(show._id, stripGenericTypeTag(show.name));
+  }
+
+  const strippedNameToTypes = new Map<string, Set<string>>();
+  for (const show of shows) {
+    const stripped = strippedById.get(show._id)!;
+    if (!strippedNameToTypes.has(stripped)) {
+      strippedNameToTypes.set(stripped, new Set<string>());
+    }
+    strippedNameToTypes.get(stripped)!.add(show.type);
+  }
+
+  const decisions: CleanupDecision[] = [];
+  for (const show of shows) {
+    const stripped = strippedById.get(show._id)!;
+    if (stripped === show.name) continue;
+    const typeSet = strippedNameToTypes.get(stripped) ?? new Set([show.type]);
+    const hasCrossTypeCollision = typeSet.size > 1;
+    if (hasCrossTypeCollision) {
+      decisions.push({
+        showId: show._id,
+        oldName: show.name,
+        newName: show.name,
+        type: show.type,
+        action: "keep_disambiguated",
+      });
+    } else {
+      decisions.push({
+        showId: show._id,
+        oldName: show.name,
+        newName: stripped,
+        type: show.type,
+        action: "rename",
+      });
+    }
+  }
+
+  const decisionById = new Map<string, CleanupDecision>();
+  for (const d of decisions) {
+    decisionById.set(d.showId, d);
+  }
+
+  const finalNameById = new Map<string, string>();
+  for (const show of shows) {
+    const decision = decisionById.get(show._id);
+    finalNameById.set(show._id, decision ? decision.newName : show.name);
+  }
+
+  const mergeGroups = new Map<string, any[]>();
+  for (const show of shows) {
+    const finalName = finalNameById.get(show._id)!;
+    const key = `${show.type}::${finalName.toLowerCase()}`;
+    if (!mergeGroups.has(key)) mergeGroups.set(key, []);
+    mergeGroups.get(key)!.push(show);
+  }
+
+  const mergePlans: Array<{
+    canonicalShowId: Id<"shows">;
+    canonicalName: string;
+    sourceShowIds: Id<"shows">[];
+    sourceNames: string[];
+    type: string;
+  }> = [];
+
+  for (const group of mergeGroups.values()) {
+    if (group.length <= 1) continue;
+    const sorted = [...group].sort((a, b) => a._creationTime - b._creationTime);
+    const canonical = sorted[0];
+    const sources = sorted.slice(1);
+    mergePlans.push({
+      canonicalShowId: canonical._id,
+      canonicalName: finalNameById.get(canonical._id)!,
+      sourceShowIds: sources.map((s) => s._id),
+      sourceNames: sources.map((s) => s.name),
+      type: canonical.type,
+    });
+  }
+
+  return {
+    decisions,
+    mergePlans,
+    finalNameById,
+    byId,
+  };
+}
+
+// Dry-run cleanup preview for generic "(musical)/(play)/(opera)/(revue)" suffixes.
+// Run: npx convex run seed:previewShowTitleCleanup
+export const previewShowTitleCleanup = internalQuery({
+  args: {
+    sampleLimit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const shows = await ctx.db.query("shows").collect();
+    const { decisions, mergePlans } = buildShowTitleCleanupDecisions(shows);
+
+    const renameDecisions = decisions.filter((d) => d.action === "rename");
+    const keepDisambiguated = decisions.filter(
+      (d) => d.action === "keep_disambiguated"
+    );
+    const sampleLimit = args.sampleLimit ?? 30;
+
+    return {
+      totalShows: shows.length,
+      decisionsTotal: decisions.length,
+      renameCount: renameDecisions.length,
+      keepDisambiguatedCount: keepDisambiguated.length,
+      mergeGroupCount: mergePlans.length,
+      mergeSourceCount: mergePlans.reduce(
+        (acc, group) => acc + group.sourceShowIds.length,
+        0
+      ),
+      renameSamples: renameDecisions.slice(0, sampleLimit),
+      keepDisambiguatedSamples: keepDisambiguated.slice(0, sampleLimit),
+      mergeSamples: mergePlans.slice(0, sampleLimit),
+    };
+  },
+});
+
+// Apply cleanup/merge for generic "(musical)/(play)/(opera)/(revue)" suffixes.
+// Run: npx convex run seed:applyShowTitleCleanup
+export const applyShowTitleCleanup = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const shows = await ctx.db.query("shows").collect();
+    const { decisions, mergePlans, finalNameById, byId } =
+      buildShowTitleCleanupDecisions(shows);
+
+    for (const plan of mergePlans) {
+      for (const sourceShowId of plan.sourceShowIds) {
+        await mergeShowIntoCanonical(ctx, sourceShowId, plan.canonicalShowId);
+      }
+    }
+
+    const mergedSourceIds = new Set<string>(
+      mergePlans.flatMap((p) => p.sourceShowIds.map((id) => String(id)))
+    );
+
+    let renamed = 0;
+    let normalizedPatched = 0;
+    for (const [showId, finalName] of finalNameById.entries()) {
+      if (mergedSourceIds.has(showId)) continue;
+      const show = byId.get(showId);
+      if (!show) continue;
+      const normalizedName = normalizeShowName(finalName);
+      const patch: { name?: string; normalizedName?: string } = {};
+      if (show.name !== finalName) {
+        patch.name = finalName;
+        renamed += 1;
+      }
+      if (show.normalizedName !== normalizedName) {
+        patch.normalizedName = normalizedName;
+        normalizedPatched += 1;
+      }
+      if (patch.name !== undefined || patch.normalizedName !== undefined) {
+        await ctx.db.patch(show._id, patch);
+      }
+    }
+
+    const keepDisambiguatedCount = decisions.filter(
+      (d) => d.action === "keep_disambiguated"
+    ).length;
+
+    return {
+      totalShowsAnalyzed: shows.length,
+      mergedGroups: mergePlans.length,
+      mergedSourceRows: mergedSourceIds.size,
+      renamed,
+      normalizedPatched,
+      keepDisambiguatedCount,
+    };
   },
 });

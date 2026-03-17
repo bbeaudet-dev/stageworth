@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
 import { resolveImageUrls } from "./helpers";
 import { removeShowFromSystemLists } from "./listRules";
+import { normalizeShowName } from "./showNormalization";
 
 const TIER_ORDER = ["loved", "liked", "okay", "disliked", "unranked"] as const;
 type Tier = (typeof TIER_ORDER)[number];
@@ -201,12 +202,29 @@ export const createVisit = mutation({
     let showId = args.showId;
 
     if (!showId && trimmedCustomShowName) {
-      showId = await ctx.db.insert("shows", {
-        name: trimmedCustomShowName,
-        type: "other",
-        images: [],
-        isUserCreated: true,
-      });
+      const normalizedName = normalizeShowName(trimmedCustomShowName);
+      if (!normalizedName) {
+        throw new Error("Show name is required");
+      }
+
+      const existing = await ctx.db
+        .query("shows")
+        .withIndex("by_normalized_name", (q) =>
+          q.eq("normalizedName", normalizedName)
+        )
+        .first();
+
+      if (existing) {
+        showId = existing._id;
+      } else {
+        showId = await ctx.db.insert("shows", {
+          name: trimmedCustomShowName,
+          normalizedName,
+          type: "other",
+          images: [],
+          isUserCreated: true,
+        });
+      }
     }
 
     if (!showId) throw new Error("Unable to resolve show");

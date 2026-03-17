@@ -4,6 +4,7 @@ import { v } from "convex/values";
 export default defineSchema({
   shows: defineTable({
     name: v.string(),
+    normalizedName: v.string(),
     type: v.union(
       v.literal("musical"),
       v.literal("play"),
@@ -14,7 +15,13 @@ export default defineSchema({
     subtype: v.optional(v.string()),
     images: v.array(v.id("_storage")),
     isUserCreated: v.boolean(),
-  }).index("by_name", ["name"]),
+    externalSource: v.optional(v.string()),
+    externalId: v.optional(v.string()),
+    sourceConfidence: v.optional(v.number()),
+  })
+    .index("by_name", ["name"])
+    .index("by_normalized_name", ["normalizedName"])
+    .index("by_external_source_id", ["externalSource", "externalId"]),
 
   // A specific physical run of a show at a specific venue.
   // e.g. "Hamilton, original Broadway, Richard Rodgers Theatre, Jul 2015 – Jan 2020"
