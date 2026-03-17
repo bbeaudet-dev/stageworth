@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireConvexUserId } from "./auth";
+import { getConvexUserId, requireConvexUserId } from "./auth";
 
 const MAX_BIO_LENGTH = 280;
 const MAX_LOCATION_LENGTH = 80;
@@ -62,7 +62,8 @@ async function getPublicProfileData(
 export const getMyProfile = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await requireConvexUserId(ctx);
+    const userId = await getConvexUserId(ctx);
+    if (!userId) return null;
     return await getPublicProfileData(ctx, userId, userId);
   },
 });
@@ -79,7 +80,7 @@ export const getPublicProfileByUsername = query({
       .first();
     if (!user) return null;
 
-    const viewerUserId = await requireConvexUserId(ctx);
+    const viewerUserId = await getConvexUserId(ctx);
     return await getPublicProfileData(ctx, user._id, viewerUserId);
   },
 });
@@ -87,7 +88,7 @@ export const getPublicProfileByUsername = query({
 export const getPublicProfileByUserId = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    const viewerUserId = await requireConvexUserId(ctx);
+    const viewerUserId = await getConvexUserId(ctx);
     return await getPublicProfileData(ctx, args.userId, viewerUserId);
   },
 });
