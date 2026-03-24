@@ -1,6 +1,7 @@
+import { Image } from "expo-image";
 import { Pressable, Text, View } from "react-native";
 
-import { formatDate, daysUntil } from "@/features/browse/logic/date";
+import { daysUntil } from "@/features/browse/logic/date";
 import { styles } from "@/features/browse/styles";
 import type { ProductionWithShow } from "@/features/browse/types";
 import { getProductionStatus } from "@/utils/productions";
@@ -24,13 +25,7 @@ export function ProductionCard({
   const status = getProductionStatus(production);
   const badge = STATUS_BADGE[status] ?? STATUS_BADGE.closed;
   const show = production.show;
-
-  const startDate = production.previewDate ?? production.openingDate;
-  const dateRange = startDate
-    ? production.closingDate
-      ? `${formatDate(startDate)} – ${formatDate(production.closingDate)}`
-      : `From ${formatDate(startDate)}`
-    : null;
+  const image = show?.images?.[0];
 
   const closingWarning = (() => {
     if (!production.closingDate || status === "closed") return null;
@@ -44,39 +39,33 @@ export function ProductionCard({
 
   return (
     <Pressable
-      style={[
-        styles.card,
-        {
-          backgroundColor: c.surfaceElevated,
-        },
-      ]}
+      style={[styles.playbillCard, { backgroundColor: c.surfaceElevated }]}
       onPress={onPress}
     >
-      <View style={styles.cardHeader}>
-        <View style={styles.cardTitles}>
-          <Text style={[styles.showName, { color: c.text }]} numberOfLines={1}>
-            {show?.name ?? "Unknown Show"}
-          </Text>
-          <Text style={[styles.theatre, { color: c.mutedText }]} numberOfLines={1}>
-            {production.theatre}
+      {image ? (
+        <Image source={{ uri: image }} style={styles.playbillImage} contentFit="cover" />
+      ) : (
+        <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
+          <Text style={[styles.playbillFallbackText, { color: c.mutedText }]} numberOfLines={4}>
+            {show?.name ?? ""}
           </Text>
         </View>
-        <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-          <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
-        </View>
-      </View>
-      {(dateRange || closingWarning) && (
-        <View style={styles.cardFooter}>
-          {dateRange && (
-            <Text style={[styles.dateRange, { color: c.mutedText }]}>{dateRange}</Text>
-          )}
-          {closingWarning && (
+      )}
+      <View style={styles.playbillInfo}>
+        <Text style={[styles.playbillShowName, { color: c.text }]} numberOfLines={2}>
+          {show?.name ?? "Unknown Show"}
+        </Text>
+        <View style={styles.playbillBadgeRow}>
+          <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+            <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
+          </View>
+          {closingWarning ? (
             <View style={styles.closingPill}>
               <Text style={styles.closingText}>{closingWarning}</Text>
             </View>
-          )}
+          ) : null}
         </View>
-      )}
+      </View>
     </Pressable>
   );
 }

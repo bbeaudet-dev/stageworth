@@ -10,6 +10,7 @@ export type ProductionWithShow = {
   show?: {
     _id?: Id<"shows">;
     name?: string;
+    images?: string[];
   };
 };
 

@@ -92,54 +92,69 @@ export const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
-  card: {
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    gap: 8,
-  },
-  cardHeader: {
+  gridRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 10,
+    gap: 8,
+    marginBottom: 8,
   },
-  cardTitles: { flex: 1, gap: 3 },
-  showName: {
-    fontSize: 16,
-    fontWeight: "700",
+  gridPlaceholder: {
+    flex: 1,
   },
-  theatre: {
+  playbillCard: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  playbillImage: {
+    width: "100%",
+    aspectRatio: 2 / 3,
+  },
+  playbillFallback: {
+    width: "100%",
+    aspectRatio: 2 / 3,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  playbillFallbackText: {
     fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  playbillInfo: {
+    padding: 5,
+    gap: 3,
+  },
+  playbillShowName: {
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 14,
+  },
+  playbillBadgeRow: {
+    flexDirection: "row",
+    gap: 3,
+    flexWrap: "wrap",
   },
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    flexShrink: 0,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
     alignSelf: "flex-start",
   },
   badgeText: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: "700",
-  },
-  cardFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  dateRange: {
-    fontSize: 12,
   },
   closingPill: {
     backgroundColor: "#fee2e2",
-    paddingHorizontal: 7,
+    paddingHorizontal: 5,
     paddingVertical: 2,
-    borderRadius: 5,
+    borderRadius: 4,
+    alignSelf: "flex-start",
   },
   closingText: {
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 9,
+    fontWeight: "700",
     color: "#b91c1c",
   },
 });
