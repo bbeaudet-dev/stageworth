@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/convex/_generated/api";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 
 type FeedTab = "following" | "global";
 
@@ -51,6 +52,7 @@ export default function CommunityScreen() {
     api.community.getGlobalFeed,
     selectedTab === "global" ? { limit: 40 } : "skip"
   );
+  const unreadCount = useQuery(api.notifications.getUnreadCount) ?? 0;
 
   const posts = useMemo(
     () => (selectedTab === "following" ? (followingFeed ?? []) : (globalFeed ?? [])),
@@ -82,10 +84,29 @@ export default function CommunityScreen() {
   const posterFallbackTextColor = theme === "dark" ? "#a1a1aa" : "#888";
   const emptyTextColor = theme === "dark" ? "#9ca3af" : "#808080";
 
+  const bellColor = theme === "dark" ? "#d1d5f9" : "#333";
+  const badgeBg = Colors[theme].accent;
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: primaryTextColor }]}>Community</Text>
+        <View style={styles.headerTop}>
+          <Text style={[styles.title, { color: primaryTextColor }]}>Community</Text>
+          <Pressable
+            onPress={() => router.push("/notifications")}
+            style={styles.bellButton}
+            hitSlop={10}
+          >
+            <IconSymbol name="bell.fill" size={22} color={bellColor} />
+            {unreadCount > 0 && (
+              <View style={[styles.badge, { backgroundColor: badgeBg }]}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 99 ? "99+" : String(unreadCount)}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
         <View style={styles.segmentRow}>
           <Pressable
             style={[
@@ -247,10 +268,39 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 12,
   },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   title: {
     fontSize: 28,
     fontWeight: "700",
     color: "#111",
+  },
+  bellButton: {
+    position: "relative",
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badge: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#fff",
+    lineHeight: 12,
   },
   segmentRow: {
     flexDirection: "row",
