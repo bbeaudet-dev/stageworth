@@ -25,6 +25,7 @@ export function getInitialAddVisitFormState(): AddVisitFormState {
     searchLow: 0,
     searchHigh: 0,
     rankingResultIndex: null,
+    taggedUserIds: [],
   };
 }
 

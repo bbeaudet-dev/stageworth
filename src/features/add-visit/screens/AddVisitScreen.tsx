@@ -26,6 +26,7 @@ import { LocationSection } from "@/features/add-visit/components/LocationSection
 import { RankingSection } from "@/features/add-visit/components/RankingSection";
 import { NotesSection } from "@/features/add-visit/components/NotesSection";
 import { SaveVisitButton } from "@/features/add-visit/components/SaveVisitButton";
+import { TagFriendsSection } from "@/features/add-visit/components/TagFriendsSection";
 
 export default function AddVisitScreen() {
   const router = useRouter();
@@ -51,6 +52,7 @@ export default function AddVisitScreen() {
     selectExistingShow,
     selectCustomShow,
     clearSelection,
+    toggleTaggedUser,
   } = useAddVisitFormState();
 
   const {
@@ -67,6 +69,7 @@ export default function AddVisitScreen() {
     exactMatches,
     hasOfficialProductions,
     shouldForceOtherLocation,
+    myFollowing,
     createVisit,
   } = useAddVisitData({
     query: state.query,
@@ -159,6 +162,7 @@ export default function AddVisitScreen() {
           predictedResultIndex !== null
             ? predictedResultIndex
             : undefined,
+        taggedUserIds: state.taggedUserIds.length > 0 ? state.taggedUserIds : undefined,
       });
       allowRemoveRef.current = true;
       router.replace("/(tabs)");
@@ -272,6 +276,11 @@ export default function AddVisitScreen() {
                 rankedShowsForRanking={rankedShowsForRanking}
               />
               <NotesSection notes={state.notes} setNotes={setNotes} />
+              <TagFriendsSection
+                following={myFollowing}
+                taggedUserIds={state.taggedUserIds}
+                onToggle={toggleTaggedUser}
+              />
               <SaveVisitButton isSaving={state.isSaving} onSave={handleSave} />
             </>
           )}

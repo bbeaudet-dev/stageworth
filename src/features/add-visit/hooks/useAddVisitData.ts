@@ -25,7 +25,8 @@ export function useAddVisitData({
     api.productions.listByShow,
     selectedShowId ? { showId: selectedShowId } : "skip"
   );
-  const createVisit = useMutation(api.visits.createVisit);
+  const myFollowing = useQuery(api.social.listMyFollowing, {});
+  const createVisitMutation = useMutation(api.visits.createVisit);
 
   const selectedShow = useMemo(
     () => allShows?.find((show) => show._id === selectedShowId) ?? null,
@@ -103,6 +104,13 @@ export function useAddVisitData({
   const shouldForceOtherLocation =
     selectedShowId !== null && productions !== undefined && !hasOfficialProductions;
 
+  const createVisit = useMemo(
+    () =>
+      (args: Parameters<typeof createVisitMutation>[0]) =>
+        createVisitMutation(args),
+    [createVisitMutation]
+  );
+
   return {
     allShows,
     rankedShows,
@@ -117,6 +125,7 @@ export function useAddVisitData({
     exactMatches,
     hasOfficialProductions,
     shouldForceOtherLocation,
+    myFollowing: myFollowing ?? [],
     createVisit,
   };
 }

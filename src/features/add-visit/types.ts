@@ -34,4 +34,5 @@ export type AddVisitFormState = {
   searchLow: number;
   searchHigh: number;
   rankingResultIndex: number | null;
+  taggedUserIds: Id<"users">[];
 };
