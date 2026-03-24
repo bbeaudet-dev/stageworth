@@ -9,43 +9,50 @@ import type { Id } from "@/convex/_generated/dataModel";
 import type { RankingTier } from "@/features/my-shows/types";
 
 export function MyShowsCloudView({
-  showsForDisplay,
+  displayShows,
+  tabBarHeight,
   selectedShowId,
   setSelectedShowId,
   getShowTier,
 }: {
-  showsForDisplay: RankedShow[];
+  displayShows: RankedShow[] | undefined;
+  tabBarHeight: number;
   selectedShowId: Id<"shows"> | null;
   setSelectedShowId: (showId: Id<"shows"> | null) => void;
   getShowTier: (show: RankedShow) => RankingTier;
 }) {
   const router = useRouter();
 
+  const shows = useMemo(() => displayShows ?? [], [displayShows]);
+  const rankingsLoading = displayShows === undefined;
+
   const selectedShow = useMemo(() => {
     if (!selectedShowId) return null;
-    const idx = showsForDisplay.findIndex((s) => s._id === selectedShowId);
-    return idx >= 0 ? showsForDisplay[idx] : null;
-  }, [selectedShowId, showsForDisplay]);
+    const idx = shows.findIndex((s) => s._id === selectedShowId);
+    return idx >= 0 ? shows[idx] : null;
+  }, [selectedShowId, shows]);
 
   const rankedCount = useMemo(
-    () => showsForDisplay.filter((s) => getShowTier(s) !== "unranked").length,
-    [getShowTier, showsForDisplay]
+    () => shows.filter((s) => getShowTier(s) !== "unranked").length,
+    [getShowTier, shows]
   );
 
   const rank = useMemo(() => {
     if (!selectedShowId || !selectedShow) return null;
     if (getShowTier(selectedShow) === "unranked") return null;
     return (
-      showsForDisplay
+      shows
         .filter((s) => getShowTier(s) !== "unranked")
         .findIndex((s) => s._id === selectedShowId) + 1
     );
-  }, [getShowTier, selectedShow, selectedShowId, showsForDisplay]);
+  }, [getShowTier, selectedShow, selectedShowId, shows]);
 
   return (
     <>
       <TheatreCloud
-        shows={showsForDisplay}
+        shows={shows}
+        rankingsLoading={rankingsLoading}
+        bottomInset={tabBarHeight}
         onShowPress={(showId) => setSelectedShowId(showId)}
       />
       {selectedShowId && (

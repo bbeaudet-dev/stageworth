@@ -4,21 +4,18 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
   Canvas,
   Group,
-  matchFont,
   RoundedRect,
   Image as SkiaImage,
-  Text as SkiaText,
   useImage,
 } from "@shopify/react-native-skia";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from "react";
-import { StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 type ShowType = "musical" | "play" | "opera" | "dance" | "other";
@@ -42,27 +39,19 @@ interface Placement {
 }
 
 const PLAYBILL_RATIO = 1.5;
-const MAX_WIDTH = 115;
 const MIN_WIDTH = 42;
 const ITEM_GAP = 3;
-const CORNER_RADIUS_RATIO = 0.05;
-const FLOAT_AMPLITUDE = 8; // px each playbill can drift from its home position
-const FLOAT_SPEED_BASE = 0.22; // rad/s base drift speed
-const LABEL_FONT_SIZE = 9;
-const LABEL_PADDING = 4;
-const LABEL_MIN_WIDTH = 38;
 
-let _labelFont: ReturnType<typeof matchFont> | null = null;
-function getLabelFont() {
-  if (!_labelFont) {
-    try {
-      _labelFont = matchFont({ fontSize: LABEL_FONT_SIZE, fontWeight: "500" });
-    } catch {
-      return null;
-    }
-  }
-  return _labelFont;
-}
+// Width range (px) per tier. First-ranked show in each tier gets the max width,
+// last-ranked gets the min. Unranked shows are the smallest.
+const TIER_WIDTH_RANGE: Record<string, readonly [number, number]> = {
+  loved:    [100, 115],
+  liked:    [80,  95],
+  okay:     [65,  78],
+  disliked: [52,  63],
+  unranked: [42,  50],
+};
+const CORNER_RADIUS_RATIO = 0.05;
 
 function overlaps(
   placed: Placement[],
@@ -84,142 +73,61 @@ function overlaps(
   return false;
 }
 
-function overlapsExcluding(
-  placed: Placement[],
-  skipIdx: number,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-): boolean {
-  for (let i = 0; i < placed.length; i++) {
-    if (i === skipIdx) continue;
-    const p = placed[i];
-    if (
-      x < p.x + p.width + ITEM_GAP &&
-      x + w + ITEM_GAP > p.x &&
-      y < p.y + p.height + ITEM_GAP &&
-      y + h + ITEM_GAP > p.y
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
 function computeLayout(shows: CloudShow[]): Placement[] {
   if (!shows.length) return [];
+
+  // Pre-count shows per tier so we can normalize the intra-tier rank to [0, 1].
+  const tierCounts: Record<string, number> = {};
+  for (const show of shows) {
+    const tier = show.tier ?? 'unranked';
+    tierCounts[tier] = (tierCounts[tier] ?? 0) + 1;
+  }
+  const tierProgress: Record<string, number> = {};
 
   const placed: Placement[] = [];
 
   for (let i = 0; i < shows.length; i++) {
     const show = shows[i];
-    const t = shows.length > 1 ? i / (shows.length - 1) : 0;
-    const w = MAX_WIDTH - (MAX_WIDTH - MIN_WIDTH) * Math.pow(t, 0.6);
+    const tier = show.tier ?? 'unranked';
+    const idxInTier = tierProgress[tier] ?? 0;
+    tierProgress[tier] = idxInTier + 1;
+    const tierCount = tierCounts[tier];
+    // tInTier goes 0 → 1 from best to worst within the tier.
+    const tInTier = tierCount > 1 ? idxInTier / (tierCount - 1) : 0;
+    const widthRange = TIER_WIDTH_RANGE[tier] ?? TIER_WIDTH_RANGE['unranked'];
+    const w = widthRange[1] - (widthRange[1] - widthRange[0]) * tInTier;
     const h = w * PLAYBILL_RATIO;
 
-    let bestX: number;
-    let bestY: number;
+    // Multi-angle spiral: try 8 evenly-spaced radial directions (anchored to
+    // the golden angle so the distribution stays varied across shows).
+    // For each direction, step outward 1px until the position is free.
+    // Keep whichever direction lands closest to center — this fills in the
+    // gaps left by earlier items rather than always spiralling further out.
+    const baseAngle = i * (Math.PI * (3 - Math.sqrt(5)));
+    let bestX = -w / 2;
+    let bestY = -h / 2;
+    let bestDist = Infinity;
 
-    if (i === 0) {
-      bestX = -w / 2;
-      bestY = -h / 2;
-    } else {
-      let bestDist = Infinity;
-      bestX = 0;
-      bestY = 0;
-
-      for (const p of placed) {
-        const xEdges = [p.x + p.width + ITEM_GAP, p.x - w - ITEM_GAP];
-        const yEdges = [p.y + p.height + ITEM_GAP, p.y - h - ITEM_GAP];
-
-        for (const cx of xEdges) {
-          for (const q of placed) {
-            const yAligns = [q.y, q.y + q.height - h];
-            for (const cy of yAligns) {
-              if (!overlaps(placed, cx, cy, w, h)) {
-                const dx = cx + w / 2;
-                const dy = cy + h / 2;
-                const dist = dx * dx + dy * dy;
-                if (dist < bestDist) {
-                  bestDist = dist;
-                  bestX = cx;
-                  bestY = cy;
-                }
-              }
-            }
-          }
-        }
-
-        for (const cy of yEdges) {
-          for (const q of placed) {
-            const xAligns = [q.x, q.x + q.width - w];
-            for (const cx of xAligns) {
-              if (!overlaps(placed, cx, cy, w, h)) {
-                const dx = cx + w / 2;
-                const dy = cy + h / 2;
-                const dist = dx * dx + dy * dy;
-                if (dist < bestDist) {
-                  bestDist = dist;
-                  bestX = cx;
-                  bestY = cy;
-                }
-              }
-            }
-          }
-        }
+    for (let k = 0; k < 8; k++) {
+      const angle = baseAngle + (k * Math.PI) / 4;
+      let radius = 0;
+      let x = -w / 2;
+      let y = -h / 2;
+      while (overlaps(placed, x, y, w, h)) {
+        radius += 1;
+        x = Math.cos(angle) * radius - w / 2;
+        y = Math.sin(angle) * radius - h / 2;
       }
-
-      if (bestDist === Infinity) {
-        const angle = i * (Math.PI * (3 - Math.sqrt(5)));
-        let radius = Math.sqrt(i) * MAX_WIDTH * 0.65;
-        bestX = Math.cos(angle) * radius - w / 2;
-        bestY = Math.sin(angle) * radius - h / 2;
-        while (overlaps(placed, bestX, bestY, w, h)) {
-          radius += 3;
-          bestX = Math.cos(angle) * radius - w / 2;
-          bestY = Math.sin(angle) * radius - h / 2;
-        }
+      const dist = (x + w / 2) ** 2 + (y + h / 2) ** 2;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestX = x;
+        bestY = y;
       }
     }
 
-    placed.push({
-      x: bestX,
-      y: bestY,
-      width: w,
-      height: h,
-      showId: show._id,
-      showName: show.name,
-      imageUrl: show.images[0],
-    });
-  }
-
-  // Compaction pass: slide each item (smallest first) toward center
-  for (let i = placed.length - 1; i >= 0; i--) {
-    const p = placed[i];
-    const cx = p.x + p.width / 2;
-    const cy = p.y + p.height / 2;
-    const stepX = cx > 0 ? -1 : cx < 0 ? 1 : 0;
-    const stepY = cy > 0 ? -1 : cy < 0 ? 1 : 0;
-
-    let moved = true;
-    while (moved) {
-      moved = false;
-      if (
-        stepX !== 0 &&
-        !overlapsExcluding(placed, i, p.x + stepX, p.y, p.width, p.height)
-      ) {
-        p.x += stepX;
-        moved = true;
-      }
-      if (
-        stepY !== 0 &&
-        !overlapsExcluding(placed, i, p.x, p.y + stepY, p.width, p.height)
-      ) {
-        p.y += stepY;
-        moved = true;
-      }
-    }
+    placed.push({ x: bestX, y: bestY, width: w, height: h,
+      showId: show._id, showName: show.name, imageUrl: show.images[0] });
   }
 
   return placed;
@@ -263,77 +171,15 @@ function PlaybillImage({
   );
 }
 
-function PlaybillLabel({
-  showName,
-  x,
-  y,
-  width,
-  height,
-}: {
-  showName: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}) {
-  const font = getLabelFont();
-  if (!font || width < LABEL_MIN_WIDTH) return null;
-
-  return (
-    <Group
-      clip={{
-        rect: {
-          x: x + LABEL_PADDING,
-          y,
-          width: width - LABEL_PADDING * 2,
-          height,
-        },
-        rx: 0,
-        ry: 0,
-      }}
-    >
-      <SkiaText
-        font={font}
-        text={showName}
-        x={x + LABEL_PADDING}
-        y={y + height / 2 + LABEL_FONT_SIZE * 0.35}
-        color="#666"
-      />
-    </Group>
-  );
-}
-
 function PlaybillItem({ placement }: { placement: Placement }) {
-  const { x, y, width, height, imageUrl, showName } = placement;
+  const { x, y, width, height, imageUrl } = placement;
   const r = Math.max(2, width * CORNER_RADIUS_RATIO);
 
   return (
     <Group>
-      <RoundedRect
-        x={x}
-        y={y}
-        width={width}
-        height={height}
-        r={r}
-        color="#e0e0e0"
-      />
-      {imageUrl ? (
-        <PlaybillImage
-          url={imageUrl}
-          x={x}
-          y={y}
-          width={width}
-          height={height}
-          r={r}
-        />
-      ) : (
-        <PlaybillLabel
-          showName={showName}
-          x={x}
-          y={y}
-          width={width}
-          height={height}
-        />
+      <RoundedRect x={x} y={y} width={width} height={height} r={r} color="#e0e0e0" />
+      {imageUrl && (
+        <PlaybillImage url={imageUrl} x={x} y={y} width={width} height={height} r={r} />
       )}
     </Group>
   );
@@ -342,51 +188,45 @@ function PlaybillItem({ placement }: { placement: Placement }) {
 interface TheatreCloudProps {
   shows: CloudShow[];
   onShowPress: (showId: Id<"shows">) => void;
+  /** Convex rankings query still loading (undefined) — show loading empty state, not "no shows". */
+  rankingsLoading?: boolean;
+  /** Keeps the gesture layer from sitting under the tab bar (which steals touches). */
+  bottomInset?: number;
 }
 
-export function TheatreCloud({ shows, onShowPress }: TheatreCloudProps) {
+export function TheatreCloud({
+  shows,
+  onShowPress,
+  rankingsLoading = false,
+  bottomInset = 0,
+}: TheatreCloudProps) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const offsetRef = useRef({ x: 0, y: 0 });
   const panStartRef = useRef({ x: 0, y: 0 });
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
-  const placements = useMemo(() => computeLayout(shows), [shows]);
+  // Compute all positions after the frame is painted (keeps tab-switch smooth).
+  const [placements, setPlacements] = useState<Placement[]>([]);
+  useEffect(() => {
+    setPlacements(shows.length ? computeLayout(shows) : []);
+  }, [shows]);
+
+  // Progressive reveal: add one playbill every 20ms so they spiral in visually.
+  // Reset whenever the layout is recomputed.
+  const [visibleCount, setVisibleCount] = useState(0);
+  useEffect(() => {
+    setVisibleCount(0);
+  }, [placements]);
+  useEffect(() => {
+    if (visibleCount >= placements.length) return;
+    const id = setTimeout(() => setVisibleCount((c) => c + 1), 20);
+    return () => clearTimeout(id);
+  }, [visibleCount, placements.length]);
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const backgroundColor = Colors[theme].background;
   const emptyTextColor = Colors[theme].text;
-
-  // Float animation — each item wanders around its home position
-  const animTimeRef = useRef(0);
-  const [, forceUpdate] = useReducer((n: number) => n + 1, 0);
-
-  useEffect(() => {
-    if (!placements.length) return;
-    const startMs = Date.now();
-    let frameId: number;
-    const tick = () => {
-      animTimeRef.current = (Date.now() - startMs) / 1000;
-      forceUpdate();
-      frameId = requestAnimationFrame(tick);
-    };
-    frameId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frameId);
-  }, [placements]);
-
-  // Derive animated positions from base placements + sinusoidal float per item
-  const t = animTimeRef.current;
-  const displayPlacements = placements.map((p, i) => {
-    const phaseX = (i * 2.39996) % (2 * Math.PI); // golden-angle phase spread
-    const phaseY = (i * 1.61803) % (2 * Math.PI);
-    const speedX = FLOAT_SPEED_BASE + (i % 5) * 0.04;
-    const speedY = FLOAT_SPEED_BASE * 0.73 + (i % 7) * 0.03;
-    return {
-      ...p,
-      x: p.x + FLOAT_AMPLITUDE * Math.sin(t * speedX + phaseX),
-      y: p.y + FLOAT_AMPLITUDE * Math.cos(t * speedY + phaseY),
-    };
-  });
 
   const initialOffset = useMemo(() => {
     if (placements.length === 0 || size.width === 0) return { x: 0, y: 0 };
@@ -405,8 +245,6 @@ export function TheatreCloud({ shows, onShowPress }: TheatreCloudProps) {
     offsetRef.current = initialOffset;
   }, [initialOffset]);
 
-  // Set to true when the pan gesture activates; reset on each new touch.
-  // The tap handler ignores the event if the user was scrolling.
   const hasPannedRef = useRef(false);
 
   const pan = useMemo(
@@ -440,7 +278,7 @@ export function TheatreCloud({ shows, onShowPress }: TheatreCloudProps) {
           if (hasPannedRef.current) return;
           const hitX = e.x - offsetRef.current.x;
           const hitY = e.y - offsetRef.current.y;
-          for (let i = 0; i < placements.length; i++) {
+          for (let i = visibleCount - 1; i >= 0; i--) {
             const p = placements[i];
             if (
               hitX >= p.x &&
@@ -453,10 +291,17 @@ export function TheatreCloud({ shows, onShowPress }: TheatreCloudProps) {
             }
           }
         }),
-    [placements, onShowPress],
+    [placements, visibleCount, onShowPress],
   );
 
   const gesture = useMemo(() => Gesture.Simultaneous(tap, pan), [tap, pan]);
+
+  // Placements that need a text label (no poster image). Rebuilt on each
+  // reveal tick, but the filter is O(N) so the overhead is negligible.
+  const labelPlacements = useMemo(
+    () => placements.slice(0, visibleCount).filter((p) => !p.imageUrl),
+    [placements, visibleCount],
+  );
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -467,28 +312,72 @@ export function TheatreCloud({ shows, onShowPress }: TheatreCloudProps) {
 
   if (!shows.length) {
     return (
-      <View style={[styles.empty, { backgroundColor }]}>
-        <Text style={[styles.emptyText, { color: emptyTextColor }]}>
-          No shows to display
-        </Text>
+      <View style={[styles.empty, { backgroundColor, paddingBottom: bottomInset }]}>
+        {rankingsLoading ? (
+          <>
+            <ActivityIndicator size="large" />
+            <Text style={[styles.emptyText, { color: emptyTextColor, marginTop: 12 }]}>
+              Loading your shows…
+            </Text>
+          </>
+        ) : (
+          <Text style={[styles.emptyText, { color: emptyTextColor }]}>
+            No shows to display
+          </Text>
+        )}
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor }]} onLayout={onLayout}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor, paddingBottom: bottomInset },
+      ]}
+      onLayout={onLayout}
+    >
       {size.width > 0 && size.height > 0 && (
-        <GestureDetector gesture={gesture}>
-          <Canvas style={StyleSheet.absoluteFill}>
-            <Group
-              transform={[{ translateX: offset.x }, { translateY: offset.y }]}
-            >
-              {[...displayPlacements].reverse().map((p) => (
-                <PlaybillItem key={p.showId} placement={p} />
-              ))}
-            </Group>
-          </Canvas>
-        </GestureDetector>
+        <>
+          <GestureDetector gesture={gesture}>
+            <Canvas style={StyleSheet.absoluteFill}>
+              <Group
+                transform={[{ translateX: offset.x }, { translateY: offset.y }]}
+              >
+                {placements.slice(0, visibleCount).map((p) => (
+                  <PlaybillItem key={p.showId} placement={p} />
+                ))}
+              </Group>
+            </Canvas>
+          </GestureDetector>
+
+          {/* RN text labels for shows without a poster image.
+              pointerEvents="none" lets gestures fall through to the canvas. */}
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            {labelPlacements.map((p) => {
+              const r = Math.max(2, p.width * CORNER_RADIUS_RATIO);
+              return (
+                <View
+                  key={p.showId}
+                  style={[
+                    styles.labelContainer,
+                    {
+                      left: offset.x + p.x,
+                      top: offset.y + p.y,
+                      width: p.width,
+                      height: p.height,
+                      borderRadius: r,
+                    },
+                  ]}
+                >
+                  <Text style={styles.labelText} numberOfLines={4}>
+                    {p.showName}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </>
       )}
     </View>
   );
@@ -506,5 +395,17 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: "#999",
+  },
+  labelContainer: {
+    position: "absolute",
+    overflow: "hidden",
+    padding: 4,
+    justifyContent: "center",
+  },
+  labelText: {
+    fontSize: 9,
+    fontWeight: "500",
+    color: "#555",
+    lineHeight: 12,
   },
 });

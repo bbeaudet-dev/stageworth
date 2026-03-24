@@ -1,7 +1,7 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, Text } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { DiaryView } from "@/components/diary-view";
@@ -51,7 +51,6 @@ export default function MyShowsScreen() {
   );
   const {
     displayShows,
-    showsForDisplay,
     pendingRemoveIds,
     wouldSeeAgainLineIndex,
     stayedHomeLineIndex,
@@ -77,15 +76,25 @@ export default function MyShowsScreen() {
       style={[styles.container, { backgroundColor }]}
       edges={["top"]}
     >
-      <MyShowsHeader viewMode={viewMode} onChangeViewMode={setViewMode} />
+      <View style={styles.headerLayer} collapsable={false}>
+        <MyShowsHeader viewMode={viewMode} onChangeViewMode={setViewMode} />
+      </View>
 
       {viewMode === "diary" ? (
         <DiaryView />
+      ) : viewMode === "cloud" ? (
+        <MyShowsCloudView
+          displayShows={displayShows}
+          tabBarHeight={tabBarHeight}
+          selectedShowId={selectedShowId}
+          setSelectedShowId={setSelectedShowId}
+          getShowTier={getShowTier}
+        />
       ) : listItems === undefined ? (
         <Text style={[styles.loading, { color: loadingTextColor }]}>
           Loading...
         </Text>
-      ) : viewMode === "list" ? (
+      ) : (
         <MyShowsListView
           listItems={listItems}
           expandedShowId={expandedShowId}
@@ -110,13 +119,6 @@ export default function MyShowsScreen() {
           tierHeaders={TIER_HEADERS}
           lineMeta={LINE_META}
         />
-      ) : (
-        <MyShowsCloudView
-          showsForDisplay={showsForDisplay}
-          selectedShowId={selectedShowId}
-          setSelectedShowId={setSelectedShowId}
-          getShowTier={getShowTier}
-        />
       )}
     </SafeAreaView>
   );
@@ -125,6 +127,11 @@ export default function MyShowsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  // List is a later sibling and can win hit-testing over the header; keep controls on top.
+  headerLayer: {
+    zIndex: 100,
+    elevation: 100,
   },
   loading: {
     fontSize: 16,

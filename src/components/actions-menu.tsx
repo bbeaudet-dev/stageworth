@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -23,28 +23,34 @@ export function ActionsMenu({
   const optionBorder = theme === "dark" ? "#333" : "#e1e1e1";
   const optionTextColor = Colors[theme].text;
 
-  if (!visible) return null;
-
   return (
-    <View style={styles.overlay} pointerEvents="box-none">
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={styles.menuAnchor} pointerEvents="box-none">
-        <View style={[styles.sheet, { backgroundColor: sheetBackground }]}>
-          <Pressable
-            style={[styles.optionButton, { backgroundColor: optionBackground, borderColor: optionBorder }]}
-            onPress={onAddVisit}
-          >
-            <Text style={[styles.optionTitle, { color: optionTextColor }]}>Add a Visit</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.optionButton, { backgroundColor: optionBackground, borderColor: optionBorder }]}
-            onPress={onCreateList}
-          >
-            <Text style={[styles.optionTitle, { color: optionTextColor }]}>Create a List</Text>
-          </Pressable>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={styles.overlay} pointerEvents="box-none">
+        <Pressable style={styles.backdrop} onPress={onClose} />
+        <View style={styles.menuAnchor} pointerEvents="box-none">
+          <View style={[styles.sheet, { backgroundColor: sheetBackground }]}>
+            <Pressable
+              style={[styles.optionButton, { backgroundColor: optionBackground, borderColor: optionBorder }]}
+              onPress={onAddVisit}
+            >
+              <Text style={[styles.optionTitle, { color: optionTextColor }]}>Add a Visit</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.optionButton, { backgroundColor: optionBackground, borderColor: optionBorder }]}
+              onPress={onCreateList}
+            >
+              <Text style={[styles.optionTitle, { color: optionTextColor }]}>Create a List</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
-    </View>
+    </Modal>
   );
 }
 

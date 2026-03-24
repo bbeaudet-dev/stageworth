@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { TouchableOpacity } from "react-native-gesture-handler";
 
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -18,27 +19,33 @@ export function MyShowsHeader({
   const titleColor = Colors[theme].text;
   const toggleBackground = theme === "dark" ? "#1f1f22" : "#f0f0f0";
   const toggleActiveBackground = theme === "dark" ? "#fff" : "#fff";
-  const toggleTextColor = theme === "dark" ? "#b5b5b8" : "#888";
-  const toggleTextActiveColor = theme === "dark" ? "#111" : "#333";
 
   return (
     <View style={styles.header}>
-      <Text style={[styles.title, { color: titleColor }]}>My Shows</Text>
+      <View style={styles.titleWrap}>
+        <Text style={[styles.title, { color: titleColor }]} numberOfLines={1}>
+          My Shows
+        </Text>
+      </View>
       <View style={styles.toggle}>
         {VIEW_MODES.map((mode) => (
-          <Pressable
+          <TouchableOpacity
             key={mode}
+            activeOpacity={0.7}
             style={[
               styles.toggleButton,
               { backgroundColor: toggleBackground },
-              viewMode === mode && [styles.toggleButtonActive, { backgroundColor: toggleActiveBackground }],
+              viewMode === mode && [
+                styles.toggleButtonActive,
+                { backgroundColor: toggleActiveBackground },
+              ],
             ]}
             onPress={() => onChangeViewMode(mode)}
           >
             <Text style={[styles.toggleText, viewMode === mode && styles.toggleTextActive]}>
               {mode[0].toUpperCase() + mode.slice(1)}
             </Text>
-          </Pressable>
+          </TouchableOpacity>
         ))}
       </View>
     </View>
@@ -54,12 +61,18 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
+  titleWrap: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 8,
+  },
   title: {
     fontSize: 28,
     fontWeight: "bold",
   },
   toggle: {
     flexDirection: "row",
+    flexShrink: 0,
     borderRadius: 8,
     padding: 2,
   },
