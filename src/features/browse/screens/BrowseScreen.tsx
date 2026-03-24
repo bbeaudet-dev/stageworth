@@ -5,12 +5,21 @@ import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProductionCard } from "@/features/browse/components/ProductionCard";
+import { ShowCard } from "@/features/browse/components/ShowCard";
 import { useBrowseData } from "@/features/browse/hooks/useBrowseData";
 import { styles } from "@/features/browse/styles";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 type BrowseMode = "current" | "all";
+
+function chunkIntoRows<T>(arr: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    rows.push(arr.slice(i, i + size));
+  }
+  return rows;
+}
 
 const ALL_SHOWS_PAGE_SIZE = 100;
 
@@ -34,8 +43,6 @@ export default function BrowseScreen() {
   const chipBackground = Colors[theme].surface;
   const chipActiveBackground = theme === "dark" ? Colors.dark.text : "#111";
   const chipTextActiveColor = theme === "dark" ? "#111" : "#fff";
-  const cardBackground = Colors[theme].surfaceElevated;
-  const cardPosterBackground = Colors[theme].surface;
   const linkColor = Colors[theme].accent;
 
   useEffect(() => {
@@ -145,27 +152,34 @@ export default function BrowseScreen() {
           ) : (
             sections.map((section) => (
               <View key={section.title}>
-                <Text style={styles.sectionHeader}>{section.title}</Text>
-                {section.data.map((production) => (
-                  <ProductionCard
-                    key={production._id}
-                    production={production}
-                    onPress={() => {
-                      if (isNavigatingRef.current) return;
-                      if (!production.show?._id) return;
-                      isNavigatingRef.current = true;
-                      router.push({
-                        pathname: "/show/[showId]",
-                        params: {
-                          showId: String(production.show._id),
-                          name: production.show?.name ?? "Show",
-                        },
-                      });
-                      setTimeout(() => {
-                        isNavigatingRef.current = false;
-                      }, 500);
-                    }}
-                  />
+                <Text style={[styles.sectionHeader, { color: mutedTextColor }]}>{section.title}</Text>
+                {chunkIntoRows(section.data, 3).map((row, rowIndex) => (
+                  <View key={rowIndex} style={styles.gridRow}>
+                    {row.map((production) => (
+                      <ProductionCard
+                        key={production._id}
+                        production={production}
+                        onPress={() => {
+                          if (isNavigatingRef.current) return;
+                          if (!production.show?._id) return;
+                          isNavigatingRef.current = true;
+                          router.push({
+                            pathname: "/show/[showId]",
+                            params: {
+                              showId: String(production.show._id),
+                              name: production.show?.name ?? "Show",
+                            },
+                          });
+                          setTimeout(() => {
+                            isNavigatingRef.current = false;
+                          }, 500);
+                        }}
+                      />
+                    ))}
+                    {row.length < 3 && Array.from({ length: 3 - row.length }).map((_, i) => (
+                      <View key={i} style={styles.gridPlaceholder} />
+                    ))}
+                  </View>
                 ))}
               </View>
             ))
@@ -178,36 +192,39 @@ export default function BrowseScreen() {
           </Text>
         ) : (
           <>
-            {shows.slice(0, allShowsLimit).map((show) => (
-              <Pressable
-                key={show._id}
-                style={[styles.card, { backgroundColor: cardBackground }]}
-                onPress={() => {
-                  if (isNavigatingRef.current) return;
-                  isNavigatingRef.current = true;
-                  router.push({
-                    pathname: "/show/[showId]",
-                    params: {
-                      showId: String(show._id),
-                      name: show.name ?? "Show",
-                    },
-                  });
-                  setTimeout(() => {
-                    isNavigatingRef.current = false;
-                  }, 500);
-                }}
-              >
-                <Text style={[styles.showName, { color: primaryTextColor }]} numberOfLines={1}>
-                  {show.name}
-                </Text>
-              </Pressable>
+            {chunkIntoRows(shows.slice(0, allShowsLimit), 3).map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.gridRow}>
+                {row.map((show) => (
+                  <ShowCard
+                    key={show._id}
+                    show={show}
+                    onPress={() => {
+                      if (isNavigatingRef.current) return;
+                      isNavigatingRef.current = true;
+                      router.push({
+                        pathname: "/show/[showId]",
+                        params: {
+                          showId: String(show._id),
+                          name: show.name ?? "Show",
+                        },
+                      });
+                      setTimeout(() => {
+                        isNavigatingRef.current = false;
+                      }, 500);
+                    }}
+                  />
+                ))}
+                {row.length < 3 && Array.from({ length: 3 - row.length }).map((_, i) => (
+                  <View key={i} style={styles.gridPlaceholder} />
+                ))}
+              </View>
             ))}
             {shows.length > allShowsLimit && (
               <Pressable
                 style={styles.loadMoreButton}
                 onPress={() => setAllShowsLimit((prev) => prev + ALL_SHOWS_PAGE_SIZE)}
               >
-                  <Text style={[styles.loadMoreText, { color: linkColor }]}>
+                <Text style={[styles.loadMoreText, { color: linkColor }]}>
                   Load more ({shows.length - allShowsLimit} remaining)
                 </Text>
               </Pressable>
