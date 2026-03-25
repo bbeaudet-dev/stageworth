@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
 import { removeShowFromSystemLists } from "./listRules";
@@ -24,9 +25,46 @@ const rankedTierValidator = v.union(
   v.literal("okay"),
   v.literal("disliked")
 );
+const mapScopeValidator = v.union(v.literal("mine"), v.literal("following"), v.literal("all"));
 
 function getTierRank(tier: Tier): number {
   return TIER_ORDER.indexOf(tier);
+}
+
+function normalizeVenueName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function resolveVenueIdForVisit(
+  ctx: any,
+  theatre: string | undefined,
+  city: string | undefined
+): Promise<Id<"venues"> | undefined> {
+  const trimmedTheatre = theatre?.trim();
+  if (!trimmedTheatre) return undefined;
+  const normalizedName = normalizeVenueName(trimmedTheatre);
+  if (!normalizedName) return undefined;
+
+  const trimmedCity = city?.trim();
+  const matchedVenue = trimmedCity
+    ? await ctx.db
+        .query("venues")
+        .withIndex("by_city_normalized_name", (q: any) =>
+          q.eq("city", trimmedCity).eq("normalizedName", normalizedName)
+        )
+        .first()
+    : await ctx.db
+        .query("venues")
+        .withIndex("by_normalized_name", (q: any) => q.eq("normalizedName", normalizedName))
+        .first();
+
+  return matchedVenue?._id;
 }
 
 function getBottomInsertionIndexForTier(
@@ -119,10 +157,189 @@ export const listAllWithShows = query({
   },
 });
 
+export const listMapPins = query({
+  args: { scope: mapScopeValidator },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+    let visits: Array<{
+      userId: string;
+      venueId?: Id<"venues">;
+      theatre?: string;
+      city?: string;
+    }> = [];
+
+    if (args.scope === "mine") {
+      visits = await ctx.db
+        .query("visits")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+    } else if (args.scope === "following") {
+      const followRows = await ctx.db
+        .query("follows")
+        .withIndex("by_follower", (q) => q.eq("followerUserId", userId))
+        .collect();
+      const followingIds = followRows.map((row) => row.followingUserId);
+      const groupedVisits = await Promise.all(
+        followingIds.map((followingUserId) =>
+          ctx.db
+            .query("visits")
+            .withIndex("by_user", (q) => q.eq("userId", followingUserId))
+            .collect()
+        )
+      );
+      visits = groupedVisits.flat();
+    } else {
+      visits = await ctx.db.query("visits").collect();
+    }
+
+    const rows = new Map<
+      string,
+      {
+        mapKey: string;
+        theatre: string;
+        city?: string;
+        visitCount: number;
+        uniqueUserIds: Set<string>;
+        latitude?: number;
+        longitude?: number;
+      }
+    >();
+
+    for (const visit of visits) {
+      const theatre = visit.theatre?.trim();
+      if (!theatre) continue;
+      const city = visit.city?.trim();
+      const mapKey = `${theatre.toLowerCase()}::${(city ?? "").toLowerCase()}`;
+      const existing = rows.get(mapKey);
+      if (existing) {
+        existing.visitCount += 1;
+        existing.uniqueUserIds.add(visit.userId);
+        if (existing.latitude === undefined && visit.venueId) {
+          const venue = await ctx.db.get(visit.venueId);
+          if (venue?.latitude !== undefined && venue?.longitude !== undefined) {
+            existing.latitude = venue.latitude;
+            existing.longitude = venue.longitude;
+          }
+        }
+        continue;
+      }
+
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+      if (visit.venueId) {
+        const venue = await ctx.db.get(visit.venueId);
+        if (venue?.latitude !== undefined && venue?.longitude !== undefined) {
+          latitude = venue.latitude;
+          longitude = venue.longitude;
+        }
+      } else {
+        const normalizedName = normalizeVenueName(theatre);
+        const matchedVenue = city
+          ? await ctx.db
+              .query("venues")
+              .withIndex("by_city_normalized_name", (q) =>
+                q.eq("city", city).eq("normalizedName", normalizedName)
+              )
+              .first()
+          : await ctx.db
+              .query("venues")
+              .withIndex("by_normalized_name", (q) => q.eq("normalizedName", normalizedName))
+              .first();
+        if (matchedVenue?.latitude !== undefined && matchedVenue?.longitude !== undefined) {
+          latitude = matchedVenue.latitude;
+          longitude = matchedVenue.longitude;
+        }
+      }
+
+      rows.set(mapKey, {
+        mapKey,
+        theatre,
+        city,
+        visitCount: 1,
+        uniqueUserIds: new Set([visit.userId]),
+        latitude,
+        longitude,
+      });
+    }
+
+    return Array.from(rows.values())
+      .map(({ uniqueUserIds, ...row }) => ({
+        ...row,
+        uniqueUserCount: uniqueUserIds.size,
+      }))
+      .sort((a, b) => b.visitCount - a.visitCount || a.theatre.localeCompare(b.theatre));
+  },
+});
+
+export const getMapCoverageStats = query({
+  args: { scope: mapScopeValidator },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+    let visits: Array<{
+      userId: string;
+      showId: Id<"shows">;
+      venueId?: Id<"venues">;
+      theatre?: string;
+    }> = [];
+
+    if (args.scope === "mine") {
+      visits = await ctx.db
+        .query("visits")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+    } else if (args.scope === "following") {
+      const followRows = await ctx.db
+        .query("follows")
+        .withIndex("by_follower", (q) => q.eq("followerUserId", userId))
+        .collect();
+      const followingIds = followRows.map((row) => row.followingUserId);
+      const groupedVisits = await Promise.all(
+        followingIds.map((followingUserId) =>
+          ctx.db
+            .query("visits")
+            .withIndex("by_user", (q) => q.eq("userId", followingUserId))
+            .collect()
+        )
+      );
+      visits = groupedVisits.flat();
+    } else {
+      visits = await ctx.db.query("visits").collect();
+    }
+
+    let visitsWithValidLocation = 0;
+    const missingShowIds = new Set<Id<"shows">>();
+
+    for (const visit of visits) {
+      const hasTheatre = Boolean(visit.theatre?.trim());
+      let hasVenueCoordinates = false;
+      if (visit.venueId) {
+        const venue = await ctx.db.get(visit.venueId);
+        hasVenueCoordinates = Boolean(
+          venue?.latitude !== undefined && venue?.longitude !== undefined
+        );
+      }
+
+      if (hasVenueCoordinates || hasTheatre) {
+        visitsWithValidLocation += 1;
+      } else {
+        missingShowIds.add(visit.showId);
+      }
+    }
+
+    return {
+      totalVisits: visits.length,
+      visitsWithValidLocation,
+      visitsMissingLocation: visits.length - visitsWithValidLocation,
+      uniqueShowsMissingLocation: missingShowIds.size,
+    };
+  },
+});
+
 export const create = mutation({
   args: {
     showId: v.id("shows"),
     productionId: v.optional(v.id("productions")),
+    venueId: v.optional(v.id("venues")),
     date: v.string(),
     city: v.optional(v.string()),
     theatre: v.optional(v.string()),
@@ -146,7 +363,28 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
-    return await ctx.db.insert("visits", { userId, ...args });
+    const production = args.productionId ? await ctx.db.get(args.productionId) : null;
+    const theatre = args.theatre?.trim() || production?.theatre?.trim();
+    const city = args.city?.trim() || production?.city?.trim();
+    const district = args.district ?? production?.district;
+    const venueId = args.venueId ?? (await resolveVenueIdForVisit(ctx, theatre, city));
+
+    return await ctx.db.insert("visits", {
+      userId,
+      showId: args.showId,
+      productionId: args.productionId,
+      venueId,
+      date: args.date,
+      city,
+      theatre,
+      district,
+      seat: args.seat,
+      isMatinee: args.isMatinee,
+      isPreview: args.isPreview,
+      isFinalPerformance: args.isFinalPerformance,
+      cast: args.cast,
+      notes: args.notes,
+    });
   },
 });
 
@@ -182,6 +420,7 @@ export const createVisit = mutation({
     customShowName: v.optional(v.string()),
     date: v.string(),
     productionId: v.optional(v.id("productions")),
+    venueId: v.optional(v.id("venues")),
     city: v.optional(v.string()),
     theatre: v.optional(v.string()),
     district: v.optional(
@@ -338,15 +577,21 @@ export const createVisit = mutation({
     const validTaggedUserIds = (args.taggedUserIds ?? []).filter(
       (id) => id !== userId
     );
+    const production = args.productionId ? await ctx.db.get(args.productionId) : null;
+    const theatre = args.theatre?.trim() || production?.theatre?.trim();
+    const city = args.city?.trim() || production?.city?.trim();
+    const district = args.district ?? production?.district;
+    const venueId = args.venueId ?? (await resolveVenueIdForVisit(ctx, theatre, city));
 
     const visitId = await ctx.db.insert("visits", {
       userId,
       showId,
       productionId: args.productionId,
+      venueId,
       date: args.date,
-      city: args.city,
-      theatre: args.theatre,
-      district: args.district,
+      city,
+      theatre,
+      district,
       notes: args.notes,
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
     });
@@ -388,8 +633,8 @@ export const createVisit = mutation({
       productionId: args.productionId,
       visitDate: args.date,
       notes: trimmedNotes && trimmedNotes.length > 0 ? trimmedNotes : undefined,
-      city: args.city,
-      theatre: args.theatre,
+      city,
+      theatre,
       rankAtPost: rankingIndex === -1 ? undefined : rankingIndex + 1,
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
       createdAt: Date.now(),
@@ -402,6 +647,58 @@ export const createVisit = mutation({
     ]);
 
     return { showId, visitId, alreadyRanked };
+  },
+});
+
+// One-time utility: backfill visits missing theatre/city from linked production.
+// Run: npx convex run visits:backfillVisitVenueData '{"limit":500}'
+export const backfillVisitVenueData = mutation({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const allVisits = await ctx.db.query("visits").collect();
+    const limit = Math.max(1, Math.min(args.limit ?? allVisits.length, allVisits.length));
+    let scanned = 0;
+    let patched = 0;
+    let skipped = 0;
+
+    for (const visit of allVisits.slice(0, limit)) {
+      scanned += 1;
+      if (!visit.productionId) {
+        skipped += 1;
+        continue;
+      }
+      const production = await ctx.db.get(visit.productionId);
+      if (!production) {
+        skipped += 1;
+        continue;
+      }
+
+      const theatre = visit.theatre?.trim() || production.theatre?.trim();
+      const city = visit.city?.trim() || production.city?.trim();
+      const district = visit.district ?? production.district;
+      const venueId = visit.venueId ?? (await resolveVenueIdForVisit(ctx, theatre, city));
+
+      const changed =
+        theatre !== visit.theatre ||
+        city !== visit.city ||
+        district !== visit.district ||
+        venueId !== visit.venueId;
+
+      if (!changed) {
+        skipped += 1;
+        continue;
+      }
+
+      await ctx.db.patch(visit._id, {
+        theatre,
+        city,
+        district,
+        venueId,
+      });
+      patched += 1;
+    }
+
+    return { scanned, patched, skipped };
   },
 });
 

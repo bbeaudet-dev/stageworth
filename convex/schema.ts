@@ -64,6 +64,40 @@ export default defineSchema({
     .index("by_district", ["district"])
     .index("by_closing_date", ["closingDate"]),
 
+  venues: defineTable({
+    name: v.string(),
+    normalizedName: v.string(),
+    aliases: v.optional(v.array(v.string())),
+    addressLine1: v.optional(v.string()),
+    city: v.string(),
+    state: v.optional(v.string()),
+    postalCode: v.optional(v.string()),
+    country: v.string(),
+    district: v.union(
+      v.literal("broadway"),
+      v.literal("off_broadway"),
+      v.literal("off_off_broadway"),
+      v.literal("west_end"),
+      v.literal("touring"),
+      v.literal("regional"),
+      v.literal("other")
+    ),
+    latitude: v.optional(v.number()),
+    longitude: v.optional(v.number()),
+    googlePlaceId: v.optional(v.string()),
+    source: v.optional(v.string()),
+    sourceUrl: v.optional(v.string()),
+    ingestionConfidence: v.optional(
+      v.union(v.literal("high"), v.literal("medium"), v.literal("low"))
+    ),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_normalized_name", ["normalizedName"])
+    .index("by_city_normalized_name", ["city", "normalizedName"])
+    .index("by_district", ["district"]),
+
   users: defineTable({
     email: v.string(),
     name: v.optional(v.string()),
@@ -133,6 +167,7 @@ export default defineSchema({
     // Denormalized from production for easier querying when productionId is absent.
     showId: v.id("shows"),
     productionId: v.optional(v.id("productions")),
+    venueId: v.optional(v.id("venues")),
     date: v.string(),
     city: v.optional(v.string()),
     theatre: v.optional(v.string()),
@@ -158,7 +193,8 @@ export default defineSchema({
   })
     .index("by_user_show", ["userId", "showId"])
     .index("by_user", ["userId"])
-    .index("by_user_production", ["userId", "productionId"]),
+    .index("by_user_production", ["userId", "productionId"])
+    .index("by_venue", ["venueId"]),
 
   follows: defineTable({
     followerUserId: v.id("users"),

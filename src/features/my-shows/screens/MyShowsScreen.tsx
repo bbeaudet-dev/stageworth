@@ -10,9 +10,10 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { MyShowsCloudView } from "@/features/my-shows/components/MyShowsCloudView";
 import { MyShowsHeader } from "@/features/my-shows/components/MyShowsHeader";
 import { MyShowsListView } from "@/features/my-shows/components/MyShowsListView";
+import { MyShowsMapView } from "../components/MyShowsMapView";
 import { useMyShowsData } from "@/features/my-shows/hooks/useMyShowsData";
 import { useRankedListItems } from "@/features/my-shows/hooks/useRankedListItems";
-import type { RankingTier, ViewMode } from "@/features/my-shows/types";
+import type { MapScope, RankingTier, ViewMode } from "@/features/my-shows/types";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const TIER_HEADERS: Record<
@@ -43,6 +44,7 @@ export default function MyShowsScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [mapScope, setMapScope] = useState<MapScope>("mine");
   const [expandedShowId, setExpandedShowId] = useState<Id<"shows"> | null>(
     null,
   );
@@ -82,6 +84,12 @@ export default function MyShowsScreen() {
 
       {viewMode === "diary" ? (
         <DiaryView />
+      ) : viewMode === "map" ? (
+        <MyShowsMapView
+          tabBarHeight={tabBarHeight}
+          mapScope={mapScope}
+          onChangeMapScope={setMapScope}
+        />
       ) : viewMode === "cloud" ? (
         <MyShowsCloudView
           displayShows={displayShows}
