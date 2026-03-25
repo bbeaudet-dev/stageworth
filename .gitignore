@@ -51,3 +51,8 @@ docs/
 
 # local data / import artifacts
 data/
+
+# news bot runtime artifacts
+bot/node_modules/
+bot/seen.db
+bot/.env
