@@ -1,11 +1,10 @@
-import { StyleSheet, Text, View } from "react-native";
-import { TouchableOpacity } from "react-native-gesture-handler";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { ViewMode } from "@/features/my-shows/types";
 
-const VIEW_MODES: ViewMode[] = ["list", "cloud", "diary"];
+const VIEW_MODES: ViewMode[] = ["list", "cloud", "diary", "map"];
 
 export function MyShowsHeader({
   viewMode,
@@ -17,7 +16,7 @@ export function MyShowsHeader({
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const titleColor = Colors[theme].text;
-  const toggleBackground = theme === "dark" ? "#1f1f22" : "#f0f0f0";
+  const toggleBackground = theme === "dark" ? "#1f1f22" : "#ececef";
   const toggleActiveBackground = theme === "dark" ? "#fff" : "#fff";
 
   return (
@@ -27,14 +26,12 @@ export function MyShowsHeader({
           My Shows
         </Text>
       </View>
-      <View style={styles.toggle}>
+      <View style={[styles.toggle, { backgroundColor: toggleBackground }]}>
         {VIEW_MODES.map((mode) => (
-          <TouchableOpacity
+          <Pressable
             key={mode}
-            activeOpacity={0.7}
             style={[
               styles.toggleButton,
-              { backgroundColor: toggleBackground },
               viewMode === mode && [
                 styles.toggleButtonActive,
                 { backgroundColor: toggleActiveBackground },
@@ -42,10 +39,13 @@ export function MyShowsHeader({
             ]}
             onPress={() => onChangeViewMode(mode)}
           >
-            <Text style={[styles.toggleText, viewMode === mode && styles.toggleTextActive]}>
+            <Text
+              numberOfLines={1}
+              style={[styles.toggleText, viewMode === mode && styles.toggleTextActive]}
+            >
               {mode[0].toUpperCase() + mode.slice(1)}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
     </View>
@@ -54,32 +54,36 @@ export function MyShowsHeader({
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: "column",
+    alignItems: "stretch",
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
   },
   titleWrap: {
-    flex: 1,
-    minWidth: 0,
-    marginRight: 8,
+    marginBottom: 10,
   },
   title: {
     fontSize: 28,
     fontWeight: "bold",
   },
   toggle: {
+    width: "100%",
     flexDirection: "row",
-    flexShrink: 0,
-    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 36,
+    borderRadius: 10,
     padding: 2,
   },
   toggleButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 6,
+    flex: 1,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 0,
+    borderRadius: 8,
   },
   toggleButtonActive: {
     backgroundColor: "#fff",
@@ -90,9 +94,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   toggleText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
-    color: "#888",
+    color: "#7a7a7a",
+    textAlign: "center",
   },
   toggleTextActive: {
     color: "#333",
