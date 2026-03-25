@@ -48,3 +48,6 @@ convex/_generated/
 
 # local docs
 docs/
+
+# local data / import artifacts
+data/

@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireConvexUserId } from "./auth";
-import { resolveImageUrls } from "./helpers";
+import { resolveShowImageUrls } from "./helpers";
 import { removeShowFromSystemLists } from "./listRules";
 import { normalizeShowName } from "./showNormalization";
 
@@ -66,7 +66,7 @@ export const getById = query({
     const show = await ctx.db.get(visit.showId);
     if (!show) return null;
 
-    const images = await resolveImageUrls(ctx, show.images);
+    const images = await resolveShowImageUrls(ctx, show);
     return { ...visit, show: { ...show, images } };
   },
 });
@@ -104,7 +104,7 @@ export const listAllWithShows = query({
           if (raw) {
             show = {
               ...raw,
-              images: await resolveImageUrls(ctx, raw.images),
+              images: await resolveShowImageUrls(ctx, raw),
             };
             showCache.set(visit.showId, show);
           }
@@ -390,6 +390,7 @@ export const createVisit = mutation({
       city: args.city,
       theatre: args.theatre,
       rankAtPost: rankingIndex === -1 ? undefined : rankingIndex + 1,
+      taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
       createdAt: Date.now(),
     });
 

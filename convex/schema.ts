@@ -195,6 +195,7 @@ export default defineSchema({
     city: v.optional(v.string()),
     theatre: v.optional(v.string()),
     rankAtPost: v.optional(v.number()),
+    taggedUserIds: v.optional(v.array(v.id("users"))),
     createdAt: v.number(),
   })
     .index("by_createdAt", ["createdAt"])

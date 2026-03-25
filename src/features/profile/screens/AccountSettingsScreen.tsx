@@ -5,7 +5,6 @@ import { Keyboard, Pressable, ScrollView, Text, TextInput, View } from "react-na
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
-import * as Notifications from "expo-notifications";
 import { styles } from "@/features/profile/styles";
 import { AccountSection } from "@/features/profile/components/AccountSection";
 import { Colors } from "@/constants/theme";
@@ -45,8 +44,7 @@ export default function AccountSettingsScreen() {
   };
 
   const handleSignOut = async () => {
-    await removePushToken();
-    await Notifications.setBadgeCountAsync(0);
+    await removePushToken().catch(() => {});
     await authClient.signOut();
   };
 

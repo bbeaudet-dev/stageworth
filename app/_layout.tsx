@@ -7,14 +7,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { authClient } from "@/lib/auth-client";
 import { convex } from "@/lib/convex";
-
-function PushNotificationRegistrar() {
-  usePushNotifications();
-  return null;
-}
 
 GoogleSignin.configure({
   iosClientId:
@@ -33,7 +27,6 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-        <PushNotificationRegistrar />
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

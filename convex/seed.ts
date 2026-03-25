@@ -734,6 +734,242 @@ export const insertProduction = internalMutation({
   },
 });
 
+function levenshteinDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const row = new Array<number>(n + 1);
+  for (let j = 0; j <= n; j++) row[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let prev = row[0];
+    row[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = row[j];
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + cost);
+      prev = tmp;
+    }
+  }
+  return row[n];
+}
+
+/** True if `needle` appears in `haystack` as a full token (not e.g. "noon" inside "afternoon"). */
+function isPhraseOrWordBoundaryMatch(needle: string, haystack: string): boolean {
+  if (!needle || !haystack || needle.length > haystack.length) return false;
+  if (!haystack.includes(needle)) return false;
+  const esc = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|\\s)${esc}(\\s|$)`).test(haystack);
+}
+
+/** 0–1 score for matching a Playbill-style name to an existing show.normalizedName. */
+function similarityForShowMatch(queryNorm: string, showNorm: string): number {
+  if (queryNorm === showNorm) return 1;
+  if (!queryNorm || !showNorm) return 0;
+  if (queryNorm.length >= 3 && showNorm.startsWith(`${queryNorm} `)) {
+    return 0.93 + 0.06 * (queryNorm.length / showNorm.length);
+  }
+  if (showNorm.length >= 3 && queryNorm.startsWith(`${showNorm} `)) {
+    return 0.93 + 0.06 * (showNorm.length / queryNorm.length);
+  }
+  const qInS = isPhraseOrWordBoundaryMatch(queryNorm, showNorm);
+  const sInQ = isPhraseOrWordBoundaryMatch(showNorm, queryNorm);
+  if (qInS || sInQ) {
+    const shorter = Math.min(queryNorm.length, showNorm.length);
+    const longer = Math.max(queryNorm.length, showNorm.length);
+    if (shorter < 4) {
+      // Avoid "da", "art", etc. matching inside longer titles unless exact prefix rule above applied.
+      return Math.max(
+        1 - levenshteinDistance(queryNorm, showNorm) / longer,
+        0
+      );
+    }
+    return 0.86 + 0.13 * (shorter / longer);
+  }
+  const maxLen = Math.max(queryNorm.length, showNorm.length);
+  const lev = 1 - levenshteinDistance(queryNorm, showNorm) / maxLen;
+  const wordsQ = new Set(queryNorm.split(" ").filter((w) => w.length > 1));
+  const wordsS = new Set(showNorm.split(" ").filter((w) => w.length > 1));
+  let inter = 0;
+  for (const w of wordsQ) {
+    if (wordsS.has(w)) inter += 1;
+  }
+  const union = wordsQ.size + wordsS.size - inter || 1;
+  const jacc = inter / union;
+  return Math.max(lev, jacc > 0.25 ? jacc * 0.97 : 0);
+}
+
+// Fuzzy match Playbill / paste names to existing shows (same normalization as applyPlaybillProductionPaste).
+// Run: npx convex run seed:suggestShowMatchesForNames '{"names":["Aladdin","Wicked"],"limitPerName":8}'
+export const suggestShowMatchesForNames = internalQuery({
+  args: {
+    names: v.array(v.string()),
+    limitPerName: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const shows = await ctx.db.query("shows").collect();
+    const limit = args.limitPerName ?? 8;
+    return args.names.map((name) => {
+      const qn = normalizeShowName(name);
+      const matches = shows
+        .map((s) => ({
+          showId: s._id,
+          name: s.name,
+          normalizedName: s.normalizedName,
+          score: similarityForShowMatch(qn, s.normalizedName),
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit);
+      return { query: name, normalizedQuery: qn, matches };
+    });
+  },
+});
+
+// Create missing catalog shows (empty images, externalSource seed). Safe to re-run: skips duplicates by normalized name.
+// Run after you decide type (musical vs play) per title.
+export const bulkFindOrCreateShows = internalMutation({
+  args: {
+    entries: v.array(
+      v.object({
+        name: v.string(),
+        type: showTypeValidator,
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const created: string[] = [];
+    const alreadyExisted: string[] = [];
+
+    for (const e of args.entries) {
+      const normalizedName = normalizeShowName(e.name);
+      if (!normalizedName) continue;
+
+      const byNorm = await ctx.db
+        .query("shows")
+        .withIndex("by_normalized_name", (q) =>
+          q.eq("normalizedName", normalizedName)
+        )
+        .first();
+      if (byNorm) {
+        alreadyExisted.push(e.name);
+        continue;
+      }
+
+      const byName = await ctx.db
+        .query("shows")
+        .withIndex("by_name", (q) => q.eq("name", e.name))
+        .first();
+      if (byName) {
+        alreadyExisted.push(e.name);
+        continue;
+      }
+
+      await ctx.db.insert("shows", {
+        name: e.name,
+        normalizedName,
+        type: e.type,
+        images: [],
+        isUserCreated: false,
+        externalSource: "seed",
+      });
+      created.push(e.name);
+    }
+
+    return { created, alreadyExisted };
+  },
+});
+
+const playbillPasteDistrict = v.union(
+  v.literal("broadway"),
+  v.literal("off_broadway"),
+  v.literal("off_off_broadway"),
+  v.literal("west_end"),
+  v.literal("touring"),
+  v.literal("regional"),
+  v.literal("other")
+);
+
+const playbillPasteProductionType = v.union(
+  v.literal("original"),
+  v.literal("revival"),
+  v.literal("transfer"),
+  v.literal("touring"),
+  v.literal("concert"),
+  v.literal("workshop"),
+  v.literal("other")
+);
+
+// Paste JSON from data/convex-paste-playbill-productions.json (Convex dashboard → Run function).
+// Resolves show by normalizeShowName(showName); skips if same showId + theatre already exists.
+export const applyPlaybillProductionPaste = internalMutation({
+  args: {
+    items: v.array(
+      v.object({
+        showName: v.string(),
+        theatre: v.optional(v.string()),
+        city: v.optional(v.string()),
+        district: playbillPasteDistrict,
+        previewDate: v.optional(v.string()),
+        openingDate: v.optional(v.string()),
+        closingDate: v.optional(v.string()),
+        productionType: v.optional(playbillPasteProductionType),
+        notes: v.optional(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const inserted: string[] = [];
+    const skippedDuplicate: string[] = [];
+    const missingShow: string[] = [];
+
+    for (const item of args.items) {
+      const normalizedName = normalizeShowName(item.showName);
+      if (!normalizedName) {
+        missingShow.push(`${item.showName} (empty normalized name)`);
+        continue;
+      }
+      const show = await ctx.db
+        .query("shows")
+        .withIndex("by_normalized_name", (q) =>
+          q.eq("normalizedName", normalizedName)
+        )
+        .first();
+      if (!show) {
+        missingShow.push(item.showName);
+        continue;
+      }
+
+      if (item.theatre) {
+        const existing = await ctx.db
+          .query("productions")
+          .withIndex("by_show", (q) => q.eq("showId", show._id))
+          .filter((q) => q.eq(q.field("theatre"), item.theatre))
+          .first();
+        if (existing) {
+          skippedDuplicate.push(item.showName);
+          continue;
+        }
+      }
+
+      await ctx.db.insert("productions", {
+        showId: show._id,
+        theatre: item.theatre,
+        city: item.city ?? "New York",
+        district: item.district,
+        previewDate: item.previewDate,
+        openingDate: item.openingDate,
+        closingDate: item.closingDate,
+        productionType: item.productionType ?? "other",
+        isUserCreated: false,
+        notes: item.notes,
+      });
+      inserted.push(item.showName);
+    }
+
+    return { inserted, skippedDuplicate, missingShow };
+  },
+});
+
 // Cleanup synthetic theatre labels from early Wikipedia imports.
 // Run: npx convex run seed:cleanupSyntheticWikipediaProductions
 export const cleanupSyntheticWikipediaProductions = internalMutation({
