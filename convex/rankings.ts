@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
-import { resolveImageUrls } from "./helpers";
+import { resolveShowImageUrls } from "./helpers";
 
 const TIER_ORDER = ["loved", "liked", "okay", "disliked", "unranked"] as const;
 type Tier = (typeof TIER_ORDER)[number];
@@ -95,7 +95,7 @@ export const getRankedShows = query({
           .collect();
         return {
           ...show,
-          images: await resolveImageUrls(ctx, show.images),
+          images: await resolveShowImageUrls(ctx, show),
           tier: (userShowById.get(showId)?.tier ?? "liked") as Tier,
           visitCount: visits.length,
           isUnranked: false,
@@ -122,7 +122,7 @@ export const getRankedShows = query({
           .collect();
         return {
           ...show,
-          images: await resolveImageUrls(ctx, show.images),
+          images: await resolveShowImageUrls(ctx, show),
           tier: "unranked" as const,
           visitCount: visits.length,
           isUnranked: true,

@@ -58,8 +58,8 @@ function getRouteFromNotificationData(
 export function usePushNotifications() {
   const savePushToken = useMutation(api.notifications.savePushToken);
   const router = useRouter();
-  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const notificationListener = useRef<ReturnType<typeof Notifications.addNotificationReceivedListener> | null>(null);
+  const responseListener = useRef<ReturnType<typeof Notifications.addNotificationResponseReceivedListener> | null>(null);
 
   useEffect(() => {
     registerForPushNotifications()

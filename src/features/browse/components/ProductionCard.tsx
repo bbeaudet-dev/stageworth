@@ -25,7 +25,7 @@ export function ProductionCard({
   const status = getProductionStatus(production);
   const badge = STATUS_BADGE[status] ?? STATUS_BADGE.closed;
   const show = production.show;
-  const image = show?.images?.[0];
+  const image = production.posterUrl ?? show?.images?.[0];
 
   const closingWarning = (() => {
     if (!production.closingDate || status === "closed") return null;

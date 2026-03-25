@@ -7,6 +7,7 @@ export type ProductionWithShow = {
   previewDate?: string;
   openingDate?: string;
   closingDate?: string;
+  posterUrl?: string | null;
   show?: {
     _id?: Id<"shows">;
     name?: string;

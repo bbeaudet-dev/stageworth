@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
-import { resolveImageUrls } from "./helpers";
+import { resolveShowImageUrls } from "./helpers";
 import {
   SYSTEM_LIST_KEYS,
   SYSTEM_LIST_NAME_BY_KEY,
@@ -53,7 +53,7 @@ async function resolveShowsByIds(ctx: any, showIds: string[]) {
       if (!show) return null;
       return {
         ...show,
-        images: await resolveImageUrls(ctx, show.images),
+        images: await resolveShowImageUrls(ctx, show),
       };
     })
   );

@@ -9,15 +9,25 @@ export { getProductionStatus } from "../src/utils/productions";
 
 const today = () => new Date().toISOString().split("T")[0];
 
-// Attach the parent show (with resolved image URLs) to a production document.
+// Attach the parent show (with resolved image URLs) and the production's own
+// resolved posterUrl to a production document.
 async function withShow(ctx: any, production: any) {
   const show = await ctx.db.get(production.showId);
   if (!show) return null;
+  const posterUrl = production.posterImage
+    ? await ctx.storage.getUrl(production.posterImage)
+    : null;
+  // Resolve show-level images; use the production poster as a fallback so the
+  // card always has something to display when show.images is empty.
+  const showImages = show.images.length > 0
+    ? await resolveImageUrls(ctx, show.images)
+    : posterUrl ? [posterUrl] : [];
   return {
     ...production,
+    posterUrl: posterUrl ?? null,
     show: {
       ...show,
-      images: await resolveImageUrls(ctx, show.images),
+      images: showImages,
     },
   };
 }

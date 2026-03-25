@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
-import { resolveImageUrls } from "./helpers";
+import { resolveShowImageUrls } from "./helpers";
 
 const MAX_LIMIT = 50;
 
@@ -25,7 +25,7 @@ async function resolveShow(ctx: any, showId: string) {
   return {
     _id: show._id,
     name: show.name,
-    images: await resolveImageUrls(ctx, show.images),
+    images: await resolveShowImageUrls(ctx, show),
   };
 }
 
@@ -49,6 +49,13 @@ async function hydratePosts(ctx: any, posts: any[], viewerUserId: string) {
               .first(),
       ]);
       if (!actor || !show) return null;
+
+      const taggedUsers: { _id: string; username: string; name?: string | null }[] = [];
+      for (const uid of post.taggedUserIds ?? []) {
+        const user = await ctx.db.get(uid);
+        if (user) taggedUsers.push({ _id: user._id, username: user.username, name: user.name });
+      }
+
       return {
         _id: post._id,
         createdAt: post.createdAt,
@@ -62,6 +69,7 @@ async function hydratePosts(ctx: any, posts: any[], viewerUserId: string) {
         viewerFollowsActor: viewerFollowRow !== null,
         actor,
         show,
+        taggedUsers,
       };
     })
   );

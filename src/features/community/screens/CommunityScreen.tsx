@@ -2,7 +2,7 @@ import { useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
@@ -36,8 +36,50 @@ function formatVisitDate(dateStr: string) {
 function getFirstName(name?: string | null, fallback?: string) {
   const trimmed = name?.trim();
   if (!trimmed) return fallback ?? "";
-  const first = trimmed.split(/\s+/)[0];
-  return first || fallback || "";
+  return trimmed.split(/\s+/)[0] || fallback || "";
+}
+
+type TaggedUser = { _id: string; username: string; name?: string | null };
+
+type ParticipantsModalProps = {
+  visible: boolean;
+  onClose: () => void;
+  actor: { _id: string; username: string; name?: string | null };
+  taggedUsers: TaggedUser[];
+  onNavigate: (username: string) => void;
+  theme: "light" | "dark";
+};
+
+function ParticipantsModal({ visible, onClose, actor, taggedUsers, onNavigate, theme }: ParticipantsModalProps) {
+  const bg = theme === "dark" ? "#18181b" : "#fff";
+  const overlayBg = "rgba(0,0,0,0.5)";
+  const text = theme === "dark" ? "#f4f4f5" : "#111";
+  const muted = theme === "dark" ? "#a0a4aa" : "#666";
+  const border = theme === "dark" ? "#27272f" : "#e8e8e8";
+  const accent = theme === "dark" ? "#7ea2ff" : "#2f62d8";
+  const all = [actor, ...taggedUsers];
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={[styles.modalOverlay, { backgroundColor: overlayBg }]} onPress={onClose}>
+        <Pressable style={[styles.modalSheet, { backgroundColor: bg, borderColor: border }]} onPress={(e) => e.stopPropagation()}>
+          <Text style={[styles.modalTitle, { color: muted }]}>Attended together</Text>
+          {all.map((user) => (
+            <Pressable
+              key={user._id}
+              style={styles.modalRow}
+              onPress={() => { onClose(); onNavigate(user.username); }}
+            >
+              <Text style={[styles.modalName, { color: text }]}>
+                {user.name?.trim() || user.username}
+              </Text>
+              <Text style={[styles.modalHandle, { color: accent }]}>@{user.username}</Text>
+            </Pressable>
+          ))}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
 }
 
 export default function CommunityScreen() {
@@ -53,6 +95,10 @@ export default function CommunityScreen() {
     selectedTab === "global" ? { limit: 40 } : "skip"
   );
   const unreadCount = useQuery(api.notifications.getUnreadCount) ?? 0;
+  const [participantsModal, setParticipantsModal] = useState<{
+    actor: TaggedUser;
+    taggedUsers: TaggedUser[];
+  } | null>(null);
 
   const posts = useMemo(
     () => (selectedTab === "following" ? (followingFeed ?? []) : (globalFeed ?? [])),
@@ -173,9 +219,14 @@ export default function CommunityScreen() {
         {!isLoading
           ? posts.map((post) => {
               const actorLabel = getFirstName(post.actor.name, post.actor.username);
+              const tagged: TaggedUser[] = post.taggedUsers ?? [];
               const location = [formatVisitDate(post.visitDate), post.theatre, post.city]
                 .filter(Boolean)
                 .join(" - ");
+
+              const openParticipants = () =>
+                setParticipantsModal({ actor: post.actor, taggedUsers: tagged });
+
               return (
                 <View
                   key={post._id}
@@ -213,7 +264,75 @@ export default function CommunityScreen() {
                         saw{" "}
                         <Text style={[styles.showText, { color: showTextColor }]}>
                           {post.show.name}
-                        </Text>{" "}
+                        </Text>
+                        {tagged.length === 1 && (
+                          <>
+                            {" with "}
+                            <Text
+                              style={[styles.actorText, { color: actorLinkColor }]}
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/user/[username]",
+                                  params: { username: tagged[0].username },
+                                })
+                              }
+                            >
+                              {getFirstName(tagged[0].name, tagged[0].username)}
+                            </Text>
+                          </>
+                        )}
+                        {tagged.length === 2 && (
+                          <>
+                            {" with "}
+                            <Text
+                              style={[styles.actorText, { color: actorLinkColor }]}
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/user/[username]",
+                                  params: { username: tagged[0].username },
+                                })
+                              }
+                            >
+                              {getFirstName(tagged[0].name, tagged[0].username)}
+                            </Text>
+                            {" and "}
+                            <Text
+                              style={[styles.actorText, { color: actorLinkColor }]}
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/user/[username]",
+                                  params: { username: tagged[1].username },
+                                })
+                              }
+                            >
+                              {getFirstName(tagged[1].name, tagged[1].username)}
+                            </Text>
+                          </>
+                        )}
+                        {tagged.length >= 3 && (
+                          <>
+                            {" with "}
+                            <Text
+                              style={[styles.actorText, { color: actorLinkColor }]}
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/user/[username]",
+                                  params: { username: tagged[0].username },
+                                })
+                              }
+                            >
+                              {getFirstName(tagged[0].name, tagged[0].username)}
+                            </Text>
+                            {" and "}
+                            <Text
+                              style={[styles.actorText, { color: actorLinkColor }]}
+                              onPress={openParticipants}
+                            >
+                              {tagged.length - 1} others
+                            </Text>
+                          </>
+                        )}
+                        {"  "}
                         {formatRelativeVisitDate(post.visitDate)}
                       </Text>
                       {location ? (
@@ -253,6 +372,18 @@ export default function CommunityScreen() {
             })
           : null}
       </ScrollView>
+      {participantsModal && (
+        <ParticipantsModal
+          visible
+          onClose={() => setParticipantsModal(null)}
+          actor={participantsModal.actor}
+          taggedUsers={participantsModal.taggedUsers}
+          onNavigate={(username) =>
+            router.push({ pathname: "/user/[username]", params: { username } })
+          }
+          theme={theme}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -406,5 +537,39 @@ const styles = StyleSheet.create({
     color: "#808080",
     textAlign: "center",
     marginTop: 40,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+  },
+  modalSheet: {
+    width: "100%",
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 20,
+    gap: 4,
+  },
+  modalTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  modalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+  },
+  modalName: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  modalHandle: {
+    fontSize: 13,
+    fontWeight: "500",
   },
 });

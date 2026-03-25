@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { resolveImageUrls } from "./helpers";
+import { resolveShowImageUrls } from "./helpers";
 import { normalizeShowName } from "./showNormalization";
 
 export const list = query({
@@ -10,7 +10,7 @@ export const list = query({
     return Promise.all(
       shows.map(async (show) => ({
         ...show,
-        images: await resolveImageUrls(ctx, show.images),
+        images: await resolveShowImageUrls(ctx, show),
       }))
     );
   },
@@ -21,7 +21,7 @@ export const getById = query({
   handler: async (ctx, args) => {
     const show = await ctx.db.get(args.id);
     if (!show) return null;
-    return { ...show, images: await resolveImageUrls(ctx, show.images) };
+    return { ...show, images: await resolveShowImageUrls(ctx, show) };
   },
 });
 
@@ -35,7 +35,7 @@ export const getByIds = query({
     return Promise.all(
       presentShows.map(async (show) => ({
         ...show,
-        images: await resolveImageUrls(ctx, show.images),
+        images: await resolveShowImageUrls(ctx, show),
       }))
     );
   },
