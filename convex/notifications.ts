@@ -96,12 +96,21 @@ export const listForCurrentUser = query({
 
     const results = await Promise.all(
       notifications.map(async (notif) => {
-        const actor = await ctx.db.get(notif.actorUserId);
-        if (!actor) return null;
-
-        const avatarUrl = actor.avatarImage
-          ? await ctx.storage.getUrl(actor.avatarImage)
-          : null;
+        let actor = null;
+        if (notif.actorKind === "user") {
+          if (!notif.actorUserId) return null; // malformed — skip
+          const actorDoc = await ctx.db.get(notif.actorUserId);
+          if (!actorDoc) return null; // actor deleted — drop notification
+          const avatarUrl = actorDoc.avatarImage
+            ? await ctx.storage.getUrl(actorDoc.avatarImage)
+            : null;
+          actor = {
+            _id: actorDoc._id,
+            username: actorDoc.username,
+            name: actorDoc.name,
+            avatarUrl,
+          };
+        }
 
         let show = null;
         if (notif.showId) {
@@ -120,12 +129,8 @@ export const listForCurrentUser = query({
           isRead: notif.isRead,
           createdAt: notif.createdAt,
           visitId: notif.visitId,
-          actor: {
-            _id: actor._id,
-            username: actor.username,
-            name: actor.name,
-            avatarUrl,
-          },
+          productionId: notif.productionId ?? null,
+          actor,
           show,
         };
       })

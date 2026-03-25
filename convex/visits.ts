@@ -361,6 +361,7 @@ export const createVisit = mutation({
       validTaggedUserIds.flatMap((recipientId) => [
         ctx.db.insert("notifications", {
           recipientUserId: recipientId,
+          actorKind: "user",
           actorUserId: userId,
           type: "visit_tag",
           visitId,
