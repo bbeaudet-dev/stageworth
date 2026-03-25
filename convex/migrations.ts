@@ -25,3 +25,17 @@ export const backfillIssue11UserLists = internalMutation({
     };
   },
 });
+
+// Stamps all pre-existing notification docs with actorKind: "user".
+// Run once after deploying the actorKind schema change.
+export const backfillNotificationActorKind = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const notifications = await ctx.db.query("notifications").collect();
+    const stale = notifications.filter((n) => (n as { actorKind?: string }).actorKind === undefined);
+    for (const n of stale) {
+      await ctx.db.patch(n._id, { actorKind: "user" });
+    }
+    return { total: notifications.length, patched: stale.length };
+  },
+});

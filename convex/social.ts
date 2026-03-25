@@ -45,6 +45,7 @@ export const followUser = mutation({
 
     await ctx.db.insert("notifications", {
       recipientUserId: args.userId,
+      actorKind: "user",
       actorUserId: currentUserId,
       type: "new_follow",
       isRead: false,

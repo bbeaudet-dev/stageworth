@@ -171,13 +171,20 @@ export default defineSchema({
 
   notifications: defineTable({
     recipientUserId: v.id("users"),
-    actorUserId: v.id("users"),
+    // "user" = triggered by another user; "system" = bot/cron-generated
+    actorKind: v.union(v.literal("user"), v.literal("system")),
+    actorUserId: v.optional(v.id("users")),
     type: v.union(
+      // user-actor types
       v.literal("visit_tag"),
       v.literal("new_follow"),
+      // system-actor types
+      v.literal("show_announced"),
+      v.literal("closing_soon"),
     ),
     visitId: v.optional(v.id("visits")),
     showId: v.optional(v.id("shows")),
+    productionId: v.optional(v.id("productions")),
     isRead: v.boolean(),
     createdAt: v.number(),
   })
