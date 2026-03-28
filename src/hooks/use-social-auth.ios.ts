@@ -2,13 +2,14 @@ import {
   GoogleSignin,
   statusCodes,
 } from "@react-native-google-signin/google-signin";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useState } from "react";
 import { Alert } from "react-native";
 import { authClient } from "@/lib/auth-client";
 
 export function useSocialAuth() {
   const [googleLoading, setGoogleLoading] = useState(false);
-  const appleLoading = false;
+  const [appleLoading, setAppleLoading] = useState(false);
 
   const signInWithGoogle = async () => {
     try {
@@ -53,7 +54,46 @@ export function useSocialAuth() {
     }
   };
 
-  const signInWithApple = async () => null;
+  const signInWithApple = async () => {
+    try {
+      setAppleLoading(true);
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        Alert.alert("Could not get credentials from Apple");
+        return null;
+      }
+
+      const authResult = await authClient.signIn.social({
+        provider: "apple",
+        idToken: { token: credential.identityToken },
+      });
+
+      if (authResult.error) {
+        throw new Error(authResult.error.message || "Apple sign-in failed");
+      }
+
+      return { success: true, email: credential.email };
+    } catch (e: unknown) {
+      if (
+        e instanceof Error &&
+        "code" in e &&
+        (e as { code: string }).code === "ERR_REQUEST_CANCELED"
+      ) {
+        Alert.alert("Apple sign-in was cancelled");
+      } else if (e instanceof Error) {
+        Alert.alert(e.message || "Apple sign-in error");
+      }
+      return null;
+    } finally {
+      setAppleLoading(false);
+    }
+  };
 
   return { googleLoading, appleLoading, signInWithGoogle, signInWithApple };
 }

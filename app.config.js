@@ -1,3 +1,14 @@
+const fs = require("fs");
+const path = require("path");
+
+// Write google-services.json from env var during EAS cloud builds
+if (process.env.GOOGLE_SERVICES_JSON) {
+  fs.writeFileSync(
+    path.resolve(__dirname, "google-services.json"),
+    process.env.GOOGLE_SERVICES_JSON
+  );
+}
+
 /** @type {import('expo/config').ExpoConfig} */
 module.exports = {
   name: "Theatre Diary",
@@ -16,9 +27,15 @@ module.exports = {
     config: {
       googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
     },
+    infoPlist: {
+      NSLocationWhenInUseUsageDescription:
+        "Theatre Diary uses your location to show nearby theatres and venues on the map.",
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     package: "com.theatrediary.app",
+    googleServicesFile: "./google-services.json",
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/images/android-icon-foreground.png",
