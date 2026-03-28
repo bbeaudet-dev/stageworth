@@ -1,4 +1,6 @@
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -22,6 +24,7 @@ export function ActionsMenu({
   const optionBackground = theme === "dark" ? "#202024" : "#f8f8ff";
   const optionBorder = theme === "dark" ? "#333" : "#e1e1e1";
   const optionTextColor = Colors[theme].text;
+  const tabBarHeight = useBottomTabBarHeight();
 
   return (
     <Modal
@@ -32,8 +35,14 @@ export function ActionsMenu({
       statusBarTranslucent
     >
       <View style={styles.overlay} pointerEvents="box-none">
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={styles.menuAnchor} pointerEvents="box-none">
+        <Pressable
+          style={[styles.backdrop, { bottom: tabBarHeight }]}
+          onPress={onClose}
+        />
+        <View
+          style={[styles.menuAnchor, { paddingBottom: tabBarHeight + 8 }]}
+          pointerEvents="box-none"
+        >
           <View style={[styles.sheet, { backgroundColor: sheetBackground }]}>
             <Pressable
               style={[styles.optionButton, { backgroundColor: optionBackground, borderColor: optionBorder }]}
@@ -64,14 +73,12 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 78,
     backgroundColor: "rgba(0,0,0,0.18)",
   },
   menuAnchor: {
     flex: 1,
     justifyContent: "flex-end",
     alignItems: "center",
-    paddingBottom: 84,
   },
   sheet: {
     width: 260,
