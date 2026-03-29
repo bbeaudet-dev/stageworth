@@ -1,11 +1,11 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
-// Standard iOS tab bar height (49pt) + bottom safe area inset.
-const TAB_BAR_BASE_HEIGHT = 49;
+/** Tab bar content height when we cannot read it from the navigator (menu is a sibling of Tabs). */
+const TAB_BAR_CONTENT_HEIGHT = Platform.OS === "ios" ? 49 : 56;
 
 interface ActionsMenuProps {
   visible: boolean;
@@ -29,7 +29,7 @@ export function ActionsMenu({
   const optionBorder = theme === "dark" ? "#333" : "#e1e1e1";
   const optionTextColor = Colors[theme].text;
   const insets = useSafeAreaInsets();
-  const tabBarHeight = TAB_BAR_BASE_HEIGHT + insets.bottom;
+  const tabBarHeight = TAB_BAR_CONTENT_HEIGHT + insets.bottom;
 
   return (
     <Modal
