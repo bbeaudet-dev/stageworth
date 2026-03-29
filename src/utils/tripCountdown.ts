@@ -2,15 +2,12 @@
  * Human-readable countdown for a trip, used on TripCard and anywhere else
  * a concise time label is needed.
  *
- * Symmetric scale applied identically in both directions:
- *   1 day               → "Tomorrow" / "Ends tomorrow" / "Xd ago"
- *   2–6 days            → "In Xd"    / "Ends in Xd"   / "Xd ago"
- *   7–27 days           → "In Xw"    / "Ends in Xw"   / "Xw ago"
- *   28 days – 11 months → "In Xmo"   / "Ends in Xmo"  / "Xmo ago"
- *   ≥ 12 months         → "In Xy"    / "Ends in Xy"   / "Xy ago"
- *
- * Active trips show how much time is left; upcoming show how far until start;
- * past trips show elapsed time since the trip ended.
+ * Scale (applied symmetrically for upcoming / active / past):
+ *   1 day               → "Tomorrow" / "Ends tomorrow" / "Yesterday"
+ *   2–6 days            → "In X days"    / "Ends in X days"   / "X days ago"
+ *   7–27 days           → "In X week(s)" / "Ends in X week(s)" / "X week(s) ago"
+ *   28 days – 11 months → "In X month(s)"/ "Ends in X month(s)"/ "X month(s) ago"
+ *   ≥ 12 months         → "In X year(s)" / "Ends in X year(s)" / "X year(s) ago"
  */
 
 export type TripPhase = "upcoming" | "active" | "past";
@@ -20,12 +17,17 @@ export interface TripCountdown {
   phase: TripPhase;
 }
 
-/** Converts a number of days into the most appropriate unit. */
+function plural(n: number, unit: string): string {
+  return `${n} ${unit}${n === 1 ? "" : "s"}`;
+}
+
+/** Converts a number of days into the most appropriate human-readable unit. */
 function scaleTime(days: number): string {
-  if (days < 7) return `${days}d`;
-  if (days < 28) return `${Math.floor(days / 7)}w`;
-  if (days < 365) return `${Math.floor(days / 30)}mo`;
-  return `${Math.floor(days / 365)}y`;
+  if (days < 7) return plural(days, "day");
+  if (days < 28) return plural(Math.floor(days / 7), "week");
+  // Use Math.max(1,...) so 28–30 days shows "1 month" not "0 months"
+  if (days < 365) return plural(Math.max(1, Math.round(days / 30)), "month");
+  return plural(Math.max(1, Math.round(days / 365)), "year");
 }
 
 export function getTripCountdown(startDate: string, endDate: string): TripCountdown {
@@ -53,5 +55,6 @@ export function getTripCountdown(startDate: string, endDate: string): TripCountd
   // ── Past ──────────────────────────────────────────────────────────────────
   const end = new Date(endDate + "T00:00:00Z");
   const daysSinceEnd = Math.round((today.getTime() - end.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysSinceEnd === 1) return { text: "Yesterday", phase: "past" };
   return { text: `${scaleTime(daysSinceEnd)} ago`, phase: "past" };
 }

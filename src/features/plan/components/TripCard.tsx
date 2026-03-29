@@ -59,10 +59,19 @@ export function TripCard({
   const dateRange = formatDateRange(startDate, endDate);
   const { text: countdownText, phase } = getTripCountdown(startDate, endDate);
 
-  const isPast = phase === "past";
-  // Past trips get a muted badge; active trips get accent; upcoming get accent
-  const badgeBg = isPast ? mutedTextColor + "18" : accentColor + "18";
-  const badgeTextColor = isPast ? mutedTextColor : accentColor;
+  // Phase-based pastel badge colors, dark-mode aware
+  const badgeBg =
+    phase === "active"
+      ? theme === "dark" ? "rgba(34,197,94,0.18)" : "#F0FDF4"
+      : phase === "upcoming"
+      ? theme === "dark" ? "rgba(59,130,246,0.18)" : "#EFF6FF"
+      : theme === "dark" ? "rgba(156,163,175,0.18)" : "#F3F4F6";
+  const badgeTextColor =
+    phase === "active"
+      ? theme === "dark" ? "#86EFAC" : "#15803D"
+      : phase === "upcoming"
+      ? theme === "dark" ? "#93C5FD" : "#1D4ED8"
+      : theme === "dark" ? "#9CA3AF" : "#6B7280";
 
   return (
     <Pressable
@@ -72,7 +81,7 @@ export function TripCard({
       <View style={styles.cardMain}>
         <View style={styles.cardInfo}>
           <Text
-            style={[styles.name, { color: isPast ? mutedTextColor : primaryTextColor }]}
+            style={[styles.name, { color: phase === "past" ? mutedTextColor : primaryTextColor }]}
             numberOfLines={1}
           >
             {name}
