@@ -5,8 +5,8 @@ import { getProductionStatus } from "../src/utils/productions";
 export const SYSTEM_LIST_KEYS = [
   "want_to_see",
   "look_into",
-  "not_interested",
   "uncategorized",
+  "not_interested",
 ] as const;
 
 export type SystemListKey = (typeof SYSTEM_LIST_KEYS)[number];

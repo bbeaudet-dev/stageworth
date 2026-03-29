@@ -51,7 +51,7 @@ export function useProfileListsData() {
       systemKey: undefined,
     }));
 
-    return [...seenRow, ...dynamicSystem, ...custom];
+    return [...dynamicSystem, ...seenRow, ...custom];
   }, [customLists, profileLists, systemLists]);
 
   const toggleVisibility = async (listId: Id<"userLists">, isPublic: boolean) =>
