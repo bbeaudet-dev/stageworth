@@ -153,7 +153,7 @@ export default function BrowseScreen() {
             sections.map((section) => (
               <View key={section.title}>
                 <Text style={[styles.sectionHeader, { color: mutedTextColor }]}>{section.title}</Text>
-                {chunkIntoRows(section.data, 3).map((row, rowIndex) => (
+                {chunkIntoRows(section.data, 4).map((row, rowIndex) => (
                   <View key={rowIndex} style={styles.gridRow}>
                     {row.map((production) => (
                       <ProductionCard
@@ -176,7 +176,7 @@ export default function BrowseScreen() {
                         }}
                       />
                     ))}
-                    {row.length < 3 && Array.from({ length: 3 - row.length }).map((_, i) => (
+                    {row.length < 4 && Array.from({ length: 4 - row.length }).map((_, i) => (
                       <View key={i} style={styles.gridPlaceholder} />
                     ))}
                   </View>
@@ -192,7 +192,7 @@ export default function BrowseScreen() {
           </Text>
         ) : (
           <>
-            {chunkIntoRows(shows.slice(0, allShowsLimit), 3).map((row, rowIndex) => (
+            {chunkIntoRows(shows.slice(0, allShowsLimit), 4).map((row, rowIndex) => (
               <View key={rowIndex} style={styles.gridRow}>
                 {row.map((show) => (
                   <ShowCard
@@ -214,7 +214,7 @@ export default function BrowseScreen() {
                     }}
                   />
                 ))}
-                {row.length < 3 && Array.from({ length: 3 - row.length }).map((_, i) => (
+                {row.length < 4 && Array.from({ length: 4 - row.length }).map((_, i) => (
                   <View key={i} style={styles.gridPlaceholder} />
                 ))}
               </View>
