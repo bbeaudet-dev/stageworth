@@ -24,6 +24,17 @@ const MAPPING = {
   'person.fill': 'person',
   'person.2.fill': 'group',
   'theatermasks.fill': 'theater-comedy',
+  'map.fill': 'map',
+  'list.bullet': 'list',
+  'plus': 'add',
+  'xmark': 'close',
+  'checkmark': 'check',
+  'globe': 'public',
+  'lock.fill': 'lock',
+  'gearshape.fill': 'settings',
+  'magnifyingglass': 'search',
+  'envelope.fill': 'email',
+  'pencil': 'edit',
 } as IconMapping;
 
 /**
