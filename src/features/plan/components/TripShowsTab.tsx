@@ -145,29 +145,39 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
         {closingSoon && closingSoon.length > 0 ? (
           <View style={[styles.card, { backgroundColor: surfaceColor, borderColor }]}>
             <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Closing Around Your Trip</Text>
-            <Text style={[styles.sectionSub, { color: mutedTextColor }]}>From your lists</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.closingCards}>
-              {closingSoon.map((item: any) => {
-                const show = item.show;
-                const image = item.production?.posterUrl ?? show?.images?.[0] ?? null;
-                const sid = String(show._id);
-                const isOnTrip = alreadyOnTripShowIds.has(sid);
-                return (
-                  <View key={sid} style={[styles.closingCard, { backgroundColor: chipBg, borderColor }]}>
-                    <Pressable onPress={() => router.push({ pathname: "/show/[showId]", params: { showId: sid, name: show.name } })}>
-                      {image
-                        ? <Image source={{ uri: image }} style={styles.closingCardImg} contentFit="cover" />
-                        : <View style={[styles.closingCardImg, styles.closingCardFb, { backgroundColor: surfaceColor }]}><Text style={[styles.closingCardFbText, { color: mutedTextColor }]} numberOfLines={3}>{show.name}</Text></View>}
-                      <Text style={[styles.closingCardName, { color: primaryTextColor }]} numberOfLines={2}>{show.name}</Text>
-                      <Text style={[styles.closingCardDate, { color: mutedTextColor }]}>{daysUntilClose(item.closingDate)}</Text>
-                    </Pressable>
-                    {isOnTrip
-                      ? <View style={[styles.onTripBadge, { backgroundColor: accentColor + "18" }]}><Text style={[styles.onTripText, { color: accentColor }]}>On trip ✓</Text></View>
-                      : <Pressable style={[styles.closingAddBtn, { backgroundColor: accentColor }]} onPress={() => handleAddShow(show._id)}><Text style={styles.closingAddText}>+ Add</Text></Pressable>}
-                  </View>
-                );
-              })}
-            </ScrollView>
+            <Text style={[styles.sectionSub, { color: mutedTextColor }]}>
+              {closingSoon[0]?.windowEnd
+                ? `Want to See, Look Into & Uncategorized · closing on or before ${formatDateDisplay(closingSoon[0].windowEnd)}`
+                : "Want to See, Look Into & Uncategorized"}
+            </Text>
+            <View style={styles.grid}>
+              {chunkRows(closingSoon, COLS).map((row: any[], ri: number) => (
+                <View key={ri} style={styles.gridRow}>
+                  {row.map((item: any) => {
+                    const show = item.show;
+                    const image = item.production?.posterUrl ?? show?.images?.[0] ?? null;
+                    const sid = String(show._id);
+                    const isOnTrip = alreadyOnTripShowIds.has(sid);
+                    return (
+                      <View key={sid} style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}>
+                        <Pressable onPress={() => router.push({ pathname: "/show/[showId]", params: { showId: sid, name: show.name } })}>
+                          {image
+                            ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                            : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}>
+                                <Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={4}>{show.name}</Text>
+                              </View>}
+                          <Text style={[styles.playbillName, { color: primaryTextColor }]} numberOfLines={2}>{show.name}</Text>
+                          <Text style={[styles.closingRowHint, { color: mutedTextColor }]} numberOfLines={1}>{daysUntilClose(item.closingDate)}</Text>
+                        </Pressable>
+                        {isOnTrip
+                          ? <View style={[styles.onTripBadge, { backgroundColor: accentColor + "18" }]}><Text style={[styles.onTripText, { color: accentColor }]}>On trip ✓</Text></View>
+                          : <Pressable style={[styles.closingAddBtn, { backgroundColor: accentColor }]} onPress={() => handleAddShow(show._id)}><Text style={styles.closingAddText}>+ Add</Text></Pressable>}
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
           </View>
         ) : null}
 
@@ -406,13 +416,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   pillText: { fontSize: 12, fontWeight: "600" },
-  closingCards: { gap: 10, paddingVertical: 4 },
-  closingCard: { width: 118, borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, padding: 6, gap: 5 },
-  closingCardImg: { width: "100%", aspectRatio: 2 / 3, borderRadius: 6 },
-  closingCardFb: { alignItems: "center", justifyContent: "center", padding: 6 },
-  closingCardFbText: { fontSize: 10, textAlign: "center" },
-  closingCardName: { fontSize: 11, fontWeight: "600" },
-  closingCardDate: { fontSize: 10 },
+  closingRowHint: { fontSize: 9, fontWeight: "500", paddingHorizontal: 5, paddingBottom: 4, marginTop: -2 },
   onTripBadge: { borderRadius: 6, paddingVertical: 4, alignItems: "center" },
   onTripText: { fontSize: 10, fontWeight: "700" },
   closingAddBtn: { borderRadius: 6, paddingVertical: 5, alignItems: "center" },

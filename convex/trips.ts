@@ -1,10 +1,17 @@
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
 
 const MAX_TRIP_NAME_LENGTH = 100;
 const MAX_TRIP_DESCRIPTION_LENGTH = 500;
+
+/**
+ * After creating a trip, auto-add shows from these system lists when the show has
+ * an open production whose closing date falls within this many days from today.
+ */
+const TRIP_CREATE_AUTOPOPULATE_CLOSING_DAYS = 90;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -50,6 +57,64 @@ async function assertCanViewTrip(ctx: any, userId: any, tripId: any) {
 
 function todayStr() {
   return new Date().toISOString().split("T")[0];
+}
+
+function addDaysToDateStr(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+async function getInterestListShowIdSet(ctx: any, userId: Id<"users">): Promise<Set<string>> {
+  const allUserLists = await ctx.db
+    .query("userLists")
+    .withIndex("by_user", (q: any) => q.eq("userId", userId))
+    .collect();
+  const relevantLists = allUserLists.filter(
+    (l: any) =>
+      l.systemKey === "want_to_see" ||
+      l.systemKey === "look_into" ||
+      l.systemKey === "uncategorized"
+  );
+  return new Set<string>(relevantLists.flatMap((l: any) => l.showIds));
+}
+
+async function autoPopulateTripFromInterestLists(
+  ctx: any,
+  userId: Id<"users">,
+  tripId: Id<"trips">
+) {
+  const t = todayStr();
+  const windowEnd = addDaysToDateStr(t, TRIP_CREATE_AUTOPOPULATE_CLOSING_DAYS);
+  const listShowIds = await getInterestListShowIdSet(ctx, userId);
+  if (listShowIds.size === 0) return;
+
+  const allProductions = await ctx.db.query("productions").collect();
+  const candidateShowIds = new Set<string>();
+  for (const p of allProductions) {
+    if (!p.closingDate) continue;
+    if (p.closingDate < t || p.closingDate > windowEnd) continue;
+    if (!listShowIds.has(p.showId)) continue;
+    candidateShowIds.add(p.showId);
+  }
+
+  const now = Date.now();
+  for (const showIdStr of candidateShowIds) {
+    const showId = showIdStr as Id<"shows">;
+    const existing = await ctx.db
+      .query("tripShows")
+      .withIndex("by_trip_show", (q: any) =>
+        q.eq("tripId", tripId).eq("showId", showId)
+      )
+      .first();
+    if (existing) continue;
+    await ctx.db.insert("tripShows", {
+      tripId,
+      userId,
+      showId,
+      createdAt: now,
+    });
+  }
 }
 
 // Enumerate every date between startDate and endDate inclusive (YYYY-MM-DD).
@@ -207,10 +272,17 @@ export const getTripById = query({
 });
 
 /**
- * Returns shows the user might want to see on this trip: productions whose
- * closingDate falls on or before the "window end" (start of next trip or
- * tripEndDate + 30 days), filtered to shows already in the user's want_to_see,
- * look_into, or uncategorized lists that are not already on this trip.
+ * Suggestions while viewing a trip: productions whose closing date is between
+ * **today** and a **trip-specific window end** — whichever is earlier of (a) the
+ * start date of your next trip, if the next trip begins within 30 days of this
+ * trip’s end, or (b) this trip’s end date + 30 days (or +30d after end if there
+ * is no overlapping “next trip” in that sense).
+ *
+ * Only includes shows that appear in **Want to See**, **Look Into**, or
+ * **Uncategorized**, and excludes shows already on this trip’s list.
+ *
+ * (Separate from create-time auto-fill, which uses a fixed ~90-day horizon from
+ * “today” when the trip is created — see `createTrip`.)
  */
 export const getClosingSoonForTrip = query({
   args: { tripId: v.id("trips") },
@@ -260,22 +332,7 @@ export const getClosingSoonForTrip = query({
       .collect();
     const alreadyOnTripShowIds = new Set(existingTripShows.map((s: any) => s.showId));
 
-    // Get relevant user lists
-    const allUserLists = await ctx.db
-      .query("userLists")
-      .withIndex("by_user", (q: any) => q.eq("userId", userId))
-      .collect();
-
-    const relevantLists = allUserLists.filter(
-      (l: any) =>
-        l.systemKey === "want_to_see" ||
-        l.systemKey === "look_into" ||
-        l.systemKey === "uncategorized"
-    );
-
-    const listShowIds = new Set<string>(
-      relevantLists.flatMap((l: any) => l.showIds)
-    );
+    const listShowIds = await getInterestListShowIdSet(ctx, userId);
 
     // Find productions closing within the window
     const allProductions = await ctx.db.query("productions").collect();
@@ -338,7 +395,7 @@ export const createTrip = mutation({
     }
 
     const now = Date.now();
-    return await ctx.db.insert("trips", {
+    const tripId = await ctx.db.insert("trips", {
       userId,
       name,
       startDate: args.startDate,
@@ -348,6 +405,10 @@ export const createTrip = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    await autoPopulateTripFromInterestLists(ctx, userId, tripId);
+
+    return tripId;
   },
 });
 
