@@ -164,7 +164,7 @@ export default function BrowseScreen() {
                           if (!production.show?._id) return;
                           isNavigatingRef.current = true;
                           router.push({
-                            pathname: "/show/[showId]",
+                            pathname: "/(tabs)/browse/show/[showId]",
                             params: {
                               showId: String(production.show._id),
                               name: production.show?.name ?? "Show",
@@ -202,7 +202,7 @@ export default function BrowseScreen() {
                       if (isNavigatingRef.current) return;
                       isNavigatingRef.current = true;
                       router.push({
-                        pathname: "/show/[showId]",
+                        pathname: "/(tabs)/browse/show/[showId]",
                         params: {
                           showId: String(show._id),
                           name: show.name ?? "Show",

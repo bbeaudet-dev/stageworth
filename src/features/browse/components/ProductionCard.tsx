@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { daysUntil } from "@/features/browse/logic/date";
 import { styles } from "@/features/browse/styles";
@@ -8,12 +8,51 @@ import { getProductionStatus } from "@/utils/productions";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
-const STATUS_BADGE: Record<string, { label: string; color: string; bg: string }> = {
-  open: { label: "Running", color: "#166534", bg: "#dcfce7" },
-  in_previews: { label: "Previews", color: "#1e40af", bg: "#dbeafe" },
-  announced: { label: "Announced", color: "#92400e", bg: "#fef3c7" },
-  closed: { label: "Closed", color: "#6b7280", bg: "#f3f4f6" },
-};
+type BadgeConfig = { label: string; bg: string; text: string };
+
+/** Human-readable label for a closing countdown (≤30 days). */
+export function closingCountdownLabel(diffDays: number): string {
+  if (diffDays === 0) return "Closes today";
+  if (diffDays === 1) return "Tomorrow";
+  if (diffDays < 7) return `${diffDays} days`;
+  if (diffDays < 28) {
+    const w = Math.floor(diffDays / 7);
+    return `${w} week${w === 1 ? "" : "s"}`;
+  }
+  return "1 month";
+}
+
+function getStatusBadge(
+  production: ProductionWithShow,
+  status: ReturnType<typeof getProductionStatus>,
+  isDark: boolean
+): BadgeConfig | null {
+  // Closing soon — highest priority
+  if ((status === "open" || status === "open_run" || status === "in_previews") && production.closingDate) {
+    const d = daysUntil(production.closingDate);
+    if (d >= 0 && d <= 30) {
+      return isDark
+        ? { label: closingCountdownLabel(d), bg: "rgba(239,68,68,0.18)", text: "#F87171" }
+        : { label: closingCountdownLabel(d), bg: "#FEF2F2", text: "#E05252" };
+    }
+  }
+  if (status === "open_run") return isDark
+    ? { label: "Open Run", bg: "rgba(34,197,94,0.15)", text: "#4ADE80" }
+    : { label: "Open Run", bg: "#F0FDF4", text: "#22C55E" };
+  if (status === "open") return isDark
+    ? { label: "Running", bg: "rgba(34,197,94,0.12)", text: "#4ADE80" }
+    : { label: "Running", bg: "#F0FDF4", text: "#22C55E" };
+  if (status === "in_previews") return isDark
+    ? { label: "Previews", bg: "rgba(59,130,246,0.15)", text: "#60A5FA" }
+    : { label: "Previews", bg: "#EFF6FF", text: "#3B82F6" };
+  if (status === "announced") return isDark
+    ? { label: "Announced", bg: "rgba(234,179,8,0.15)", text: "#FACC15" }
+    : { label: "Announced", bg: "#FEFCE8", text: "#CA8A04" };
+  if (status === "closed") return isDark
+    ? { label: "Closed", bg: "rgba(156,163,175,0.12)", text: "#D1D5DB" }
+    : { label: "Closed", bg: "#F3F4F6", text: "#9CA3AF" };
+  return null;
+}
 
 export function ProductionCard({
   production,
@@ -23,19 +62,12 @@ export function ProductionCard({
   onPress: () => void;
 }) {
   const status = getProductionStatus(production);
-  const badge = STATUS_BADGE[status] ?? STATUS_BADGE.closed;
+  const theme = useColorScheme() ?? "light";
+  const isDark = theme === "dark";
+  const c = Colors[theme];
+  const badge = getStatusBadge(production, status, isDark);
   const show = production.show;
   const image = production.posterUrl ?? show?.images?.[0];
-
-  const closingWarning = (() => {
-    if (!production.closingDate || status === "closed") return null;
-    const d = daysUntil(production.closingDate);
-    if (d > 30) return null;
-    return d <= 0 ? "Closing today" : `Closes in ${d}d`;
-  })();
-
-  const theme = useColorScheme() ?? "light";
-  const c = Colors[theme];
 
   return (
     <Pressable
@@ -46,26 +78,32 @@ export function ProductionCard({
         <Image source={{ uri: image }} style={styles.playbillImage} contentFit="cover" />
       ) : (
         <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
-          <Text style={[styles.playbillFallbackText, { color: c.mutedText }]} numberOfLines={4}>
+          <Text
+            style={[styles.playbillFallbackText, { color: c.mutedText }]}
+            numberOfLines={5}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
+          >
             {show?.name ?? ""}
           </Text>
         </View>
       )}
-      <View style={styles.playbillInfo}>
-        <Text style={[styles.playbillShowName, { color: c.text }]} numberOfLines={2}>
-          {show?.name ?? "Unknown Show"}
-        </Text>
-        <View style={styles.playbillBadgeRow}>
-          <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-            <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
-          </View>
-          {closingWarning ? (
-            <View style={styles.closingPill}>
-              <Text style={styles.closingText}>{closingWarning}</Text>
-            </View>
-          ) : null}
+      {badge ? (
+        <View style={[local.badgeStrip, { backgroundColor: badge.bg }]}>
+          <Text style={[local.badgeText, { color: badge.text }]}>{badge.label}</Text>
         </View>
-      </View>
+      ) : null}
     </Pressable>
   );
 }
+
+const local = StyleSheet.create({
+  // Strip sits immediately below the image, clipped by the card's overflow:hidden
+  // so its bottom corners inherit the card's borderRadius automatically.
+  badgeStrip: {
+    width: "100%",
+    paddingVertical: 4,
+    alignItems: "center",
+  },
+  badgeText: { fontSize: 9, fontWeight: "700" },
+});
