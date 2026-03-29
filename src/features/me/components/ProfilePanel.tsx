@@ -120,6 +120,16 @@ export function ProfilePanel({ visible, onClose }: ProfilePanelProps) {
           </View>
 
           <Pressable
+            style={[styles.linkButton, { backgroundColor: accentColor + "14", borderColor: accentColor + "30" }]}
+            onPress={() => {
+              onClose();
+              router.push("/(tabs)/plan");
+            }}
+          >
+            <Text style={[styles.linkButtonText, { color: accentColor }]}>View Trips & Lists →</Text>
+          </Pressable>
+
+          <Pressable
             style={[styles.signOutButton, { backgroundColor: dangerColor }]}
             onPress={handleSignOut}
           >
@@ -175,6 +185,8 @@ const styles = StyleSheet.create({
   countNumber: { fontWeight: "700" },
   bio: { fontSize: 14, lineHeight: 20, textAlign: "center", marginTop: 2 },
   location: { fontSize: 13 },
+  linkButton: { borderRadius: 12, paddingVertical: 12, alignItems: "center", borderWidth: 1 },
+  linkButtonText: { fontSize: 14, fontWeight: "600" },
   signOutButton: { borderRadius: 12, paddingVertical: 14, alignItems: "center" },
   signOutText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });
