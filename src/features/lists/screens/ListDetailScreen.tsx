@@ -1,14 +1,18 @@
+import { Image } from "expo-image";
 import { useMutation, useQuery } from "convex/react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
@@ -17,21 +21,28 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
+const COLS = 4;
+const GAP = 8;
+const PAD = 16;
+
+function chunkRows<T>(arr: T[], cols: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < arr.length; i += cols) rows.push(arr.slice(i, i + cols));
+  return rows;
+}
+
 const SYSTEM_LIST_INFO: Record<string, string> = {
-  seen:
-    "This list is auto-generated from all of your saved visits.",
+  seen: "Auto-generated from all of your saved visits.",
   uncategorized:
     "Newly announced shows are auto-added here. Shows are auto-removed once added to your Visits or to another List.",
-  want_to_see:
-    "Shows you plan to see soon. Moving a show here removes it from Uncategorized and Look Into.",
-  look_into:
-    "A shortlist for shows you want to research more before deciding.",
-  not_interested:
-    "Shows you have no current interest in seeing.",
+  want_to_see: "Shows you plan to see soon. Moving a show here removes it from Uncategorized and Look Into.",
+  look_into: "A shortlist for shows you want to research more before deciding.",
+  not_interested: "Shows you have no current interest in seeing.",
 };
 
 export default function ListDetailScreen() {
   const router = useRouter();
+  const { width: screenWidth } = useWindowDimensions();
   const params = useLocalSearchParams<{
     listId?: string;
     name?: string;
@@ -41,9 +52,9 @@ export default function ListDetailScreen() {
   const listId = params.listId ?? "";
   const isSeen = params.seen === "1" || listId === "seen";
   const systemKey = typeof params.systemKey === "string" ? params.systemKey : undefined;
-  const title = typeof params.name === "string" && params.name.trim().length > 0
-    ? params.name
-    : "List";
+  const title =
+    typeof params.name === "string" && params.name.trim().length > 0 ? params.name : "List";
+
   const updateCustomListDescription = useMutation(api.lists.updateCustomListDescription);
   const addShowToList = useMutation(api.lists.addShowToList);
 
@@ -67,9 +78,10 @@ export default function ListDetailScreen() {
   const isSystemList = isSeen || regularList?.kind === "system";
   const infoText = useMemo(() => {
     if (isSeen) return SYSTEM_LIST_INFO.seen;
-    if (!systemKey) return "This is a system list with automatic behavior.";
-    return SYSTEM_LIST_INFO[systemKey] ?? "This is a system list with automatic behavior.";
+    if (!systemKey) return "This is a system list.";
+    return SYSTEM_LIST_INFO[systemKey] ?? "This is a system list.";
   }, [isSeen, systemKey]);
+
   const [showInfo, setShowInfo] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [isSavingDescription, setIsSavingDescription] = useState(false);
@@ -103,10 +115,8 @@ export default function ListDetailScreen() {
     const alreadyInList = new Set(rows.map((show) => show._id));
     return allShows
       .filter((show) => !alreadyInList.has(show._id))
-      .filter((show) =>
-        lower.length === 0 ? true : show.name.toLowerCase().includes(lower)
-      )
-      .slice(0, 12);
+      .filter((show) => (lower.length === 0 ? true : show.name.toLowerCase().includes(lower)))
+      .slice(0, 20);
   }, [allShows, rows, showQuery]);
 
   const onAddShow = async (showId: Id<"shows">) => {
@@ -115,7 +125,6 @@ export default function ListDetailScreen() {
     try {
       await addShowToList({ listId: regularList._id, showId });
       setShowQuery("");
-      setShowSearchOpen(false);
     } finally {
       setIsAddingShow(false);
     }
@@ -124,33 +133,45 @@ export default function ListDetailScreen() {
   const theme = useColorScheme() ?? "light";
   const c = Colors[theme];
 
+  const cardWidth = (screenWidth - PAD * 2 - GAP * (COLS - 1)) / COLS;
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={["bottom"]}>
       <Stack.Screen
-        options={{
-          title,
-          headerShown: true,
-          headerBackButtonDisplayMode: "minimal",
-        }}
+        options={{ title, headerShown: true, headerBackButtonDisplayMode: "minimal" }}
       />
 
+      {/* Meta row */}
       <View style={[styles.headerRow, { borderBottomColor: c.border }]}>
         <Text style={[styles.countText, { color: c.mutedText }]}>{count} shows</Text>
-        {isSystemList ? (
-          <Pressable style={styles.infoButton} onPress={() => setShowInfo((prev) => !prev)}>
-            <IconSymbol size={14} name="info.circle" color={c.accent} />
-            <Text style={[styles.infoButtonText, { color: c.accent }]}>What is this list?</Text>
-          </Pressable>
-        ) : (
-          <View />
-        )}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          {isSystemList ? (
+            <Pressable style={styles.infoButton} onPress={() => setShowInfo((p) => !p)}>
+              <IconSymbol size={14} name="info.circle" color={c.accent} />
+              <Text style={[styles.infoButtonText, { color: c.accent }]}>About</Text>
+            </Pressable>
+          ) : null}
+          {!isSeen ? (
+            <Pressable
+              style={[styles.addToggle, { borderColor: c.border }]}
+              onPress={() => setShowSearchOpen((p) => !p)}
+            >
+              <IconSymbol size={13} name={showSearchOpen ? "xmark.circle" : "plus.circle"} color={c.accent} />
+              <Text style={[styles.infoButtonText, { color: c.accent }]}>
+                {showSearchOpen ? "Done" : "Add show"}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
+
       {showInfo && isSystemList ? (
         <View style={[styles.infoCard, { backgroundColor: c.surface, borderColor: c.border }]}>
           <Text style={[styles.infoText, { color: c.mutedText }]}>{infoText}</Text>
         </View>
       ) : null}
 
+      {/* Description for custom lists */}
       {!isSystemList && regularList ? (
         <View style={styles.descriptionBlock}>
           {isEditingDescription ? (
@@ -170,23 +191,13 @@ export default function ListDetailScreen() {
               />
               <View style={styles.descriptionActions}>
                 <Pressable
-                  style={[
-                    styles.secondaryButton,
-                    { backgroundColor: c.surface, borderColor: c.border },
-                  ]}
-                  onPress={() => {
-                    setDescriptionDraft(regularList.description ?? "");
-                    setIsEditingDescription(false);
-                  }}
+                  style={[styles.secondaryButton, { backgroundColor: c.surface, borderColor: c.border }]}
+                  onPress={() => { setDescriptionDraft(regularList.description ?? ""); setIsEditingDescription(false); }}
                 >
                   <Text style={[styles.secondaryButtonText, { color: c.text }]}>Cancel</Text>
                 </Pressable>
                 <Pressable
-                  style={[
-                    styles.saveDescriptionButton,
-                    { backgroundColor: c.accent },
-                    isSavingDescription && styles.disabledButton,
-                  ]}
+                  style={[styles.saveDescriptionButton, { backgroundColor: c.accent }, isSavingDescription && styles.disabledButton]}
                   onPress={saveDescription}
                   disabled={isSavingDescription}
                 >
@@ -198,17 +209,11 @@ export default function ListDetailScreen() {
             </>
           ) : (
             <View style={styles.descriptionPreviewRow}>
-              <Text
-                style={[styles.descriptionPreviewText, { color: c.mutedText }]}
-                numberOfLines={2}
-              >
+              <Text style={[styles.descriptionPreviewText, { color: c.mutedText }]} numberOfLines={2}>
                 {regularList.description?.trim() || "No description yet."}
               </Text>
               <Pressable
-                style={[
-                  styles.secondaryButton,
-                  { backgroundColor: c.surface, borderColor: c.border },
-                ]}
+                style={[styles.secondaryButton, { backgroundColor: c.surface, borderColor: c.border }]}
                 onPress={() => setIsEditingDescription(true)}
               >
                 <Text style={[styles.secondaryButtonText, { color: c.text }]}>Edit</Text>
@@ -218,118 +223,125 @@ export default function ListDetailScreen() {
         </View>
       ) : null}
 
+      {/* Add show search inline */}
+      {showSearchOpen && regularList ? (
+        <View style={[styles.searchBlock, { borderBottomColor: c.border, backgroundColor: c.background }]}>
+          <View style={[styles.searchInputWrap, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <IconSymbol size={14} name="magnifyingglass" color={c.mutedText} />
+            <TextInput
+              style={[styles.searchInput, { color: c.text }]}
+              value={showQuery}
+              onChangeText={setShowQuery}
+              placeholder="Search shows to add..."
+              placeholderTextColor={c.mutedText}
+              autoCapitalize="words"
+              autoFocus
+            />
+            {showQuery.length > 0 && (
+              <Pressable onPress={() => setShowQuery("")} hitSlop={8}>
+                <Text style={{ color: c.mutedText, fontSize: 16, lineHeight: 18 }}>×</Text>
+              </Pressable>
+            )}
+          </View>
+          <ScrollView
+            style={[styles.searchResults, { backgroundColor: c.surface, borderColor: c.border }]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
+            {!allShows ? (
+              <ActivityIndicator style={{ margin: 12 }} color={c.accent} />
+            ) : filteredShowResults.length === 0 ? (
+              <Text style={[styles.noResults, { color: c.mutedText }]}>
+                {showQuery.trim().length > 0 ? "No matches." : "Type to search shows…"}
+              </Text>
+            ) : (
+              filteredShowResults.map((show) => (
+                <Pressable
+                  key={show._id}
+                  style={[styles.searchRow, { borderBottomColor: c.border }]}
+                  onPress={() => onAddShow(show._id as Id<"shows">)}
+                  disabled={isAddingShow}
+                >
+                  <Text style={[styles.searchRowName, { color: c.text }]}>{show.name}</Text>
+                  {isAddingShow ? null : (
+                    <IconSymbol size={14} name="plus.circle" color={c.accent} />
+                  )}
+                </Pressable>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {/* Main grid */}
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingHorizontal: PAD, paddingBottom: 32 }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
         {rows.length === 0 ? (
-          <Text style={[styles.emptyText, { color: c.mutedText }]}>
-            No shows in this list yet.
-          </Text>
+          <Text style={[styles.emptyText, { color: c.mutedText }]}>No shows in this list yet.</Text>
         ) : (
-          rows.map((show) => (
-            <Pressable
-              key={show._id}
-              style={[
-                styles.row,
-                { backgroundColor: c.surfaceElevated, borderColor: c.border },
-              ]}
-              onPress={() =>
-                router.push({
-                  pathname: "/show/[showId]",
-                  params: { showId: String(show._id), name: show.name },
-                })
-              }
-              >
-              <Text style={[styles.name, { color: c.text }]}>{show.name}</Text>
-            </Pressable>
-          ))
-        )}
-
-        {!isSeen ? (
-          <View style={styles.addShowContainer}>
-            <Pressable
-              style={styles.addShowToggle}
-              onPress={() => setShowSearchOpen((prev) => !prev)}
-            >
-              <IconSymbol
-                size={14}
-                name={showSearchOpen ? "xmark.circle" : "plus.circle"}
-                color={c.accent}
-              />
-              <Text style={[styles.infoButtonText, { color: c.accent }]}>
-                {showSearchOpen ? "Cancel" : "Add show"}
-              </Text>
-            </Pressable>
-
-            {showSearchOpen && regularList ? (
-              <View style={styles.addShowBlock}>
-                <TextInput
-                  style={[
-                    styles.addShowInput,
-                    { backgroundColor: c.surface, borderColor: c.border, color: c.text },
-                  ]}
-                  value={showQuery}
-                  onChangeText={setShowQuery}
-                  placeholder="Search shows to add..."
-                  autoCapitalize="words"
-                />
-                <View
-                  style={[
-                    styles.addShowResults,
-                    { backgroundColor: c.surface, borderColor: c.border },
-                  ]}
-                >
-                  {filteredShowResults.length === 0 ? (
-                    <Text style={[styles.noSearchResultsText, { color: c.mutedText }]}>
-                      No matches.
-                    </Text>
-                  ) : (
-                    filteredShowResults.map((show) => (
-                      <Pressable
-                        key={show._id}
-                        style={styles.addShowRow}
-                        onPress={() => onAddShow(show._id)}
-                        disabled={isAddingShow}
-                        >
-                        <Text style={[styles.addShowName, { color: c.text }]}>
+          chunkRows(rows, COLS).map((row, ri) => (
+            <View key={ri} style={styles.gridRow}>
+              {row.map((show) => {
+                const image = show.images?.[0];
+                return (
+                  <Pressable
+                    key={show._id}
+                    style={[styles.playbillCard, { width: cardWidth, backgroundColor: c.surfaceElevated }]}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/show/[showId]",
+                        params: { showId: String(show._id), name: show.name },
+                      })
+                    }
+                  >
+                    {image ? (
+                      <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                    ) : (
+                      <View style={[styles.playbillFb, { backgroundColor: c.surface }]}>
+                        <Text style={[styles.playbillFbText, { color: c.mutedText }]} numberOfLines={4}>
                           {show.name}
                         </Text>
-                      </Pressable>
-                    ))
-                  )}
-                </View>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              })}
+              {row.length < COLS
+                ? Array.from({ length: COLS - row.length }).map((_, i) => (
+                    <View key={i} style={{ width: cardWidth }} />
+                  ))
+                : null}
+            </View>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#e1e1e1",
   },
-  infoButton: {
+  infoButton: { flexDirection: "row", alignItems: "center", gap: 6 },
+  infoButtonText: { fontSize: 13, fontWeight: "600" },
+  addToggle: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-  },
-  infoButtonText: {
-    fontSize: 13,
-    fontWeight: "600",
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   infoCard: {
     marginHorizontal: 16,
@@ -338,15 +350,8 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 10,
   },
-  infoText: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  descriptionBlock: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    gap: 8,
-  },
+  infoText: { fontSize: 13, lineHeight: 18 },
+  descriptionBlock: { marginHorizontal: 16, marginTop: 10, gap: 8 },
   descriptionInput: {
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
@@ -355,105 +360,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     minHeight: 40,
   },
-  descriptionActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 8,
-  },
+  descriptionActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
   descriptionPreviewRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
   },
-  descriptionPreviewText: {
-    flex: 1,
-    fontSize: 13,
+  descriptionPreviewText: { flex: 1, fontSize: 13 },
+  secondaryButton: { borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 10, paddingVertical: 6 },
+  secondaryButtonText: { fontSize: 12, fontWeight: "700" },
+  saveDescriptionButton: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  saveDescriptionText: { fontWeight: "700", fontSize: 12 },
+  disabledButton: { opacity: 0.6 },
+  countText: { fontSize: 13, fontWeight: "600" },
+  searchBlock: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    maxHeight: 260,
   },
-  secondaryButton: {
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  secondaryButtonText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  saveDescriptionButton: {
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  saveDescriptionText: {
-    fontWeight: "700",
-    fontSize: 12,
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  countText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  content: {
-    padding: 16,
-    gap: 8,
-    paddingBottom: 32,
-  },
-  emptyText: {
-    fontSize: 15,
-  },
-  row: {
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#ddd",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  addShowBlock: {
-    gap: 8,
-  },
-  addShowContainer: {
-    marginTop: 8,
-    gap: 8,
-  },
-  addShowToggle: {
+  searchInputWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    alignSelf: "flex-start",
-  },
-  addShowInput: {
+    gap: 8,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  searchInput: { flex: 1, fontSize: 14 },
+  searchResults: { borderRadius: 10, flexGrow: 0 },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  addShowResults: {
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#ddd",
-    overflow: "hidden",
+  searchRowName: { flex: 1, fontSize: 14, fontWeight: "500" },
+  noResults: { fontSize: 13, paddingHorizontal: 12, paddingVertical: 12 },
+  content: { paddingTop: 14, gap: 0 },
+  emptyText: { fontSize: 15, marginTop: 24 },
+  gridRow: { flexDirection: "row", gap: GAP, marginBottom: GAP },
+  playbillCard: { borderRadius: 10, overflow: "hidden" },
+  playbillImg: { width: "100%", aspectRatio: 2 / 3 },
+  playbillFb: {
+    width: "100%",
+    aspectRatio: 2 / 3,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 8,
   },
-  addShowRow: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#ededed",
-  },
-  addShowName: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  noSearchResultsText: {
-    fontSize: 13,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
+  playbillFbText: { fontSize: 11, fontWeight: "600", textAlign: "center" },
 });
