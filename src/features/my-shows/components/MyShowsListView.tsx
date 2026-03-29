@@ -4,7 +4,7 @@ import DraggableFlatList, {
   type RenderItemParams,
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { type NativeScrollEvent, type NativeSyntheticEvent, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -24,6 +24,8 @@ export function MyShowsListView({
   tabBarHeight,
   tierHeaders,
   lineMeta,
+  listHeaderComponent,
+  onScroll,
 }: {
   listItems: ListItem[];
   expandedShowId: Id<"shows"> | null;
@@ -36,6 +38,8 @@ export function MyShowsListView({
   tabBarHeight: number;
   tierHeaders: Record<RankingTier, TierHeaderMeta>;
   lineMeta: Record<"wouldSeeAgain" | "stayedHome", LineMeta>;
+  listHeaderComponent?: React.ReactNode;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
   const renderItem = useCallback(
     ({ item, drag, isActive, getIndex }: RenderItemParams<ListItem>) => {
@@ -120,12 +124,15 @@ export function MyShowsListView({
         keyExtractor={(item) => item.key}
         renderItem={renderItem}
         keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={listHeaderComponent ? () => <>{listHeaderComponent}</> : undefined}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={[styles.emptyText, { color: emptyTextColor }]}>No shows ranked yet.</Text>
           </View>
         }
         contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 24 }]}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
       />
     </View>
   );

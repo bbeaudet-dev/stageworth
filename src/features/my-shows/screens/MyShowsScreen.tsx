@@ -1,4 +1,5 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -6,11 +7,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { DiaryView } from "@/components/diary-view";
 import { Colors } from "@/constants/theme";
+import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { ProfilePanel } from "@/features/me/components/ProfilePanel";
 import { MyShowsCloudView } from "@/features/my-shows/components/MyShowsCloudView";
 import { MyShowsHeader } from "@/features/my-shows/components/MyShowsHeader";
 import { MyShowsListView } from "@/features/my-shows/components/MyShowsListView";
 import { MyShowsMapView } from "../components/MyShowsMapView";
+import { ViewModeSelector } from "@/features/my-shows/components/ViewModeSelector";
 import { useMyShowsData } from "@/features/my-shows/hooks/useMyShowsData";
 import { useRankedListItems } from "@/features/my-shows/hooks/useRankedListItems";
 import type { MapScope, RankingTier, ViewMode } from "@/features/my-shows/types";
@@ -28,16 +32,8 @@ const TIER_HEADERS: Record<
 };
 
 const LINE_META = {
-  wouldSeeAgain: {
-    label: "Would See Again",
-    color: "#9ad94f",
-    arrow: "↑",
-  },
-  stayedHome: {
-    label: "Should've Stayed Home",
-    color: "#f39c46",
-    arrow: "↓",
-  },
+  wouldSeeAgain: { label: "Would See Again", color: "#9ad94f", arrow: "↑" },
+  stayedHome: { label: "Should've Stayed Home", color: "#f39c46", arrow: "↓" },
 } as const;
 
 export default function MyShowsScreen() {
@@ -45,12 +41,20 @@ export default function MyShowsScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [mapScope, setMapScope] = useState<MapScope>("mine");
-  const [expandedShowId, setExpandedShowId] = useState<Id<"shows"> | null>(
-    null,
-  );
-  const [selectedShowId, setSelectedShowId] = useState<Id<"shows"> | null>(
-    null,
-  );
+  const [expandedShowId, setExpandedShowId] = useState<Id<"shows"> | null>(null);
+  const [selectedShowId, setSelectedShowId] = useState<Id<"shows"> | null>(null);
+  const [showProfilePanel, setShowProfilePanel] = useState(false);
+
+  const myProfile = useQuery(api.profiles.getMyProfile);
+
+  const displayName = myProfile?.name?.trim() || myProfile?.username || "You";
+  const initials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part: string) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
   const {
     displayShows,
     pendingRemoveIds,
@@ -74,60 +78,67 @@ export default function MyShowsScreen() {
   const loadingTextColor = Colors[theme].text;
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor }]}
-      edges={["top"]}
-    >
+    <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["top"]}>
       <View style={styles.headerLayer} collapsable={false}>
-        <MyShowsHeader viewMode={viewMode} onChangeViewMode={setViewMode} />
+        <MyShowsHeader
+          onProfilePress={() => setShowProfilePanel(true)}
+          avatarUrl={myProfile?.avatarUrl ?? null}
+          initials={initials}
+        />
       </View>
 
-      {viewMode === "diary" ? (
-        <DiaryView />
-      ) : viewMode === "map" ? (
-        <MyShowsMapView
-          tabBarHeight={tabBarHeight}
-          mapScope={mapScope}
-          onChangeMapScope={setMapScope}
-        />
-      ) : viewMode === "cloud" ? (
-        <MyShowsCloudView
-          displayShows={displayShows}
-          tabBarHeight={tabBarHeight}
-          selectedShowId={selectedShowId}
-          setSelectedShowId={setSelectedShowId}
-          getShowTier={getShowTier}
-        />
-      ) : listItems === undefined ? (
-        <Text style={[styles.loading, { color: loadingTextColor }]}>
-          Loading...
-        </Text>
-      ) : (
-        <MyShowsListView
-          listItems={listItems}
-          expandedShowId={expandedShowId}
-          setExpandedShowId={setExpandedShowId}
-          pendingRemoveIds={pendingRemoveIds}
-          onRemoveShow={(showId) => {
-            setExpandedShowId(null);
-            handleRemoveShow(showId);
-          }}
-          getShowTier={getShowTier}
-          onDragEnd={(payload) => handleDragEnd({ ...payload, listItems })}
-          onOpenShowDetails={(show) =>
-            router.push({
-              pathname: "/show/[showId]",
-              params: {
-                showId: String(show._id),
-                name: show.name,
-              },
-            })
-          }
-          tabBarHeight={tabBarHeight}
-          tierHeaders={TIER_HEADERS}
-          lineMeta={LINE_META}
-        />
-      )}
+      <ProfilePanel
+        visible={showProfilePanel}
+        onClose={() => setShowProfilePanel(false)}
+      />
+
+      <View style={styles.content}>
+        {viewMode === "diary" ? (
+          <DiaryView />
+        ) : viewMode === "map" ? (
+          <MyShowsMapView
+            tabBarHeight={tabBarHeight}
+            mapScope={mapScope}
+            onChangeMapScope={setMapScope}
+          />
+        ) : viewMode === "cloud" ? (
+          <MyShowsCloudView
+            displayShows={displayShows}
+            tabBarHeight={tabBarHeight}
+            selectedShowId={selectedShowId}
+            setSelectedShowId={setSelectedShowId}
+            getShowTier={getShowTier}
+          />
+        ) : listItems === undefined ? (
+          <Text style={[styles.loading, { color: loadingTextColor }]}>Loading...</Text>
+        ) : (
+          <MyShowsListView
+            listItems={listItems}
+            expandedShowId={expandedShowId}
+            setExpandedShowId={setExpandedShowId}
+            pendingRemoveIds={pendingRemoveIds}
+            onRemoveShow={(showId) => {
+              setExpandedShowId(null);
+              handleRemoveShow(showId);
+            }}
+            getShowTier={getShowTier}
+            onDragEnd={(payload) => handleDragEnd({ ...payload, listItems })}
+            onOpenShowDetails={(show) =>
+              router.push({
+                pathname: "/show/[showId]",
+                params: { showId: String(show._id), name: show.name },
+              })
+            }
+            tabBarHeight={tabBarHeight}
+            tierHeaders={TIER_HEADERS}
+            lineMeta={LINE_META}
+          />
+        )}
+      </View>
+
+      <View style={{ paddingBottom: tabBarHeight }}>
+        <ViewModeSelector viewMode={viewMode} onChangeViewMode={setViewMode} />
+      </View>
     </SafeAreaView>
   );
 }
@@ -136,10 +147,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // List is a later sibling and can win hit-testing over the header; keep controls on top.
   headerLayer: {
     zIndex: 100,
     elevation: 100,
+  },
+  content: {
+    flex: 1,
   },
   loading: {
     fontSize: 16,

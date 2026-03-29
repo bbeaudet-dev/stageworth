@@ -1,105 +1,102 @@
+import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import type { ViewMode } from "@/features/my-shows/types";
 
-const VIEW_MODES: ViewMode[] = ["list", "cloud", "diary", "map"];
-
+/**
+ * Top bar for the Me tab.
+ * Avatar button opens the profile panel; settings icon goes directly to Account Settings.
+ */
 export function MyShowsHeader({
-  viewMode,
-  onChangeViewMode,
+  onProfilePress,
+  avatarUrl,
+  initials,
 }: {
-  viewMode: ViewMode;
-  onChangeViewMode: (mode: ViewMode) => void;
+  onProfilePress?: () => void;
+  avatarUrl?: string | null;
+  initials?: string;
 }) {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
+
   const titleColor = Colors[theme].text;
-  const toggleBackground = theme === "dark" ? "#1f1f22" : "#ececef";
-  const toggleActiveBackground = theme === "dark" ? "#fff" : "#fff";
+  const mutedColor = Colors[theme].mutedText;
+  const accentColor = Colors[theme].accent;
+  const avatarBg = theme === "dark" ? "#2a2a2f" : "#ececef";
 
   return (
-    <View style={styles.header}>
-      <View style={styles.titleWrap}>
-        <Text style={[styles.title, { color: titleColor }]} numberOfLines={1}>
-          My Shows
-        </Text>
-      </View>
-      <View style={[styles.toggle, { backgroundColor: toggleBackground }]}>
-        {VIEW_MODES.map((mode) => (
+    <View style={styles.bar}>
+      <Text style={[styles.title, { color: titleColor }]}>My Shows</Text>
+
+      <View style={styles.right}>
+        {onProfilePress ? (
           <Pressable
-            key={mode}
-            style={[
-              styles.toggleButton,
-              viewMode === mode && [
-                styles.toggleButtonActive,
-                { backgroundColor: toggleActiveBackground },
-              ],
-            ]}
-            onPress={() => onChangeViewMode(mode)}
+            style={[styles.avatarButton, { backgroundColor: avatarBg }]}
+            onPress={onProfilePress}
+            hitSlop={8}
           >
-            <Text
-              numberOfLines={1}
-              style={[styles.toggleText, viewMode === mode && styles.toggleTextActive]}
-            >
-              {mode[0].toUpperCase() + mode.slice(1)}
-            </Text>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+            ) : (
+              <Text style={[styles.avatarInitials, { color: accentColor }]}>
+                {initials || "?"}
+              </Text>
+            )}
           </Pressable>
-        ))}
+        ) : null}
+
+        <Pressable
+          onPress={() => router.push("/account-settings")}
+          hitSlop={10}
+          style={styles.settingsBtn}
+        >
+          <IconSymbol name="gearshape.fill" size={22} color={mutedColor} />
+        </Pressable>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: "column",
-    alignItems: "stretch",
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
-  },
-  titleWrap: {
-    marginBottom: 10,
+  bar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 4,
   },
   title: {
     fontSize: 28,
     fontWeight: "bold",
   },
-  toggle: {
-    width: "100%",
+  right: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    height: 36,
-    borderRadius: 10,
-    padding: 2,
+    gap: 10,
   },
-  toggleButton: {
-    flex: 1,
-    height: 32,
+  avatarButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 6,
-    paddingVertical: 0,
-    borderRadius: 8,
+    overflow: "hidden",
   },
-  toggleButtonActive: {
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  avatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
-  toggleText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#7a7a7a",
-    textAlign: "center",
+  avatarInitials: {
+    fontSize: 14,
+    fontWeight: "700",
   },
-  toggleTextActive: {
-    color: "#333",
+  settingsBtn: {
+    padding: 2,
   },
 });
