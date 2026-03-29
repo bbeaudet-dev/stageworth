@@ -25,16 +25,16 @@ export function ShowCard({
         <Image source={{ uri: image }} style={styles.playbillImage} contentFit="cover" />
       ) : (
         <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
-          <Text style={[styles.playbillFallbackText, { color: c.mutedText }]} numberOfLines={4}>
+          <Text
+            style={[styles.playbillFallbackText, { color: c.mutedText }]}
+            numberOfLines={5}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
+          >
             {show.name}
           </Text>
         </View>
       )}
-      <View style={styles.playbillInfo}>
-        <Text style={[styles.playbillShowName, { color: c.text }]} numberOfLines={2}>
-          {show.name}
-        </Text>
-      </View>
     </Pressable>
   );
 }

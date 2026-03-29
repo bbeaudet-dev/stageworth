@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
@@ -6,12 +7,17 @@ import { resolveShowImageUrls } from "./helpers";
 const MAX_TRIP_NAME_LENGTH = 100;
 const MAX_TRIP_DESCRIPTION_LENGTH = 500;
 
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function getTripOrThrow(ctx: any, tripId: any) {
   const trip = await ctx.db.get(tripId);
   if (!trip) throw new Error("Trip not found");
   return trip;
+}
+
+async function getTripOrNull(ctx: any, tripId: any) {
+  return await ctx.db.get(tripId) ?? null;
 }
 
 async function assertCanEditTrip(ctx: any, userId: any, tripId: any) {
@@ -51,6 +57,27 @@ async function assertCanViewTrip(ctx: any, userId: any, tripId: any) {
 function todayStr() {
   return new Date().toISOString().split("T")[0];
 }
+
+function addDaysToDateStr(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+async function getInterestListShowIdSet(ctx: any, userId: Id<"users">): Promise<Set<string>> {
+  const allUserLists = await ctx.db
+    .query("userLists")
+    .withIndex("by_user", (q: any) => q.eq("userId", userId))
+    .collect();
+  const relevantLists = allUserLists.filter(
+    (l: any) =>
+      l.systemKey === "want_to_see" ||
+      l.systemKey === "look_into" ||
+      l.systemKey === "uncategorized"
+  );
+  return new Set<string>(relevantLists.flatMap((l: any) => l.showIds));
+}
+
 
 // Enumerate every date between startDate and endDate inclusive (YYYY-MM-DD).
 function enumerateDays(startDate: string, endDate: string): string[] {
@@ -122,19 +149,33 @@ export const getTripById = query({
   args: { tripId: v.id("trips") },
   handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
-    const trip = await assertCanViewTrip(ctx, userId, args.tripId);
+    const raw = await getTripOrNull(ctx, args.tripId);
+    if (!raw) return null;
+    // Verify viewer has access (owner or accepted member)
+    try { await assertCanViewTrip(ctx, userId, args.tripId); } catch { return null; }
+    const trip = raw;
 
     const tripShowRows = await ctx.db
       .query("tripShows")
       .withIndex("by_trip", (q: any) => q.eq("tripId", args.tripId))
       .collect();
 
+    const today = todayStr();
     const resolvedShows = await Promise.all(
       tripShowRows.map(async (row: any) => {
         const show = await ctx.db.get(row.showId);
         if (!show) return null;
+        // Find the most relevant open/upcoming production to surface closingDate
+        const productions = await ctx.db
+          .query("productions")
+          .withIndex("by_show", (q: any) => q.eq("showId", row.showId))
+          .collect();
+        const currentProd = productions.find((p: any) => !p.closingDate || p.closingDate >= today)
+          ?? productions[productions.length - 1];
         return {
           ...row,
+          closingDate: currentProd?.closingDate ?? null,
+          isOpenRun: currentProd?.isOpenRun ?? null,
           show: {
             ...show,
             images: await resolveShowImageUrls(ctx, show),
@@ -207,51 +248,28 @@ export const getTripById = query({
 });
 
 /**
- * Returns shows the user might want to see on this trip: productions whose
- * closingDate falls on or before the "window end" (start of next trip or
- * tripEndDate + 30 days), filtered to shows already in the user's want_to_see,
- * look_into, or uncategorized lists that are not already on this trip.
+ * Suggestions while viewing a trip: productions whose closing date is between
+ * **today** and a **trip-specific window end** — whichever is earlier of (a) the
+ * start date of your next trip, if the next trip begins within 30 days of this
+ * trip’s end, or (b) this trip’s end date + 30 days (or +30d after end if there
+ * is no overlapping “next trip” in that sense).
+ *
+ * Only includes shows that appear in **Want to See**, **Look Into**, or
+ * **Uncategorized**, and excludes shows already on this trip’s list.
+ *
+ * (Separate from create-time auto-fill, which uses a fixed ~90-day horizon from
+ * “today” when the trip is created — see `createTrip`.)
  */
 export const getClosingSoonForTrip = query({
   args: { tripId: v.id("trips") },
   handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
-    const trip = await assertCanViewTrip(ctx, userId, args.tripId);
-
-    // Determine the window end date
-    const allUserTrips = await ctx.db
-      .query("trips")
-      .withIndex("by_user", (q: any) => q.eq("userId", userId))
-      .collect();
-
-    const sortedTrips = allUserTrips
-      .filter((t: any) => t._id !== args.tripId)
-      .sort((a: any, b: any) => a.startDate.localeCompare(b.startDate));
-
-    // Next trip that starts after this trip ends
-    const nextTrip = sortedTrips.find(
-      (t: any) => t.startDate > trip.endDate
-    );
-
-    let windowEnd: string;
-    if (nextTrip) {
-      const daysUntilNext =
-        (new Date(nextTrip.startDate).getTime() - new Date(trip.endDate).getTime()) /
-        (1000 * 60 * 60 * 24);
-      if (daysUntilNext <= 30) {
-        windowEnd = nextTrip.startDate;
-      } else {
-        const d = new Date(trip.endDate + "T00:00:00Z");
-        d.setUTCDate(d.getUTCDate() + 30);
-        windowEnd = d.toISOString().split("T")[0];
-      }
-    } else {
-      const d = new Date(trip.endDate + "T00:00:00Z");
-      d.setUTCDate(d.getUTCDate() + 30);
-      windowEnd = d.toISOString().split("T")[0];
-    }
+    const raw = await getTripOrNull(ctx, args.tripId);
+    if (!raw) return [];
+    try { await assertCanViewTrip(ctx, userId, args.tripId); } catch { return []; }
 
     const t = todayStr();
+    const windowEnd = addDaysToDateStr(t, 60);
 
     // Collect shows already on this trip
     const existingTripShows = await ctx.db
@@ -260,22 +278,7 @@ export const getClosingSoonForTrip = query({
       .collect();
     const alreadyOnTripShowIds = new Set(existingTripShows.map((s: any) => s.showId));
 
-    // Get relevant user lists
-    const allUserLists = await ctx.db
-      .query("userLists")
-      .withIndex("by_user", (q: any) => q.eq("userId", userId))
-      .collect();
-
-    const relevantLists = allUserLists.filter(
-      (l: any) =>
-        l.systemKey === "want_to_see" ||
-        l.systemKey === "look_into" ||
-        l.systemKey === "uncategorized"
-    );
-
-    const listShowIds = new Set<string>(
-      relevantLists.flatMap((l: any) => l.showIds)
-    );
+    const listShowIds = await getInterestListShowIdSet(ctx, userId);
 
     // Find productions closing within the window
     const allProductions = await ctx.db.query("productions").collect();
@@ -338,7 +341,7 @@ export const createTrip = mutation({
     }
 
     const now = Date.now();
-    return await ctx.db.insert("trips", {
+    const tripId = await ctx.db.insert("trips", {
       userId,
       name,
       startDate: args.startDate,
@@ -348,6 +351,8 @@ export const createTrip = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    return tripId;
   },
 });
 

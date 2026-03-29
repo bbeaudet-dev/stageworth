@@ -114,10 +114,10 @@ export const styles = StyleSheet.create({
     aspectRatio: 2 / 3,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
   },
   playbillFallbackText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "600",
     textAlign: "center",
   },

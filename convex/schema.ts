@@ -44,6 +44,10 @@ export default defineSchema({
     openingDate: v.optional(v.string()),
     // null = no announced closing / open run
     closingDate: v.optional(v.string()),
+    // true = explicitly confirmed as an open run (no closing date planned).
+    // false = closing date not yet announced but not confirmed as open run.
+    // undefined/null = unknown.
+    isOpenRun: v.optional(v.boolean()),
     productionType: v.union(
       v.literal("original"),
       v.literal("revival"),

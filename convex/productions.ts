@@ -101,7 +101,7 @@ export const listClosingSoon = query({
   },
 });
 
-/** All productions for a given show. */
+/** All productions for a given show (raw, no image resolution). */
 export const listByShow = query({
   args: { showId: v.id("shows") },
   handler: async (ctx, args) => {
@@ -110,6 +110,23 @@ export const listByShow = query({
       .withIndex("by_show", (q) => q.eq("showId", args.showId))
       .collect();
     return productions;
+  },
+});
+
+/** All productions for a given show with resolved poster images. */
+export const listByShowWithImages = query({
+  args: { showId: v.id("shows") },
+  handler: async (ctx, args) => {
+    const productions = await ctx.db
+      .query("productions")
+      .withIndex("by_show", (q) => q.eq("showId", args.showId))
+      .collect();
+    return Promise.all(
+      productions.map(async (p) => ({
+        ...p,
+        posterUrl: p.posterImage ? await ctx.storage.getUrl(p.posterImage) : null,
+      }))
+    );
   },
 });
 

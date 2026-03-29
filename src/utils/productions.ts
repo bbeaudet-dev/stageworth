@@ -1,7 +1,7 @@
 // Shared production utilities — no Convex server dependencies.
 // Safe to import from both backend (convex/) and frontend (app/) code.
 
-export type ProductionStatus = "announced" | "in_previews" | "open" | "closed";
+export type ProductionStatus = "announced" | "in_previews" | "open" | "open_run" | "closed";
 
 function todayString() {
   return new Date().toISOString().split("T")[0];
@@ -12,10 +12,13 @@ export function getProductionStatus(
     previewDate?: string;
     openingDate?: string;
     closingDate?: string;
+    isOpenRun?: boolean | null;
   },
   asOf: string = todayString()
 ): ProductionStatus {
   const { previewDate, openingDate, closingDate } = production;
+
+  const { isOpenRun } = production;
 
   // If we have an explicit closing date in the past, it's closed.
   if (closingDate && closingDate < asOf) {
@@ -23,7 +26,7 @@ export function getProductionStatus(
   }
 
   // If we have neither a start nor an end date, we can't reasonably say it's current.
-  if (!previewDate && !openingDate && !closingDate) {
+  if (!previewDate && !openingDate && !closingDate && !isOpenRun) {
     return "closed";
   }
 
@@ -41,7 +44,7 @@ export function getProductionStatus(
         return "announced";
       }
       // Between opening and (optional) closing.
-      return "open";
+      return isOpenRun ? "open_run" : "open";
     }
 
     // Opening date is in the future.
@@ -73,6 +76,11 @@ export function getProductionStatus(
   // We know it's not yet closed, but have no start; treat as "open" window.
   if (closingDate && closingDate >= asOf) {
     return "open";
+  }
+
+  // Confirmed open run with no closing date (and possibly no preview/opening dates recorded).
+  if (isOpenRun) {
+    return "open_run";
   }
 
   // Fallback – should be unreachable given guards above.

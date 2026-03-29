@@ -16,6 +16,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
+import { closingCountdownLabel } from "@/features/browse/components/ProductionCard";
 import { AddDayNoteSheet } from "@/features/plan/components/AddDayNoteSheet";
 import { AddFromListsSheet } from "@/features/plan/components/AddFromListsSheet";
 import { AddShowToTripSheet } from "@/features/plan/components/AddShowToTripSheet";
@@ -78,6 +79,8 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   const [noteForDay, setNoteForDay] = useState<string | null>(null);
   const [showAddFromLists, setShowAddFromLists] = useState(false);
   const [showAddShow, setShowAddShow] = useState(false);
+  const [showClosingInfo, setShowClosingInfo] = useState(false);
+  const [isAddingAll, setIsAddingAll] = useState(false);
 
   const { addShowToTrip, removeShowFromTrip, assignShowToDay, addTripDayNote, removeTripDayNote } = useTripData();
 
@@ -90,6 +93,35 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
 
   const handleAddShow = async (showId: Id<"shows">) => {
     await addShowToTrip({ tripId, showId });
+  };
+
+  const handleAddAll = async () => {
+    if (!closingSoon || isAddingAll) return;
+    const toAdd = closingSoon.filter((item: any) => !alreadyOnTripShowIds.has(String(item.show._id)));
+    if (toAdd.length === 0) return;
+    setIsAddingAll(true);
+    try {
+      for (const item of toAdd) {
+        await addShowToTrip({ tripId, showId: item.show._id });
+      }
+    } finally {
+      setIsAddingAll(false);
+    }
+  };
+
+  const closingBadge = (
+    closingDate: string | null | undefined
+  ): { label: string; bg: string; textCol: string } | null => {
+    if (!closingDate) return null;
+    const todayD = new Date();
+    todayD.setHours(0, 0, 0, 0);
+    const close = new Date(closingDate + "T00:00:00Z");
+    const diff = Math.ceil((close.getTime() - todayD.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 0 || diff > 30) return null;
+    const label = closingCountdownLabel(diff);
+    return theme === "dark"
+      ? { label, bg: "rgba(239,68,68,0.18)", textCol: "#F87171" }
+      : { label, bg: "#FEF2F2", textCol: "#E05252" };
   };
 
   const handleRemoveShow = (showId: Id<"shows">) => {
@@ -144,30 +176,64 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
         {/* Closing soon */}
         {closingSoon && closingSoon.length > 0 ? (
           <View style={[styles.card, { backgroundColor: surfaceColor, borderColor }]}>
-            <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Closing Around Your Trip</Text>
-            <Text style={[styles.sectionSub, { color: mutedTextColor }]}>From your lists</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.closingCards}>
-              {closingSoon.map((item: any) => {
-                const show = item.show;
-                const image = item.production?.posterUrl ?? show?.images?.[0] ?? null;
-                const sid = String(show._id);
-                const isOnTrip = alreadyOnTripShowIds.has(sid);
-                return (
-                  <View key={sid} style={[styles.closingCard, { backgroundColor: chipBg, borderColor }]}>
-                    <Pressable onPress={() => router.push({ pathname: "/show/[showId]", params: { showId: sid, name: show.name } })}>
-                      {image
-                        ? <Image source={{ uri: image }} style={styles.closingCardImg} contentFit="cover" />
-                        : <View style={[styles.closingCardImg, styles.closingCardFb, { backgroundColor: surfaceColor }]}><Text style={[styles.closingCardFbText, { color: mutedTextColor }]} numberOfLines={3}>{show.name}</Text></View>}
-                      <Text style={[styles.closingCardName, { color: primaryTextColor }]} numberOfLines={2}>{show.name}</Text>
-                      <Text style={[styles.closingCardDate, { color: mutedTextColor }]}>{daysUntilClose(item.closingDate)}</Text>
-                    </Pressable>
-                    {isOnTrip
-                      ? <View style={[styles.onTripBadge, { backgroundColor: accentColor + "18" }]}><Text style={[styles.onTripText, { color: accentColor }]}>On trip ✓</Text></View>
-                      : <Pressable style={[styles.closingAddBtn, { backgroundColor: accentColor }]} onPress={() => handleAddShow(show._id)}><Text style={styles.closingAddText}>+ Add</Text></Pressable>}
-                  </View>
-                );
-              })}
-            </ScrollView>
+            <View style={styles.rowBetween}>
+              <View style={styles.closingHeaderLeft}>
+                <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Closing Soon</Text>
+                <Pressable
+                  onPress={() => setShowClosingInfo((p) => !p)}
+                  hitSlop={8}
+                  style={[styles.infoBubble, { backgroundColor: accentColor + "18" }]}
+                >
+                  <Text style={[styles.infoBubbleText, { color: accentColor }]}>i</Text>
+                </Pressable>
+              </View>
+              <Pressable
+                style={[styles.pill, { backgroundColor: accentColor + "18", borderColor: accentColor + "40" }, isAddingAll && { opacity: 0.5 }]}
+                onPress={handleAddAll}
+                disabled={isAddingAll}
+              >
+                <Text style={[styles.pillText, { color: accentColor }]}>{isAddingAll ? "Adding…" : "Add All"}</Text>
+              </Pressable>
+            </View>
+            {showClosingInfo ? (
+              <View style={[styles.infoBox, { backgroundColor: accentColor + "12", borderColor: accentColor + "30" }]}>
+                <Text style={[styles.infoBoxText, { color: primaryTextColor }]}>
+                  Shows from your Want to See, Look Into, and Uncategorized lists that are closing within the next 60 days.
+                </Text>
+              </View>
+            ) : null}
+            <View style={styles.grid}>
+              {chunkRows(closingSoon, COLS).map((row: any[], ri: number) => (
+                <View key={ri} style={styles.gridRow}>
+                  {row.map((item: any) => {
+                    const show = item.show;
+                    const image = item.production?.posterUrl ?? show?.images?.[0] ?? null;
+                    const sid = String(show._id);
+                    const isOnTrip = alreadyOnTripShowIds.has(sid);
+                    const badge = closingBadge(item.closingDate);
+                    return (
+                      <View key={sid} style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}>
+                        <Pressable onPress={() => router.push({ pathname: "/(tabs)/browse/show/[showId]", params: { showId: sid, name: show.name } })}>
+                          {image
+                            ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                            : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}>
+                                <Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.6}>{show.name}</Text>
+                              </View>}
+                        </Pressable>
+                        {badge ? (
+                          <View style={[styles.closingBadgeBelow, { backgroundColor: badge.bg }]}>
+                            <Text style={[styles.closingBadgeText, { color: badge.textCol }]}>{badge.label}</Text>
+                          </View>
+                        ) : null}
+                        {isOnTrip
+                          ? <View style={[styles.onTripBadge, { backgroundColor: accentColor + "18" }]}><Text style={[styles.onTripText, { color: accentColor }]}>On trip ✓</Text></View>
+                          : <Pressable style={[styles.closingAddBtn, { backgroundColor: accentColor }]} onPress={() => handleAddShow(show._id)}><Text style={styles.closingAddText}>+ Add</Text></Pressable>}
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
           </View>
         ) : null}
 
@@ -202,22 +268,27 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                   const key = String(item.showId);
                   const isSelected = selectedShowKey === key;
                   const image = item.show?.images?.[0] ?? null;
+                  const badge = closingBadge(item.closingDate);
                   return (
-                    <Pressable
-                      key={key}
-                      style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}
-                      onPress={() => setSelectedShowKey(isSelected ? null : key)}
-                    >
-                      {image
-                        ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
-                        : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}><Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={4}>{item.show?.name}</Text></View>}
-                      <Text style={[styles.playbillName, { color: primaryTextColor }]} numberOfLines={2}>{item.show?.name}</Text>
-                      {isSelected ? (
-                        <Pressable style={styles.removeOverlay} onPress={() => handleRemoveShow(item.showId)}>
-                          <View style={styles.removeBubble}><Text style={styles.removeIcon}>−</Text></View>
-                        </Pressable>
+                    <View key={key} style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}>
+                      <Pressable onPress={() => setSelectedShowKey(isSelected ? null : key)}>
+                        {image
+                          ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                          : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}><Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.6}>{item.show?.name}</Text></View>}
+                        {isSelected ? (
+                          <View style={styles.removeOverlay}>
+                            <Pressable onPress={() => handleRemoveShow(item.showId)}>
+                              <View style={styles.removeBubble}><Text style={styles.removeIcon}>−</Text></View>
+                            </Pressable>
+                          </View>
+                        ) : null}
+                      </Pressable>
+                      {badge ? (
+                        <View style={[styles.closingBadgeBelow, { backgroundColor: badge.bg }]}>
+                          <Text style={[styles.closingBadgeText, { color: badge.textCol }]}>{badge.label}</Text>
+                        </View>
                       ) : null}
-                    </Pressable>
+                    </View>
                   );
                 })}
                 {row.length < COLS ? Array.from({ length: COLS - row.length }).map((_, i) => <View key={i} style={{ width: cardWidth }} />) : null}
@@ -300,22 +371,30 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                         const key = `${day.date}:${item.showId}`;
                         const isSelected = selectedShowKey === key;
                         const image = item.show?.images?.[0] ?? null;
+                        const badge = closingBadge(item.closingDate);
                         return (
-                          <Pressable
+                          <View
                             key={key}
                             style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}
-                            onPress={() => setSelectedShowKey(isSelected ? null : key)}
                           >
-                            {image
-                              ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
-                              : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}><Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={4}>{item.show?.name}</Text></View>}
-                            <Text style={[styles.playbillName, { color: primaryTextColor }]} numberOfLines={2}>{item.show?.name}</Text>
-                            {isSelected ? (
-                              <Pressable style={styles.removeOverlay} onPress={() => handleUnassignFromDay(item.showId)}>
-                                <View style={styles.removeBubble}><Text style={styles.removeIcon}>−</Text></View>
-                              </Pressable>
+                            <Pressable onPress={() => setSelectedShowKey(isSelected ? null : key)}>
+                              {image
+                                ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                                : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}><Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.6}>{item.show?.name}</Text></View>}
+                              {isSelected ? (
+                                <View style={styles.removeOverlay}>
+                                  <Pressable onPress={() => handleUnassignFromDay(item.showId)}>
+                                    <View style={styles.removeBubble}><Text style={styles.removeIcon}>−</Text></View>
+                                  </Pressable>
+                                </View>
+                              ) : null}
+                            </Pressable>
+                            {badge ? (
+                              <View style={[styles.closingBadgeBelow, { backgroundColor: badge.bg }]}>
+                                <Text style={[styles.closingBadgeText, { color: badge.textCol }]}>{badge.label}</Text>
+                              </View>
                             ) : null}
-                          </Pressable>
+                          </View>
                         );
                       })}
                       {row.length < COLS ? Array.from({ length: COLS - row.length }).map((_, i) => <View key={i} style={{ width: cardWidth }} />) : null}
@@ -393,7 +472,11 @@ const styles = StyleSheet.create({
   card: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 10 },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sectionTitle: { fontSize: 17, fontWeight: "700" },
-  sectionSub: { fontSize: 12, lineHeight: 17, marginTop: -6 },
+  closingHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
+  infoBubble: { width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  infoBubbleText: { fontSize: 11, fontWeight: "700", lineHeight: 14 },
+  infoBox: { borderRadius: 8, borderWidth: 1, padding: 10 },
+  infoBoxText: { fontSize: 13, lineHeight: 18 },
   emptyHint: { fontSize: 13, fontStyle: "italic" },
   pillRow: { flexDirection: "row", gap: 6 },
   pill: {
@@ -406,13 +489,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   pillText: { fontSize: 12, fontWeight: "600" },
-  closingCards: { gap: 10, paddingVertical: 4 },
-  closingCard: { width: 118, borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, padding: 6, gap: 5 },
-  closingCardImg: { width: "100%", aspectRatio: 2 / 3, borderRadius: 6 },
-  closingCardFb: { alignItems: "center", justifyContent: "center", padding: 6 },
-  closingCardFbText: { fontSize: 10, textAlign: "center" },
-  closingCardName: { fontSize: 11, fontWeight: "600" },
-  closingCardDate: { fontSize: 10 },
+  closingRowHint: { fontSize: 9, fontWeight: "500", paddingHorizontal: 5, paddingBottom: 4, marginTop: -2 },
   onTripBadge: { borderRadius: 6, paddingVertical: 4, alignItems: "center" },
   onTripText: { fontSize: 10, fontWeight: "700" },
   closingAddBtn: { borderRadius: 6, paddingVertical: 5, alignItems: "center" },
@@ -422,8 +499,14 @@ const styles = StyleSheet.create({
   playbillCard: { borderRadius: 10, overflow: "hidden" },
   playbillImg: { width: "100%", aspectRatio: 2 / 3 },
   playbillFb: { alignItems: "center", justifyContent: "center", padding: 8 },
-  playbillFbText: { fontSize: 11, fontWeight: "600", textAlign: "center" },
-  playbillName: { fontSize: 10, fontWeight: "700", padding: 5, lineHeight: 13 },
+  playbillFbText: { fontSize: 11, fontWeight: "600", textAlign: "center", lineHeight: 14 },
+  // Full-width strip clipped by the card's overflow:hidden / borderRadius
+  closingBadgeBelow: {
+    width: "100%",
+    paddingVertical: 4,
+    alignItems: "center",
+  },
+  closingBadgeText: { fontSize: 9, fontWeight: "700" },
   removeOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", borderRadius: 10 },
   removeBubble: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#ef4444", alignItems: "center", justifyContent: "center" },
   removeIcon: { color: "#fff", fontSize: 24, fontWeight: "300", lineHeight: 28 },
