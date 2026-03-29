@@ -16,9 +16,11 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
 import { TripChatTab } from "@/features/plan/components/TripChatTab";
+import { TripPartyTab } from "@/features/plan/components/TripPartyTab";
 import { TripShowsTab } from "@/features/plan/components/TripShowsTab";
 import { CreateTripSheet } from "@/features/plan/components/CreateTripSheet";
 import { useClosingSoonForTrip, useTripById, useTripData } from "@/features/plan/hooks/useTripData";
+import { UserProfilePanel } from "@/features/me/components/UserProfilePanel";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -37,7 +39,7 @@ function formatDateRange(startDate: string, endDate: string): string {
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type Tab = "shows" | "chat";
+type Tab = "shows" | "party" | "chat";
 
 // ─── screen ───────────────────────────────────────────────────────────────────
 
@@ -55,6 +57,7 @@ export default function TripDetailScreen() {
 
   const [activeTab, setActiveTab] = useState<Tab>("shows");
   const [showEditTrip, setShowEditTrip] = useState(false);
+  const [viewingUserId, setViewingUserId] = useState<Id<"users"> | null>(null);
 
   const typedTripId = tripId as Id<"trips">;
   const trip = useTripById(typedTripId);
@@ -124,8 +127,8 @@ export default function TripDetailScreen() {
 
       {/* Tab bar */}
       <View style={[styles.tabBar, { borderBottomColor: borderColor, backgroundColor }]}>
-        {(["shows", "chat"] as Tab[]).map((t) => {
-          const label = t === "shows" ? "Shows" : "Chat";
+        {(["shows", "party", "chat"] as Tab[]).map((t) => {
+          const label = t === "shows" ? "Shows" : t === "party" ? "Party" : "Chat";
           return (
             <Pressable key={t} style={styles.tabItem} onPress={() => setActiveTab(t)}>
               <Text style={[styles.tabLabel, { color: activeTab === t ? accentColor : mutedTextColor }]}>{label}</Text>
@@ -139,6 +142,8 @@ export default function TripDetailScreen() {
       <View style={{ flex: 1 }}>
         {activeTab === "shows" ? (
           <TripShowsTab trip={trip} tripId={typedTripId} closingSoon={closingSoon} />
+        ) : activeTab === "party" ? (
+          <TripPartyTab trip={trip} tripId={typedTripId} onViewUser={setViewingUserId} />
         ) : (
           <TripChatTab />
         )}
@@ -149,6 +154,12 @@ export default function TripDetailScreen() {
         onClose={() => setShowEditTrip(false)}
         onCreate={async (args) => { await updateTrip({ tripId: typedTripId, ...args }); }}
         initialValues={{ name: trip.name, startDate: trip.startDate, endDate: trip.endDate, description: trip.description }}
+      />
+
+      <UserProfilePanel
+        visible={viewingUserId !== null}
+        onClose={() => setViewingUserId(null)}
+        userId={viewingUserId}
       />
     </SafeAreaView>
   );
