@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { ActionsMenu } from "@/components/actions-menu";
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ProfileTabIcon } from "@/components/ui/ProfileTabIcon";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useSession } from "@/lib/auth-client";
@@ -113,10 +114,8 @@ export default function TabLayout() {
         <Tabs.Screen
           name="profile"
           options={{
-            title: "My Shows",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="person.fill" color={color} />
-            ),
+            title: "Profile",
+            tabBarIcon: ({ color }) => <ProfileTabIcon color={color} size={28} />,
           }}
         />
       </Tabs>

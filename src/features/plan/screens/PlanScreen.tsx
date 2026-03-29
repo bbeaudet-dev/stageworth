@@ -1,6 +1,6 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -22,6 +22,25 @@ import { useTripData } from "@/features/plan/hooks/useTripData";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Id } from "@/convex/_generated/dataModel";
 
+// ─── constants ────────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 5;
+// Trips that ended ≤ RECENT_DAYS ago still appear in the main list
+const RECENT_DAYS = 3;
+
+function todayStr() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function daysSince(dateStr: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = new Date(dateStr + "T00:00:00Z");
+  return Math.round((today.getTime() - d.getTime()) / 86_400_000);
+}
+
+// ─── component ────────────────────────────────────────────────────────────────
+
 export default function PlanScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
@@ -38,49 +57,74 @@ export default function PlanScreen() {
   const chipBg = Colors[theme].surface;
 
   const [showCreateTrip, setShowCreateTrip] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [showPastTrips, setShowPastTrips] = useState(false);
 
-  // Lists state (reused from Profile)
-  const {
-    profileLists,
-    visibleLists,
-    initializeSystemLists,
-    createCustomList,
-    toggleVisibility,
-  } = useProfileListsData();
-
+  const { profileLists, visibleLists, initializeSystemLists, createCustomList, toggleVisibility } =
+    useProfileListsData();
   const [newListName, setNewListName] = useState("");
   const [isCreatingList, setIsCreatingList] = useState(false);
   const [isShowingCreateInput, setIsShowingCreateInput] = useState(false);
-  const [pendingVisibilityIds, setPendingVisibilityIds] = useState<Set<string>>(
-    () => new Set()
-  );
+  const [pendingVisibilityIds, setPendingVisibilityIds] = useState<Set<string>>(() => new Set());
   const [listErrorMessage, setListErrorMessage] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
 
   const { trips, createTrip } = useTripData();
 
-  useEffect(() => {
-    initializeSystemLists().catch(() => undefined);
-  }, [initializeSystemLists]);
+  useEffect(() => { initializeSystemLists().catch(() => undefined); }, [initializeSystemLists]);
 
-  // Handle createList deep-link param (from ActionsMenu)
   useEffect(() => {
     if (params.createList !== "1") return;
     setIsShowingCreateInput(true);
-    const timeout = setTimeout(() => {
-      inputRef.current?.focus();
-      router.setParams({ createList: undefined });
-    }, 40);
-    return () => clearTimeout(timeout);
+    const t = setTimeout(() => { inputRef.current?.focus(); router.setParams({ createList: undefined }); }, 40);
+    return () => clearTimeout(t);
   }, [params.createList, router]);
 
-  // Handle createTrip deep-link param (from ActionsMenu)
   useEffect(() => {
     if (params.createTrip !== "1") return;
     setShowCreateTrip(true);
     router.setParams({ createTrip: undefined });
   }, [params.createTrip, router]);
+
+  // ── Sort trips into display buckets ──────────────────────────────────────
+  const { mainList, olderPast } = useMemo(() => {
+    const today = todayStr();
+    const upcoming = trips?.upcoming ?? [];
+    const past = trips?.past ?? [];
+
+    // Active (started and not yet ended)
+    const active = upcoming
+      .filter((t) => t.startDate <= today)
+      .sort((a, b) => a.endDate.localeCompare(b.endDate));
+
+    // Truly upcoming (not started yet), soonest first
+    const future = upcoming
+      .filter((t) => t.startDate > today)
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+    // Recently ended (within RECENT_DAYS), most-recently-ended first
+    const recentlyEnded = past
+      .filter((t) => daysSince(t.endDate) <= RECENT_DAYS)
+      .sort((a, b) => b.endDate.localeCompare(a.endDate));
+
+    // Older past — for "View Past Trips" section
+    const olderPast = past
+      .filter((t) => daysSince(t.endDate) > RECENT_DAYS)
+      .sort((a, b) => b.endDate.localeCompare(a.endDate));
+
+    return {
+      mainList: [...active, ...recentlyEnded, ...future],
+      olderPast,
+    };
+  }, [trips]);
+
+  const visibleMain = mainList.slice(0, visibleCount);
+  const hasMore = mainList.length > visibleCount;
+  const remaining = mainList.length - visibleCount;
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const openTrip = (tripId: string) =>
+    router.push({ pathname: "/(tabs)/plan/[tripId]", params: { tripId } });
 
   const handleCreateCustomList = async () => {
     const trimmed = newListName.trim();
@@ -91,64 +135,31 @@ export default function PlanScreen() {
       const listId = await createCustomList({ name: trimmed, isPublic: false });
       setNewListName("");
       setIsShowingCreateInput(false);
-      router.push({
-        pathname: "/list/[listId]",
-        params: { listId: String(listId), name: trimmed },
-      });
-    } catch (error) {
-      setListErrorMessage(
-        error instanceof Error ? error.message : "Failed to create list"
-      );
-    } finally {
-      setIsCreatingList(false);
-    }
+      router.push({ pathname: "/list/[listId]", params: { listId: String(listId), name: trimmed } });
+    } catch (e) {
+      setListErrorMessage(e instanceof Error ? e.message : "Failed to create list");
+    } finally { setIsCreatingList(false); }
   };
 
-  const handleToggleVisibility = async (
-    listId: Id<"userLists">,
-    isPublic: boolean
-  ) => {
+  const handleToggleVisibility = async (listId: Id<"userLists">, isPublic: boolean) => {
     const key = String(listId);
     setPendingVisibilityIds((prev) => new Set(prev).add(key));
-    try {
-      await toggleVisibility(listId, isPublic);
-    } finally {
-      setPendingVisibilityIds((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
+    try { await toggleVisibility(listId, isPublic); }
+    finally {
+      setPendingVisibilityIds((prev) => { const n = new Set(prev); n.delete(key); return n; });
     }
   };
 
-  const openList = (list: VisibleProfileList) => {
-    router.push({
-      pathname: "/list/[listId]",
-      params: {
-        listId: String(list._id),
-        name: list.name,
-        seen: list.isSeen ? "1" : "0",
-        systemKey: list.systemKey ?? "",
-      },
-    });
-  };
+  const openList = (list: VisibleProfileList) =>
+    router.push({ pathname: "/list/[listId]", params: { listId: String(list._id), name: list.name, seen: list.isSeen ? "1" : "0", systemKey: list.systemKey ?? "" } });
 
-  const handleCreateTrip = async (args: {
-    name: string;
-    startDate: string;
-    endDate: string;
-    description?: string;
-  }) => {
+  const handleCreateTrip = async (args: { name: string; startDate: string; endDate: string; description?: string }) => {
     const tripId = await createTrip({ ...args, isPublic: false });
-    router.push({
-      pathname: "/(tabs)/plan/[tripId]",
-      params: { tripId: String(tripId) },
-    });
+    router.push({ pathname: "/(tabs)/plan/[tripId]", params: { tripId: String(tripId) } });
   };
 
-  const upcomingTrips = trips?.upcoming ?? [];
-  const pastTrips = trips?.past ?? [];
   const isTripsLoading = trips === undefined;
+  const hasAnyTrips = mainList.length > 0 || olderPast.length > 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["top"]}>
@@ -157,12 +168,11 @@ export default function PlanScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.pageHeader}>
           <Text style={[styles.pageTitle, { color: primaryTextColor }]}>Plan</Text>
         </View>
 
-        {/* Trips Section */}
+        {/* Trips section */}
         <View style={[styles.section, { backgroundColor: surfaceColor, borderColor }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Trips</Text>
@@ -176,25 +186,20 @@ export default function PlanScreen() {
 
           {isTripsLoading ? (
             <Text style={[styles.emptyText, { color: mutedTextColor }]}>Loading…</Text>
-          ) : upcomingTrips.length === 0 && pastTrips.length === 0 ? (
+          ) : !hasAnyTrips ? (
             <View style={styles.emptyState}>
-              <Text style={[styles.emptyTitle, { color: primaryTextColor }]}>
-                No trips yet
-              </Text>
+              <Text style={[styles.emptyTitle, { color: primaryTextColor }]}>No trips yet</Text>
               <Text style={[styles.emptySubtitle, { color: mutedTextColor }]}>
-                Create a trip to plan which shows you want to see and track shows
-                closing around your travel dates.
+                Create a trip to plan which shows you want to see and track shows closing around your travel dates.
               </Text>
-              <Pressable
-                style={[styles.emptyButton, { backgroundColor: accentColor }]}
-                onPress={() => setShowCreateTrip(true)}
-              >
+              <Pressable style={[styles.emptyButton, { backgroundColor: accentColor }]} onPress={() => setShowCreateTrip(true)}>
                 <Text style={styles.emptyButtonText}>Create a Trip</Text>
               </Pressable>
             </View>
           ) : (
             <>
-              {upcomingTrips.map((trip) => (
+              {/* Main trip list (active → recently ended → upcoming) */}
+              {visibleMain.map((trip) => (
                 <TripCard
                   key={String(trip._id)}
                   name={trip.name}
@@ -202,57 +207,54 @@ export default function PlanScreen() {
                   endDate={trip.endDate}
                   showCount={trip.showCount}
                   isOwner={trip.isOwner}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(tabs)/plan/[tripId]",
-                      params: { tripId: String(trip._id) },
-                    })
-                  }
+                  onPress={() => openTrip(String(trip._id))}
                 />
               ))}
 
-              {pastTrips.length > 0 ? (
+              {/* Show More */}
+              {hasMore ? (
+                <Pressable
+                  style={styles.showMoreBtn}
+                  onPress={() => setVisibleCount((n) => n + PAGE_SIZE)}
+                >
+                  <Text style={[styles.showMoreText, { color: accentColor }]}>
+                    Show {Math.min(remaining, PAGE_SIZE)} more
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              {/* View Past Trips */}
+              {olderPast.length > 0 ? (
                 <>
                   <Pressable
-                    style={styles.pastTripsToggle}
+                    style={[styles.pastToggle, { borderTopColor: borderColor }]}
                     onPress={() => setShowPastTrips((v) => !v)}
                   >
-                    <Text style={[styles.pastTripsToggleText, { color: mutedTextColor }]}>
-                      {showPastTrips
-                        ? "Hide past trips"
-                        : `Show ${pastTrips.length} past trip${pastTrips.length === 1 ? "" : "s"}`}
+                    <Text style={[styles.pastToggleText, { color: mutedTextColor }]}>
+                      {showPastTrips ? "Hide past trips" : `View past trips (${olderPast.length})`}
                     </Text>
                     <Text style={[styles.pastChevron, { color: mutedTextColor }]}>
                       {showPastTrips ? "▲" : "▼"}
                     </Text>
                   </Pressable>
-
-                  {showPastTrips
-                    ? pastTrips.map((trip) => (
-                        <TripCard
-                          key={String(trip._id)}
-                          name={trip.name}
-                          startDate={trip.startDate}
-                          endDate={trip.endDate}
-                          showCount={trip.showCount}
-                          isOwner={trip.isOwner}
-                          isPast
-                          onPress={() =>
-                            router.push({
-                              pathname: "/(tabs)/plan/[tripId]",
-                              params: { tripId: String(trip._id) },
-                            })
-                          }
-                        />
-                      ))
-                    : null}
+                  {showPastTrips ? olderPast.map((trip) => (
+                    <TripCard
+                      key={String(trip._id)}
+                      name={trip.name}
+                      startDate={trip.startDate}
+                      endDate={trip.endDate}
+                      showCount={trip.showCount}
+                      isOwner={trip.isOwner}
+                      onPress={() => openTrip(String(trip._id))}
+                    />
+                  )) : null}
                 </>
               ) : null}
             </>
           )}
         </View>
 
-        {/* Lists Section */}
+        {/* Lists section */}
         <ListsSection
           isShowingCreateInput={isShowingCreateInput}
           setIsShowingCreateInput={setIsShowingCreateInput}
@@ -280,85 +282,23 @@ export default function PlanScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    gap: 20,
-  },
-  pageHeader: {
-    marginBottom: 4,
-  },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-  },
-  section: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
-    padding: 12,
-    gap: 10,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  iconButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 16,
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: "center",
-    paddingHorizontal: 8,
-  },
-  emptyButton: {
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    marginTop: 4,
-  },
-  emptyButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  emptyText: {
-    fontSize: 14,
-    paddingVertical: 8,
-  },
-  pastTripsToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 6,
-  },
-  pastTripsToggleText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  pastChevron: {
-    fontSize: 10,
-  },
+  container: { flex: 1 },
+  content: { padding: 16, gap: 20 },
+  pageHeader: { marginBottom: 4 },
+  pageTitle: { fontSize: 28, fontWeight: "bold" },
+  section: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12, gap: 10 },
+  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  sectionTitle: { fontSize: 18, fontWeight: "700" },
+  iconButton: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth },
+  emptyState: { alignItems: "center", paddingVertical: 16, gap: 8 },
+  emptyTitle: { fontSize: 16, fontWeight: "700" },
+  emptySubtitle: { fontSize: 13, lineHeight: 19, textAlign: "center", paddingHorizontal: 8 },
+  emptyButton: { borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20, marginTop: 4 },
+  emptyButtonText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  emptyText: { fontSize: 14, paddingVertical: 8 },
+  showMoreBtn: { alignItems: "center", paddingVertical: 6 },
+  showMoreText: { fontSize: 13, fontWeight: "600" },
+  pastToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 2 },
+  pastToggleText: { fontSize: 13, fontWeight: "600" },
+  pastChevron: { fontSize: 10 },
 });
