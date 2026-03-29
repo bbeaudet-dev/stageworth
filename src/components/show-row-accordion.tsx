@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { memo, useCallback, useRef, useState } from "react";
 import {
@@ -308,6 +309,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
   const surfaceColor = Colors[theme].surface;
   const surfaceElevated = Colors[theme].surfaceElevated;
   const borderColor = Colors[theme].border;
+  const listThumbUri = item.images?.[0]?.trim();
 
   if (isRemoving) {
     return (
@@ -388,6 +390,13 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
           <Text style={[accordionStyles.rank, { color: mutedTextColor }]}>
             {rankLabel ?? `#${index + 1}`}
           </Text>
+          {listThumbUri ? (
+            <Image
+              source={{ uri: listThumbUri }}
+              style={[accordionStyles.listThumb, { borderColor }]}
+              contentFit="cover"
+            />
+          ) : null}
           <Pressable
             style={accordionStyles.showNameWrap}
             onPress={onViewShowDetails}
@@ -471,6 +480,14 @@ const accordionStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
     width: 36,
+  },
+  listThumb: {
+    width: 26,
+    height: 39,
+    borderRadius: 4,
+    marginRight: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: "transparent",
   },
   showName: {
     fontSize: 15,
