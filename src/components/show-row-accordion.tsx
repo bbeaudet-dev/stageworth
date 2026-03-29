@@ -438,7 +438,8 @@ const accordionStyles = StyleSheet.create({
   showRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
   },
@@ -511,7 +512,6 @@ const accordionStyles = StyleSheet.create({
   },
   showNameWrap: {
     flex: 1,
-    paddingVertical: 2,
   },
   chevron: {
     fontSize: 14,
