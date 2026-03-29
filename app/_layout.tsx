@@ -13,8 +13,6 @@ import { convex } from "@/lib/convex";
 GoogleSignin.configure({
   iosClientId:
     "436999476070-l97q7s44m1p9irm4ve8objjm0dt11pgn.apps.googleusercontent.com",
-  androidClientId:
-    "938750523886-jo9sbce2e79kd2im27t7knst7qh95rfj.apps.googleusercontent.com",
   webClientId:
     "436999476070-7gcd35jrbfkreu1smj4oo3k16e7n1nkb.apps.googleusercontent.com",
 });

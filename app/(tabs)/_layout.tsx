@@ -46,12 +46,7 @@ export default function TabLayout() {
       >
         <Tabs.Screen
           name="index"
-          options={{
-            title: "My Shows",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="list.number" color={color} />
-            ),
-          }}
+          options={{ href: null }}
         />
         <Tabs.Screen
           name="community"
@@ -59,6 +54,15 @@ export default function TabLayout() {
             title: "Community",
             tabBarIcon: ({ color }) => (
               <IconSymbol size={28} name="person.2.fill" color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="plan"
+          options={{
+            title: "Plan",
+            tabBarIcon: ({ color }) => (
+              <IconSymbol size={28} name="map.fill" color={color} />
             ),
           }}
         />
@@ -109,7 +113,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="profile"
           options={{
-            title: "Profile",
+            title: "My Shows",
             tabBarIcon: ({ color }) => (
               <IconSymbol size={28} name="person.fill" color={color} />
             ),
@@ -123,10 +127,17 @@ export default function TabLayout() {
           setShowActionsMenu(false);
           router.push("/add-visit");
         }}
+        onCreateTrip={() => {
+          setShowActionsMenu(false);
+          router.push({
+            pathname: "/(tabs)/plan",
+            params: { createTrip: "1" },
+          });
+        }}
         onCreateList={() => {
           setShowActionsMenu(false);
           router.push({
-            pathname: "/(tabs)/profile",
+            pathname: "/(tabs)/plan",
             params: { createList: "1" },
           });
         }}
