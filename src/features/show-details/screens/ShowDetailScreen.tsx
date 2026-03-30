@@ -193,23 +193,6 @@ export default function ShowDetailScreen() {
           </View>
         </View>
 
-        {/* ── Visits ───────────────────────────────────────────────────────── */}
-        {hasVisits ? (
-          <View style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
-            <Text style={[styles.sectionTitle, { color: c.mutedText }]}>Your Visits</Text>
-            {visits!.map((visit) => (
-              <Pressable
-                key={visit._id}
-                style={[styles.row, { borderTopColor: c.border }]}
-                onPress={() => router.push({ pathname: "/visit/[visitId]", params: { visitId: String(visit._id) } })}
-              >
-                <Text style={[styles.rowText, { color: c.text }]}>{visit.date}</Text>
-                <Text style={[styles.rowChevron, { color: c.mutedText }]}>›</Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-
         {/* ── Productions ──────────────────────────────────────────────────── */}
         {productions !== undefined && productions.length > 0 ? (
           <View style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
@@ -250,6 +233,23 @@ export default function ShowDetailScreen() {
                 </View>
               );
             })}
+          </View>
+        ) : null}
+
+        {/* ── Visits ───────────────────────────────────────────────────────── */}
+        {hasVisits ? (
+          <View style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
+            <Text style={[styles.sectionTitle, { color: c.mutedText }]}>Your Visits</Text>
+            {visits!.map((visit) => (
+              <Pressable
+                key={visit._id}
+                style={[styles.row, { borderTopColor: c.border }]}
+                onPress={() => router.push({ pathname: "/visit/[visitId]", params: { visitId: String(visit._id) } })}
+              >
+                <Text style={[styles.rowText, { color: c.text }]}>{visit.date}</Text>
+                <Text style={[styles.rowChevron, { color: c.mutedText }]}>›</Text>
+              </Pressable>
+            ))}
           </View>
         ) : null}
 
