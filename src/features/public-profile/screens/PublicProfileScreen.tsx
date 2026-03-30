@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
+import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ScrollView, Text, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -7,6 +8,13 @@ import { api } from "@/convex/_generated/api";
 import { styles } from "@/features/public-profile/styles";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+
+function getInitials(name?: string | null, username?: string) {
+  const source = name?.trim() || username || "?";
+  const parts = source.split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return source.slice(0, 2).toUpperCase();
+}
 
 export default function PublicProfileScreen() {
   const router = useRouter();
@@ -61,6 +69,29 @@ export default function PublicProfileScreen() {
         ) : null}
         {profile ? (
           <View style={[styles.card, { backgroundColor: surfaceColor, borderColor }]}>
+            {profile.avatarUrl ? (
+              <Image
+                source={{ uri: profile.avatarUrl }}
+                style={styles.profileAvatar}
+                contentFit="cover"
+              />
+            ) : (
+              <View
+                style={[
+                  styles.profileAvatarFallback,
+                  { backgroundColor: accentColor + "22" },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.profileAvatarFallbackText,
+                    { color: accentColor },
+                  ]}
+                >
+                  {getInitials(profile.name, profile.username)}
+                </Text>
+              </View>
+            )}
             <View style={styles.nameRow}>
               <Text style={[styles.displayName, { color: primaryTextColor }]}>
                 {displayName}

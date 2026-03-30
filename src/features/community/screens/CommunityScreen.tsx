@@ -138,20 +138,30 @@ export default function CommunityScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={[styles.title, { color: primaryTextColor }]}>Community</Text>
-          <Pressable
-            onPress={() => router.push("/notifications")}
-            style={styles.bellButton}
-            hitSlop={10}
-          >
-            <IconSymbol name="bell.fill" size={22} color={bellColor} />
-            {unreadCount > 0 && (
-              <View style={[styles.badge, { backgroundColor: badgeBg }]}>
-                <Text style={styles.badgeText}>
-                  {unreadCount > 99 ? "99+" : String(unreadCount)}
-                </Text>
-              </View>
-            )}
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => router.push("/user-search")}
+              style={styles.headerIconButton}
+              hitSlop={10}
+              accessibilityLabel="Search people"
+            >
+              <IconSymbol name="magnifyingglass" size={22} color={bellColor} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push("/notifications")}
+              style={styles.bellButton}
+              hitSlop={10}
+            >
+              <IconSymbol name="bell.fill" size={22} color={bellColor} />
+              {unreadCount > 0 && (
+                <View style={[styles.badge, { backgroundColor: badgeBg }]}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? "99+" : String(unreadCount)}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
         </View>
         <View style={styles.segmentRow}>
           <Pressable
@@ -403,6 +413,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
     fontSize: 28,

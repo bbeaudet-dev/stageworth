@@ -15,6 +15,26 @@ export const styles = StyleSheet.create({
     padding: 14,
     gap: 8,
   },
+  profileAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignSelf: "center",
+    marginBottom: 4,
+  },
+  profileAvatarFallback: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignSelf: "center",
+    marginBottom: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileAvatarFallbackText: {
+    fontSize: 28,
+    fontWeight: "700",
+  },
   nameRow: {
     flexDirection: "row",
     alignItems: "center",
