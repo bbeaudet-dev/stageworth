@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,7 @@ import { api } from "@/convex/_generated/api";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { authClient } from "@/lib/auth-client";
+import { useState } from "react";
 
 interface ProfilePanelProps {
   visible: boolean;
@@ -28,6 +30,7 @@ export function ProfilePanel({ visible, onClose }: ProfilePanelProps) {
   const theme = colorScheme ?? "light";
   const myProfile = useQuery(api.profiles.getMyProfile);
   const removePushToken = useMutation(api.notifications.removePushToken);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const backgroundColor = Colors[theme].background;
   const surfaceColor = Colors[theme].surfaceElevated;
@@ -47,9 +50,15 @@ export function ProfilePanel({ visible, onClose }: ProfilePanelProps) {
     .join("");
 
   const handleSignOut = async () => {
-    await removePushToken().catch(() => {});
-    await authClient.signOut();
-    onClose();
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await removePushToken().catch(() => {});
+      await authClient.signOut();
+      onClose();
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   return (
@@ -130,10 +139,19 @@ export function ProfilePanel({ visible, onClose }: ProfilePanelProps) {
           </Pressable>
 
           <Pressable
-            style={[styles.signOutButton, { backgroundColor: dangerColor }]}
+            style={[
+              styles.signOutButton,
+              { backgroundColor: dangerColor },
+              isSigningOut && styles.disabledButton,
+            ]}
             onPress={handleSignOut}
+            disabled={isSigningOut}
           >
-            <Text style={styles.signOutText}>Sign Out</Text>
+            {isSigningOut ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.signOutText}>Sign Out</Text>
+            )}
           </Pressable>
         </ScrollView>
       </View>
@@ -189,4 +207,5 @@ const styles = StyleSheet.create({
   linkButtonText: { fontSize: 14, fontWeight: "600" },
   signOutButton: { borderRadius: 12, paddingVertical: 14, alignItems: "center" },
   signOutText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  disabledButton: { opacity: 0.7 },
 });
