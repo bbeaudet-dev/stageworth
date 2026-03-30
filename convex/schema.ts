@@ -306,4 +306,31 @@ export default defineSchema({
     .index("by_trip", ["tripId"])
     .index("by_user", ["userId"])
     .index("by_trip_user", ["tripId", "userId"]),
+
+  // Per-member preference for a show on a trip (not a competitive vote).
+  tripShowLabels: defineTable({
+    tripId: v.id("trips"),
+    tripShowId: v.id("tripShows"),
+    userId: v.id("users"),
+    label: v.union(
+      v.literal("must_see"),
+      v.literal("want_see"),
+      v.literal("indifferent"),
+      v.literal("dont_know"),
+      v.literal("dont_want")
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_trip", ["tripId"])
+    .index("by_trip_show_user", ["tripId", "tripShowId", "userId"]),
+
+  // Ephemeral "viewing this trip" heartbeats for the trip detail screen.
+  tripPresence: defineTable({
+    tripId: v.id("trips"),
+    userId: v.id("users"),
+    lastSeenAt: v.number(),
+    activeTab: v.optional(v.union(v.literal("shows"), v.literal("party"), v.literal("chat"))),
+  })
+    .index("by_trip", ["tripId"])
+    .index("by_trip_user", ["tripId", "userId"]),
 });

@@ -3,6 +3,10 @@ import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
+import {
+  deleteTripShowLabelsForTripShow,
+  enrichTripShowRowsWithLabels,
+} from "./tripLabels";
 
 const MAX_TRIP_NAME_LENGTH = 100;
 const MAX_TRIP_DESCRIPTION_LENGTH = 500;
@@ -188,7 +192,14 @@ export const getTripById = query({
       (s): s is NonNullable<typeof s> => s !== null
     );
 
-    const unassigned = validShows
+    const validShowsWithLabels = await enrichTripShowRowsWithLabels(
+      ctx,
+      args.tripId,
+      userId,
+      validShows
+    );
+
+    const unassigned = validShowsWithLabels
       .filter((s) => s.dayDate == null)
       .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
 
@@ -198,7 +209,7 @@ export const getTripById = query({
       .collect();
 
     const days = enumerateDays(trip.startDate, trip.endDate).map((date) => {
-      const assigned = validShows
+      const assigned = validShowsWithLabels
         .filter((s) => s.dayDate === date)
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       const notes = noteRows
@@ -234,9 +245,15 @@ export const getTripById = query({
         ? await ctx.storage.getUrl(ownerUser.avatarImage)
         : null;
 
+    const memberMe = members.find((m: any) => m.userId === userId);
+    const canEdit =
+      trip.userId === userId ||
+      (memberMe?.status === "accepted" && memberMe?.role === "edit");
+
     return {
       ...trip,
       isOwner: trip.userId === userId,
+      canEdit,
       owner: ownerUser ? { ...ownerUser, avatarUrl: ownerAvatarUrl } : null,
       unassigned,
       days,
@@ -405,6 +422,18 @@ export const deleteTrip = mutation({
     const trip = await getTripOrThrow(ctx, args.tripId);
     if (trip.userId !== userId) throw new Error("Only the trip owner can delete a trip");
 
+    const labelRows = await ctx.db
+      .query("tripShowLabels")
+      .withIndex("by_trip", (q: any) => q.eq("tripId", args.tripId))
+      .collect();
+    await Promise.all(labelRows.map((r: any) => ctx.db.delete(r._id)));
+
+    const presenceRows = await ctx.db
+      .query("tripPresence")
+      .withIndex("by_trip", (q: any) => q.eq("tripId", args.tripId))
+      .collect();
+    await Promise.all(presenceRows.map((r: any) => ctx.db.delete(r._id)));
+
     // Cascade delete tripShows and tripMembers
     const tripShows = await ctx.db
       .query("tripShows")
@@ -469,7 +498,10 @@ export const removeShowFromTrip = mutation({
       )
       .first();
 
-    if (row) await ctx.db.delete(row._id);
+    if (row) {
+      await deleteTripShowLabelsForTripShow(ctx, args.tripId, row._id);
+      await ctx.db.delete(row._id);
+    }
   },
 });
 
