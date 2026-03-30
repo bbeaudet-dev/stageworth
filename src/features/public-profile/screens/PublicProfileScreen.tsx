@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   statNumber: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "700",
   },
   statLabel: {
