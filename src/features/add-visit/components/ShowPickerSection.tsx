@@ -72,7 +72,7 @@ export function ShowPickerSection({
           />
           {allShowsLoaded && (
             <View style={[styles.resultsCard, { borderColor: c.border }]}>
-              {!hasExactMatch && (
+              {!hasExactMatch && query.trim().length > 0 && (
                 <Pressable style={[styles.customShowRow, { backgroundColor: c.surface }]} onPress={selectCustomShow}>
                   <Text style={[styles.customShowText, { color: c.accent }]}>Add {query.trim()} as custom show</Text>
                 </Pressable>
