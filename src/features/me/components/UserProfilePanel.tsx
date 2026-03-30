@@ -57,8 +57,8 @@ export function UserProfilePanel({ visible, onClose, userId }: UserProfilePanelP
     if (!profile?.username) return;
     onClose();
     router.push({
-      pathname: "/user/[username]/[kind]",
-      params: { username: profile.username, kind: "posts" },
+      pathname: "/user/[username]",
+      params: { username: profile.username },
     });
   };
 
