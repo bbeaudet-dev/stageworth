@@ -333,7 +333,14 @@ export default defineSchema({
     tripId: v.id("trips"),
     userId: v.id("users"),
     lastSeenAt: v.number(),
-    activeTab: v.optional(v.union(v.literal("shows"), v.literal("party"), v.literal("chat"))),
+    activeTab: v.optional(
+      v.union(
+        v.literal("shows"),
+        v.literal("schedule"),
+        v.literal("party"),
+        v.literal("chat")
+      )
+    ),
   })
     .index("by_trip", ["tripId"])
     .index("by_trip_user", ["tripId", "userId"]),

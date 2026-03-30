@@ -6,7 +6,12 @@ import { requireConvexUserId } from "./auth";
 const PRESENCE_TTL_MS = 60_000;
 
 const activeTabValidator = v.optional(
-  v.union(v.literal("shows"), v.literal("party"), v.literal("chat"))
+  v.union(
+    v.literal("shows"),
+    v.literal("schedule"),
+    v.literal("party"),
+    v.literal("chat")
+  )
 );
 
 async function getTripOrThrow(ctx: any, tripId: any) {
@@ -26,7 +31,7 @@ async function assertCanViewTrip(ctx: any, userId: any, tripId: any) {
     )
     .first();
 
-  if (!membership || membership.status !== "accepted") {
+  if (!membership) {
     throw new Error("Not authorized to view this trip");
   }
   return trip;
@@ -105,7 +110,7 @@ export const getTripPresence = query({
           name: user.name,
           username: user.username,
           avatarUrl,
-          activeTab: (r.activeTab ?? "shows") as "shows" | "party" | "chat",
+          activeTab: (r.activeTab ?? "shows") as "shows" | "schedule" | "party" | "chat",
           lastSeenAt: r.lastSeenAt,
         };
       })

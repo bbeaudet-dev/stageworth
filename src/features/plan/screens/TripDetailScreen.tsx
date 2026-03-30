@@ -21,6 +21,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { TripChatTab } from "@/features/plan/components/TripChatTab";
 import { TripPartyTab } from "@/features/plan/components/TripPartyTab";
+import { TripScheduleTab } from "@/features/plan/components/TripScheduleTab";
 import { TripShowsTab } from "@/features/plan/components/TripShowsTab";
 import { CreateTripSheet } from "@/features/plan/components/CreateTripSheet";
 import { useClosingSoonForTrip, useTripById, useTripData } from "@/features/plan/hooks/useTripData";
@@ -43,7 +44,22 @@ function formatDateRange(startDate: string, endDate: string): string {
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type Tab = "shows" | "party" | "chat";
+type Tab = "shows" | "schedule" | "party" | "chat";
+
+const TRIP_TABS: Tab[] = ["shows", "schedule", "party", "chat"];
+
+function tabLabel(t: Tab): string {
+  switch (t) {
+    case "shows":
+      return "Shows";
+    case "schedule":
+      return "Schedule";
+    case "party":
+      return "Party";
+    case "chat":
+      return "Chat";
+  }
+}
 
 const PRESENCE_HEARTBEAT_MS = 25_000;
 const TAB_PRESENCE_AVATAR_CAP = 3;
@@ -204,8 +220,8 @@ export default function TripDetailScreen() {
 
       {/* Tab bar — avatars appear inline next to tab label */}
       <View style={[styles.tabBar, { borderBottomColor: borderColor, backgroundColor }]}>
-        {(["shows", "party", "chat"] as Tab[]).map((t) => {
-          const label = t === "shows" ? "Shows" : t === "party" ? "Party" : "Chat";
+        {TRIP_TABS.map((t) => {
+          const label = tabLabel(t);
           const tabPresence = (tripPresenceOthers ?? []).filter((p: any) => p.activeTab === t);
           const shownAvatars = tabPresence.slice(0, TAB_PRESENCE_AVATAR_CAP);
           const extra = tabPresence.length - TAB_PRESENCE_AVATAR_CAP;
@@ -246,6 +262,8 @@ export default function TripDetailScreen() {
       <View style={{ flex: 1 }}>
         {activeTab === "shows" ? (
           <TripShowsTab trip={trip} tripId={typedTripId} closingSoon={closingSoon} />
+        ) : activeTab === "schedule" ? (
+          <TripScheduleTab trip={trip} tripId={typedTripId} />
         ) : activeTab === "party" ? (
           <TripPartyTab trip={trip} tripId={typedTripId} onViewUser={setViewingUserId} />
         ) : (
