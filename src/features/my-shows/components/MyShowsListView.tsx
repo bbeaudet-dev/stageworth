@@ -157,13 +157,13 @@ const styles = StyleSheet.create({
   tierHeaderRow: {
     paddingTop: 2,
     paddingBottom: 2,
+    alignItems: "flex-end",
   },
   tierHeaderBadge: {
-    alignSelf: "flex-start",
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    marginLeft: 2,
+    marginRight: 2,
   },
   tierHeaderBadgeText: {
     fontSize: 12,
