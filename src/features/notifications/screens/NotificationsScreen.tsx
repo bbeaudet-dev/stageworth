@@ -5,11 +5,24 @@ import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { IconSymbol } from "@/components/ui/icon-symbol";
+
+type NotificationListItem = {
+  _id: Id<"notifications">;
+  type: string;
+  isRead: boolean;
+  createdAt: number;
+  visitId?: string | null;
+  productionId?: string | null;
+  tripId?: Id<"trips"> | null;
+  actor: { _id: Id<"users">; username: string; name?: string | null; avatarUrl: string | null } | null;
+  show: { name: string; images: string[] } | null;
+  trip: { _id: Id<"trips">; name: string } | null;
+};
 
 function formatRelativeTime(ts: number): string {
   const diffMs = Date.now() - ts;
@@ -38,7 +51,9 @@ export default function NotificationsScreen() {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
 
-  const notifications = useQuery(api.notifications.listForCurrentUser, { limit: 60 });
+  const notifications = useQuery(api.notifications.listForCurrentUser, { limit: 60 }) as
+    | NotificationListItem[]
+    | undefined;
   const markAllAsRead = useMutation(api.notifications.markAllAsRead);
   const markAsRead = useMutation(api.notifications.markAsRead);
   const respondToTripInvitation = useMutation(api.trips.respondToTripInvitation);
@@ -54,9 +69,9 @@ export default function NotificationsScreen() {
   const avatarFallbackBg = theme === "dark" ? "#3a3a50" : "#d4d4f0";
   const emptyTextColor = theme === "dark" ? "#9ca3af" : "#808080";
 
-  const hasUnread = (notifications ?? []).some((n: any) => !n.isRead);
+  const hasUnread = (notifications ?? []).some((n) => !n.isRead);
 
-  const handleNotificationPress = async (notif: NonNullable<typeof notifications>[number]) => {
+  const handleNotificationPress = async (notif: NotificationListItem) => {
     if (!notif.isRead) {
       await markAsRead({ notificationId: notif._id });
     }
@@ -72,16 +87,13 @@ export default function NotificationsScreen() {
     }
   };
 
-  const handleInviteRespond = async (
-    notif: NonNullable<typeof notifications>[number],
-    accept: boolean
-  ) => {
+  const handleInviteRespond = async (notif: NotificationListItem, accept: boolean) => {
     if (!notif.tripId) return;
     const key = notif._id + (accept ? ":accept" : ":decline");
     setInviteResponding(key);
     try {
       if (!notif.isRead) await markAsRead({ notificationId: notif._id });
-      await respondToTripInvitation({ tripId: notif.tripId as Id<"trips">, accept });
+      await respondToTripInvitation({ tripId: notif.tripId!, accept });
       if (accept) {
         router.push({ pathname: "/(tabs)/plan/[tripId]", params: { tripId: notif.tripId } });
       }
@@ -120,7 +132,7 @@ export default function NotificationsScreen() {
             </Text>
           </View>
         )}
-        {(notifications ?? []).map((notif: any) => {
+        {(notifications ?? []).map((notif) => {
           const timeStr = formatRelativeTime(notif.createdAt);
           const actorLabel = notif.actor?.name?.split(" ")[0] ?? notif.actor?.username ?? "Someone";
           const isTripInvite = notif.type === "trip_invite";

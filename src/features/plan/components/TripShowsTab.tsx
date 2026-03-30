@@ -51,7 +51,10 @@ function chunkRows<T>(arr: T[], cols: number): T[][] {
 
 const COLS = 4;
 const GAP = 8;
-const PAD = 16;
+/** Horizontal padding on `styles.tabContent` (ScrollView content). */
+const TAB_CONTENT_H_PAD = 16;
+/** Horizontal padding on nested `styles.card` (e.g. Closing Soon). */
+const CARD_H_PAD = 14;
 
 // ─── component ────────────────────────────────────────────────────────────────
 
@@ -119,7 +122,10 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
     return id in optimisticLabels ? optimisticLabels[id] : (item.myLabel ?? null);
   };
 
-  const cardWidth = (screenWidth - PAD * 2 - GAP * (COLS - 1)) / COLS;
+  const gridWidthFull = screenWidth - TAB_CONTENT_H_PAD * 2;
+  const gridWidthInCard = gridWidthFull - CARD_H_PAD * 2;
+  const cardWidth = (gridWidthFull - GAP * (COLS - 1)) / COLS;
+  const cardWidthInClosingCard = (gridWidthInCard - GAP * (COLS - 1)) / COLS;
 
   const alreadyOnTripShowIds = new Set([
     ...(trip.unassigned ?? []).map((s: any) => String(s.showId)),
@@ -233,7 +239,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                     const isOnTrip = alreadyOnTripShowIds.has(sid);
                     const badge = closingBadge(item.closingDate);
                     return (
-                      <View key={sid} style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}>
+                      <View key={sid} style={[styles.playbillCard, { width: cardWidthInClosingCard, backgroundColor: surfaceColor }]}>
                         <Pressable onPress={() => router.push({ pathname: "/(tabs)/browse/show/[showId]", params: { showId: sid, name: show.name } })}>
                           {image
                             ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
@@ -252,6 +258,11 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                       </View>
                     );
                   })}
+                  {row.length < COLS
+                    ? Array.from({ length: COLS - row.length }).map((_, i) => (
+                        <View key={`pad-${i}`} style={{ width: cardWidthInClosingCard }} />
+                      ))
+                    : null}
                 </View>
               ))}
             </View>

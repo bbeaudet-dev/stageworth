@@ -3,6 +3,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import { useMemo } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 
 import { api } from "@/convex/_generated/api";
 import { Colors } from "@/constants/theme";
@@ -108,7 +109,7 @@ export function DiaryView() {
   if (visits.length === 0) {
     return (
       <View style={[styles.centered, { backgroundColor }]}>
-        <Text style={styles.emptyEmoji}>📖</Text>
+        <IconSymbol name="book.fill" size={48} color={mutedTextColor} style={styles.emptyIcon} />
         <Text style={[styles.emptyTitle, { color: primaryTextColor }]}>
           Your diary is empty
         </Text>
@@ -166,8 +167,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
   },
-  emptyEmoji: {
-    fontSize: 48,
+  emptyIcon: {
     marginBottom: 12,
   },
   emptyTitle: {
