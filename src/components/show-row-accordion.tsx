@@ -499,6 +499,7 @@ const accordionStyles = StyleSheet.create({
     width: 26,
     height: 39,
     borderRadius: 4,
+    marginRight: 4,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
   },
