@@ -438,7 +438,8 @@ const accordionStyles = StyleSheet.create({
   showRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
+    gap: 8,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
@@ -490,15 +491,14 @@ const accordionStyles = StyleSheet.create({
   rank: {
     fontSize: 14,
     fontWeight: "bold",
-    width: 36,
-    textAlign: "right",
+    width: 34,
+    textAlign: "left",
+    fontVariant: ["tabular-nums"],
   },
   listThumbFrame: {
     width: 26,
     height: 39,
     borderRadius: 4,
-    marginLeft: 8,
-    marginRight: 8,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
   },
@@ -512,6 +512,7 @@ const accordionStyles = StyleSheet.create({
   },
   showNameWrap: {
     flex: 1,
+    minWidth: 0,
   },
   chevron: {
     fontSize: 14,
