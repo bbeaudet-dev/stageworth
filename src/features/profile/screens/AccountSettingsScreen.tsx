@@ -21,6 +21,7 @@ export default function AccountSettingsScreen() {
   const [bioDraft, setBioDraft] = useState("");
   const [locationDraft, setLocationDraft] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     if (!myProfile) return;
@@ -44,8 +45,14 @@ export default function AccountSettingsScreen() {
   };
 
   const handleSignOut = async () => {
-    await removePushToken().catch(() => {});
-    await authClient.signOut();
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await removePushToken().catch(() => {});
+      await authClient.signOut();
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   const colorScheme = useColorScheme();
@@ -125,6 +132,7 @@ export default function AccountSettingsScreen() {
           email={session?.user?.email ?? "Unknown"}
           username={myProfile?.username}
           onSignOut={handleSignOut}
+          isSigningOut={isSigningOut}
         />
       </ScrollView>
       </KeyboardAvoidingView>

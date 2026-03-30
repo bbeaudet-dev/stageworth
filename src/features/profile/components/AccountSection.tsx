@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { styles } from "@/features/profile/styles";
 import { Colors } from "@/constants/theme";
@@ -8,10 +8,12 @@ export function AccountSection({
   email,
   username,
   onSignOut,
+  isSigningOut = false,
 }: {
   email: string;
   username?: string;
   onSignOut: () => void;
+  isSigningOut?: boolean;
 }) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -30,10 +32,19 @@ export function AccountSection({
       </View>
 
       <Pressable
-        style={[styles.signOutButton, { backgroundColor: dangerColor }]}
+        style={[
+          styles.signOutButton,
+          { backgroundColor: dangerColor },
+          isSigningOut && styles.disabledButton,
+        ]}
         onPress={onSignOut}
+        disabled={isSigningOut}
       >
-        <Text style={[styles.signOutText, { color: "#fff" }]}>Sign Out</Text>
+        {isSigningOut ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text style={[styles.signOutText, { color: "#fff" }]}>Sign Out</Text>
+        )}
       </Pressable>
     </>
   );
