@@ -1,7 +1,7 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
-import { Stack, useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -20,6 +20,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { UserProfilePanel } from "@/features/me/components/UserProfilePanel";
 
 const MAX_RECENT_SEARCHES = 6;
 
@@ -39,7 +40,6 @@ type SearchRow = {
 };
 
 export default function UserSearchScreen() {
-  const router = useRouter();
   const inputRef = useRef<TextInput>(null);
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -54,6 +54,7 @@ export default function UserSearchScreen() {
 
   const [input, setInput] = useState("");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [viewingUserId, setViewingUserId] = useState<Id<"users"> | null>(null);
 
   const queryText = input.trim();
 
@@ -71,8 +72,8 @@ export default function UserSearchScreen() {
   const unfollowUser = useMutation(api.social.unfollowUser);
   const [pendingFollowUserId, setPendingFollowUserId] = useState<string | null>(null);
 
-  const navigateToProfile = useCallback(
-    (username: string) => {
+  const openProfile = useCallback(
+    (userId: Id<"users">) => {
       const q = queryText;
       if (q.length >= 1) {
         setRecentSearches((prev) => {
@@ -83,12 +84,9 @@ export default function UserSearchScreen() {
           return next.slice(0, MAX_RECENT_SEARCHES);
         });
       }
-      router.push({
-        pathname: "/user/[username]",
-        params: { username },
-      });
+      setViewingUserId(userId);
     },
-    [queryText, router]
+    [queryText]
   );
 
   const handleToggleFollow = useCallback(
@@ -119,7 +117,7 @@ export default function UserSearchScreen() {
         >
           <Pressable
             style={styles.rowMain}
-            onPress={() => navigateToProfile(item.username)}
+            onPress={() => openProfile(item._id)}
           >
             <View style={[styles.avatar, { backgroundColor: accentColor + "22" }]}>
               {item.avatarUrl ? (
@@ -199,7 +197,7 @@ export default function UserSearchScreen() {
       currentUserId,
       handleToggleFollow,
       mutedTextColor,
-      navigateToProfile,
+      openProfile,
       pendingFollowUserId,
       primaryTextColor,
       surfaceColor,
@@ -305,6 +303,12 @@ export default function UserSearchScreen() {
           ListEmptyComponent={listEmpty}
         />
       )}
+
+      <UserProfilePanel
+        visible={viewingUserId !== null}
+        onClose={() => setViewingUserId(null)}
+        userId={viewingUserId}
+      />
     </SafeAreaView>
   );
 }
