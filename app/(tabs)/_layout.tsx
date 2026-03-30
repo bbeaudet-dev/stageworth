@@ -50,20 +50,20 @@ export default function TabLayout() {
           options={{ href: null }}
         />
         <Tabs.Screen
-          name="community"
-          options={{
-            title: "Community",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="person.2.fill" color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
           name="plan"
           options={{
             title: "Plan",
             tabBarIcon: ({ color }) => (
               <IconSymbol size={28} name="map.fill" color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="community"
+          options={{
+            title: "Community",
+            tabBarIcon: ({ color }) => (
+              <IconSymbol size={28} name="person.2.fill" color={color} />
             ),
           }}
         />
