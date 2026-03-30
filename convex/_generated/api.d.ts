@@ -26,6 +26,8 @@ import type * as seed from "../seed.js";
 import type * as showNormalization from "../showNormalization.js";
 import type * as shows from "../shows.js";
 import type * as social from "../social.js";
+import type * as tripLabels from "../tripLabels.js";
+import type * as tripPresence from "../tripPresence.js";
 import type * as trips from "../trips.js";
 import type * as venues from "../venues.js";
 import type * as visits from "../visits.js";
@@ -55,6 +57,8 @@ declare const fullApi: ApiFromModules<{
   showNormalization: typeof showNormalization;
   shows: typeof shows;
   social: typeof social;
+  tripLabels: typeof tripLabels;
+  tripPresence: typeof tripPresence;
   trips: typeof trips;
   venues: typeof venues;
   visits: typeof visits;

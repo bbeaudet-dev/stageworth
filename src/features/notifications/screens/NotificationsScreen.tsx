@@ -1,13 +1,28 @@
 import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { api } from "@/convex/_generated/api";
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Colors } from "@/constants/theme";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+
+type NotificationListItem = {
+  _id: Id<"notifications">;
+  type: string;
+  isRead: boolean;
+  createdAt: number;
+  visitId?: string | null;
+  productionId?: string | null;
+  tripId?: Id<"trips"> | null;
+  actor: { _id: Id<"users">; username: string; name?: string | null; avatarUrl: string | null } | null;
+  show: { name: string; images: string[] } | null;
+  trip: { _id: Id<"trips">; name: string } | null;
+};
 
 function formatRelativeTime(ts: number): string {
   const diffMs = Date.now() - ts;
@@ -36,9 +51,13 @@ export default function NotificationsScreen() {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
 
-  const notifications = useQuery(api.notifications.listForCurrentUser, { limit: 60 });
+  const notifications = useQuery(api.notifications.listForCurrentUser, { limit: 60 }) as
+    | NotificationListItem[]
+    | undefined;
   const markAllAsRead = useMutation(api.notifications.markAllAsRead);
   const markAsRead = useMutation(api.notifications.markAsRead);
+  const respondToTripInvitation = useMutation(api.trips.respondToTripInvitation);
+  const [inviteResponding, setInviteResponding] = useState<string | null>(null);
 
   const bg = Colors[theme].background;
   const text = Colors[theme].text;
@@ -52,17 +71,36 @@ export default function NotificationsScreen() {
 
   const hasUnread = (notifications ?? []).some((n) => !n.isRead);
 
-  const handleNotificationPress = async (notif: NonNullable<typeof notifications>[number]) => {
+  const handleNotificationPress = async (notif: NotificationListItem) => {
     if (!notif.isRead) {
       await markAsRead({ notificationId: notif._id });
     }
     if (notif.type === "visit_tag" && notif.visitId) {
       router.push({ pathname: "/visit/[visitId]", params: { visitId: notif.visitId } });
-    } else if (notif.type === "new_follow") {
-      router.push({
-        pathname: "/user/[username]",
-        params: { username: notif.actor.username },
-      });
+    } else if (notif.type === "new_follow" && notif.actor) {
+      router.push({ pathname: "/user/[username]", params: { username: notif.actor.username } });
+    } else if (
+      (notif.type === "trip_invite" || notif.type === "trip_invite_accepted" || notif.type === "trip_invite_declined") &&
+      notif.tripId
+    ) {
+      router.push({ pathname: "/(tabs)/plan/[tripId]", params: { tripId: notif.tripId } });
+    }
+  };
+
+  const handleInviteRespond = async (notif: NotificationListItem, accept: boolean) => {
+    if (!notif.tripId) return;
+    const key = notif._id + (accept ? ":accept" : ":decline");
+    setInviteResponding(key);
+    try {
+      if (!notif.isRead) await markAsRead({ notificationId: notif._id });
+      await respondToTripInvitation({ tripId: notif.tripId!, accept });
+      if (accept) {
+        router.push({ pathname: "/(tabs)/plan/[tripId]", params: { tripId: notif.tripId } });
+      }
+    } catch {
+      Alert.alert("Error", "Could not respond to invitation.");
+    } finally {
+      setInviteResponding(null);
     }
   };
 
@@ -90,13 +128,18 @@ export default function NotificationsScreen() {
             <IconSymbol name="bell.fill" size={40} color={mutedText} />
             <Text style={[styles.emptyTitle, { color: text }]}>No notifications yet</Text>
             <Text style={[styles.emptyText, { color: mutedText }]}>
-              You'll be notified when someone follows you or tags you in a visit.
+              You’ll be notified when someone follows you or tags you in a visit.
             </Text>
           </View>
         )}
         {(notifications ?? []).map((notif) => {
           const timeStr = formatRelativeTime(notif.createdAt);
-          const actorLabel = notif.actor.name?.split(" ")[0] ?? notif.actor.username;
+          const actorLabel = notif.actor?.name?.split(" ")[0] ?? notif.actor?.username ?? "Someone";
+          const isTripInvite = notif.type === "trip_invite";
+          const isTripResponse = notif.type === "trip_invite_accepted" || notif.type === "trip_invite_declined";
+          const acceptKey = notif._id + ":accept";
+          const declineKey = notif._id + ":decline";
+          const isRespondingToThis = inviteResponding === acceptKey || inviteResponding === declineKey;
 
           return (
             <Pressable
@@ -112,39 +155,61 @@ export default function NotificationsScreen() {
                 <View style={[styles.unreadDot, { backgroundColor: unreadIndicator }]} />
               )}
               <View style={styles.cardContent}>
-                {notif.actor.avatarUrl ? (
-                  <Image
-                    source={{ uri: notif.actor.avatarUrl }}
-                    style={styles.avatar}
-                    contentFit="cover"
-                  />
+                {notif.actor?.avatarUrl ? (
+                  <Image source={{ uri: notif.actor.avatarUrl }} style={styles.avatar} contentFit="cover" />
                 ) : (
                   <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: avatarFallbackBg }]}>
                     <Text style={[styles.avatarFallbackText, { color: accent }]}>
-                      {getInitials(notif.actor.name, notif.actor.username)}
+                      {getInitials(notif.actor?.name, notif.actor?.username)}
                     </Text>
                   </View>
                 )}
-                <View style={styles.textBlock}>
+                <View style={[styles.textBlock, { gap: isTripInvite ? 6 : 3 }]}>
                   <Text style={[styles.notifText, { color: text }]}>
                     <Text style={styles.boldName}>{actorLabel}</Text>
                     {notif.type === "visit_tag" && notif.show && (
-                      <>
-                        {" tagged you in their visit to "}
-                        <Text style={styles.boldName}>{notif.show.name}</Text>
-                      </>
+                      <>{" tagged you in their visit to "}<Text style={styles.boldName}>{notif.show.name}</Text></>
                     )}
                     {notif.type === "visit_tag" && !notif.show && " tagged you in a visit"}
                     {notif.type === "new_follow" && " started following you"}
+                    {isTripInvite && (
+                      <>{" invited you to join "}<Text style={styles.boldName}>{notif.trip?.name ?? "a trip"}</Text></>
+                    )}
+                    {notif.type === "trip_invite_accepted" && (
+                      <>{" accepted your invitation to "}<Text style={styles.boldName}>{notif.trip?.name ?? "your trip"}</Text></>
+                    )}
+                    {notif.type === "trip_invite_declined" && (
+                      <>{" declined your invitation to "}<Text style={styles.boldName}>{notif.trip?.name ?? "your trip"}</Text></>
+                    )}
                   </Text>
                   <Text style={[styles.timeText, { color: mutedText }]}>{timeStr}</Text>
+
+                  {/* Accept / Decline buttons inline under the text */}
+                  {isTripInvite && notif.tripId ? (
+                    <View style={styles.inviteActions}>
+                      <Pressable
+                        style={[styles.inviteBtn, { backgroundColor: accent, opacity: isRespondingToThis ? 0.5 : 1 }]}
+                        disabled={isRespondingToThis}
+                        onPress={(e) => { e.stopPropagation?.(); handleInviteRespond(notif, true); }}
+                      >
+                        {inviteResponding === acceptKey
+                          ? <ActivityIndicator size="small" color="#fff" />
+                          : <Text style={styles.inviteBtnText}>Accept</Text>}
+                      </Pressable>
+                      <Pressable
+                        style={[styles.inviteBtn, styles.inviteBtnOutline, { borderColor: cardBorder, opacity: isRespondingToThis ? 0.5 : 1 }]}
+                        disabled={isRespondingToThis}
+                        onPress={(e) => { e.stopPropagation?.(); handleInviteRespond(notif, false); }}
+                      >
+                        {inviteResponding === declineKey
+                          ? <ActivityIndicator size="small" color={mutedText} />
+                          : <Text style={[styles.inviteBtnText, { color: mutedText }]}>Decline</Text>}
+                      </Pressable>
+                    </View>
+                  ) : null}
                 </View>
                 {notif.type === "visit_tag" && notif.show?.images[0] && (
-                  <Image
-                    source={{ uri: notif.show.images[0] }}
-                    style={styles.showThumb}
-                    contentFit="cover"
-                  />
+                  <Image source={{ uri: notif.show.images[0] }} style={styles.showThumb} contentFit="cover" />
                 )}
               </View>
             </Pressable>
@@ -242,4 +307,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     flexShrink: 0,
   },
+  inviteActions: { flexDirection: "row", gap: 8, marginTop: 2 },
+  inviteBtn: { flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: "center" },
+  inviteBtnOutline: { borderWidth: StyleSheet.hairlineWidth },
+  inviteBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
 });

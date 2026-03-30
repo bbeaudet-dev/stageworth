@@ -2,6 +2,8 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -69,7 +71,8 @@ export default function PlanScreen() {
   const [listErrorMessage, setListErrorMessage] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
 
-  const { trips, createTrip } = useTripData();
+  const { trips, createTrip, respondToTripInvitation } = useTripData();
+  const [respondingId, setRespondingId] = useState<string | null>(null);
 
   useEffect(() => { initializeSystemLists().catch(() => undefined); }, [initializeSystemLists]);
 
@@ -89,8 +92,8 @@ export default function PlanScreen() {
   // ── Sort trips into display buckets ──────────────────────────────────────
   const { mainList, olderPast } = useMemo(() => {
     const today = todayStr();
-    const upcoming = trips?.upcoming ?? [];
-    const past = trips?.past ?? [];
+    const upcoming = (trips?.upcoming ?? []) as any[];
+    const past = (trips?.past ?? []) as any[];
 
     // Active (started and not yet ended)
     const active = upcoming
@@ -158,8 +161,23 @@ export default function PlanScreen() {
     router.push({ pathname: "/(tabs)/plan/[tripId]", params: { tripId: String(tripId) } });
   };
 
+  const pendingInvitations = trips?.pendingInvitations ?? [];
   const isTripsLoading = trips === undefined;
-  const hasAnyTrips = mainList.length > 0 || olderPast.length > 0;
+  const hasAnyTrips = mainList.length > 0 || olderPast.length > 0 || pendingInvitations.length > 0;
+
+  const handleRespond = async (tripId: string, accept: boolean) => {
+    setRespondingId(tripId + (accept ? ":accept" : ":decline"));
+    try {
+      await respondToTripInvitation({ tripId: tripId as Id<"trips">, accept });
+      if (accept) {
+        router.push({ pathname: "/(tabs)/plan/[tripId]", params: { tripId } });
+      }
+    } catch {
+      Alert.alert("Error", "Could not respond to invitation.");
+    } finally {
+      setRespondingId(null);
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["top"]}>
@@ -183,6 +201,50 @@ export default function PlanScreen() {
               <IconSymbol size={18} name="plus" color={primaryTextColor} />
             </Pressable>
           </View>
+
+          {/* Pending invitations — shown before the normal trip list */}
+          {pendingInvitations.map((inv: any) => {
+            const acceptKey = inv._id + ":accept";
+            const declineKey = inv._id + ":decline";
+            const isResponding = respondingId === acceptKey || respondingId === declineKey;
+            return (
+              <Pressable
+                key={String(inv._id)}
+                style={[styles.inviteCard, { backgroundColor: surfaceColor, borderColor: accentColor + "55" }]}
+                onPress={() => openTrip(String(inv._id))}
+              >
+                <View style={styles.inviteCardHeader}>
+                  <View style={[styles.inviteBadge, { backgroundColor: accentColor + "18" }]}>
+                    <Text style={[styles.inviteBadgeText, { color: accentColor }]}>Invited</Text>
+                  </View>
+                  <Text style={[styles.inviteCardName, { color: primaryTextColor }]} numberOfLines={1}>{inv.name}</Text>
+                  <Text style={[styles.inviteCardSub, { color: mutedTextColor }]}>
+                    from {inv.inviterName ?? inv.inviterUsername} · {inv.showCount} show{inv.showCount === 1 ? "" : "s"}
+                  </Text>
+                </View>
+                <View style={styles.inviteActions}>
+                  <Pressable
+                    style={[styles.inviteBtn, { backgroundColor: accentColor, opacity: isResponding ? 0.5 : 1 }]}
+                    disabled={isResponding}
+                    onPress={(e) => { e.stopPropagation?.(); handleRespond(String(inv._id), true); }}
+                  >
+                    {respondingId === acceptKey
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Text style={styles.inviteBtnText}>Accept</Text>}
+                  </Pressable>
+                  <Pressable
+                    style={[styles.inviteBtn, styles.inviteBtnOutline, { borderColor, opacity: isResponding ? 0.5 : 1 }]}
+                    disabled={isResponding}
+                    onPress={(e) => { e.stopPropagation?.(); handleRespond(String(inv._id), false); }}
+                  >
+                    {respondingId === declineKey
+                      ? <ActivityIndicator size="small" color={mutedTextColor} />
+                      : <Text style={[styles.inviteBtnText, { color: mutedTextColor }]}>Decline</Text>}
+                  </Pressable>
+                </View>
+              </Pressable>
+            );
+          })}
 
           {isTripsLoading ? (
             <Text style={[styles.emptyText, { color: mutedTextColor }]}>Loading…</Text>
@@ -237,7 +299,7 @@ export default function PlanScreen() {
                       {showPastTrips ? "▲" : "▼"}
                     </Text>
                   </Pressable>
-                  {showPastTrips ? olderPast.map((trip) => (
+                  {showPastTrips ? olderPast.map((trip: any) => (
                     <TripCard
                       key={String(trip._id)}
                       name={trip.name}
@@ -301,4 +363,19 @@ const styles = StyleSheet.create({
   pastToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 2 },
   pastToggleText: { fontSize: 13, fontWeight: "600" },
   pastChevron: { fontSize: 10 },
+  inviteCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
+  },
+  inviteCardHeader: { gap: 3 },
+  inviteBadge: { alignSelf: "flex-start", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, marginBottom: 2 },
+  inviteBadgeText: { fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+  inviteCardName: { fontSize: 16, fontWeight: "700" },
+  inviteCardSub: { fontSize: 12 },
+  inviteActions: { flexDirection: "row", gap: 8 },
+  inviteBtn: { flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: "center" },
+  inviteBtnOutline: { borderWidth: StyleSheet.hairlineWidth },
+  inviteBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 });
