@@ -4,7 +4,7 @@ import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { ViewMode } from "@/features/my-shows/types";
 
-const VIEW_MODES: ViewMode[] = ["list", "diary", "map", "cloud"];
+const VIEW_MODES: ViewMode[] = ["cloud", "list", "diary", "map"];
 
 interface ViewModeSelectorProps {
   viewMode: ViewMode;
