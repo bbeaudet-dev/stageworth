@@ -127,28 +127,66 @@ export const updateMyProfile = mutation({
   },
 });
 
+const SEARCH_USERS_LIMIT = 24;
+const SUGGESTED_USERS_LIMIT = 16;
+
+function userMatchesNeedle(u: any, needle: string): boolean {
+  const n = needle.toLowerCase();
+  const handle = (u.username ?? "").toLowerCase();
+  const displayName = (u.name ?? "").toLowerCase();
+  return handle.includes(n) || displayName.includes(n);
+}
+
+async function enrichSearchUserRow(ctx: any, u: any, currentUserId: string | null) {
+  const avatarUrl = u.avatarImage
+    ? await ctx.storage.getUrl(u.avatarImage)
+    : null;
+
+  let viewerFollows = false;
+  if (currentUserId) {
+    const followRow = await ctx.db
+      .query("follows")
+      .withIndex("by_follower_following", (q: any) =>
+        q.eq("followerUserId", currentUserId).eq("followingUserId", u._id)
+      )
+      .first();
+    viewerFollows = followRow !== null;
+  }
+
+  return {
+    _id: u._id,
+    username: u.username,
+    name: u.name,
+    avatarUrl,
+    viewerFollows,
+  };
+}
+
+/** Empty `q` returns recently joined users (including you, so the list is never misleadingly empty). Filtered `q` excludes self. */
 export const searchUsers = query({
   args: { q: v.string() },
   handler: async (ctx, args) => {
     const currentUserId = await getConvexUserId(ctx);
     const trimmed = args.q.trim().toLowerCase().replace(/^@/, "");
-    if (!trimmed || trimmed.length < 2) return [];
 
     const users = await ctx.db.query("users").collect();
-    return users
-      .filter((u: any) => {
-        if (u._id === currentUserId) return false;
-        return (
-          u.username?.toLowerCase().includes(trimmed) ||
-          u.name?.toLowerCase().includes(trimmed)
-        );
-      })
-      .slice(0, 8)
-      .map((u: any) => ({
-        _id: u._id,
-        username: u.username,
-        name: u.name,
-        avatarUrl: u.avatarImage ?? null,
-      }));
+
+    let matched: any[];
+    if (!trimmed) {
+      matched = users
+        .sort((a: any, b: any) => b._creationTime - a._creationTime)
+        .slice(0, SUGGESTED_USERS_LIMIT);
+    } else {
+      matched = users
+        .filter((u: any) => {
+          if (currentUserId && u._id === currentUserId) return false;
+          return userMatchesNeedle(u, trimmed);
+        })
+        .slice(0, SEARCH_USERS_LIMIT);
+    }
+
+    return await Promise.all(
+      matched.map((u: any) => enrichSearchUserRow(ctx, u, currentUserId))
+    );
   },
 });

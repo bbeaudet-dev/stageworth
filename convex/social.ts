@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireConvexUserId } from "./auth";
+import { getConvexUserId, requireConvexUserId } from "./auth";
 
 async function resolveFollowUserRow(ctx: any, userId: string) {
   const user = await ctx.db.get(userId);
@@ -82,12 +82,29 @@ export const unfollowUser = mutation({
   },
 });
 
+async function enrichWithViewerFollow(
+  ctx: any,
+  userId: string,
+  viewerUserId: string | null
+): Promise<{ viewerFollows: boolean; viewerIsSelf: boolean }> {
+  const viewerIsSelf = viewerUserId === userId;
+  if (!viewerUserId || viewerIsSelf) return { viewerFollows: false, viewerIsSelf };
+  const row = await ctx.db
+    .query("follows")
+    .withIndex("by_follower_following", (q: any) =>
+      q.eq("followerUserId", viewerUserId).eq("followingUserId", userId)
+    )
+    .first();
+  return { viewerFollows: row !== null, viewerIsSelf };
+}
+
 export const listFollowers = query({
   args: {
     userId: v.id("users"),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const viewerUserId = await getConvexUserId(ctx);
     const limit = Math.max(1, Math.min(args.limit ?? 50, 100));
     const rows = await ctx.db
       .query("follows")
@@ -98,7 +115,9 @@ export const listFollowers = query({
     const users = await Promise.all(
       sorted.map(async (row) => {
         const user = await resolveFollowUserRow(ctx, row.followerUserId);
-        return user ? { ...user, followedAt: row.createdAt } : null;
+        if (!user) return null;
+        const follow = await enrichWithViewerFollow(ctx, user._id, viewerUserId);
+        return { ...user, followedAt: row.createdAt, ...follow };
       })
     );
     return users.filter((user): user is NonNullable<typeof user> => user !== null);
@@ -111,6 +130,7 @@ export const listFollowing = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const viewerUserId = await getConvexUserId(ctx);
     const limit = Math.max(1, Math.min(args.limit ?? 50, 100));
     const rows = await ctx.db
       .query("follows")
@@ -121,7 +141,9 @@ export const listFollowing = query({
     const users = await Promise.all(
       sorted.map(async (row) => {
         const user = await resolveFollowUserRow(ctx, row.followingUserId);
-        return user ? { ...user, followedAt: row.createdAt } : null;
+        if (!user) return null;
+        const follow = await enrichWithViewerFollow(ctx, user._id, viewerUserId);
+        return { ...user, followedAt: row.createdAt, ...follow };
       })
     );
     return users.filter((user): user is NonNullable<typeof user> => user !== null);

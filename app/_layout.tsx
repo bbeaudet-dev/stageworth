@@ -44,6 +44,10 @@ export default function RootLayout() {
               options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
             />
             <Stack.Screen
+              name="user-search"
+              options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+            />
+            <Stack.Screen
               name="modal"
               options={{ presentation: "modal", title: "Modal" }}
             />

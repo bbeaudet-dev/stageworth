@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -58,10 +58,16 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
   const [addingSearchRole, setAddingSearchRole] = useState<{ userId: string; role: "edit" | "view" } | null>(null);
 
   const myFollowing = useQuery(api.social.listMyFollowing, {});
-  const searchResults = useQuery(
-    api.profiles.searchUsers,
-    otherQuery.trim().length >= 2 ? { q: otherQuery.trim() } : "skip"
-  );
+  const myUserId = useQuery(api.auth.getConvexUserIdQuery);
+  const searchResults = useQuery(api.profiles.searchUsers, {
+    q: otherQuery.trim(),
+  });
+
+  const tripSearchRows = useMemo(() => {
+    const rows = searchResults ?? [];
+    if (!myUserId) return rows;
+    return rows.filter((u: { _id: Id<"users"> }) => u._id !== myUserId);
+  }, [searchResults, myUserId]);
 
   const { addTripMember, removeTripMember, updateTripMemberRole } = useTripData();
 
@@ -260,14 +266,17 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
               {otherQuery.length > 0 ? <Pressable onPress={() => setOtherQuery("")}><Text style={{ color: mutedTextColor, fontSize: 16 }}>×</Text></Pressable> : null}
             </View>
 
-            {otherQuery.trim().length >= 2 ? (
-              searchResults === undefined ? (
-                <ActivityIndicator size="small" color={accentColor} style={{ marginTop: 4 }} />
-              ) : searchResults.length === 0 ? (
-                <Text style={[styles.searchEmpty, { color: mutedTextColor }]}>No users found for "{otherQuery}"</Text>
-              ) : (
+            {searchResults === undefined ? (
+              <ActivityIndicator size="small" color={accentColor} style={{ marginTop: 4 }} />
+            ) : tripSearchRows.length === 0 ? (
+              <Text style={[styles.searchEmpty, { color: mutedTextColor }]}>
+                {otherQuery.trim().length > 0
+                  ? `No users found for "${otherQuery.trim()}".`
+                  : "No one else to add yet."}
+              </Text>
+            ) : (
                 <View style={[styles.searchResults, { borderColor }]}>
-                  {(searchResults as any[]).map((user) => {
+                  {(tripSearchRows as any[]).map((user) => {
                     const alreadyMember = existingMemberUserIds.has(String(user._id));
                     const isAddingThisUser = addingSearchRole?.userId === String(user._id);
                     return (
@@ -309,8 +318,7 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
                     );
                   })}
                 </View>
-              )
-            ) : null}
+            )}
 
             {/* Invite placeholder */}
             <Pressable
