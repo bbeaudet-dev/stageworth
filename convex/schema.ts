@@ -219,6 +219,9 @@ export default defineSchema({
       // user-actor types
       v.literal("visit_tag"),
       v.literal("new_follow"),
+      v.literal("trip_invite"),
+      v.literal("trip_invite_accepted"),
+      v.literal("trip_invite_declined"),
       // system-actor types
       v.literal("show_announced"),
       v.literal("closing_soon"),
@@ -226,6 +229,7 @@ export default defineSchema({
     visitId: v.optional(v.id("visits")),
     showId: v.optional(v.id("shows")),
     productionId: v.optional(v.id("productions")),
+    tripId: v.optional(v.id("trips")),
     isRead: v.boolean(),
     createdAt: v.number(),
   })

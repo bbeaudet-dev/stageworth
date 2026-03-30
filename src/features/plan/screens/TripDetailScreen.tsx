@@ -65,6 +65,7 @@ export default function TripDetailScreen() {
   const [activeTab, setActiveTab] = useState<Tab>("shows");
   const [showEditTrip, setShowEditTrip] = useState(false);
   const [viewingUserId, setViewingUserId] = useState<Id<"users"> | null>(null);
+  const [inviteResponding, setInviteResponding] = useState<"accept" | "decline" | null>(null);
 
   const typedTripId = tripId as Id<"trips">;
   const trip = useTripById(typedTripId);
@@ -74,6 +75,19 @@ export default function TripDetailScreen() {
   const tripPresenceOthers = useQuery(api.tripPresence.getTripPresence, { tripId: typedTripId });
   const heartbeatTripPresence = useMutation(api.tripPresence.heartbeatTripPresence);
   const clearTripPresence = useMutation(api.tripPresence.clearTripPresence);
+  const respondToTripInvitation = useMutation(api.trips.respondToTripInvitation);
+
+  const handleInviteRespond = async (accept: boolean) => {
+    setInviteResponding(accept ? "accept" : "decline");
+    try {
+      await respondToTripInvitation({ tripId: typedTripId, accept });
+      if (!accept) router.back();
+    } catch {
+      Alert.alert("Error", "Could not respond to invitation. Try again.");
+    } finally {
+      setInviteResponding(null);
+    }
+  };
 
   // Keep activeTab in a ref so the interval callback always reads the latest value.
   const activeTabRef = useRef<Tab>(activeTab);
@@ -159,18 +173,47 @@ export default function TripDetailScreen() {
         </View>
       </View>
 
+      {/* Pending invitation banner */}
+      {trip.myMembershipStatus === "pending" ? (
+        <View style={[styles.inviteBanner, { backgroundColor: accentColor + "12", borderBottomColor: accentColor + "30" }]}>
+          <Text style={[styles.inviteBannerText, { color: primaryTextColor }]}>
+            You've been invited to this trip
+          </Text>
+          <View style={styles.inviteBannerActions}>
+            <Pressable
+              style={[styles.inviteBannerBtn, { backgroundColor: accentColor, opacity: inviteResponding !== null ? 0.5 : 1 }]}
+              disabled={inviteResponding !== null}
+              onPress={() => handleInviteRespond(true)}
+            >
+              {inviteResponding === "accept"
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={styles.inviteBannerBtnText}>Accept</Text>}
+            </Pressable>
+            <Pressable
+              style={[styles.inviteBannerBtn, styles.inviteBannerBtnOutline, { borderColor, opacity: inviteResponding !== null ? 0.5 : 1 }]}
+              disabled={inviteResponding !== null}
+              onPress={() => handleInviteRespond(false)}
+            >
+              {inviteResponding === "decline"
+                ? <ActivityIndicator size="small" color={mutedTextColor} />
+                : <Text style={[styles.inviteBannerBtnText, { color: mutedTextColor }]}>Decline</Text>}
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
       {/* Tab bar — avatars appear inline next to tab label */}
       <View style={[styles.tabBar, { borderBottomColor: borderColor, backgroundColor }]}>
         {(["shows", "party", "chat"] as Tab[]).map((t) => {
           const label = t === "shows" ? "Shows" : t === "party" ? "Party" : "Chat";
-          const tabPresence = (tripPresenceOthers ?? []).filter((p) => p.activeTab === t);
+          const tabPresence = (tripPresenceOthers ?? []).filter((p: any) => p.activeTab === t);
           const shownAvatars = tabPresence.slice(0, TAB_PRESENCE_AVATAR_CAP);
           const extra = tabPresence.length - TAB_PRESENCE_AVATAR_CAP;
           return (
             <Pressable key={t} style={styles.tabItem} onPress={() => handleSetActiveTab(t)}>
               <View style={styles.tabLabelRow}>
                 <Text style={[styles.tabLabel, { color: activeTab === t ? accentColor : mutedTextColor }]}>{label}</Text>
-                {shownAvatars.map((p, idx) => (
+                {shownAvatars.map((p: any, idx: number) => (
                   <View
                     key={String(p.userId)}
                     style={[
@@ -244,6 +287,17 @@ const styles = StyleSheet.create({
   tripName: { fontSize: 17, fontWeight: "700", textAlign: "center" },
   tripDates: { fontSize: 12, fontWeight: "500", textAlign: "center" },
   threeDot: { fontSize: 22, fontWeight: "600", letterSpacing: 2, lineHeight: 22 },
+  inviteBanner: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+  },
+  inviteBannerText: { fontSize: 13, fontWeight: "600" },
+  inviteBannerActions: { flexDirection: "row", gap: 8 },
+  inviteBannerBtn: { flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: "center" },
+  inviteBannerBtnOutline: { borderWidth: StyleSheet.hairlineWidth },
+  inviteBannerBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
   tabBar: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth },
   tabItem: { flex: 1, alignItems: "center", paddingVertical: 10, position: "relative" },
   tabLabelRow: { flexDirection: "row", alignItems: "center" },

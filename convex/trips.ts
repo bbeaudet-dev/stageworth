@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
@@ -52,7 +53,8 @@ async function assertCanViewTrip(ctx: any, userId: any, tripId: any) {
     )
     .first();
 
-  if (!membership || membership.status !== "accepted") {
+  // Allow any membership status (pending / accepted / declined) to view
+  if (!membership) {
     throw new Error("Not authorized to view this trip");
   }
   return trip;
@@ -113,25 +115,28 @@ export const getMyTrips = query({
       .withIndex("by_user", (q: any) => q.eq("userId", userId))
       .collect();
 
-    const memberTripIds = memberships
+    const acceptedMemberTripIds = memberships
       .filter((m: any) => m.status === "accepted")
       .map((m: any) => m.tripId);
 
-    const memberTrips = await Promise.all(
-      memberTripIds.map((id: any) => ctx.db.get(id))
+    const pendingMemberships = memberships.filter(
+      (m: any) => m.status === "pending"
     );
 
-    const allTrips = [
+    const memberTrips = (await Promise.all(
+      acceptedMemberTripIds.map((id: any) => ctx.db.get(id))
+    )) as any[];
+
+    const allTrips: any[] = [
       ...ownedTrips,
       ...memberTrips.filter(
-        (t): t is NonNullable<typeof t> =>
-          t !== null && !ownedTrips.some((o: any) => o._id === t._id)
+        (t: any) => t !== null && !ownedTrips.some((o: any) => o._id === t._id)
       ),
-    ].sort((a, b) => a.startDate.localeCompare(b.startDate));
+    ].sort((a: any, b: any) => a.startDate.localeCompare(b.startDate));
 
     const t = todayStr();
-    const upcoming = allTrips.filter((trip) => trip.endDate >= t);
-    const past = allTrips.filter((trip) => trip.endDate < t);
+    const upcoming = allTrips.filter((trip: any) => trip.endDate >= t);
+    const past = allTrips.filter((trip: any) => trip.endDate < t);
 
     async function withShowCount(trip: any) {
       const tripShows = await ctx.db
@@ -142,9 +147,35 @@ export const getMyTrips = query({
       return { ...trip, showCount: tripShows.length, isOwner };
     }
 
+    // Pending invitations: trips where this user has a "pending" membership
+    const pendingInvitations = await Promise.all(
+      pendingMemberships.map(async (m: any) => {
+        const trip = (await ctx.db.get(m.tripId)) as any;
+        if (!trip) return null;
+        const tripShows = await ctx.db
+          .query("tripShows")
+          .withIndex("by_trip", (q: any) => q.eq("tripId", trip._id))
+          .collect();
+        const inviter = (await ctx.db.get(m.invitedBy)) as any;
+        return {
+          _id: trip._id as Id<"trips">,
+          name: trip.name as string,
+          startDate: trip.startDate as string,
+          endDate: trip.endDate as string,
+          showCount: tripShows.length,
+          membershipId: m._id,
+          inviterName: (inviter?.name ?? null) as string | null,
+          inviterUsername: (inviter?.username ?? "someone") as string,
+        };
+      })
+    );
+
     return {
       upcoming: await Promise.all(upcoming.map(withShowCount)),
       past: await Promise.all(past.map(withShowCount)),
+      pendingInvitations: pendingInvitations.filter(
+        (x): x is NonNullable<typeof x> => x !== null
+      ),
     };
   },
 });
@@ -167,7 +198,7 @@ export const getTripById = query({
     const today = todayStr();
     const resolvedShows = await Promise.all(
       tripShowRows.map(async (row: any) => {
-        const show = await ctx.db.get(row.showId);
+        const show = (await ctx.db.get(row.showId)) as any;
         if (!show) return null;
         // Find the most relevant open/upcoming production to surface closingDate
         const productions = await ctx.db
@@ -230,7 +261,7 @@ export const getTripById = query({
 
     const membersWithUsers = await Promise.all(
       members.map(async (m: any) => {
-        const user = await ctx.db.get(m.userId);
+        const user = (await ctx.db.get(m.userId)) as any;
         if (!user) return null;
         const avatarUrl = user.avatarImage
           ? await ctx.storage.getUrl(user.avatarImage)
@@ -239,7 +270,7 @@ export const getTripById = query({
       })
     );
 
-    const ownerUser = await ctx.db.get(trip.userId);
+    const ownerUser = (await ctx.db.get(trip.userId)) as any;
     const ownerAvatarUrl =
       ownerUser?.avatarImage
         ? await ctx.storage.getUrl(ownerUser.avatarImage)
@@ -254,6 +285,7 @@ export const getTripById = query({
       ...trip,
       isOwner: trip.userId === userId,
       canEdit,
+      myMembershipStatus: trip.userId === userId ? null : (memberMe?.status ?? null),
       owner: ownerUser ? { ...ownerUser, avatarUrl: ownerAvatarUrl } : null,
       unassigned,
       days,
@@ -587,18 +619,37 @@ export const addTripMember = mutation({
       .first();
 
     if (existing) {
-      await ctx.db.patch(existing._id, { role: args.role, status: "accepted" });
-      return existing._id;
+      await ctx.db.patch(existing._id, { role: args.role, status: "pending", invitedBy: userId });
+    } else {
+      await ctx.db.insert("tripMembers", {
+        tripId: args.tripId,
+        userId: targetUser._id,
+        invitedBy: userId,
+        role: args.role,
+        status: "pending",
+        createdAt: Date.now(),
+      });
     }
 
-    return await ctx.db.insert("tripMembers", {
+    // Send a notification to the invited user
+    const trip = await getTripOrThrow(ctx, args.tripId);
+    await ctx.db.insert("notifications", {
+      recipientUserId: targetUser._id,
+      actorKind: "user",
+      actorUserId: userId as Id<"users">,
+      type: "trip_invite",
       tripId: args.tripId,
-      userId: targetUser._id,
-      invitedBy: userId,
-      role: args.role,
-      status: "accepted",
+      isRead: false,
       createdAt: Date.now(),
     });
+    await ctx.scheduler.runAfter(0, internal.notifications.sendPushNotification, {
+      recipientUserId: targetUser._id,
+      title: "Trip invitation",
+      body: `You've been invited to join "${trip.name}"`,
+      data: { type: "trip_invite", tripId: args.tripId },
+    });
+
+    return existing?._id ?? null;
   },
 });
 
@@ -633,6 +684,52 @@ export const removeTripMember = mutation({
       throw new Error("Not authorized");
     }
     await ctx.db.delete(args.memberId);
+  },
+});
+
+export const respondToTripInvitation = mutation({
+  args: {
+    tripId: v.id("trips"),
+    accept: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+
+    const membership = await ctx.db
+      .query("tripMembers")
+      .withIndex("by_trip_user", (q: any) =>
+        q.eq("tripId", args.tripId).eq("userId", userId)
+      )
+      .first();
+
+    if (!membership) throw new Error("No invitation found");
+    if (membership.status !== "pending") throw new Error("Invitation already responded to");
+
+    const newStatus = args.accept ? "accepted" : "declined";
+    await ctx.db.patch(membership._id, { status: newStatus });
+
+    // Notify the trip organizer
+    const trip = await getTripOrThrow(ctx, args.tripId);
+    const responder = await ctx.db.get(userId as Id<"users">);
+    const responderName = responder?.name ?? responder?.username ?? "Someone";
+
+    await ctx.db.insert("notifications", {
+      recipientUserId: trip.userId,
+      actorKind: "user",
+      actorUserId: userId as Id<"users">,
+      type: args.accept ? "trip_invite_accepted" : "trip_invite_declined",
+      tripId: args.tripId,
+      isRead: false,
+      createdAt: Date.now(),
+    });
+    await ctx.scheduler.runAfter(0, internal.notifications.sendPushNotification, {
+      recipientUserId: trip.userId,
+      title: args.accept ? "Invitation accepted" : "Invitation declined",
+      body: args.accept
+        ? `${responderName} joined "${trip.name}"`
+        : `${responderName} declined to join "${trip.name}"`,
+      data: { type: args.accept ? "trip_invite_accepted" : "trip_invite_declined", tripId: args.tripId },
+    });
   },
 });
 

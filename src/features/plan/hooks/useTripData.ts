@@ -18,6 +18,7 @@ export function useTripData() {
   const removeTripDayNote = useMutation(api.trips.removeTripDayNote);
   const setTripShowLabel = useMutation(api.tripLabels.setTripShowLabel);
   const clearTripShowLabel = useMutation(api.tripLabels.clearTripShowLabel);
+  const respondToTripInvitation = useMutation(api.trips.respondToTripInvitation);
 
   return {
     trips,
@@ -35,6 +36,7 @@ export function useTripData() {
     removeTripDayNote,
     setTripShowLabel,
     clearTripShowLabel,
+    respondToTripInvitation,
   };
 }
 

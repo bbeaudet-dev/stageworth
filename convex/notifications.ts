@@ -123,6 +123,12 @@ export const listForCurrentUser = query({
           }
         }
 
+        let trip = null;
+        if (notif.tripId) {
+          const tripDoc = await ctx.db.get(notif.tripId);
+          if (tripDoc) trip = { _id: tripDoc._id, name: tripDoc.name };
+        }
+
         return {
           _id: notif._id,
           type: notif.type,
@@ -130,8 +136,10 @@ export const listForCurrentUser = query({
           createdAt: notif.createdAt,
           visitId: notif.visitId,
           productionId: notif.productionId ?? null,
+          tripId: notif.tripId ?? null,
           actor,
           show,
+          trip,
         };
       })
     );

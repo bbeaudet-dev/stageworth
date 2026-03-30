@@ -121,8 +121,8 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
             {trip.owner?.name ? <Text style={[styles.memberName, { color: primaryTextColor }]}>{trip.owner.name}</Text> : null}
             <Text style={[styles.memberUsername, { color: mutedTextColor }]}>@{trip.owner?.username}</Text>
           </View>
-          <View style={[styles.rolePill, { backgroundColor: accentColor + "18", borderColor: accentColor + "40" }]}>
-            <Text style={[styles.rolePillText, { color: accentColor }]}>Organizer</Text>
+          <View style={[styles.rolePill, { backgroundColor: "#16A34A18", borderColor: "#16A34A55" }]}>
+            <Text style={[styles.rolePillText, { color: "#16A34A" }]}>Organizer</Text>
           </View>
         </View>
       </Pressable>
@@ -130,12 +130,25 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
       {/* Member rows — tapping anywhere on the card expands it */}
       {trip.members.map((m: any) => {
         const isExpanded = expandedMemberId === String(m._id);
-        const roleLabel = m.role === "edit" ? "Can Edit" : "View Only";
+        // Status-aware badge
+        const { pillBg, pillBorder, pillText, pillLabel } = (() => {
+          if (m.status === "pending") {
+            return { pillBg: "#2563EB18", pillBorder: "#2563EB55", pillText: "#2563EB", pillLabel: "Invited" };
+          }
+          if (m.status === "declined") {
+            return { pillBg: "#DC262618", pillBorder: "#DC262655", pillText: "#DC2626", pillLabel: "Declined" };
+          }
+          // accepted
+          if (m.role === "edit") {
+            return { pillBg: "#16A34A18", pillBorder: "#16A34A55", pillText: "#16A34A", pillLabel: "Can Edit" };
+          }
+          return { pillBg: "#16A34A18", pillBorder: "#16A34A55", pillText: "#16A34A", pillLabel: "View Only" };
+        })();
         return (
           <Pressable
             key={String(m._id)}
             style={[styles.memberCard, { backgroundColor: surfaceColor, borderColor }]}
-            onPress={trip.isOwner ? () => setExpandedMemberId(isExpanded ? null : String(m._id)) : undefined}
+            onPress={trip.isOwner && m.status === "accepted" ? () => setExpandedMemberId(isExpanded ? null : String(m._id)) : undefined}
           >
             <View style={styles.memberCardMain}>
               {/* Avatar press opens profile without collapsing the card */}
@@ -150,10 +163,10 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
                 {m.user?.name ? <Text style={[styles.memberName, { color: primaryTextColor }]}>{m.user.name}</Text> : null}
                 <Text style={[styles.memberUsername, { color: mutedTextColor }]}>@{m.user?.username}</Text>
               </View>
-              <View style={[styles.rolePill, { backgroundColor: m.role === "edit" ? accentColor + "22" : chipBg, borderColor: m.role === "edit" ? accentColor + "60" : borderColor }]}>
-                <Text style={[styles.rolePillText, { color: m.role === "edit" ? accentColor : mutedTextColor }]}>{roleLabel}</Text>
+              <View style={[styles.rolePill, { backgroundColor: pillBg, borderColor: pillBorder }]}>
+                <Text style={[styles.rolePillText, { color: pillText }]}>{pillLabel}</Text>
               </View>
-              {trip.isOwner && isExpanded ? <Text style={[styles.memberChevron, { color: mutedTextColor }]}>▲</Text> : null}
+              {trip.isOwner && m.status === "accepted" && isExpanded ? <Text style={[styles.memberChevron, { color: mutedTextColor }]}>▲</Text> : null}
             </View>
 
             {isExpanded && trip.isOwner ? (
@@ -289,7 +302,7 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
                           <Text style={[styles.searchUsername, { color: mutedTextColor }]}>@{user.username}</Text>
                         </View>
                         {alreadyMember ? (
-                          <Text style={[styles.searchAlready, { color: mutedTextColor }]}>Added</Text>
+                          <Text style={[styles.searchAlready, { color: mutedTextColor }]}>Invited</Text>
                         ) : (
                           <View style={styles.searchRoleBtns}>
                             <Pressable
