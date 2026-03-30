@@ -17,6 +17,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useSession } from "@/lib/auth-client";
 
 interface AddFromListsSheetProps {
   visible: boolean;
@@ -33,6 +34,7 @@ export function AddFromListsSheet({
   alreadyOnTripShowIds,
   onAddShow,
 }: AddFromListsSheetProps) {
+  const { data: session, isPending } = useSession();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -45,7 +47,10 @@ export function AddFromListsSheet({
   const accentColor = Colors[theme].accent;
   const chipBg = Colors[theme].surface;
 
-  const profileLists = useQuery(api.lists.getProfileLists);
+  const profileLists = useQuery(
+    api.lists.getProfileLists,
+    !isPending && session ? {} : "skip"
+  );
 
   // Which list is expanded
   const [expandedListId, setExpandedListId] = useState<string | null>(null);

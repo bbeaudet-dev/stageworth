@@ -136,7 +136,6 @@ export default function NotificationsScreen() {
           const timeStr = formatRelativeTime(notif.createdAt);
           const actorLabel = notif.actor?.name?.split(" ")[0] ?? notif.actor?.username ?? "Someone";
           const isTripInvite = notif.type === "trip_invite";
-          const isTripResponse = notif.type === "trip_invite_accepted" || notif.type === "trip_invite_declined";
           const acceptKey = notif._id + ":accept";
           const declineKey = notif._id + ":decline";
           const isRespondingToThis = inviteResponding === acceptKey || inviteResponding === declineKey;

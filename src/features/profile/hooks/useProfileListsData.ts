@@ -4,9 +4,14 @@ import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { CustomListRow, SystemListRow, VisibleProfileList } from "@/features/profile/types";
+import { useSession } from "@/lib/auth-client";
 
 export function useProfileListsData() {
-  const profileLists = useQuery(api.lists.getProfileLists);
+  const { data: session, isPending } = useSession();
+  const profileLists = useQuery(
+    api.lists.getProfileLists,
+    !isPending && session ? {} : "skip"
+  );
   const createCustomList = useMutation(api.lists.createCustomList);
   const initializeSystemLists = useMutation(api.lists.initializeSystemLists);
   const setListVisibility = useMutation(api.lists.setListVisibility);

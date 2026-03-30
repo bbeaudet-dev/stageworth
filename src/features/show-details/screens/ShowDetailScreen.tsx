@@ -18,6 +18,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useSession } from "@/lib/auth-client";
 import { getProductionStatus } from "@/utils/productions";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -80,13 +81,20 @@ export default function ShowDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ showId?: string; name?: string }>();
   const showId = (params.showId ?? "") as Id<"shows">;
+  const { data: session, isPending } = useSession();
 
   const show = useQuery(api.shows.getById, showId ? { id: showId } : "skip");
   const visits = useQuery(api.visits.listByShow, showId ? { showId } : "skip");
   const productions = useQuery(api.productions.listByShowWithImages, showId ? { showId } : "skip");
 
-  const myLists = useQuery(api.lists.getProfileLists);
-  const myTrips = useQuery(api.trips.getMyTrips);
+  const myLists = useQuery(
+    api.lists.getProfileLists,
+    !isPending && session ? {} : "skip"
+  );
+  const myTrips = useQuery(
+    api.trips.getMyTrips,
+    !isPending && session ? {} : "skip"
+  );
   const addShowToList = useMutation(api.lists.addShowToList);
   const addShowToTrip = useMutation(api.trips.addShowToTrip);
 

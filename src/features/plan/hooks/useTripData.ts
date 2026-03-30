@@ -1,9 +1,11 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { useSession } from "@/lib/auth-client";
 
 export function useTripData() {
-  const trips = useQuery(api.trips.getMyTrips);
+  const { data: session, isPending } = useSession();
+  const trips = useQuery(api.trips.getMyTrips, !isPending && session ? {} : "skip");
   const createTrip = useMutation(api.trips.createTrip);
   const updateTrip = useMutation(api.trips.updateTrip);
   const deleteTrip = useMutation(api.trips.deleteTrip);
