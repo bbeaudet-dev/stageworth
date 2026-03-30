@@ -6,8 +6,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BottomSheet } from "@/components/bottom-sheet";
+import { UserProfilePanel } from "@/features/me/components/UserProfilePanel";
 
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -123,6 +125,7 @@ export default function CommunityScreen() {
     actor: TaggedUser;
     taggedUsers: TaggedUser[];
   } | null>(null);
+  const [viewingUserId, setViewingUserId] = useState<Id<"users"> | null>(null);
 
   const posts = useMemo(
     () => (selectedTab === "following" ? (followingFeed ?? []) : (globalFeed ?? [])),
@@ -270,12 +273,7 @@ export default function CommunityScreen() {
                   <View style={styles.postRow}>
                     <View style={styles.postMain}>
                       <Pressable
-                        onPress={() =>
-                          router.push({
-                            pathname: "/user/[username]",
-                            params: { username: post.actor.username },
-                          })
-                        }
+                        onPress={() => setViewingUserId(post.actor._id as Id<"users">)}
                       >
                         <Text style={[styles.actorHandleText, { color: actorHandleColor }]}>
                           @{post.actor.username}
@@ -284,17 +282,20 @@ export default function CommunityScreen() {
                       <Text style={[styles.postTitle, { color: primaryTextColor }]}>
                         <Text
                           style={[styles.actorText, { color: actorLinkColor }]}
-                          onPress={() =>
-                            router.push({
-                              pathname: "/user/[username]",
-                              params: { username: post.actor.username },
-                            })
-                          }
+                          onPress={() => setViewingUserId(post.actor._id as Id<"users">)}
                         >
                           {actorLabel}
                         </Text>{" "}
                         saw{" "}
-                        <Text style={[styles.showText, { color: showTextColor }]}>
+                        <Text
+                          style={[styles.showText, { color: showTextColor }]}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/show/[showId]",
+                              params: { showId: post.show._id },
+                            })
+                          }
+                        >
                           {post.show.name}
                         </Text>
                         {tagged.length === 1 && (
@@ -302,12 +303,7 @@ export default function CommunityScreen() {
                             {" with "}
                             <Text
                               style={[styles.actorText, { color: actorLinkColor }]}
-                              onPress={() =>
-                                router.push({
-                                  pathname: "/user/[username]",
-                                  params: { username: tagged[0].username },
-                                })
-                              }
+                              onPress={() => setViewingUserId(tagged[0]._id as Id<"users">)}
                             >
                               {getFirstName(tagged[0].name, tagged[0].username)}
                             </Text>
@@ -373,6 +369,11 @@ export default function CommunityScreen() {
           router.push({ pathname: "/user/[username]", params: { username } })
         }
         theme={theme}
+      />
+      <UserProfilePanel
+        visible={viewingUserId !== null}
+        userId={viewingUserId}
+        onClose={() => setViewingUserId(null)}
       />
     </SafeAreaView>
   );
