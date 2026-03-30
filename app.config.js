@@ -13,7 +13,7 @@ if (process.env.GOOGLE_SERVICES_JSON) {
 module.exports = {
   name: "Theatre Diary",
   slug: "theatre-diary",
-  version: "1.0.0",
+  version: "1.1.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: "theatrediary",
@@ -22,6 +22,7 @@ module.exports = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.theatrediary.app",
+    buildNumber: "2",
     usesAppleSignIn: true,
     appleTeamId: "M8M7T576K8",
     config: {
