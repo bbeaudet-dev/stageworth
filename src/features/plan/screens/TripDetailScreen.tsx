@@ -193,7 +193,7 @@ export default function TripDetailScreen() {
       {trip.myMembershipStatus === "pending" ? (
         <View style={[styles.inviteBanner, { backgroundColor: accentColor + "12", borderBottomColor: accentColor + "30" }]}>
           <Text style={[styles.inviteBannerText, { color: primaryTextColor }]}>
-            You've been invited to this trip
+            You’ve been invited to this trip
           </Text>
           <View style={styles.inviteBannerActions}>
             <Pressable

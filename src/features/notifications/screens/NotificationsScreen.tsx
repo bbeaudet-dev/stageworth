@@ -128,7 +128,7 @@ export default function NotificationsScreen() {
             <IconSymbol name="bell.fill" size={40} color={mutedText} />
             <Text style={[styles.emptyTitle, { color: text }]}>No notifications yet</Text>
             <Text style={[styles.emptyText, { color: mutedText }]}>
-              You'll be notified when someone follows you or tags you in a visit.
+              You’ll be notified when someone follows you or tags you in a visit.
             </Text>
           </View>
         )}
