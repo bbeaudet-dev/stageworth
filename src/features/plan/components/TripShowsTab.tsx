@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import type { TripShowLabel } from "@/features/plan/tripShowLabelMeta";
 import {
   Alert,
   Pressable,
@@ -20,7 +21,9 @@ import { closingCountdownLabel } from "@/features/browse/components/ProductionCa
 import { AddDayNoteSheet } from "@/features/plan/components/AddDayNoteSheet";
 import { AddFromListsSheet } from "@/features/plan/components/AddFromListsSheet";
 import { AddShowToTripSheet } from "@/features/plan/components/AddShowToTripSheet";
+import { TripShowLabelSheet } from "@/features/plan/components/TripShowLabelSheet";
 import { useTripData } from "@/features/plan/hooks/useTripData";
+import { tripShowLabelMeta } from "@/features/plan/tripShowLabelMeta";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -73,8 +76,9 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   const accentColor = Colors[theme].accent;
   const chipBg = Colors[theme].surface;
 
-  const [selectedShowKey, setSelectedShowKey] = useState<string | null>(null);
+  const [labelSheetItem, setLabelSheetItem] = useState<any | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [optimisticLabels, setOptimisticLabels] = useState<Record<string, TripShowLabel | null>>({});
   const [assignForDay, setAssignForDay] = useState<string | null>(null);
   const [noteForDay, setNoteForDay] = useState<string | null>(null);
   const [showAddFromLists, setShowAddFromLists] = useState(false);
@@ -82,7 +86,38 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   const [showClosingInfo, setShowClosingInfo] = useState(false);
   const [isAddingAll, setIsAddingAll] = useState(false);
 
-  const { addShowToTrip, removeShowFromTrip, assignShowToDay, addTripDayNote, removeTripDayNote } = useTripData();
+  const {
+    addShowToTrip,
+    removeShowFromTrip,
+    assignShowToDay,
+    addTripDayNote,
+    removeTripDayNote,
+    setTripShowLabel,
+    clearTripShowLabel,
+  } = useTripData();
+
+  const canEditTrip = Boolean(trip.canEdit ?? trip.isOwner);
+
+  const labelSheetItemLive = useMemo(() => {
+    if (!labelSheetItem) return null;
+    const id = String(labelSheetItem._id);
+    const pool = [
+      ...(trip.unassigned ?? []),
+      ...(trip.days ?? []).flatMap((d: any) => d.shows ?? []),
+    ];
+    const base = pool.find((s: any) => String(s._id) === id) ?? labelSheetItem;
+    // Merge any in-flight optimistic label override
+    if (id in optimisticLabels) {
+      return { ...base, myLabel: optimisticLabels[id] };
+    }
+    return base;
+  }, [labelSheetItem, trip.unassigned, trip.days, optimisticLabels]);
+
+  // Returns the effective label for a card (optimistic takes priority over server).
+  const effectiveLabel = (item: any): TripShowLabel | null => {
+    const id = String(item._id);
+    return id in optimisticLabels ? optimisticLabels[id] : (item.myLabel ?? null);
+  };
 
   const cardWidth = (screenWidth - PAD * 2 - GAP * (COLS - 1)) / COLS;
 
@@ -124,23 +159,9 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
       : { label, bg: "#FEF2F2", textCol: "#E05252" };
   };
 
-  const handleRemoveShow = (showId: Id<"shows">) => {
-    Alert.alert("Remove show?", "It will be removed from this trip.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Remove", style: "destructive", onPress: async () => { await removeShowFromTrip({ tripId, showId }); setSelectedShowKey(null); } },
-    ]);
-  };
-
   const handleAssignToDay = async (showId: Id<"shows">, dayDate: string) => {
     await assignShowToDay({ tripId, showId, dayDate });
     setAssignForDay(null);
-  };
-
-  const handleUnassignFromDay = (showId: Id<"shows">) => {
-    Alert.alert("Unassign?", "Show will return to the Trip List.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Unassign", style: "destructive", onPress: async () => { await assignShowToDay({ tripId, showId, dayDate: undefined }); setSelectedShowKey(null); } },
-    ]);
   };
 
   const handleAddNote = async (text: string, time?: string) => {
@@ -170,7 +191,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
       <ScrollView
         contentContainerStyle={[styles.tabContent, { paddingBottom: insets.bottom + 80 }]}
         showsVerticalScrollIndicator={false}
-        onScrollBeginDrag={() => { setSelectedShowKey(null); setSelectedNoteId(null); }}
+        onScrollBeginDrag={() => { setLabelSheetItem(null); setSelectedNoteId(null); }}
         keyboardShouldPersistTaps="handled"
       >
         {/* Closing soon */}
@@ -266,22 +287,23 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
               <View key={ri} style={styles.gridRow}>
                 {row.map((item: any) => {
                   const key = String(item.showId);
-                  const isSelected = selectedShowKey === key;
                   const image = item.show?.images?.[0] ?? null;
                   const badge = closingBadge(item.closingDate);
+                  const myLabel = effectiveLabel(item);
+                  const labelMeta = myLabel ? tripShowLabelMeta(myLabel) : null;
                   return (
                     <View key={key} style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}>
-                      <Pressable onPress={() => setSelectedShowKey(isSelected ? null : key)}>
-                        {image
-                          ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
-                          : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}><Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.6}>{item.show?.name}</Text></View>}
-                        {isSelected ? (
-                          <View style={styles.removeOverlay}>
-                            <Pressable onPress={() => handleRemoveShow(item.showId)}>
-                              <View style={styles.removeBubble}><Text style={styles.removeIcon}>−</Text></View>
-                            </Pressable>
-                          </View>
-                        ) : null}
+                      <Pressable onPress={() => setLabelSheetItem(item)}>
+                        <View style={styles.playbillTapArea}>
+                          {image
+                            ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                            : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}><Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.6}>{item.show?.name}</Text></View>}
+                          {labelMeta ? (
+                            <View style={[styles.myLabelBadge, { backgroundColor: labelMeta.color + "EE", borderColor: surfaceColor }]}>
+                              <IconSymbol name={labelMeta.icon} size={11} color="#fff" />
+                            </View>
+                          ) : null}
+                        </View>
                       </Pressable>
                       {badge ? (
                         <View style={[styles.closingBadgeBelow, { backgroundColor: badge.bg }]}>
@@ -369,25 +391,26 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                     <View key={ri} style={styles.gridRow}>
                       {row.map((item: any) => {
                         const key = `${day.date}:${item.showId}`;
-                        const isSelected = selectedShowKey === key;
                         const image = item.show?.images?.[0] ?? null;
                         const badge = closingBadge(item.closingDate);
+                        const myLabel = effectiveLabel(item);
+                        const labelMeta = myLabel ? tripShowLabelMeta(myLabel) : null;
                         return (
                           <View
                             key={key}
                             style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}
                           >
-                            <Pressable onPress={() => setSelectedShowKey(isSelected ? null : key)}>
-                              {image
-                                ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
-                                : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}><Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.6}>{item.show?.name}</Text></View>}
-                              {isSelected ? (
-                                <View style={styles.removeOverlay}>
-                                  <Pressable onPress={() => handleUnassignFromDay(item.showId)}>
-                                    <View style={styles.removeBubble}><Text style={styles.removeIcon}>−</Text></View>
-                                  </Pressable>
-                                </View>
-                              ) : null}
+                            <Pressable onPress={() => setLabelSheetItem(item)}>
+                              <View style={styles.playbillTapArea}>
+                                {image
+                                  ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                                  : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}><Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.6}>{item.show?.name}</Text></View>}
+                                {labelMeta ? (
+                                  <View style={[styles.myLabelBadge, { backgroundColor: labelMeta.color + "EE", borderColor: surfaceColor }]}>
+                                    <IconSymbol name={labelMeta.icon} size={11} color="#fff" />
+                                  </View>
+                                ) : null}
+                              </View>
                             </Pressable>
                             {badge ? (
                               <View style={[styles.closingBadgeBelow, { backgroundColor: badge.bg }]}>
@@ -455,6 +478,42 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
         onAddShow={handleAddShow}
       />
 
+      <TripShowLabelSheet
+        visible={labelSheetItemLive !== null}
+        onClose={() => setLabelSheetItem(null)}
+        item={
+          labelSheetItemLive
+            ? {
+                ...labelSheetItemLive,
+                myLabel: labelSheetItemLive.myLabel ?? null,
+                labelSummary: labelSheetItemLive.labelSummary ?? [],
+              }
+            : null
+        }
+        canEdit={canEditTrip}
+        isOwner={Boolean(trip.isOwner)}
+        onSetLabel={(tripShowId, label) => {
+          const id = String(tripShowId);
+          setOptimisticLabels((prev) => ({ ...prev, [id]: label }));
+          setTripShowLabel({ tripId, tripShowId, label }).catch(() => {
+            setOptimisticLabels((prev) => { const { [id]: _, ...rest } = prev; return rest; });
+          });
+        }}
+        onClearLabel={(tripShowId) => {
+          const id = String(tripShowId);
+          setOptimisticLabels((prev) => ({ ...prev, [id]: null }));
+          clearTripShowLabel({ tripId, tripShowId }).catch(() => {
+            setOptimisticLabels((prev) => { const { [id]: _, ...rest } = prev; return rest; });
+          });
+        }}
+        onRemoveFromTrip={async (showId) => {
+          await removeShowFromTrip({ tripId, showId });
+        }}
+        onUnassign={async (showId) => {
+          await assignShowToDay({ tripId, showId, dayDate: undefined });
+        }}
+      />
+
       <AddDayNoteSheet
         visible={noteForDay !== null}
         onClose={() => setNoteForDay(null)}
@@ -497,7 +556,19 @@ const styles = StyleSheet.create({
   grid: { gap: 8 },
   gridRow: { flexDirection: "row", gap: 8 },
   playbillCard: { borderRadius: 10, overflow: "hidden" },
+  playbillTapArea: { position: "relative" },
   playbillImg: { width: "100%", aspectRatio: 2 / 3 },
+  myLabelBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+  },
   playbillFb: { alignItems: "center", justifyContent: "center", padding: 8 },
   playbillFbText: { fontSize: 11, fontWeight: "600", textAlign: "center", lineHeight: 14 },
   // Full-width strip clipped by the card's overflow:hidden / borderRadius
@@ -507,8 +578,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   closingBadgeText: { fontSize: 9, fontWeight: "700" },
-  removeOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", borderRadius: 10 },
-  removeBubble: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#ef4444", alignItems: "center", justifyContent: "center" },
   removeIcon: { color: "#fff", fontSize: 24, fontWeight: "300", lineHeight: 28 },
   daySection: { gap: 10 },
   dayHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
