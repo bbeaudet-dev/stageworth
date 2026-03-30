@@ -1,5 +1,8 @@
+import { useFocusEffect } from "@react-navigation/native";
+import { useMutation, useQuery } from "convex/react";
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -14,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
+import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { TripChatTab } from "@/features/plan/components/TripChatTab";
 import { TripPartyTab } from "@/features/plan/components/TripPartyTab";
@@ -41,6 +45,9 @@ function formatDateRange(startDate: string, endDate: string): string {
 
 type Tab = "shows" | "party" | "chat";
 
+const PRESENCE_HEARTBEAT_MS = 25_000;
+const TAB_PRESENCE_AVATAR_CAP = 3;
+
 // ─── screen ───────────────────────────────────────────────────────────────────
 
 export default function TripDetailScreen() {
@@ -63,6 +70,33 @@ export default function TripDetailScreen() {
   const trip = useTripById(typedTripId);
   const closingSoon = useClosingSoonForTrip(typedTripId);
   const { updateTrip, deleteTrip } = useTripData();
+
+  const tripPresenceOthers = useQuery(api.tripPresence.getTripPresence, { tripId: typedTripId });
+  const heartbeatTripPresence = useMutation(api.tripPresence.heartbeatTripPresence);
+  const clearTripPresence = useMutation(api.tripPresence.clearTripPresence);
+
+  // Keep activeTab in a ref so the interval callback always reads the latest value.
+  const activeTabRef = useRef<Tab>(activeTab);
+  activeTabRef.current = activeTab;
+
+  useFocusEffect(
+    useCallback(() => {
+      void heartbeatTripPresence({ tripId: typedTripId, activeTab: activeTabRef.current });
+      const id = setInterval(() => {
+        void heartbeatTripPresence({ tripId: typedTripId, activeTab: activeTabRef.current });
+      }, PRESENCE_HEARTBEAT_MS);
+      return () => {
+        clearInterval(id);
+        void clearTripPresence({ tripId: typedTripId });
+      };
+    }, [typedTripId, heartbeatTripPresence, clearTripPresence])
+  );
+
+  // Immediately send a heartbeat with the new activeTab whenever the user switches tabs.
+  const handleSetActiveTab = (tab: Tab) => {
+    setActiveTab(tab);
+    void heartbeatTripPresence({ tripId: typedTripId, activeTab: tab });
+  };
 
   const handleDeleteTrip = () => {
     Alert.alert("Delete Trip", "This cannot be undone.", [
@@ -125,13 +159,40 @@ export default function TripDetailScreen() {
         </View>
       </View>
 
-      {/* Tab bar */}
+      {/* Tab bar — avatars appear inline next to tab label */}
       <View style={[styles.tabBar, { borderBottomColor: borderColor, backgroundColor }]}>
         {(["shows", "party", "chat"] as Tab[]).map((t) => {
           const label = t === "shows" ? "Shows" : t === "party" ? "Party" : "Chat";
+          const tabPresence = (tripPresenceOthers ?? []).filter((p) => p.activeTab === t);
+          const shownAvatars = tabPresence.slice(0, TAB_PRESENCE_AVATAR_CAP);
+          const extra = tabPresence.length - TAB_PRESENCE_AVATAR_CAP;
           return (
-            <Pressable key={t} style={styles.tabItem} onPress={() => setActiveTab(t)}>
-              <Text style={[styles.tabLabel, { color: activeTab === t ? accentColor : mutedTextColor }]}>{label}</Text>
+            <Pressable key={t} style={styles.tabItem} onPress={() => handleSetActiveTab(t)}>
+              <View style={styles.tabLabelRow}>
+                <Text style={[styles.tabLabel, { color: activeTab === t ? accentColor : mutedTextColor }]}>{label}</Text>
+                {shownAvatars.map((p, idx) => (
+                  <View
+                    key={String(p.userId)}
+                    style={[
+                      styles.tabAvatar,
+                      { borderColor: backgroundColor, marginLeft: idx === 0 ? 3 : -5 },
+                    ]}
+                  >
+                    {p.avatarUrl ? (
+                      <Image source={{ uri: p.avatarUrl }} style={styles.tabAvatarImg} contentFit="cover" />
+                    ) : (
+                      <View style={[styles.tabAvatarImg, styles.tabAvatarFb, { backgroundColor: Colors[theme].surface }]}>
+                        <Text style={[styles.tabAvatarFbText, { color: mutedTextColor }]}>
+                          {(p.name ?? p.username).slice(0, 1).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+                {extra > 0 ? (
+                  <Text style={[styles.tabAvatarMore, { color: mutedTextColor, marginLeft: 2 }]}>+{extra}</Text>
+                ) : null}
+              </View>
               {activeTab === t ? <View style={[styles.tabIndicator, { backgroundColor: accentColor }]} /> : null}
             </Pressable>
           );
@@ -185,6 +246,12 @@ const styles = StyleSheet.create({
   threeDot: { fontSize: 22, fontWeight: "600", letterSpacing: 2, lineHeight: 22 },
   tabBar: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth },
   tabItem: { flex: 1, alignItems: "center", paddingVertical: 10, position: "relative" },
+  tabLabelRow: { flexDirection: "row", alignItems: "center" },
   tabLabel: { fontSize: 14, fontWeight: "600" },
+  tabAvatar: { borderWidth: 1.5, borderRadius: 10, overflow: "hidden" },
+  tabAvatarImg: { width: 16, height: 16, borderRadius: 8 },
+  tabAvatarFb: { alignItems: "center", justifyContent: "center" },
+  tabAvatarFbText: { fontSize: 7, fontWeight: "700" },
+  tabAvatarMore: { fontSize: 9, fontWeight: "700" },
   tabIndicator: { position: "absolute", bottom: 0, left: 16, right: 16, height: 2, borderRadius: 1 },
 });
