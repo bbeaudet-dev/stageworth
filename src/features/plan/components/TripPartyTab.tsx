@@ -226,13 +226,13 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
                     </Text>
                     <View style={styles.roleButtonRow}>
                       <Pressable
-                        style={[styles.roleButton, { backgroundColor: accentColor, borderColor: accentColor }, addingFriendRole !== null && styles.disabled]}
+                        style={[styles.roleButton, { backgroundColor: chipBg, borderColor }, addingFriendRole !== null && styles.disabled]}
                         onPress={() => handleAddFriendWithRole(pendingAdd._id, "edit")}
                         disabled={addingFriendRole !== null}
                       >
                         {addingFriendRole === "edit"
-                          ? <ActivityIndicator size="small" color="#fff" />
-                          : <Text style={[styles.roleButtonText, { color: "#fff" }]}>Can Edit</Text>}
+                          ? <ActivityIndicator size="small" color={mutedTextColor} />
+                          : <Text style={[styles.roleButtonText, { color: primaryTextColor }]}>Add as Editor</Text>}
                       </Pressable>
                       <Pressable
                         style={[styles.roleButton, { backgroundColor: chipBg, borderColor }, addingFriendRole !== null && styles.disabled]}
@@ -241,7 +241,7 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
                       >
                         {addingFriendRole === "view"
                           ? <ActivityIndicator size="small" color={mutedTextColor} />
-                          : <Text style={[styles.roleButtonText, { color: mutedTextColor }]}>View Only</Text>}
+                          : <Text style={[styles.roleButtonText, { color: primaryTextColor }]}>Add as Viewer</Text>}
                       </Pressable>
                     </View>
                   </View>
@@ -266,13 +266,11 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
               {otherQuery.length > 0 ? <Pressable onPress={() => setOtherQuery("")}><Text style={{ color: mutedTextColor, fontSize: 16 }}>×</Text></Pressable> : null}
             </View>
 
-            {searchResults === undefined ? (
+            {otherQuery.trim().length === 0 ? null : searchResults === undefined ? (
               <ActivityIndicator size="small" color={accentColor} style={{ marginTop: 4 }} />
             ) : tripSearchRows.length === 0 ? (
               <Text style={[styles.searchEmpty, { color: mutedTextColor }]}>
-                {otherQuery.trim().length > 0
-                  ? `No users found for "${otherQuery.trim()}".`
-                  : "No one else to add yet."}
+                {`No users found for "${otherQuery.trim()}".`}
               </Text>
             ) : (
                 <View style={[styles.searchResults, { borderColor }]}>
@@ -295,13 +293,13 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
                         ) : (
                           <View style={styles.searchRoleBtns}>
                             <Pressable
-                              style={[styles.searchRoleBtn, { backgroundColor: accentColor }, isAddingThisUser && styles.disabled]}
+                              style={[styles.searchRoleBtn, { backgroundColor: chipBg, borderWidth: StyleSheet.hairlineWidth, borderColor }, isAddingThisUser && styles.disabled]}
                               onPress={() => handleAddBySearchWithRole(user._id, "edit")}
                               disabled={isAddingThisUser}
                             >
                               {isAddingThisUser && addingSearchRole?.role === "edit"
-                                ? <ActivityIndicator size="small" color="#fff" />
-                                : <Text style={styles.searchRoleBtnText}>Edit</Text>}
+                                ? <ActivityIndicator size="small" color={mutedTextColor} />
+                                : <Text style={[styles.searchRoleBtnText, { color: primaryTextColor }]}>Edit</Text>}
                             </Pressable>
                             <Pressable
                               style={[styles.searchRoleBtn, { backgroundColor: chipBg, borderWidth: StyleSheet.hairlineWidth, borderColor }, isAddingThisUser && styles.disabled]}
@@ -310,7 +308,7 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
                             >
                               {isAddingThisUser && addingSearchRole?.role === "view"
                                 ? <ActivityIndicator size="small" color={mutedTextColor} />
-                                : <Text style={[styles.searchRoleBtnText, { color: mutedTextColor }]}>View</Text>}
+                                : <Text style={[styles.searchRoleBtnText, { color: primaryTextColor }]}>View</Text>}
                             </Pressable>
                           </View>
                         )}
