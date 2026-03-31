@@ -247,7 +247,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                     const badge = closingBadge(item.closingDate);
                     return (
                       <View key={sid} style={[styles.playbillCard, { width: cardWidthInClosingCard, backgroundColor: surfaceColor }]}>
-                        <Pressable onPress={() => router.push({ pathname: "/(tabs)/browse/show/[showId]", params: { showId: sid, name: show.name } })}>
+                        <Pressable onPress={() => router.push({ pathname: "/show/[showId]", params: { showId: sid, name: show.name } })}>
                           {image
                             ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
                             : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}>

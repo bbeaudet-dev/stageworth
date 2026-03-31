@@ -733,6 +733,112 @@ export const createVisit = mutation({
       "uncategorized",
     ]);
 
+    // Recompute theatre score after visit creation
+    const existingStats = await ctx.db
+      .query("userStats")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    const uniqueShows = finalRankingShowIds.length;
+    const userVisits = await ctx.db
+      .query("visits")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const totalVisits = userVisits.length;
+    const visitsWithNotes = userVisits.filter((vis) => vis.notes?.trim()).length;
+    const visitsWithTags = userVisits.filter(
+      (vis) => vis.taggedUserIds && vis.taggedUserIds.length > 0
+    ).length;
+    const followerRows = await ctx.db
+      .query("follows")
+      .withIndex("by_following", (q) => q.eq("followingUserId", userId))
+      .collect();
+
+    const baseScore =
+      uniqueShows * 10 + totalVisits * 5 + visitsWithNotes * 3 + visitsWithTags * 2 + followerRows.length;
+
+    const currentWeekDate = args.date;
+    const currentWeekObj = new Date(currentWeekDate + "T00:00:00Z");
+    const thursday = new Date(currentWeekObj);
+    thursday.setUTCDate(currentWeekObj.getUTCDate() + (3 - ((currentWeekObj.getUTCDay() + 6) % 7)));
+    const yearStart = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1));
+    const weekNumber = Math.ceil(((thursday.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+    const currentWeek = `${thursday.getUTCFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
+
+    let streakWeeks = existingStats?.currentStreakWeeks ?? 0;
+    let longestStreak = existingStats?.longestStreakWeeks ?? 0;
+    let lastActiveWeek = existingStats?.lastActiveWeek ?? "";
+
+    if (lastActiveWeek === "") {
+      streakWeeks = 1;
+      lastActiveWeek = currentWeek;
+    } else if (currentWeek !== lastActiveWeek && currentWeek > lastActiveWeek) {
+      streakWeeks = currentWeek <= lastActiveWeek ? streakWeeks : 1;
+      lastActiveWeek = currentWeek;
+    }
+    if (streakWeeks > longestStreak) longestStreak = streakWeeks;
+
+    const streakMultiplier = 1 + Math.min(streakWeeks * 0.05, 0.5);
+    const theatreScore = Math.round(baseScore * streakMultiplier);
+
+    if (existingStats) {
+      await ctx.db.patch(existingStats._id, {
+        theatreScore,
+        currentStreakWeeks: streakWeeks,
+        longestStreakWeeks: longestStreak,
+        lastActiveWeek,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("userStats", {
+        userId,
+        theatreScore,
+        currentStreakWeeks: streakWeeks,
+        longestStreakWeeks: longestStreak,
+        lastActiveWeek,
+        updatedAt: Date.now(),
+      });
+    }
+
+    // Increment theatre challenge if this is a new show for the year
+    const visitYear = new Date(args.date + "T00:00:00Z").getUTCFullYear();
+    const yearVisits = userVisits.filter((vis) => {
+      const visYear = new Date(vis.date + "T00:00:00Z").getUTCFullYear();
+      return visYear === visitYear && vis.showId === showId;
+    });
+    if (yearVisits.length === 1) {
+      const challenge = await ctx.db
+        .query("theatreChallenges")
+        .withIndex("by_user_year", (q) =>
+          q.eq("userId", userId).eq("year", visitYear)
+        )
+        .first();
+      if (challenge) {
+        const newCount = challenge.currentCount + 1;
+        await ctx.db.patch(challenge._id, {
+          currentCount: newCount,
+          updatedAt: Date.now(),
+        });
+
+        const milestones = [0.25, 0.5, 0.75, 1.0];
+        const progress = newCount / challenge.targetCount;
+        const prevProgress = (newCount - 1) / challenge.targetCount;
+        for (const milestone of milestones) {
+          if (prevProgress < milestone && progress >= milestone) {
+            await ctx.db.insert("activityPosts", {
+              actorUserId: userId,
+              type: "challenge_milestone" as any,
+              visitDate: args.date,
+              showId,
+              notes: `Reached ${Math.round(milestone * 100)}% of their ${visitYear} Theatre Challenge (${newCount}/${challenge.targetCount} shows)!`,
+              createdAt: Date.now(),
+            });
+            break;
+          }
+        }
+      }
+    }
+
     return { showId, visitId, alreadyRanked };
   },
 });

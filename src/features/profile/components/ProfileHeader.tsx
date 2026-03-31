@@ -1,0 +1,343 @@
+import { Image } from "expo-image";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+
+import { Colors } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+
+export function getInitials(name?: string | null, username?: string) {
+  const source = name?.trim() || username || "?";
+  const parts = source.split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return source.slice(0, 2).toUpperCase();
+}
+
+export interface ProfileHeaderData {
+  username: string;
+  name?: string | null;
+  bio?: string | null;
+  location?: string | null;
+  avatarUrl?: string | null;
+  followerCount: number;
+  followingCount: number;
+  viewerIsSelf: boolean;
+  viewerFollows: boolean;
+}
+
+interface ProfileHeaderProps {
+  profile: ProfileHeaderData;
+  onFollowToggle?: () => void;
+  followPending?: boolean;
+  onPressFollowers?: () => void;
+  onPressFollowing?: () => void;
+  stats?: {
+    uniqueShowCount: number;
+    totalVisitCount: number;
+  } | null;
+  theatreRank?: number | null;
+  streakWeeks?: number | null;
+}
+
+export function ProfileHeader({
+  profile,
+  onFollowToggle,
+  followPending,
+  onPressFollowers,
+  onPressFollowing,
+  stats,
+  theatreRank,
+  streakWeeks,
+}: ProfileHeaderProps) {
+  const colorScheme = useColorScheme();
+  const theme = colorScheme ?? "light";
+
+  const surfaceColor = Colors[theme].surfaceElevated;
+  const borderColor = Colors[theme].border;
+  const primaryTextColor = Colors[theme].text;
+  const mutedTextColor = Colors[theme].mutedText;
+  const accentColor = Colors[theme].accent;
+
+  const displayName = profile.name?.trim() || profile.username || "User";
+  const showFollowBtn = !profile.viewerIsSelf && !!onFollowToggle;
+
+  return (
+    <>
+      {/* Hero card */}
+      <View style={[styles.heroCard, { backgroundColor: surfaceColor, borderColor }]}>
+        <View style={styles.topRow}>
+          <View style={[styles.avatar, { backgroundColor: accentColor + "22" }]}>
+            {profile.avatarUrl ? (
+              <Image
+                source={{ uri: profile.avatarUrl }}
+                style={StyleSheet.absoluteFillObject}
+                contentFit="cover"
+              />
+            ) : (
+              <Text style={[styles.avatarInitials, { color: accentColor }]}>
+                {getInitials(profile.name, profile.username)}
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.infoColumn}>
+            <Text style={[styles.displayName, { color: primaryTextColor }]} numberOfLines={1}>
+              {displayName}
+            </Text>
+            <Text style={[styles.handle, { color: mutedTextColor }]}>
+              @{profile.username}
+            </Text>
+
+            <View style={styles.followRow}>
+              <Pressable style={styles.followStat} onPress={onPressFollowers}>
+                <Text style={[styles.followStatNumber, { color: primaryTextColor }]}>
+                  {profile.followerCount}
+                </Text>
+                <Text style={[styles.followStatLabel, { color: mutedTextColor }]}>
+                  {" "}Followers
+                </Text>
+              </Pressable>
+              <Text style={[styles.followStatDot, { color: mutedTextColor }]}> · </Text>
+              <Pressable style={styles.followStat} onPress={onPressFollowing}>
+                <Text style={[styles.followStatNumber, { color: primaryTextColor }]}>
+                  {profile.followingCount}
+                </Text>
+                <Text style={[styles.followStatLabel, { color: mutedTextColor }]}>
+                  {" "}Following
+                </Text>
+              </Pressable>
+
+              {showFollowBtn && (
+                <Pressable
+                  style={[
+                    styles.followBtn,
+                    profile.viewerFollows
+                      ? {
+                          backgroundColor: "transparent",
+                          borderWidth: StyleSheet.hairlineWidth,
+                          borderColor,
+                        }
+                      : { backgroundColor: accentColor },
+                    followPending && styles.followBtnDisabled,
+                  ]}
+                  onPress={onFollowToggle}
+                  disabled={followPending}
+                >
+                  {followPending ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={profile.viewerFollows ? mutedTextColor : "#fff"}
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.followBtnText,
+                        { color: profile.viewerFollows ? primaryTextColor : "#fff" },
+                      ]}
+                    >
+                      {profile.viewerFollows ? "Following" : "Follow"}
+                    </Text>
+                  )}
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {profile.bio ? (
+          <Text style={[styles.bio, { color: primaryTextColor }]}>
+            {profile.bio}
+          </Text>
+        ) : null}
+        {profile.location ? (
+          <Text style={[styles.location, { color: mutedTextColor }]}>
+            {profile.location}
+          </Text>
+        ) : null}
+      </View>
+
+      {/* Stats card */}
+      <View style={[styles.statsCard, { backgroundColor: surfaceColor, borderColor }]}>
+        <View style={styles.statsGrid}>
+          <View style={styles.statsGridItem}>
+            <Text style={[styles.statsGridNumber, { color: primaryTextColor }]}>
+              {stats?.uniqueShowCount ?? "—"}
+            </Text>
+            <Text style={[styles.statsGridLabel, { color: mutedTextColor }]}>
+              Shows
+            </Text>
+          </View>
+          <View style={[styles.statsGridDivider, { backgroundColor: borderColor }]} />
+          <View style={styles.statsGridItem}>
+            <Text style={[styles.statsGridNumber, { color: primaryTextColor }]}>
+              {stats?.totalVisitCount ?? "—"}
+            </Text>
+            <Text style={[styles.statsGridLabel, { color: mutedTextColor }]}>
+              Visits
+            </Text>
+          </View>
+          <View style={[styles.statsGridDivider, { backgroundColor: borderColor }]} />
+          <View style={styles.statsGridItem}>
+            <Text
+              style={[
+                styles.statsGridNumber,
+                { color: theatreRank != null ? primaryTextColor : mutedTextColor },
+              ]}
+            >
+              {theatreRank != null ? `#${theatreRank}` : "—"}
+            </Text>
+            <Text style={[styles.statsGridLabel, { color: mutedTextColor }]}>
+              Rank
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Streak & Challenge row */}
+      {(streakWeeks != null && streakWeeks > 0) && (
+        <View style={[styles.streakCard, { backgroundColor: surfaceColor, borderColor }]}>
+          <Text style={[styles.streakEmoji]}>🔥</Text>
+          <Text style={[styles.streakValue, { color: primaryTextColor }]}>
+            {streakWeeks} {streakWeeks === 1 ? "week" : "week"} streak
+          </Text>
+        </View>
+      )}
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  heroCard: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 18,
+    gap: 6,
+  },
+  topRow: {
+    flexDirection: "row",
+    gap: 14,
+    alignItems: "center",
+  },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitials: {
+    fontSize: 26,
+    fontWeight: "700",
+  },
+  infoColumn: {
+    flex: 1,
+    gap: 2,
+  },
+  displayName: {
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  handle: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  followRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+    flexWrap: "wrap",
+    gap: 0,
+  },
+  followStat: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  followStatNumber: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  followStatLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  followStatDot: {
+    fontSize: 13,
+  },
+  followBtn: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    marginLeft: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  followBtnDisabled: {
+    opacity: 0.6,
+  },
+  followBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  bio: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  location: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  statsCard: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-evenly",
+  },
+  statsGridItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 2,
+  },
+  statsGridNumber: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  statsGridLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  statsGridDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 28,
+  },
+  streakCard: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  streakEmoji: {
+    fontSize: 18,
+  },
+  streakValue: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+});

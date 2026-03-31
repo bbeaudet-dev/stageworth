@@ -1,9 +1,9 @@
 import { useQuery } from "convex/react";
 import { Image } from "expo-image";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { api } from "@/convex/_generated/api";
-import { IconSymbol } from "@/components/ui/icon-symbol";
+import { getInitials } from "@/features/profile/components/ProfileHeader";
 
 interface ProfileTabIconProps {
   color: string;
@@ -22,7 +22,23 @@ export function ProfileTabIcon({ color, size = 28 }: ProfileTabIconProps) {
     );
   }
 
-  return <IconSymbol size={size} name="person.fill" color={color} />;
+  const initials = myProfile
+    ? getInitials(myProfile.name, myProfile.username)
+    : "";
+
+  return (
+    <View
+      style={[
+        styles.avatarWrap,
+        styles.initialsWrap,
+        { width: size, height: size, borderRadius: size / 2, borderColor: color, backgroundColor: color + "18" },
+      ]}
+    >
+      <Text style={[styles.initialsText, { color, fontSize: size * 0.38 }]}>
+        {initials}
+      </Text>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -33,5 +49,12 @@ const styles = StyleSheet.create({
   avatarImg: {
     width: "100%",
     height: "100%",
+  },
+  initialsWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  initialsText: {
+    fontWeight: "700",
   },
 });

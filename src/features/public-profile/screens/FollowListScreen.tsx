@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -16,6 +16,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useTabNav } from "@/hooks/use-tab-nav";
 
 type FollowKind = "followers" | "following";
 
@@ -36,7 +37,7 @@ type FollowRow = {
 };
 
 export default function FollowListScreen() {
-  const router = useRouter();
+  const { pushUserProfile } = useTabNav();
   const params = useLocalSearchParams<{ username?: string; kind?: string }>();
   const username = typeof params.username === "string" ? params.username : "";
   const kind: FollowKind = params.kind === "following" ? "following" : "followers";
@@ -99,12 +100,7 @@ export default function FollowListScreen() {
         <View style={[styles.row, { backgroundColor: surfaceColor, borderColor }]}>
           <Pressable
             style={styles.rowMain}
-            onPress={() =>
-              router.push({
-                pathname: "/user/[username]",
-                params: { username: item.username },
-              })
-            }
+            onPress={() => pushUserProfile(item.username)}
           >
             <View style={[styles.avatar, { backgroundColor: accentColor + "22" }]}>
               {item.avatarUrl ? (
@@ -172,7 +168,7 @@ export default function FollowListScreen() {
       mutedTextColor,
       pendingUserId,
       primaryTextColor,
-      router,
+      pushUserProfile,
       surfaceColor,
     ]
   );

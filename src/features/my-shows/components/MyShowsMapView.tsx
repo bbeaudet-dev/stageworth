@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
-import type { MapScope } from "@/features/my-shows/types";
+type MapScope = "mine" | "following" | "all";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const HAS_NATIVE_MAP =
