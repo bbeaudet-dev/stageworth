@@ -1,192 +1,124 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { Image } from "expo-image";
 import { useQuery } from "convex/react";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
-import { useProfileListsData } from "@/features/profile/hooks/useProfileListsData";
-import { styles } from "@/features/profile/styles";
-import { ListsSection } from "@/features/profile/components/ListsSection";
+import { ProfileHeader } from "@/features/profile/components/ProfileHeader";
+import { ProfileMapSection } from "@/features/profile/components/ProfileMapSection";
+import { PublicShowsGrid } from "@/features/profile/components/PublicShowsGrid";
+import { TasteProfile } from "@/features/profile/components/TasteProfile";
+import { TheatreChallenge } from "@/features/profile/components/TheatreChallenge";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
-  const params = useLocalSearchParams<{ createList?: string }>();
   const myProfile = useQuery(api.profiles.getMyProfile);
-  const { profileLists, visibleLists, initializeSystemLists, createCustomList, toggleVisibility } =
-    useProfileListsData();
-
-  const [newListName, setNewListName] = useState("");
-  const [isCreatingList, setIsCreatingList] = useState(false);
-  const [isShowingCreateInput, setIsShowingCreateInput] = useState(false);
-  const [pendingVisibilityIds, setPendingVisibilityIds] = useState<Set<string>>(() => new Set());
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const inputRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    initializeSystemLists().catch(() => undefined);
-  }, [initializeSystemLists]);
-
-  useEffect(() => {
-    if (params.createList !== "1") return;
-    setIsShowingCreateInput(true);
-    const timeout = setTimeout(() => {
-      inputRef.current?.focus();
-      router.setParams({ createList: undefined });
-    }, 40);
-    return () => clearTimeout(timeout);
-  }, [params.createList, router]);
-
-  const handleCreateCustomList = async () => {
-    const trimmed = newListName.trim();
-    if (!trimmed || isCreatingList) return;
-    setErrorMessage(null);
-    setIsCreatingList(true);
-    try {
-      const listId = await createCustomList({ name: trimmed, isPublic: false });
-      setNewListName("");
-      setIsShowingCreateInput(false);
-      router.push({
-        pathname: "/list/[listId]",
-        params: { listId: String(listId), name: trimmed },
-      });
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to create list");
-    } finally {
-      setIsCreatingList(false);
-    }
-  };
-
-  const handleToggleVisibility = async (listId: Id<"userLists">, isPublic: boolean) => {
-    const key = String(listId);
-    setPendingVisibilityIds((prev) => new Set(prev).add(key));
-    try {
-      await toggleVisibility(listId, isPublic);
-    } finally {
-      setPendingVisibilityIds((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
-    }
-  };
-
-  const displayName = myProfile?.name?.trim() || myProfile?.username || "You";
-  const username = myProfile?.username ?? "";
-  const initials = displayName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part: string) => part[0]?.toUpperCase() ?? "")
-    .join("");
+  const stats = useQuery(api.profiles.getProfileStats, {});
+  const userStats = useQuery(api.userStats.getUserStats, {});
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const backgroundColor = Colors[theme].background;
   const primaryTextColor = Colors[theme].text;
-  const surfaceColor = Colors[theme].surfaceElevated;
-  const borderColor = Colors[theme].border;
   const mutedTextColor = Colors[theme].mutedText;
-  const chipBackground = Colors[theme].surface;
+
+  if (!myProfile) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["top"]}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: primaryTextColor }]}>Profile</Text>
+        </View>
+        <View style={styles.centered}>
+          <Text style={[styles.loadingText, { color: mutedTextColor }]}>
+            Loading...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["top"]}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: primaryTextColor }]}>Profile</Text>
+        <Pressable
+          onPress={() => router.push("/account-settings")}
+          hitSlop={10}
+          style={styles.settingsBtn}
+        >
+          <IconSymbol name="gearshape.fill" size={22} color={mutedTextColor} />
+        </Pressable>
+      </View>
+
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 24 }]}
-        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + 24 }]}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.profileHeaderRow}>
-          <Text style={[styles.title, { color: primaryTextColor }]}>Profile</Text>
-          <Pressable
-            style={[styles.menuButton, { borderColor, backgroundColor: chipBackground }]}
-            onPress={() => router.push("/account-settings")}
-          >
-            <Text style={[styles.menuButtonText, { color: primaryTextColor }]}>☰</Text>
-          </Pressable>
-        </View>
-        <View style={[styles.profileHero, { backgroundColor: surfaceColor, borderColor }]}>
-          {myProfile?.avatarUrl ? (
-            <Image source={{ uri: myProfile.avatarUrl }} style={styles.avatarImage} />
-          ) : (
-            <View style={styles.avatarFallback}>
-              <Text style={[styles.avatarFallbackText, { color: primaryTextColor }]}>
-                {initials || "U"}
-              </Text>
-            </View>
-          )}
-          <Text style={[styles.profileName, { color: primaryTextColor }]}>{displayName}</Text>
-          {username ? (
-            <Text style={[styles.profileUsername, { color: mutedTextColor }]}>@{username}</Text>
-          ) : null}
-          <View style={styles.profileCountsRow}>
-            <Pressable
-              disabled={!username}
-              onPress={() =>
-                router.push({
-                  pathname: "/user/[username]/[kind]",
-                  params: { username, kind: "followers" },
-                })
-              }
-            >
-              <Text style={[styles.profileCountText, { color: mutedTextColor }]}>
-                {myProfile?.followerCount ?? 0} followers
-              </Text>
-            </Pressable>
-            <Pressable
-              disabled={!username}
-              onPress={() =>
-                router.push({
-                  pathname: "/user/[username]/[kind]",
-                  params: { username, kind: "following" },
-                })
-              }
-            >
-              <Text style={[styles.profileCountText, { color: mutedTextColor }]}>
-                {myProfile?.followingCount ?? 0} following
-              </Text>
-            </Pressable>
-          </View>
-          {myProfile?.bio ? (
-            <Text style={[styles.profileBio, { color: primaryTextColor }]}>{myProfile.bio}</Text>
-          ) : null}
-          {myProfile?.location ? (
-            <Text style={[styles.profileLocation, { color: mutedTextColor }]}>
-              {myProfile.location}
-            </Text>
-          ) : null}
-        </View>
-        <ListsSection
-          isShowingCreateInput={isShowingCreateInput}
-          setIsShowingCreateInput={setIsShowingCreateInput}
-          newListName={newListName}
-          setNewListName={setNewListName}
-          isCreatingList={isCreatingList}
-          onCreateCustomList={handleCreateCustomList}
-          inputRef={inputRef}
-          profileListsLoading={profileLists === undefined}
-          visibleLists={visibleLists}
-          pendingVisibilityIds={pendingVisibilityIds}
-          onToggleVisibility={handleToggleVisibility}
-          openList={(list) =>
+        <ProfileHeader
+          profile={myProfile}
+          stats={stats}
+          theatreRank={userStats?.theatreRank}
+          streakWeeks={userStats?.currentStreakWeeks}
+          onPressFollowers={() =>
             router.push({
-              pathname: "/list/[listId]",
-              params: {
-                listId: String(list._id),
-                name: list.name,
-                seen: list.isSeen ? "1" : "0",
-                systemKey: list.systemKey ?? "",
-              },
+              pathname: "/(tabs)/profile/user/[username]/[kind]",
+              params: { username: myProfile.username, kind: "followers" },
             })
           }
-          errorMessage={errorMessage}
+          onPressFollowing={() =>
+            router.push({
+              pathname: "/(tabs)/profile/user/[username]/[kind]",
+              params: { username: myProfile.username, kind: "following" },
+            })
+          }
         />
+
+        <TheatreChallenge />
+
+        {myProfile._id && (
+          <PublicShowsGrid userId={myProfile._id} />
+        )}
+
+        <ProfileMapSection />
+
+        <TasteProfile />
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 4,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+  },
+  settingsBtn: {
+    padding: 2,
+  },
+  scrollContent: {
+    padding: 16,
+    gap: 12,
+  },
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    fontSize: 16,
+  },
+});

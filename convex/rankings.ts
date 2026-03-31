@@ -136,6 +136,49 @@ export const getRankedShows = query({
   },
 });
 
+export const getPublicRankedShows = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const rankings = await ctx.db
+      .query("userRankings")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!rankings) return [];
+
+    const userShows = await ctx.db
+      .query("userShows")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const userShowById = new Map(
+      userShows.map((userShow) => [userShow.showId, userShow])
+    );
+
+    const rankedShows = await Promise.all(
+      rankings.showIds.map(async (showId) => {
+        const show = await ctx.db.get(showId);
+        if (!show) return null;
+        const userShow = userShowById.get(showId);
+        const tier = (userShow?.tier ?? "liked") as Tier;
+        if (tier === "unranked") return null;
+        return {
+          _id: show._id,
+          name: show.name,
+          type: show.type,
+          subtype: show.subtype,
+          images: await resolveShowImageUrls(ctx, show),
+          tier,
+        };
+      })
+    );
+
+    return rankedShows.filter(
+      (s): s is NonNullable<typeof s> => s !== null
+    );
+  },
+});
+
 const tierValidator = v.union(
   v.literal("loved"),
   v.literal("liked"),

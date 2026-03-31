@@ -24,7 +24,8 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: Colors[colorScheme ?? "light"].tabIconSelected,
-          tabBarInactiveTintColor: Colors[colorScheme ?? "light"].tabIconDefault,
+          tabBarInactiveTintColor:
+            Colors[colorScheme ?? "light"].tabIconDefault,
           headerShown: false,
           tabBarButton: HapticTab,
           tabBarStyle: {
@@ -45,9 +46,15 @@ export default function TabLayout() {
           },
         }}
       >
+        <Tabs.Screen name="index" options={{ href: null }} />
         <Tabs.Screen
-          name="index"
-          options={{ href: null }}
+          name="community"
+          options={{
+            title: "Community",
+            tabBarIcon: ({ color }) => (
+              <IconSymbol size={28} name="person.2.fill" color={color} />
+            ),
+          }}
         />
         <Tabs.Screen
           name="plan"
@@ -55,15 +62,6 @@ export default function TabLayout() {
             title: "Plan",
             tabBarIcon: ({ color }) => (
               <IconSymbol size={28} name="map.fill" color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="community"
-          options={{
-            title: "Community",
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="person.2.fill" color={color} />
             ),
           }}
         />
@@ -89,10 +87,7 @@ export default function TabLayout() {
                   style={[
                     styles.actionTabButtonText,
                     {
-                      color:
-                        colorScheme === "dark"
-                          ? "#ffffff"
-                          : "#1f1f1f",
+                      color: colorScheme === "dark" ? "#ffffff" : "#1f1f1f",
                     },
                   ]}
                 >
@@ -103,9 +98,9 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="browse"
+          name="my-shows"
           options={{
-            title: "Browse",
+            title: "My Shows",
             tabBarIcon: ({ color }) => (
               <IconSymbol size={28} name="theatermasks.fill" color={color} />
             ),
@@ -115,7 +110,9 @@ export default function TabLayout() {
           name="profile"
           options={{
             title: "Profile",
-            tabBarIcon: ({ color }) => <ProfileTabIcon color={color} size={28} />,
+            tabBarIcon: ({ color }) => (
+              <ProfileTabIcon color={color} size={28} />
+            ),
           }}
         />
       </Tabs>

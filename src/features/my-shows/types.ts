@@ -1,8 +1,7 @@
 import type { Id } from "@/convex/_generated/dataModel";
 import type { RankedShow } from "@/components/show-row-accordion";
 
-export type ViewMode = "list" | "cloud" | "diary" | "map";
-export type MapScope = "mine" | "following" | "all";
+export type ViewMode = "list" | "cloud" | "diary";
 export type RankingTier = "loved" | "liked" | "okay" | "disliked" | "unranked";
 export type RankedTier = Exclude<RankingTier, "unranked">;
 export type SpecialLine = "wouldSeeAgain" | "stayedHome";

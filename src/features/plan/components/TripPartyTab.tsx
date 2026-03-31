@@ -34,7 +34,7 @@ function getInitials(name?: string | null, username?: string) {
 interface TripPartyTabProps {
   trip: any;
   tripId: Id<"trips">;
-  onViewUser: (userId: Id<"users">) => void;
+  onViewUser: (username: string) => void;
 }
 
 export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
@@ -109,7 +109,7 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
       {/* Owner row */}
       <Pressable
         style={[styles.memberCard, { backgroundColor: surfaceColor, borderColor }]}
-        onPress={() => trip.owner?._id && !trip.isOwner ? onViewUser(trip.owner._id) : undefined}
+        onPress={() => trip.owner?.username && !trip.isOwner ? onViewUser(trip.owner.username) : undefined}
       >
         <View style={styles.memberCardMain}>
           <View style={[styles.memberAvatar, { backgroundColor: accentColor + "22" }]}>
@@ -152,7 +152,7 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
           >
             <View style={styles.memberCardMain}>
               {/* Avatar press opens profile without collapsing the card */}
-              <Pressable onPress={() => m.user?._id ? onViewUser(m.user._id) : undefined} hitSlop={4}>
+              <Pressable onPress={() => m.user?.username ? onViewUser(m.user.username) : undefined} hitSlop={4}>
                 <View style={[styles.memberAvatar, { backgroundColor: accentColor + "22" }]}>
                   {m.user?.avatarUrl
                     ? <Image source={{ uri: m.user.avatarUrl }} style={StyleSheet.absoluteFillObject} contentFit="cover" />

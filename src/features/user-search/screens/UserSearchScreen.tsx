@@ -1,26 +1,25 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { UserProfilePanel } from "@/features/me/components/UserProfilePanel";
 
 const MAX_RECENT_SEARCHES = 6;
 
@@ -41,6 +40,7 @@ type SearchRow = {
 
 export default function UserSearchScreen() {
   const inputRef = useRef<TextInput>(null);
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
 
@@ -54,7 +54,6 @@ export default function UserSearchScreen() {
 
   const [input, setInput] = useState("");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [viewingUserId, setViewingUserId] = useState<Id<"users"> | null>(null);
 
   const queryText = input.trim();
 
@@ -62,7 +61,7 @@ export default function UserSearchScreen() {
     useCallback(() => {
       const t = setTimeout(() => inputRef.current?.focus(), 50);
       return () => clearTimeout(t);
-    }, [])
+    }, []),
   );
 
   const results = useQuery(api.profiles.searchUsers, { q: queryText });
@@ -70,10 +69,12 @@ export default function UserSearchScreen() {
 
   const followUser = useMutation(api.social.followUser);
   const unfollowUser = useMutation(api.social.unfollowUser);
-  const [pendingFollowUserId, setPendingFollowUserId] = useState<string | null>(null);
+  const [pendingFollowUserId, setPendingFollowUserId] = useState<string | null>(
+    null,
+  );
 
   const openProfile = useCallback(
-    (userId: Id<"users">) => {
+    (username: string) => {
       const q = queryText;
       if (q.length >= 1) {
         setRecentSearches((prev) => {
@@ -84,9 +85,12 @@ export default function UserSearchScreen() {
           return next.slice(0, MAX_RECENT_SEARCHES);
         });
       }
-      setViewingUserId(userId);
+      router.push({
+        pathname: "/user/[username]",
+        params: { username },
+      });
     },
-    [queryText]
+    [queryText, router],
   );
 
   const handleToggleFollow = useCallback(
@@ -102,7 +106,7 @@ export default function UserSearchScreen() {
         setPendingFollowUserId(null);
       }
     },
-    [followUser, unfollowUser]
+    [followUser, unfollowUser],
   );
 
   const renderItem = useCallback(
@@ -117,9 +121,11 @@ export default function UserSearchScreen() {
         >
           <Pressable
             style={styles.rowMain}
-            onPress={() => openProfile(item._id)}
+            onPress={() => openProfile(item.username)}
           >
-            <View style={[styles.avatar, { backgroundColor: accentColor + "22" }]}>
+            <View
+              style={[styles.avatar, { backgroundColor: accentColor + "22" }]}
+            >
               {item.avatarUrl ? (
                 <Image
                   source={{ uri: item.avatarUrl }}
@@ -201,7 +207,7 @@ export default function UserSearchScreen() {
       pendingFollowUserId,
       primaryTextColor,
       surfaceColor,
-    ]
+    ],
   );
 
   const listEmpty =
@@ -247,9 +253,7 @@ export default function UserSearchScreen() {
         </View>
       ) : null}
       <Text style={[styles.sectionLabel, { color: mutedTextColor }]}>
-        {queryText.length === 0
-          ? "Recently joined"
-          : "Search results"}
+        {queryText.length === 0 ? "Recently joined" : "Search results"}
       </Text>
     </View>
   );
@@ -268,10 +272,7 @@ export default function UserSearchScreen() {
 
       <View style={styles.searchWrap}>
         <View
-          style={[
-            styles.searchField,
-            { backgroundColor: chipBg, borderColor },
-          ]}
+          style={[styles.searchField, { backgroundColor: chipBg, borderColor }]}
         >
           <IconSymbol size={18} name="magnifyingglass" color={mutedTextColor} />
           <TextInput
@@ -304,11 +305,6 @@ export default function UserSearchScreen() {
         />
       )}
 
-      <UserProfilePanel
-        visible={viewingUserId !== null}
-        onClose={() => setViewingUserId(null)}
-        userId={viewingUserId}
-      />
     </SafeAreaView>
   );
 }

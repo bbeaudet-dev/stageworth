@@ -6,29 +6,41 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BottomSheet } from "@/components/bottom-sheet";
-import { UserProfilePanel } from "@/features/me/components/UserProfilePanel";
 
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Colors } from "@/constants/theme";
+import { api } from "@/convex/_generated/api";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 type FeedTab = "following" | "global";
 
 const MONTHS = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 function ordinal(n: number): string {
   const v = n % 100;
   if (v >= 11 && v <= 13) return `${n}th`;
   switch (v % 10) {
-    case 1: return `${n}st`;
-    case 2: return `${n}nd`;
-    case 3: return `${n}rd`;
-    default: return `${n}th`;
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
   }
 }
 
@@ -38,7 +50,9 @@ function formatRelativeVisitDate(dateStr: string) {
   today.setHours(0, 0, 0, 0);
   target.setHours(0, 0, 0, 0);
 
-  const diffDays = Math.round((today.getTime() - target.getTime()) / 86_400_000);
+  const diffDays = Math.round(
+    (today.getTime() - target.getTime()) / 86_400_000,
+  );
   if (diffDays === 0) return "today";
   if (diffDays === 1) return "yesterday";
   if (diffDays <= 6) return `${diffDays} days ago`;
@@ -51,7 +65,11 @@ function formatRelativeVisitDate(dateStr: string) {
   return `${month} ${day}`;
 }
 
-function formatVisitLocation(dateStr: string, theatre?: string | null, city?: string | null) {
+function formatVisitLocation(
+  dateStr: string,
+  theatre?: string | null,
+  city?: string | null,
+) {
   return [theatre, city].filter(Boolean).join(", ");
 }
 
@@ -72,7 +90,14 @@ type ParticipantsSheetProps = {
   theme: "light" | "dark";
 };
 
-function ParticipantsSheet({ visible, onClose, actor, taggedUsers, onNavigate, theme }: ParticipantsSheetProps) {
+function ParticipantsSheet({
+  visible,
+  onClose,
+  actor,
+  taggedUsers,
+  onNavigate,
+  theme,
+}: ParticipantsSheetProps) {
   const bg = theme === "dark" ? "#0a0a0a" : "#fff";
   const text = theme === "dark" ? "#f4f4f5" : "#111";
   const muted = theme === "dark" ? "#a0a4aa" : "#666";
@@ -84,7 +109,9 @@ function ParticipantsSheet({ visible, onClose, actor, taggedUsers, onNavigate, t
     <BottomSheet visible={visible} onClose={onClose}>
       <View style={[styles.sheetContainer, { backgroundColor: bg }]}>
         <View style={[styles.sheetHandle, { backgroundColor: border }]} />
-        <Text style={[styles.sheetTitle, { color: muted }]}>Attended together</Text>
+        <Text style={[styles.sheetTitle, { color: muted }]}>
+          Attended together
+        </Text>
         {all.map((user, i) => (
           <Pressable
             key={user._id}
@@ -93,13 +120,18 @@ function ParticipantsSheet({ visible, onClose, actor, taggedUsers, onNavigate, t
               { borderTopColor: border },
               i === 0 && { borderTopWidth: 0 },
             ]}
-            onPress={() => { onClose(); onNavigate(user.username); }}
+            onPress={() => {
+              onClose();
+              onNavigate(user.username);
+            }}
           >
             <View style={styles.sheetRowText}>
               <Text style={[styles.sheetRowName, { color: text }]}>
                 {user.name?.trim() || user.username}
               </Text>
-              <Text style={[styles.sheetRowHandle, { color: handle }]}>@{user.username}</Text>
+              <Text style={[styles.sheetRowHandle, { color: handle }]}>
+                @{user.username}
+              </Text>
             </View>
           </Pressable>
         ))}
@@ -114,26 +146,28 @@ export default function CommunityScreen() {
 
   const followingFeed = useQuery(
     api.community.getFollowingFeed,
-    selectedTab === "following" ? { limit: 40 } : "skip"
+    selectedTab === "following" ? { limit: 40 } : "skip",
   );
   const globalFeed = useQuery(
     api.community.getGlobalFeed,
-    selectedTab === "global" ? { limit: 40 } : "skip"
+    selectedTab === "global" ? { limit: 40 } : "skip",
   );
   const unreadCount = useQuery(api.notifications.getUnreadCount) ?? 0;
   const [participantsModal, setParticipantsModal] = useState<{
     actor: TaggedUser;
     taggedUsers: TaggedUser[];
   } | null>(null);
-  const [viewingUserId, setViewingUserId] = useState<Id<"users"> | null>(null);
 
   const posts = useMemo(
-    () => (selectedTab === "following" ? (followingFeed ?? []) : (globalFeed ?? [])),
-    [followingFeed, globalFeed, selectedTab]
+    () =>
+      selectedTab === "following" ? (followingFeed ?? []) : (globalFeed ?? []),
+    [followingFeed, globalFeed, selectedTab],
   );
 
   const isLoading =
-    selectedTab === "following" ? followingFeed === undefined : globalFeed === undefined;
+    selectedTab === "following"
+      ? followingFeed === undefined
+      : globalFeed === undefined;
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -161,11 +195,24 @@ export default function CommunityScreen() {
   const badgeBg = Colors[theme].accent;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["top"]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor }]}
+      edges={["top"]}
+    >
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={[styles.title, { color: primaryTextColor }]}>Community</Text>
+          <Text style={[styles.title, { color: primaryTextColor }]}>
+            Community
+          </Text>
           <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => router.push("/(tabs)/community/leaderboard")}
+              style={styles.headerIconButton}
+              hitSlop={10}
+              accessibilityLabel="Leaderboard"
+            >
+              <IconSymbol name="trophy.fill" size={22} color={bellColor} />
+            </Pressable>
             <Pressable
               onPress={() => router.push("/user-search")}
               style={styles.headerIconButton}
@@ -194,10 +241,16 @@ export default function CommunityScreen() {
           <Pressable
             style={[
               styles.segmentButton,
-              { borderColor: segmentBorder, backgroundColor: segmentBackground },
+              {
+                borderColor: segmentBorder,
+                backgroundColor: segmentBackground,
+              },
               selectedTab === "following" && [
                 styles.segmentButtonActive,
-                { backgroundColor: segmentBackgroundActive, borderColor: segmentBackgroundActive },
+                {
+                  backgroundColor: segmentBackgroundActive,
+                  borderColor: segmentBackgroundActive,
+                },
               ],
             ]}
             onPress={() => setSelectedTab("following")}
@@ -218,10 +271,16 @@ export default function CommunityScreen() {
           <Pressable
             style={[
               styles.segmentButton,
-              { borderColor: segmentBorder, backgroundColor: segmentBackground },
+              {
+                borderColor: segmentBorder,
+                backgroundColor: segmentBackground,
+              },
               selectedTab === "global" && [
                 styles.segmentButtonActive,
-                { backgroundColor: segmentBackgroundActive, borderColor: segmentBackgroundActive },
+                {
+                  backgroundColor: segmentBackgroundActive,
+                  borderColor: segmentBackgroundActive,
+                },
               ],
             ]}
             onPress={() => setSelectedTab("global")}
@@ -244,7 +303,9 @@ export default function CommunityScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         {isLoading ? (
-          <Text style={[styles.emptyText, { color: emptyTextColor }]}>Loading posts...</Text>
+          <Text style={[styles.emptyText, { color: emptyTextColor }]}>
+            Loading posts...
+          </Text>
         ) : null}
         {!isLoading && posts.length === 0 ? (
           <Text style={[styles.emptyText, { color: emptyTextColor }]}>
@@ -255,34 +316,64 @@ export default function CommunityScreen() {
         ) : null}
         {!isLoading
           ? posts.map((post) => {
-              const actorLabel = getFirstName(post.actor.name, post.actor.username);
+              const actorLabel = getFirstName(
+                post.actor.name,
+                post.actor.username,
+              );
               const tagged: TaggedUser[] = post.taggedUsers ?? [];
-              const location = formatVisitLocation(post.visitDate, post.theatre, post.city);
+              const location = formatVisitLocation(
+                post.visitDate,
+                post.theatre,
+                post.city,
+              );
 
               const openParticipants = () =>
-                setParticipantsModal({ actor: post.actor, taggedUsers: tagged });
+                setParticipantsModal({
+                  actor: post.actor,
+                  taggedUsers: tagged,
+                });
 
               return (
                 <View
                   key={post._id}
                   style={[
                     styles.postCard,
-                    { backgroundColor: cardBackground, borderColor: cardBorder },
+                    {
+                      backgroundColor: cardBackground,
+                      borderColor: cardBorder,
+                    },
                   ]}
                 >
                   <View style={styles.postRow}>
                     <View style={styles.postMain}>
                       <Pressable
-                        onPress={() => setViewingUserId(post.actor._id as Id<"users">)}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/(tabs)/community/user/[username]",
+                            params: { username: post.actor.username },
+                          })
+                        }
                       >
-                        <Text style={[styles.actorHandleText, { color: actorHandleColor }]}>
+                        <Text
+                          style={[
+                            styles.actorHandleText,
+                            { color: actorHandleColor },
+                          ]}
+                        >
                           @{post.actor.username}
                         </Text>
                       </Pressable>
-                      <Text style={[styles.postTitle, { color: primaryTextColor }]}>
+                      <Text
+                        style={[styles.postTitle, { color: primaryTextColor }]}
+                      >
                         <Text
                           style={[styles.actorText, { color: actorLinkColor }]}
-                          onPress={() => setViewingUserId(post.actor._id as Id<"users">)}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/(tabs)/community/user/[username]",
+                              params: { username: post.actor.username },
+                            })
+                          }
                         >
                           {actorLabel}
                         </Text>{" "}
@@ -302,8 +393,16 @@ export default function CommunityScreen() {
                           <>
                             {" with "}
                             <Text
-                              style={[styles.actorText, { color: actorLinkColor }]}
-                              onPress={() => setViewingUserId(tagged[0]._id as Id<"users">)}
+                              style={[
+                                styles.actorText,
+                                { color: actorLinkColor },
+                              ]}
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/(tabs)/community/user/[username]",
+                                  params: { username: tagged[0].username },
+                                })
+                              }
                             >
                               {getFirstName(tagged[0].name, tagged[0].username)}
                             </Text>
@@ -313,41 +412,62 @@ export default function CommunityScreen() {
                           <>
                             {" with "}
                             <Text
-                              style={[styles.actorText, { color: actorLinkColor }]}
+                              style={[
+                                styles.actorText,
+                                { color: actorLinkColor },
+                              ]}
                               onPress={openParticipants}
                             >
                               {tagged.length} others
                             </Text>
                           </>
-                        )}
-                        {" "}
+                        )}{" "}
                         {formatRelativeVisitDate(post.visitDate)}
                       </Text>
                       {location ? (
-                        <Text style={[styles.subText, { color: subTextColor }]}>{location}</Text>
+                        <Text style={[styles.subText, { color: subTextColor }]}>
+                          {location}
+                        </Text>
                       ) : null}
                       {post.notes ? (
-                        <Text style={[styles.notesText, { color: notesTextColor }]}>
+                        <Text
+                          style={[styles.notesText, { color: notesTextColor }]}
+                        >
                           {post.notes}
                         </Text>
                       ) : null}
                       {post.rankAtPost ? (
-                        <Text style={[styles.rankText, { color: rankTextColor }]}>
+                        <Text
+                          style={[styles.rankText, { color: rankTextColor }]}
+                        >
                           Ranked #{post.rankAtPost} / {post.rankingTotal}
                         </Text>
                       ) : (
-                        <Text style={[styles.rankText, { color: rankTextColor }]}>
+                        <Text
+                          style={[styles.rankText, { color: rankTextColor }]}
+                        >
                           Not currently ranked
                         </Text>
                       )}
                     </View>
-                    <View style={[styles.posterWrap, { backgroundColor: posterBackground }]}>
+                    <View
+                      style={[
+                        styles.posterWrap,
+                        { backgroundColor: posterBackground },
+                      ]}
+                    >
                       {post.show.images[0] ? (
-                        <Image source={{ uri: post.show.images[0] }} style={styles.posterImage} />
+                        <Image
+                          source={{ uri: post.show.images[0] }}
+                          style={styles.posterImage}
+                        />
                       ) : (
                         <View style={styles.posterFallback}>
                           <Text
-                            style={[styles.posterFallbackText, { color: posterFallbackTextColor }]}
+                            style={[
+                              styles.posterFallbackText,
+                              { color: posterFallbackTextColor },
+                            ]}
                           >
                             No art
                           </Text>
@@ -366,14 +486,12 @@ export default function CommunityScreen() {
         actor={participantsModal?.actor ?? { _id: "", username: "" }}
         taggedUsers={participantsModal?.taggedUsers ?? []}
         onNavigate={(username) =>
-          router.push({ pathname: "/user/[username]", params: { username } })
+          router.push({
+            pathname: "/(tabs)/community/user/[username]",
+            params: { username },
+          })
         }
         theme={theme}
-      />
-      <UserProfilePanel
-        visible={viewingUserId !== null}
-        userId={viewingUserId}
-        onClose={() => setViewingUserId(null)}
       />
     </SafeAreaView>
   );

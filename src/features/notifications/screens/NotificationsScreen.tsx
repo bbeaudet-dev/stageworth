@@ -17,10 +17,11 @@ type NotificationListItem = {
   isRead: boolean;
   createdAt: number;
   visitId?: string | null;
+  showId?: string | null;
   productionId?: string | null;
   tripId?: Id<"trips"> | null;
   actor: { _id: Id<"users">; username: string; name?: string | null; avatarUrl: string | null } | null;
-  show: { name: string; images: string[] } | null;
+  show: { _id: Id<"shows">; name: string; images: string[] } | null;
   trip: { _id: Id<"trips">; name: string } | null;
 };
 
@@ -84,6 +85,11 @@ export default function NotificationsScreen() {
       notif.tripId
     ) {
       router.push({ pathname: "/(tabs)/plan/[tripId]", params: { tripId: notif.tripId } });
+    } else if (
+      (notif.type === "closing_soon" || notif.type === "show_announced") &&
+      notif.show
+    ) {
+      router.push({ pathname: "/show/[showId]", params: { showId: notif.show._id } });
     }
   };
 
@@ -134,7 +140,10 @@ export default function NotificationsScreen() {
         )}
         {(notifications ?? []).map((notif) => {
           const timeStr = formatRelativeTime(notif.createdAt);
-          const actorLabel = notif.actor?.name?.split(" ")[0] ?? notif.actor?.username ?? "Someone";
+          const isSystemNotif = notif.type === "closing_soon" || notif.type === "show_announced";
+          const actorLabel = isSystemNotif
+            ? ""
+            : (notif.actor?.name?.split(" ")[0] ?? notif.actor?.username ?? "Someone");
           const isTripInvite = notif.type === "trip_invite";
           const acceptKey = notif._id + ":accept";
           const declineKey = notif._id + ":decline";
@@ -156,6 +165,10 @@ export default function NotificationsScreen() {
               <View style={styles.cardContent}>
                 {notif.actor?.avatarUrl ? (
                   <Image source={{ uri: notif.actor.avatarUrl }} style={styles.avatar} contentFit="cover" />
+                ) : isSystemNotif ? (
+                  <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: avatarFallbackBg }]}>
+                    <IconSymbol name="theatermasks.fill" size={20} color={accent} />
+                  </View>
                 ) : (
                   <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: avatarFallbackBg }]}>
                     <Text style={[styles.avatarFallbackText, { color: accent }]}>
@@ -165,7 +178,7 @@ export default function NotificationsScreen() {
                 )}
                 <View style={[styles.textBlock, { gap: isTripInvite ? 6 : 3 }]}>
                   <Text style={[styles.notifText, { color: text }]}>
-                    <Text style={styles.boldName}>{actorLabel}</Text>
+                    {!isSystemNotif && <Text style={styles.boldName}>{actorLabel}</Text>}
                     {notif.type === "visit_tag" && notif.show && (
                       <>{" tagged you in their visit to "}<Text style={styles.boldName}>{notif.show.name}</Text></>
                     )}
@@ -180,6 +193,14 @@ export default function NotificationsScreen() {
                     {notif.type === "trip_invite_declined" && (
                       <>{" declined your invitation to "}<Text style={styles.boldName}>{notif.trip?.name ?? "your trip"}</Text></>
                     )}
+                    {notif.type === "closing_soon" && notif.show && (
+                      <><Text style={styles.boldName}>{notif.show.name}</Text>{" is closing soon!"}</>
+                    )}
+                    {notif.type === "closing_soon" && !notif.show && "A show you follow is closing soon"}
+                    {notif.type === "show_announced" && notif.show && (
+                      <>{"New show announced: "}<Text style={styles.boldName}>{notif.show.name}</Text></>
+                    )}
+                    {notif.type === "show_announced" && !notif.show && "A new show has been announced"}
                   </Text>
                   <Text style={[styles.timeText, { color: mutedText }]}>{timeStr}</Text>
 

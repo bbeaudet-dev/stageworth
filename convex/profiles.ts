@@ -127,6 +127,31 @@ export const updateMyProfile = mutation({
   },
 });
 
+export const getProfileStats = query({
+  args: { userId: v.optional(v.id("users")) },
+  handler: async (ctx, args) => {
+    const viewerUserId = await getConvexUserId(ctx);
+    const targetUserId = args.userId ?? viewerUserId;
+    if (!targetUserId) return null;
+
+    const [rankings, visits] = await Promise.all([
+      ctx.db
+        .query("userRankings")
+        .withIndex("by_user", (q: any) => q.eq("userId", targetUserId))
+        .first(),
+      ctx.db
+        .query("visits")
+        .withIndex("by_user", (q: any) => q.eq("userId", targetUserId))
+        .collect(),
+    ]);
+
+    return {
+      uniqueShowCount: rankings?.showIds?.length ?? 0,
+      totalVisitCount: visits.length,
+    };
+  },
+});
+
 const SEARCH_USERS_LIMIT = 24;
 const SUGGESTED_USERS_LIMIT = 16;
 

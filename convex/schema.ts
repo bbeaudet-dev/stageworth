@@ -329,6 +329,27 @@ export default defineSchema({
     .index("by_trip_show_user", ["tripId", "tripShowId", "userId"]),
 
   // Ephemeral "viewing this trip" heartbeats for the trip detail screen.
+  theatreChallenges: defineTable({
+    userId: v.id("users"),
+    year: v.number(),
+    targetCount: v.number(),
+    currentCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user_year", ["userId", "year"]),
+
+  userStats: defineTable({
+    userId: v.id("users"),
+    theatreRank: v.optional(v.number()),
+    theatreScore: v.number(),
+    currentStreakWeeks: v.number(),
+    longestStreakWeeks: v.number(),
+    lastActiveWeek: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_theatreScore", ["theatreScore"]),
+
   tripPresence: defineTable({
     tripId: v.id("trips"),
     userId: v.id("users"),
