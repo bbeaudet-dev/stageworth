@@ -41,6 +41,28 @@ export const getByIds = query({
   },
 });
 
+export const search = query({
+  args: { q: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const needle = args.q.trim().toLowerCase();
+    const max = Math.min(args.limit ?? 20, 50);
+    const allShows = await ctx.db.query("shows").collect();
+
+    const matched = needle.length === 0
+      ? allShows.slice(0, max)
+      : allShows
+          .filter((s) => s.name.toLowerCase().includes(needle))
+          .slice(0, max);
+
+    return Promise.all(
+      matched.map(async (show) => ({
+        ...show,
+        images: await resolveShowImageUrls(ctx, show),
+      })),
+    );
+  },
+});
+
 export const create = mutation({
   args: {
     name: v.string(),
