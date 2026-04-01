@@ -43,6 +43,26 @@ interface ProductionEntry {
   productionType: ProductionType;
 }
 
+// ─── One-time: clear curated playbill-banner images from all shows ───────────
+// Run from dashboard: npx convex run seed:clearShowStorageImages
+// After running, all shows will have images: [] and the enrichment pipeline
+// (Wikipedia / Ticketmaster) will fill in hotlink URLs on the next backfill run.
+export const clearShowStorageImages = internalMutation({
+  handler: async (ctx) => {
+    const shows = await ctx.db.query("shows").collect();
+    let cleared = 0;
+    for (const show of shows) {
+      if (show.images.length === 0) continue;
+      for (const storageId of show.images) {
+        await ctx.storage.delete(storageId);
+      }
+      await ctx.db.patch(show._id, { images: [] });
+      cleared++;
+    }
+    return { cleared, total: shows.length };
+  },
+});
+
 // All dates sourced directly from Playbill.com on Mar 9, 2026.
 // Long-running shows use original opening dates; current venue listed.
 const BROADWAY_PRODUCTIONS: ProductionEntry[] = [
