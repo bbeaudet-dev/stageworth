@@ -73,10 +73,12 @@ function formatVisitLocation(
   return [theatre, city].filter(Boolean).join(", ");
 }
 
-function getFirstName(name?: string | null, fallback?: string) {
+function getDisplayName(name?: string | null, fallback?: string) {
   const trimmed = name?.trim();
   if (!trimmed) return fallback ?? "";
-  return trimmed.split(/\s+/)[0] || fallback || "";
+  const parts = trimmed.split(/\s+/);
+  if (parts.length >= 2) return `${parts[0]} ${parts[1][0]}.`;
+  return parts[0] || fallback || "";
 }
 
 type TaggedUser = { _id: string; username: string; name?: string | null };
@@ -316,7 +318,7 @@ export default function CommunityScreen() {
         ) : null}
         {!isLoading
           ? posts.map((post) => {
-              const actorLabel = getFirstName(
+              const actorLabel = getDisplayName(
                 post.actor.name,
                 post.actor.username,
               );
@@ -346,23 +348,6 @@ export default function CommunityScreen() {
                 >
                   <View style={styles.postRow}>
                     <View style={styles.postMain}>
-                      <Pressable
-                        onPress={() =>
-                          router.push({
-                            pathname: "/(tabs)/community/user/[username]",
-                            params: { username: post.actor.username },
-                          })
-                        }
-                      >
-                        <Text
-                          style={[
-                            styles.actorHandleText,
-                            { color: actorHandleColor },
-                          ]}
-                        >
-                          @{post.actor.username}
-                        </Text>
-                      </Pressable>
                       <Text
                         style={[styles.postTitle, { color: primaryTextColor }]}
                       >
@@ -404,7 +389,7 @@ export default function CommunityScreen() {
                                 })
                               }
                             >
-                              {getFirstName(tagged[0].name, tagged[0].username)}
+                              {getDisplayName(tagged[0].name, tagged[0].username)}
                             </Text>
                           </>
                         )}
@@ -449,12 +434,35 @@ export default function CommunityScreen() {
                           Not currently ranked
                         </Text>
                       )}
+                      <Pressable
+                        onPress={() =>
+                          router.push({
+                            pathname: "/(tabs)/community/user/[username]",
+                            params: { username: post.actor.username },
+                          })
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.actorHandleText,
+                            { color: actorHandleColor },
+                          ]}
+                        >
+                          @{post.actor.username}
+                        </Text>
+                      </Pressable>
                     </View>
-                    <View
+                    <Pressable
                       style={[
                         styles.posterWrap,
                         { backgroundColor: posterBackground },
                       ]}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/show/[showId]",
+                          params: { showId: post.show._id },
+                        })
+                      }
                     >
                       {post.show.images[0] ? (
                         <Image
@@ -473,7 +481,7 @@ export default function CommunityScreen() {
                           </Text>
                         </View>
                       )}
-                    </View>
+                    </Pressable>
                   </View>
                 </View>
               );
@@ -630,8 +638,8 @@ const styles = StyleSheet.create({
     color: "#2f62d8",
   },
   actorHandleText: {
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "500",
     color: "#4d4d4d",
   },
   showText: {
