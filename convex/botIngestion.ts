@@ -6,6 +6,8 @@ import { normalizeShowName, mapExternalTypeToShowType } from "./showNormalizatio
 import { addShowToAllUsersUncategorizedIfEligible } from "./listRules";
 import { getProductionStatus } from "../src/utils/productions";
 
+const NYC_DISTRICTS = new Set(["broadway", "off_broadway", "off_off_broadway"]);
+
 // ─── Validators (mirrors bot/src/parser.ts types) ────────────────────────────
 
 const districtValidator = v.union(
@@ -189,6 +191,34 @@ export const ingestProduction = internalMutation({
         summary: p.summary,
         showName: show.name,
       });
+    }
+
+    // 5. Schedule image enrichment for the new show/production.
+    const showHasImage = show.images.length > 0 || !!show.hotlinkImageUrl;
+
+    if (NYC_DISTRICTS.has(p.district) && !showHasImage) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.imageEnrichment.ticketmaster.enrichProductionTicketmaster,
+        {
+          productionId,
+          showId: show._id,
+          showName: show.name,
+          showHasImage: false,
+        }
+      );
+    }
+
+    if (isNewShow && !showHasImage) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.imageEnrichment.wikipedia.enrichShowWikipedia,
+        {
+          showId: show._id,
+          showName: show.name,
+          showType: show.type,
+        }
+      );
     }
   },
 });

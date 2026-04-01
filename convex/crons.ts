@@ -150,4 +150,12 @@ crons.daily(
   {}
 );
 
+// Enrich NYC production images from Ticketmaster daily at 6:00 AM ET (11:00 UTC).
+crons.daily(
+  "enrich-production-images",
+  { hourUTC: 11, minuteUTC: 0 },
+  internal.imageEnrichment.ticketmaster.enrichProductionImages,
+  {}
+);
+
 export default crons;
