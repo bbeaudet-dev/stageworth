@@ -62,19 +62,17 @@ export default function TabLayout() {
         options={{
           title: "",
           tabBarLabel: () => null,
-          tabBarIcon: ({ focused }) => (
-            <View style={styles.plusButton}>
-              <Text
-                style={[
-                  styles.plusText,
-                  { color: colorScheme === "dark" ? "#ffffff" : "#1f1f1f" },
-                  focused && styles.plusTextFocused,
-                ]}
-              >
-                +
-              </Text>
-            </View>
-          ),
+          tabBarIcon: ({ focused }) => {
+            const accent = Colors[colorScheme ?? "light"].accent;
+            const bg = colorScheme === "dark"
+              ? focused ? "#2a3a42" : "#1e2c33"
+              : accent;
+            return (
+              <View style={[styles.plusButton, { backgroundColor: bg }]}>
+                <Text style={styles.plusText}>+</Text>
+              </View>
+            );
+          },
         }}
       />
       <Tabs.Screen
@@ -101,19 +99,22 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   plusButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: -2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 4,
   },
   plusText: {
-    fontSize: 28,
-    lineHeight: 30,
-    fontWeight: "300",
-  },
-  plusTextFocused: {
+    color: "#ffffff",
+    fontSize: 22,
+    lineHeight: 24,
     fontWeight: "400",
+    marginTop: -1,
   },
 });
