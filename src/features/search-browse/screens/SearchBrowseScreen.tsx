@@ -1,8 +1,9 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useFocusEffect } from "@react-navigation/native";
 import { useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -19,7 +20,6 @@ import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useTabNav } from "@/hooks/use-tab-nav";
-import { setSearchInputRef } from "../searchInputRef";
 
 const GRID_GAP = 8;
 const GRID_COLUMNS = 4;
@@ -43,8 +43,17 @@ export default function SearchBrowseScreen() {
   const chipBg = Colors[theme].surface;
   const posterBg = theme === "dark" ? "#27272f" : "#efefef";
 
+  const inputRef = useRef<TextInput>(null);
+
   const [query, setQuery] = useState("");
   const [inputFocused, setInputFocused] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      const t = setTimeout(() => inputRef.current?.focus(), 100);
+      return () => clearTimeout(t);
+    }, []),
+  );
   const trimmed = query.trim();
   const isSearchActive = trimmed.length >= MIN_SEARCH_LENGTH;
 
@@ -89,7 +98,7 @@ export default function SearchBrowseScreen() {
         <View style={[styles.searchField, { backgroundColor: chipBg, borderColor: border }]}>
           <IconSymbol size={18} name="magnifyingglass" color={muted} />
           <TextInput
-            ref={setSearchInputRef}
+            ref={inputRef}
             style={[styles.searchInput, { color: text }]}
             value={query}
             onChangeText={setQuery}

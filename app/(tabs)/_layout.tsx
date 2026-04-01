@@ -1,4 +1,5 @@
 import { Redirect, Tabs } from "expo-router";
+import { StyleSheet, Text, View } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -6,7 +7,6 @@ import { ProfileTabIcon } from "@/components/ui/ProfileTabIcon";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useSession } from "@/lib/auth-client";
-import { searchInputRef } from "@/features/search-browse/searchInputRef";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -59,15 +59,21 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="search"
-        listeners={{
-          tabPress: () => {
-            setTimeout(() => searchInputRef?.focus(), 80);
-          },
-        }}
         options={{
-          title: "Search",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="magnifyingglass" color={color} />
+          title: "",
+          tabBarLabel: () => null,
+          tabBarIcon: ({ focused }) => (
+            <View style={styles.plusButton}>
+              <Text
+                style={[
+                  styles.plusText,
+                  { color: colorScheme === "dark" ? "#ffffff" : "#1f1f1f" },
+                  focused && styles.plusTextFocused,
+                ]}
+              >
+                +
+              </Text>
+            </View>
           ),
         }}
       />
@@ -92,3 +98,22 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  plusButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: -2,
+  },
+  plusText: {
+    fontSize: 28,
+    lineHeight: 30,
+    fontWeight: "300",
+  },
+  plusTextFocused: {
+    fontWeight: "400",
+  },
+});
