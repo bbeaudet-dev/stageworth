@@ -1,0 +1,521 @@
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useQuery } from "convex/react";
+import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Colors } from "@/constants/theme";
+import { api } from "@/convex/_generated/api";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useTabNav } from "@/hooks/use-tab-nav";
+import { setSearchInputRef } from "../searchInputRef";
+
+const GRID_GAP = 8;
+const GRID_COLUMNS = 4;
+const SECTION_PADDING = 16;
+const MIN_SEARCH_LENGTH = 2;
+
+export default function SearchBrowseScreen() {
+  const router = useRouter();
+  const { pushUserProfile } = useTabNav();
+  const tabBarHeight = useBottomTabBarHeight();
+  const { width: screenWidth } = useWindowDimensions();
+
+  const colorScheme = useColorScheme();
+  const theme = colorScheme ?? "light";
+  const bg = Colors[theme].background;
+  const surface = Colors[theme].surfaceElevated;
+  const border = Colors[theme].border;
+  const text = Colors[theme].text;
+  const muted = Colors[theme].mutedText;
+  const accent = Colors[theme].accent;
+  const chipBg = Colors[theme].surface;
+  const posterBg = theme === "dark" ? "#27272f" : "#efefef";
+
+  const [query, setQuery] = useState("");
+  const [inputFocused, setInputFocused] = useState(false);
+  const trimmed = query.trim();
+  const isSearchActive = trimmed.length >= MIN_SEARCH_LENGTH;
+
+  const showResults = useQuery(
+    api.shows.search,
+    isSearchActive ? { q: trimmed, limit: 12 } : "skip",
+  );
+  const userResults = useQuery(
+    api.profiles.searchUsers,
+    isSearchActive ? { q: trimmed } : "skip",
+  );
+
+  const currentShows = useQuery(api.productions.listCurrent, {});
+  const upcomingShows = useQuery(api.productions.listUpcoming, { days: 90 });
+  const closingSoon = useQuery(api.productions.listClosingSoon, { days: 30 });
+
+  const cardWidth = Math.floor(
+    (screenWidth - SECTION_PADDING * 2 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS,
+  );
+
+  const handleCancel = () => {
+    setQuery("");
+    setInputFocused(false);
+  };
+
+  const navigateToShow = (showId: string, showName?: string) => {
+    router.push({
+      pathname: "/(tabs)/search/show/[showId]",
+      params: { showId, name: showName },
+    });
+  };
+
+  const hasShowResults = showResults && showResults.length > 0;
+  const hasUserResults = userResults && userResults.length > 0;
+  const noResults = isSearchActive && showResults !== undefined && userResults !== undefined
+    && !hasShowResults && !hasUserResults;
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: bg }]} edges={["top"]}>
+      {/* Search header */}
+      <View style={styles.headerRow}>
+        <View style={[styles.searchField, { backgroundColor: chipBg, borderColor: border }]}>
+          <IconSymbol size={18} name="magnifyingglass" color={muted} />
+          <TextInput
+            ref={setSearchInputRef}
+            style={[styles.searchInput, { color: text }]}
+            value={query}
+            onChangeText={setQuery}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
+            placeholder="Shows, people, productions..."
+            placeholderTextColor={muted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+            returnKeyType="search"
+          />
+        </View>
+        {inputFocused && (
+          <Pressable onPress={handleCancel} hitSlop={8}>
+            <Text style={[styles.cancelText, { color: accent }]}>Cancel</Text>
+          </Pressable>
+        )}
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + 24 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* ─── Search results (2+ chars) ─── */}
+        {isSearchActive && (
+          <>
+            {hasShowResults && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: text }]}>Shows</Text>
+                <View style={styles.grid}>
+                  {chunk(showResults.slice(0, 8), GRID_COLUMNS).map((row, ri) => (
+                    <View key={ri} style={styles.gridRow}>
+                      {row.map((show) => (
+                        <Pressable
+                          key={show._id}
+                          style={[styles.playbillCard, { width: cardWidth, backgroundColor: surface }]}
+                          onPress={() => navigateToShow(show._id, show.name)}
+                        >
+                          {show.images[0] ? (
+                            <Image
+                              source={{ uri: show.images[0] }}
+                              style={styles.playbillImg}
+                              contentFit="cover"
+                            />
+                          ) : (
+                            <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: posterBg }]}>
+                              <Text
+                                style={[styles.playbillFbText, { color: muted }]}
+                                numberOfLines={4}
+                                adjustsFontSizeToFit
+                                minimumFontScale={0.6}
+                              >
+                                {show.name}
+                              </Text>
+                            </View>
+                          )}
+                        </Pressable>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {hasUserResults && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: text }]}>People</Text>
+                {userResults.slice(0, 6).map((user) => (
+                  <Pressable
+                    key={user._id}
+                    style={[styles.userRow, { backgroundColor: surface, borderColor: border }]}
+                    onPress={() => pushUserProfile(user.username)}
+                  >
+                    <View style={[styles.userAvatar, { backgroundColor: accent + "22" }]}>
+                      {user.avatarUrl ? (
+                        <Image
+                          source={{ uri: user.avatarUrl }}
+                          style={StyleSheet.absoluteFillObject}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <Text style={[styles.userInitials, { color: accent }]}>
+                          {getInitials(user.name, user.username)}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.userInfo}>
+                      <Text style={[styles.userName, { color: text }]} numberOfLines={1}>
+                        {user.name?.trim() || user.username}
+                      </Text>
+                      <Text style={[styles.userHandle, { color: muted }]} numberOfLines={1}>
+                        @{user.username}
+                      </Text>
+                    </View>
+                    <IconSymbol name="chevron.right" size={16} color={muted} />
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            {noResults && (
+              <View style={styles.emptyState}>
+                <IconSymbol name="magnifyingglass" size={36} color={muted} />
+                <Text style={[styles.emptyTitle, { color: text }]}>No results</Text>
+                <Text style={[styles.emptySubtitle, { color: muted }]}>
+                  Nothing found for "{trimmed}"
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+
+        {/* ─── Default browse content — always visible unless showing results ─── */}
+        {!isSearchActive && (
+          <>
+            {/* Quick actions */}
+            <View style={styles.quickActionsRow}>
+              <Pressable
+                style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}
+                onPress={() => router.push("/add-visit")}
+              >
+                <IconSymbol name="plus.circle.fill" size={22} color={accent} />
+                <Text style={[styles.quickActionText, { color: text }]}>Add Visit</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}
+                onPress={() =>
+                  router.push({ pathname: "/(tabs)/plan", params: { createTrip: "1" } })
+                }
+              >
+                <IconSymbol name="airplane" size={22} color={accent} />
+                <Text style={[styles.quickActionText, { color: text }]}>New Trip</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}
+                onPress={() =>
+                  router.push({ pathname: "/(tabs)/plan", params: { createList: "1" } })
+                }
+              >
+                <IconSymbol name="list.bullet" size={22} color={accent} />
+                <Text style={[styles.quickActionText, { color: text }]}>New List</Text>
+              </Pressable>
+            </View>
+
+            {currentShows && currentShows.length > 0 && (
+              <BrowseRail
+                title="Now Playing"
+                items={currentShows}
+                cardWidth={cardWidth}
+                surfaceColor={surface}
+                posterBg={posterBg}
+                textColor={text}
+                mutedColor={muted}
+                onPress={navigateToShow}
+              />
+            )}
+
+            {closingSoon && closingSoon.length > 0 && (
+              <BrowseRail
+                title="Closing Soon"
+                items={closingSoon}
+                cardWidth={cardWidth}
+                surfaceColor={surface}
+                posterBg={posterBg}
+                textColor={text}
+                mutedColor={muted}
+                onPress={navigateToShow}
+              />
+            )}
+
+            {upcomingShows && upcomingShows.length > 0 && (
+              <BrowseRail
+                title="Coming Soon"
+                items={upcomingShows}
+                cardWidth={cardWidth}
+                surfaceColor={surface}
+                posterBg={posterBg}
+                textColor={text}
+                mutedColor={muted}
+                onPress={navigateToShow}
+              />
+            )}
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getInitials(name?: string | null, username?: string) {
+  const source = name?.trim() || username || "?";
+  const parts = source.split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return source.slice(0, 2).toUpperCase();
+}
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    result.push(arr.slice(i, i + size));
+  }
+  return result;
+}
+
+// ─── BrowseRail ──────────────────────────────────────────────────────────────
+
+type BrowseItem = {
+  _id: string;
+  show: { _id: string; name: string; images: string[] };
+  posterUrl?: string | null;
+};
+
+function BrowseRail({
+  title,
+  items,
+  cardWidth,
+  surfaceColor,
+  posterBg,
+  textColor,
+  mutedColor,
+  onPress,
+}: {
+  title: string;
+  items: BrowseItem[];
+  cardWidth: number;
+  surfaceColor: string;
+  posterBg: string;
+  textColor: string;
+  mutedColor: string;
+  onPress: (showId: string, showName?: string) => void;
+}) {
+  const seen = new Set<string>();
+  const unique = items.filter((p) => {
+    if (seen.has(p.show._id)) return false;
+    seen.add(p.show._id);
+    return true;
+  });
+
+  return (
+    <View style={styles.section}>
+      <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.railContent}
+      >
+        {unique.map((prod) => {
+          const image = prod.posterUrl ?? prod.show.images[0] ?? null;
+          return (
+            <Pressable
+              key={prod._id}
+              style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}
+              onPress={() => onPress(prod.show._id, prod.show.name)}
+            >
+              {image ? (
+                <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+              ) : (
+                <View
+                  style={[styles.playbillImg, styles.playbillFb, { backgroundColor: posterBg }]}
+                >
+                  <Text
+                    style={[styles.playbillFbText, { color: mutedColor }]}
+                    numberOfLines={4}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.6}
+                  >
+                    {prod.show.name}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: SECTION_PADDING,
+    paddingTop: 6,
+    paddingBottom: 10,
+    gap: 12,
+  },
+  searchField: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 0,
+  },
+  cancelText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  scrollContent: {
+    paddingHorizontal: SECTION_PADDING,
+    gap: 20,
+  },
+
+  // Quick actions
+  quickActionsRow: {
+    flexDirection: "row",
+    gap: GRID_GAP,
+  },
+  quickAction: {
+    flex: 1,
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  // Sections
+  section: {
+    gap: 10,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  // Grid (search results)
+  grid: {
+    gap: GRID_GAP,
+  },
+  gridRow: {
+    flexDirection: "row",
+    gap: GRID_GAP,
+  },
+
+  // Playbill cards
+  playbillCard: {
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  playbillImg: {
+    width: "100%",
+    aspectRatio: 2 / 3,
+  },
+  playbillFb: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  playbillFbText: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
+  // Rail
+  railContent: {
+    gap: GRID_GAP,
+    paddingRight: SECTION_PADDING,
+  },
+
+  // User rows
+  userRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 12,
+  },
+  userAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  userInitials: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  userInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  userName: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  userHandle: {
+    fontSize: 13,
+  },
+
+  // Empty state
+  emptyState: {
+    alignItems: "center",
+    gap: 10,
+    marginTop: 48,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: "center",
+  },
+});

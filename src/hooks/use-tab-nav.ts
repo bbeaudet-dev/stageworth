@@ -9,9 +9,10 @@ export function useTabNav() {
   const router = useRouter();
   const segments = useSegments();
 
-  const tabKey = useMemo<"community" | "plan" | "my-shows" | "profile">(() => {
+  const tabKey = useMemo<"community" | "plan" | "search" | "my-shows" | "profile">(() => {
     if (segments[0] === "(tabs)" && segments[1] === "community") return "community";
     if (segments[0] === "(tabs)" && segments[1] === "plan") return "plan";
+    if (segments[0] === "(tabs)" && segments[1] === "search") return "search";
     if (segments[0] === "(tabs)" && segments[1] === "my-shows") return "my-shows";
     return "profile";
   }, [segments]);
@@ -22,6 +23,8 @@ export function useTabNav() {
         router.push({ pathname: "/(tabs)/community/user/[username]", params: { username } });
       } else if (tabKey === "plan") {
         router.push({ pathname: "/(tabs)/plan/user/[username]", params: { username } });
+      } else if (tabKey === "search") {
+        router.push({ pathname: "/(tabs)/search/user/[username]", params: { username } });
       } else if (tabKey === "my-shows") {
         router.push({ pathname: "/(tabs)/my-shows/user/[username]", params: { username } });
       } else {
@@ -41,6 +44,11 @@ export function useTabNav() {
       } else if (tabKey === "plan") {
         router.push({
           pathname: "/(tabs)/plan/user/[username]/[kind]",
+          params: { username, kind },
+        });
+      } else if (tabKey === "search") {
+        router.push({
+          pathname: "/(tabs)/search/user/[username]/[kind]",
           params: { username, kind },
         });
       } else if (tabKey === "my-shows") {
