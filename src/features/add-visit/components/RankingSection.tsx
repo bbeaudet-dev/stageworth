@@ -1,4 +1,4 @@
-import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, Text, useWindowDimensions, View } from "react-native";
 
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -58,6 +58,13 @@ export function RankingSection({
 }) {
   const theme = useColorScheme() ?? "light";
   const c = Colors[theme];
+  const { width: windowWidth } = useWindowDimensions();
+  // Match Add Visit `content` (16) + ranking card inset (12). Playbills sized as if 3 fit per row.
+  const comparisonPlaybillWidth = Math.max(
+    88,
+    Math.floor((windowWidth - 16 * 2 - 12 * 2 - 10 * 2) / 3)
+  );
+
   return (
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: c.text }]}>How was it?</Text>
@@ -139,7 +146,14 @@ export function RankingSection({
               <Text style={[styles.placeholderTitle, { color: c.text }]}>Which show do you prefer?</Text>
               <View style={styles.comparisonCards}>
                 <Pressable
-                  style={[styles.playbillCard, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
+                  style={[
+                    styles.playbillCard,
+                    {
+                      width: comparisonPlaybillWidth,
+                      backgroundColor: c.surfaceElevated,
+                      borderColor: c.border,
+                    },
+                  ]}
                   onPress={() => onComparisonAnswer(true)}
                 >
                   <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
@@ -151,7 +165,14 @@ export function RankingSection({
                 </Pressable>
 
                 <Pressable
-                  style={[styles.playbillCard, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
+                  style={[
+                    styles.playbillCard,
+                    {
+                      width: comparisonPlaybillWidth,
+                      backgroundColor: c.surfaceElevated,
+                      borderColor: c.border,
+                    },
+                  ]}
                   onPress={() => onComparisonAnswer(false)}
                 >
                   {comparisonTarget.images[0] ? (
