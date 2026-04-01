@@ -120,7 +120,7 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
           {currentYear} Theatre Challenge
         </Text>
         <Text style={[styles.setupPrompt, { color: mutedTextColor }]}>
-          How many new shows do you want to see this year?
+          How many shows do you want to see this year?
         </Text>
         <View style={styles.setupRow}>
           <TextInput
