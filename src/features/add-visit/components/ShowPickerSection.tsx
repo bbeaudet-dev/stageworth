@@ -82,11 +82,6 @@ export function ShowPickerSection({
                   <Text style={[styles.noResultsText, { color: c.mutedText }]}>No matching shows</Text>
                 </View>
               )}
-              {query.trim().length === 0 && (
-                <View style={[styles.suggestionHeaderRow, { backgroundColor: c.surface, borderTopColor: c.border }]}>
-                  <Text style={[styles.suggestionHeaderText, { color: c.mutedText }]}>Suggestions</Text>
-                </View>
-              )}
               {searchResults.map((show) => {
                 const status = userShowStatusById.get(show._id);
                 const hasSeen = visitedShowIds.has(show._id) || status !== undefined;

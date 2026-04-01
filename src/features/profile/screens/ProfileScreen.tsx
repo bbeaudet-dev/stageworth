@@ -13,10 +13,12 @@ import { TasteProfile } from "@/features/profile/components/TasteProfile";
 import { TheatreChallenge } from "@/features/profile/components/TheatreChallenge";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useSession } from "@/lib/auth-client";
 
 export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
+  const { data: session } = useSession();
   const myProfile = useQuery(api.profiles.getMyProfile);
   const stats = useQuery(api.profiles.getProfileStats, {});
   const userStats = useQuery(api.userStats.getUserStats, {});
@@ -61,6 +63,12 @@ export default function ProfileScreen() {
       >
         <ProfileHeader
           profile={myProfile}
+          sessionDisplayName={session?.user?.name}
+          sessionAvatarUrl={
+            typeof session?.user?.image === "string"
+              ? session.user.image
+              : undefined
+          }
           stats={stats}
           theatreRank={userStats?.theatreRank}
           streakWeeks={userStats?.currentStreakWeeks}
