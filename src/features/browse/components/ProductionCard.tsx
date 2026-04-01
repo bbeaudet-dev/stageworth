@@ -7,6 +7,7 @@ import type { ProductionWithShow } from "@/features/browse/types";
 import { getProductionStatus } from "@/utils/productions";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 
 type BadgeConfig = { label: string; bg: string; text: string };
 
@@ -77,17 +78,15 @@ export function ProductionCard({
       {image ? (
         <Image source={{ uri: image }} style={styles.playbillImage} contentFit="cover" />
       ) : (
-        <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
-          <Text
-            style={[styles.playbillFallbackText, { color: c.mutedText }]}
-            numberOfLines={5}
-            adjustsFontSizeToFit
-            minimumFontScale={0.6}
-          >
-            {show?.name ?? ""}
+        <ShowPlaceholder name={show?.name ?? ""} type={show?.type} />
+      )}
+      {production.ticketmasterEventUrl && image ? (
+        <View style={local.attributionRow}>
+          <Text style={[local.attributionText, { color: c.mutedText }]}>
+            via Ticketmaster
           </Text>
         </View>
-      )}
+      ) : null}
       {badge ? (
         <View style={[local.badgeStrip, { backgroundColor: badge.bg }]}>
           <Text style={[local.badgeText, { color: badge.text }]}>{badge.label}</Text>
@@ -98,12 +97,24 @@ export function ProductionCard({
 }
 
 const local = StyleSheet.create({
-  // Strip sits immediately below the image, clipped by the card's overflow:hidden
-  // so its bottom corners inherit the card's borderRadius automatically.
   badgeStrip: {
     width: "100%",
     paddingVertical: 4,
     alignItems: "center",
   },
   badgeText: { fontSize: 9, fontWeight: "700" },
+  attributionRow: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderTopLeftRadius: 4,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  attributionText: {
+    fontSize: 7,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.85)",
+  },
 });

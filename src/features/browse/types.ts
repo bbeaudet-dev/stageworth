@@ -8,9 +8,11 @@ export type ProductionWithShow = {
   openingDate?: string;
   closingDate?: string;
   posterUrl?: string | null;
+  ticketmasterEventUrl?: string;
   show?: {
     _id?: Id<"shows">;
     name?: string;
+    type?: string;
     images?: string[];
   };
 };
