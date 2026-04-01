@@ -73,6 +73,7 @@ export const styles = StyleSheet.create({
     fontWeight: "500",
   },
   resultsCard: {
+    marginTop: 6,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#e1e1e1",
     borderRadius: 10,
@@ -95,20 +96,6 @@ export const styles = StyleSheet.create({
   noResultsText: {
     color: "#999",
     fontSize: 14,
-  },
-  suggestionHeaderRow: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#ededed",
-    backgroundColor: "#fafafa",
-  },
-  suggestionHeaderText: {
-    fontSize: 12,
-    color: "#888",
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
   },
   resultRow: {
     flexDirection: "row",
@@ -179,6 +166,30 @@ export const styles = StyleSheet.create({
   },
   productionChipTextSelected: {
     color: "#fff",
+  },
+  datePickerCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  datePickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  datePickerLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  datePickerValue: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  datePickerDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 14,
   },
   otherForm: {
     gap: 10,
@@ -270,10 +281,10 @@ export const styles = StyleSheet.create({
   },
   comparisonCards: {
     flexDirection: "row",
+    justifyContent: "center",
     gap: 10,
   },
   playbillCard: {
-    flex: 1,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#d4d4d4",
@@ -295,13 +306,13 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   playbillFallbackText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     color: "#666",
     textAlign: "center",
   },
   playbillName: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#222",
     fontWeight: "600",
     paddingHorizontal: 10,
