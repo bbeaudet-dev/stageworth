@@ -82,7 +82,14 @@ export default function SearchBrowseScreen() {
   const navigateToShow = (showId: string, showName?: string) => {
     router.push({
       pathname: "/(tabs)/search/show/[showId]",
-      params: { showId, name: showName },
+      params: { showId, name: showName, _ts: Date.now().toString() },
+    });
+  };
+
+  const navigateToCategory = (category: string) => {
+    router.push({
+      pathname: "/(tabs)/search/shows/[category]",
+      params: { category },
     });
   };
 
@@ -222,7 +229,7 @@ export default function SearchBrowseScreen() {
                 style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}
                 onPress={() => router.push("/add-visit")}
               >
-                <IconSymbol name="plus.circle.fill" size={22} color={accent} />
+                <IconSymbol name="plus.circle.fill" size={16} color={accent} />
                 <Text style={[styles.quickActionText, { color: text }]}>Add Visit</Text>
               </Pressable>
               <Pressable
@@ -231,7 +238,7 @@ export default function SearchBrowseScreen() {
                   router.push({ pathname: "/(tabs)/plan", params: { createTrip: "1" } })
                 }
               >
-                <IconSymbol name="airplane" size={22} color={accent} />
+                <IconSymbol name="airplane" size={16} color={accent} />
                 <Text style={[styles.quickActionText, { color: text }]}>New Trip</Text>
               </Pressable>
               <Pressable
@@ -240,7 +247,7 @@ export default function SearchBrowseScreen() {
                   router.push({ pathname: "/(tabs)/plan", params: { createList: "1" } })
                 }
               >
-                <IconSymbol name="list.bullet" size={22} color={accent} />
+                <IconSymbol name="list.bullet" size={16} color={accent} />
                 <Text style={[styles.quickActionText, { color: text }]}>New List</Text>
               </Pressable>
             </View>
@@ -254,7 +261,9 @@ export default function SearchBrowseScreen() {
                 posterBg={posterBg}
                 textColor={text}
                 mutedColor={muted}
+                accentColor={accent}
                 onPress={navigateToShow}
+                onSeeMore={() => navigateToCategory("now-playing")}
               />
             )}
 
@@ -267,7 +276,9 @@ export default function SearchBrowseScreen() {
                 posterBg={posterBg}
                 textColor={text}
                 mutedColor={muted}
+                accentColor={accent}
                 onPress={navigateToShow}
+                onSeeMore={() => navigateToCategory("closing-soon")}
               />
             )}
 
@@ -280,9 +291,19 @@ export default function SearchBrowseScreen() {
                 posterBg={posterBg}
                 textColor={text}
                 mutedColor={muted}
+                accentColor={accent}
                 onPress={navigateToShow}
+                onSeeMore={() => navigateToCategory("coming-soon")}
               />
             )}
+
+            <Pressable
+              style={styles.seeAllButton}
+              onPress={() => navigateToCategory("all")}
+            >
+              <Text style={[styles.seeAllText, { color: accent }]}>See All Shows</Text>
+              <IconSymbol name="chevron.right" size={14} color={accent} />
+            </Pressable>
           </>
         )}
       </ScrollView>
@@ -323,7 +344,9 @@ function BrowseRail({
   posterBg,
   textColor,
   mutedColor,
+  accentColor,
   onPress,
+  onSeeMore,
 }: {
   title: string;
   items: BrowseItem[];
@@ -332,7 +355,9 @@ function BrowseRail({
   posterBg: string;
   textColor: string;
   mutedColor: string;
+  accentColor: string;
   onPress: (showId: string, showName?: string) => void;
+  onSeeMore?: () => void;
 }) {
   const seen = new Set<string>();
   const unique = items.filter((p) => {
@@ -343,7 +368,14 @@ function BrowseRail({
 
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
+        {onSeeMore && (
+          <Pressable onPress={onSeeMore} hitSlop={8}>
+            <Text style={[styles.seeMoreText, { color: accentColor }]}>See All</Text>
+          </Pressable>
+        )}
+      </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -424,10 +456,12 @@ const styles = StyleSheet.create({
   },
   quickAction: {
     flex: 1,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
   },
   quickActionText: {
@@ -439,9 +473,31 @@ const styles = StyleSheet.create({
   section: {
     gap: 10,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
+  },
+  seeMoreText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  // See all shows
+  seeAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 14,
+  },
+  seeAllText: {
+    fontSize: 15,
+    fontWeight: "600",
   },
 
   // Grid (search results)
