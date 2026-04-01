@@ -185,7 +185,7 @@ export default function NotificationsScreen() {
                     {notif.type === "visit_tag" && !notif.show && " tagged you in a visit"}
                     {notif.type === "new_follow" && " started following you"}
                     {isTripInvite && (
-                      <>{" invited you to join "}<Text style={styles.boldName}>{notif.trip?.name ?? "a trip"}</Text></>
+                      <>{" invited you to join their trip "}<Text style={styles.boldName}>{notif.trip?.name ?? "a trip"}</Text></>
                     )}
                     {notif.type === "trip_invite_accepted" && (
                       <>{" accepted your invitation to "}<Text style={styles.boldName}>{notif.trip?.name ?? "your trip"}</Text></>
