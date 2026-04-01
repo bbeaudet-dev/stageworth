@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalAction, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireConvexUserId } from "./auth";
+import { resolveShowImageUrls } from "./helpers";
 
 // ─── Push helpers ────────────────────────────────────────────────────────────
 
@@ -116,10 +117,7 @@ export const listForCurrentUser = query({
         if (notif.showId) {
           const showDoc = await ctx.db.get(notif.showId);
           if (showDoc) {
-            const imageUrls = await Promise.all(
-              showDoc.images.map((id) => ctx.storage.getUrl(id))
-            );
-            show = { ...showDoc, images: imageUrls.filter(Boolean) as string[] };
+            show = { ...showDoc, images: await resolveShowImageUrls(ctx, showDoc) };
           }
         }
 

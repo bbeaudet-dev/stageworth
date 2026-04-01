@@ -14,6 +14,14 @@ export default defineSchema({
     ),
     subtype: v.optional(v.string()),
     images: v.array(v.id("_storage")),
+    // Hotlinked image URL from Wikipedia CDN or Ticketmaster CDN.
+    // Used when images[] is empty. Never download fair-use Wikipedia bytes.
+    hotlinkImageUrl: v.optional(v.string()),
+    hotlinkImageSource: v.optional(
+      v.union(v.literal("wikipedia"), v.literal("ticketmaster"))
+    ),
+    wikipediaTitle: v.optional(v.string()),
+    ticketmasterAttractionId: v.optional(v.string()),
     isUserCreated: v.boolean(),
     externalSource: v.optional(v.string()),
     externalId: v.optional(v.string()),
@@ -58,6 +66,10 @@ export default defineSchema({
       v.literal("other")
     ),
     posterImage: v.optional(v.id("_storage")),
+    // Hotlinked poster URL from Ticketmaster CDN for this specific production.
+    hotlinkPosterUrl: v.optional(v.string()),
+    ticketmasterEventId: v.optional(v.string()),
+    ticketmasterEventUrl: v.optional(v.string()),
     // false = seeded/curated data; true = added manually by a user
     isUserCreated: v.boolean(),
     // Hook for future sync with IBDB, Playbill, etc.
