@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -7,8 +8,10 @@ import {
   View,
 } from "react-native";
 
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { shouldUseOauthProfileImageUrl } from "@/utils/oauthProfilePhoto";
 
 export function getInitials(name?: string | null, username?: string) {
   const source = name?.trim() || username || "?";
@@ -31,6 +34,10 @@ export interface ProfileHeaderData {
 
 interface ProfileHeaderProps {
   profile: ProfileHeaderData;
+  /** Fills the gap before Convex profile name syncs (e.g. OAuth display name from Better Auth). */
+  sessionDisplayName?: string | null;
+  /** Provider profile image when user has no Convex `avatarUrl` (filtered — see `shouldUseOauthProfileImageUrl`). */
+  sessionAvatarUrl?: string | null;
   onFollowToggle?: () => void;
   followPending?: boolean;
   onPressFollowers?: () => void;
@@ -45,6 +52,8 @@ interface ProfileHeaderProps {
 
 export function ProfileHeader({
   profile,
+  sessionDisplayName,
+  sessionAvatarUrl,
   onFollowToggle,
   followPending,
   onPressFollowers,
@@ -62,8 +71,22 @@ export function ProfileHeader({
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
 
-  const displayName = profile.name?.trim() || profile.username || "User";
+  const displayName =
+    profile.name?.trim() ||
+    sessionDisplayName?.trim() ||
+    profile.username ||
+    "User";
+  const oauthAvatar =
+    shouldUseOauthProfileImageUrl(sessionAvatarUrl) ? sessionAvatarUrl : null;
+  const avatarUri = profile.avatarUrl ?? oauthAvatar ?? null;
   const showFollowBtn = !profile.viewerIsSelf && !!onFollowToggle;
+
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [avatarUri]);
+
+  const showPhoto = Boolean(avatarUri) && !avatarLoadFailed;
 
   return (
     <>
@@ -71,16 +94,15 @@ export function ProfileHeader({
       <View style={[styles.heroCard, { backgroundColor: surfaceColor, borderColor }]}>
         <View style={styles.topRow}>
           <View style={[styles.avatar, { backgroundColor: accentColor + "22" }]}>
-            {profile.avatarUrl ? (
+            {showPhoto && avatarUri ? (
               <Image
-                source={{ uri: profile.avatarUrl }}
+                source={{ uri: avatarUri }}
                 style={StyleSheet.absoluteFillObject}
                 contentFit="cover"
+                onError={() => setAvatarLoadFailed(true)}
               />
             ) : (
-              <Text style={[styles.avatarInitials, { color: accentColor }]}>
-                {getInitials(profile.name, profile.username)}
-              </Text>
+              <IconSymbol name="person.fill" size={34} color={accentColor} />
             )}
           </View>
 
@@ -231,10 +253,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-  },
-  avatarInitials: {
-    fontSize: 26,
-    fontWeight: "700",
   },
   infoColumn: {
     flex: 1,
