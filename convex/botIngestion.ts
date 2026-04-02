@@ -101,9 +101,17 @@ export const ingestProduction = internalMutation({
         externalSource: "bot",
         externalId: normalizedName,
         sourceConfidence: p.confidence,
+        dataStatus: "needs_review",
       });
       show = await ctx.db.get(showId);
       isNewShow = true;
+
+      if (show) {
+        await createReviewEntries(ctx, "show", show._id, {
+          name: show.name,
+          type: show.type,
+        });
+      }
     }
 
     if (!show) return; // defensive
@@ -140,8 +148,19 @@ export const ingestProduction = internalMutation({
         isUserCreated: false,
         externalId: args.sourceUrl,
         notes: undefined,
+        dataStatus: "needs_review",
       });
       isNewProduction = true;
+
+      await createReviewEntries(ctx, "production", productionId, {
+        theatre: p.theatre ?? undefined,
+        city: p.city ?? undefined,
+        district: p.district,
+        previewDate: p.preview_date ?? undefined,
+        openingDate: p.opening_date ?? undefined,
+        closingDate: p.closing_date ?? undefined,
+        productionType: p.production_type,
+      });
     } else {
       // Patch dates if the bot provided new/different values.
       const patch: Record<string, string | undefined> = {};
@@ -159,6 +178,7 @@ export const ingestProduction = internalMutation({
       }
       if (Object.keys(patch).length > 0) {
         await ctx.db.patch(existing._id, patch);
+        await createReviewEntries(ctx, "production", existing._id, patch);
       }
     }
 
@@ -355,6 +375,37 @@ export const listBotActivitySince = internalQuery({
       }));
   },
 });
+
+// ─── Helper: create review queue entries for populated fields ─────────────────
+
+async function createReviewEntries(
+  ctx: any,
+  entityType: "show" | "production",
+  entityId: string,
+  fields: Record<string, string | undefined>
+) {
+  const now = Date.now();
+  for (const [field, value] of Object.entries(fields)) {
+    if (value === undefined) continue;
+    const existing = await ctx.db
+      .query("reviewQueue")
+      .withIndex("by_entity_field", (q: any) =>
+        q.eq("entityType", entityType).eq("entityId", entityId).eq("field", field)
+      )
+      .collect();
+    if (existing.some((e: any) => e.status === "pending")) continue;
+
+    await ctx.db.insert("reviewQueue", {
+      entityType,
+      entityId,
+      field,
+      currentValue: value,
+      source: "bot" as const,
+      status: "pending" as const,
+      createdAt: now,
+    });
+  }
+}
 
 // ─── Helper: insert system notification row ───────────────────────────────────
 

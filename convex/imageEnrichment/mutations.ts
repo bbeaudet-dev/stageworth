@@ -46,6 +46,28 @@ export const setShowHotlinkImage = internalMutation({
     }
 
     await ctx.db.patch(args.showId, patch);
+
+    // Create a review queue entry for the new image.
+    const existingEntries = await ctx.db
+      .query("reviewQueue")
+      .withIndex("by_entity_field", (q) =>
+        q
+          .eq("entityType", "show")
+          .eq("entityId", args.showId)
+          .eq("field", "hotlinkImageUrl")
+      )
+      .collect();
+    if (!existingEntries.some((e) => e.status === "pending")) {
+      await ctx.db.insert("reviewQueue", {
+        entityType: "show",
+        entityId: args.showId,
+        field: "hotlinkImageUrl",
+        currentValue: args.hotlinkImageUrl,
+        source: args.hotlinkImageSource,
+        status: "pending",
+        createdAt: Date.now(),
+      });
+    }
   },
 });
 
@@ -81,5 +103,27 @@ export const setProductionHotlinkImage = internalMutation({
       ticketmasterEventId: args.ticketmasterEventId,
       ticketmasterEventUrl: args.ticketmasterEventUrl,
     });
+
+    // Create a review queue entry for the new production poster.
+    const existingEntries = await ctx.db
+      .query("reviewQueue")
+      .withIndex("by_entity_field", (q) =>
+        q
+          .eq("entityType", "production")
+          .eq("entityId", args.productionId)
+          .eq("field", "hotlinkPosterUrl")
+      )
+      .collect();
+    if (!existingEntries.some((e) => e.status === "pending")) {
+      await ctx.db.insert("reviewQueue", {
+        entityType: "production",
+        entityId: args.productionId,
+        field: "hotlinkPosterUrl",
+        currentValue: args.hotlinkPosterUrl,
+        source: "ticketmaster",
+        status: "pending",
+        createdAt: Date.now(),
+      });
+    }
   },
 });

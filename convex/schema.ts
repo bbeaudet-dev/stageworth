@@ -26,10 +26,19 @@ export default defineSchema({
     externalSource: v.optional(v.string()),
     externalId: v.optional(v.string()),
     sourceConfidence: v.optional(v.number()),
+    // Admin review status — undefined treated as "needs_review".
+    dataStatus: v.optional(
+      v.union(
+        v.literal("needs_review"),
+        v.literal("partial"),
+        v.literal("complete")
+      )
+    ),
   })
     .index("by_name", ["name"])
     .index("by_normalized_name", ["normalizedName"])
-    .index("by_external_source_id", ["externalSource", "externalId"]),
+    .index("by_external_source_id", ["externalSource", "externalId"])
+    .index("by_dataStatus", ["dataStatus"]),
 
   // A specific physical run of a show at a specific venue.
   // e.g. "Hamilton, original Broadway, Richard Rodgers Theatre, Jul 2015 – Jan 2020"
@@ -75,10 +84,19 @@ export default defineSchema({
     // Hook for future sync with IBDB, Playbill, etc.
     externalId: v.optional(v.string()),
     notes: v.optional(v.string()),
+    // Admin review status — undefined treated as "needs_review".
+    dataStatus: v.optional(
+      v.union(
+        v.literal("needs_review"),
+        v.literal("partial"),
+        v.literal("complete")
+      )
+    ),
   })
     .index("by_show", ["showId"])
     .index("by_district", ["district"])
-    .index("by_closing_date", ["closingDate"]),
+    .index("by_closing_date", ["closingDate"])
+    .index("by_dataStatus", ["dataStatus"]),
 
   venues: defineTable({
     name: v.string(),
@@ -398,4 +416,33 @@ export default defineSchema({
     productionId: v.optional(v.id("productions")),
     createdAt: v.number(),
   }).index("by_createdAt", ["createdAt"]),
+
+  // Per-field review decisions for shows and productions.
+  reviewQueue: defineTable({
+    entityType: v.union(v.literal("show"), v.literal("production")),
+    entityId: v.string(),
+    field: v.string(),
+    currentValue: v.optional(v.string()),
+    source: v.union(
+      v.literal("wikipedia"),
+      v.literal("ticketmaster"),
+      v.literal("bot"),
+      v.literal("seed"),
+      v.literal("manual"),
+      v.literal("wikidata")
+    ),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected"),
+      v.literal("edited")
+    ),
+    reviewedValue: v.optional(v.string()),
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+    reviewedAt: v.optional(v.number()),
+  })
+    .index("by_entity", ["entityType", "entityId"])
+    .index("by_status", ["status"])
+    .index("by_entity_field", ["entityType", "entityId", "field"]),
 });

@@ -10,6 +10,7 @@
 
 import type * as admin_legacyWikidata from "../admin/legacyWikidata.js";
 import type * as admin_maintenance from "../admin/maintenance.js";
+import type * as admin_reviewBackfill from "../admin/reviewBackfill.js";
 import type * as admin_seed from "../admin/seed.js";
 import type * as admin_wikiApi from "../admin/wikiApi.js";
 import type * as auth from "../auth.js";
@@ -30,6 +31,7 @@ import type * as lists from "../lists.js";
 import type * as notifications from "../notifications.js";
 import type * as productions from "../productions.js";
 import type * as rankings from "../rankings.js";
+import type * as reviewQueue from "../reviewQueue.js";
 import type * as showNormalization from "../showNormalization.js";
 import type * as shows from "../shows.js";
 import type * as social_community from "../social/community.js";
@@ -52,6 +54,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "admin/legacyWikidata": typeof admin_legacyWikidata;
   "admin/maintenance": typeof admin_maintenance;
+  "admin/reviewBackfill": typeof admin_reviewBackfill;
   "admin/seed": typeof admin_seed;
   "admin/wikiApi": typeof admin_wikiApi;
   auth: typeof auth;
@@ -72,6 +75,7 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   productions: typeof productions;
   rankings: typeof rankings;
+  reviewQueue: typeof reviewQueue;
   showNormalization: typeof showNormalization;
   shows: typeof shows;
   "social/community": typeof social_community;
