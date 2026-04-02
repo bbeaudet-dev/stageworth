@@ -50,10 +50,6 @@ export function PublicShowsGrid({ userId, onPressShow }: PublicShowsGridProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: surfaceColor, borderColor }]}>
-      <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>
-        Rankings
-      </Text>
-
       <View style={styles.grid}>
         {rows.map((row, ri) => (
           <View key={ri} style={styles.gridRow}>
@@ -95,11 +91,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     padding: CONTAINER_PADDING,
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
   },
   grid: {
     gap: GRID_GAP,

@@ -48,6 +48,12 @@ interface ProfileHeaderProps {
   } | null;
   theatreRank?: number | null;
   streakWeeks?: number | null;
+  activitySummary?: {
+    showCount: number;
+    typeCount: number;
+    percentile: number;
+    locationLabel?: string | null;
+  } | null;
 }
 
 export function ProfileHeader({
@@ -61,6 +67,7 @@ export function ProfileHeader({
   stats,
   theatreRank,
   streakWeeks,
+  activitySummary,
 }: ProfileHeaderProps) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -219,13 +226,35 @@ export function ProfileHeader({
         </View>
       </View>
 
-      {/* Streak & Challenge row */}
-      {(streakWeeks != null && streakWeeks > 0) && (
-        <View style={[styles.streakCard, { backgroundColor: surfaceColor, borderColor }]}>
-          <Text style={[styles.streakEmoji, { fontFamily: undefined }]}>🔥</Text>
-          <Text style={[styles.streakValue, { color: primaryTextColor }]}>
-            {streakWeeks} {streakWeeks === 1 ? "week" : "week"} streak
-          </Text>
+      {/* Combined activity card: streak + percentile snapshot */}
+      {((streakWeeks != null && streakWeeks > 0) || (activitySummary && activitySummary.showCount > 0)) && (
+        <View style={[styles.activityCard, { backgroundColor: surfaceColor, borderColor }]}>
+          {streakWeeks != null && streakWeeks > 0 && (
+            <View style={styles.activityRow}>
+              <Text style={styles.streakEmoji}>🔥</Text>
+              <Text style={[styles.activityPrimary, { color: primaryTextColor }]}>
+                {streakWeeks} {streakWeeks === 1 ? "week" : "weeks"} streak
+              </Text>
+            </View>
+          )}
+          {streakWeeks != null && streakWeeks > 0 && activitySummary && activitySummary.showCount > 0 && (
+            <View style={[styles.activityDivider, { backgroundColor: borderColor }]} />
+          )}
+          {activitySummary && activitySummary.showCount > 0 && (
+            <>
+              <View style={styles.activityRow}>
+                <Text style={[styles.activityPrimary, { color: primaryTextColor }]}>
+                  Top {100 - activitySummary.percentile}% theatregoer
+                </Text>
+              </View>
+              <Text style={[styles.activitySub, { color: mutedTextColor }]}>
+                {activitySummary.showCount} {activitySummary.showCount === 1 ? "show" : "shows"}
+                {" · "}
+                {activitySummary.typeCount} {activitySummary.typeCount === 1 ? "genre" : "genres"}
+                {activitySummary.locationLabel ? ` in ${activitySummary.locationLabel}` : " this month"}
+              </Text>
+            </>
+          )}
         </View>
       )}
     </>
@@ -342,20 +371,32 @@ const styles = StyleSheet.create({
     width: StyleSheet.hairlineWidth,
     height: 28,
   },
-  streakCard: {
+  activityCard: {
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: 12,
     paddingHorizontal: 16,
+    gap: 6,
+  },
+  activityRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 7,
   },
-  streakEmoji: {
-    fontSize: 18,
+  activityDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 2,
   },
-  streakValue: {
+  activityPrimary: {
     fontSize: 15,
     fontWeight: "700",
+  },
+  activitySub: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  streakEmoji: {
+    fontSize: 17,
+    fontFamily: undefined,
   },
 });
