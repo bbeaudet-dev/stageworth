@@ -27,7 +27,6 @@ import type * as imageEnrichment_wikipedia from "../imageEnrichment/wikipedia.js
 import type * as leaderboard from "../leaderboard.js";
 import type * as listRules from "../listRules.js";
 import type * as lists from "../lists.js";
-import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
 import type * as productions from "../productions.js";
 import type * as rankings from "../rankings.js";
@@ -70,7 +69,6 @@ declare const fullApi: ApiFromModules<{
   leaderboard: typeof leaderboard;
   listRules: typeof listRules;
   lists: typeof lists;
-  migrations: typeof migrations;
   notifications: typeof notifications;
   productions: typeof productions;
   rankings: typeof rankings;
