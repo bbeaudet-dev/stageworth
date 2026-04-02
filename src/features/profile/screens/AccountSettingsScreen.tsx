@@ -13,8 +13,8 @@ import { authClient, useSession } from "@/lib/auth-client";
 
 export default function AccountSettingsScreen() {
   const { data: session, isPending } = useSession();
-  const myProfile = useQuery(api["social/profiles"].getMyProfile);
-  const updateMyProfile = useMutation(api["social/profiles"].updateMyProfile);
+  const myProfile = useQuery(api.social.profiles.getMyProfile);
+  const updateMyProfile = useMutation(api.social.profiles.updateMyProfile);
   const removePushToken = useMutation(api.notifications.removePushToken);
 
   const [nameDraft, setNameDraft] = useState("");

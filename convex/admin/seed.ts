@@ -2175,7 +2175,18 @@ export const importWikipediaProductionsForShow = internalAction({
     showType: showTypeValidator,
     wikipediaTitle: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    showName: string;
+    wikipediaTitle: string;
+    created: number;
+    skipped: number;
+    reason?: string;
+    errors?: string[];
+    imageUrl?: string | null;
+  }> => {
     const { showName, showType, wikipediaTitle } = args;
 
     // Resolve or create the show first.

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
 import { getConvexUserId } from "./auth";
 
 const TIER_SCORE_RANGES: Record<string, [number, number]> = {
@@ -43,8 +44,10 @@ export const getRecentActivity = query({
 
     const showTypes = new Set<string>();
     for (const showId of recentShowIds) {
-      const show = await ctx.db.get(showId);
-      if (show) showTypes.add(show.type);
+      const doc = await ctx.db.get(showId as Id<"shows">);
+      if (doc && "type" in doc && typeof doc.type === "string") {
+        showTypes.add((doc as Doc<"shows">).type);
+      }
     }
 
     const allUsers = await ctx.db.query("users").collect();

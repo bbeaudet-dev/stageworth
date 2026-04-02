@@ -25,7 +25,7 @@ export function useAddVisitData({
     api.productions.listByShow,
     selectedShowId ? { showId: selectedShowId } : "skip"
   );
-  const myFollowing = useQuery(api["social/social"].listMyFollowing, {});
+  const myFollowing = useQuery(api.social.social.listMyFollowing, {});
   const createVisitMutation = useMutation(api.visits.createVisit);
 
   const selectedShow = useMemo(

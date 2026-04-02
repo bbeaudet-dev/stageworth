@@ -64,11 +64,11 @@ export default function UserSearchScreen() {
     }, []),
   );
 
-  const results = useQuery(api["social/profiles"].searchUsers, { q: queryText });
+  const results = useQuery(api.social.profiles.searchUsers, { q: queryText });
   const currentUserId = useQuery(api.auth.getConvexUserIdQuery);
 
-  const followUser = useMutation(api["social/social"].followUser);
-  const unfollowUser = useMutation(api["social/social"].unfollowUser);
+  const followUser = useMutation(api.social.social.followUser);
+  const unfollowUser = useMutation(api.social.social.unfollowUser);
   const [pendingFollowUserId, setPendingFollowUserId] = useState<string | null>(
     null,
   );

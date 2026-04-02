@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
 import { removeShowFromSystemLists } from "./listRules";
@@ -223,12 +223,7 @@ export const listMapPins = query({
   args: { scope: mapScopeValidator },
   handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
-    let visits: Array<{
-      userId: string;
-      venueId?: Id<"venues">;
-      theatre?: string;
-      city?: string;
-    }> = [];
+    let visits: Doc<"visits">[] = [];
 
     if (args.scope === "mine") {
       visits = await ctx.db
@@ -827,9 +822,10 @@ export const createVisit = mutation({
           if (prevProgress < milestone && progress >= milestone) {
             await ctx.db.insert("activityPosts", {
               actorUserId: userId,
-              type: "challenge_milestone" as any,
-              visitDate: args.date,
+              type: "challenge_milestone",
+              visitId,
               showId,
+              visitDate: args.date,
               notes: `Reached ${Math.round(milestone * 100)}% of their ${visitYear} Theatre Challenge (${newCount}/${challenge.targetCount} shows)!`,
               createdAt: Date.now(),
             });

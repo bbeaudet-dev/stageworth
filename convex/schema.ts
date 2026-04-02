@@ -250,7 +250,10 @@ export default defineSchema({
 
   activityPosts: defineTable({
     actorUserId: v.id("users"),
-    type: v.union(v.literal("visit_created")),
+    type: v.union(
+      v.literal("visit_created"),
+      v.literal("challenge_milestone")
+    ),
     visitId: v.id("visits"),
     showId: v.id("shows"),
     productionId: v.optional(v.id("productions")),
