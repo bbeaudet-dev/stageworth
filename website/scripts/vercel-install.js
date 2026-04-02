@@ -1,9 +1,9 @@
 /**
- * Vercel install hook: `npm install` in website/, then mirror packages into the
- * repo root `node_modules/` so TypeScript can resolve modules when it follows
- * `convex/_generated/api.d.ts` into `convex/**/*.ts` (those files import
- * `convex/*`, `@convex-dev/*`, `@better-auth/*`, etc.). Website-only installs
- * do not populate ../node_modules by default.
+ * Vercel install hook: npm install in website/, then mirror packages into the
+ * repo root node_modules so TypeScript can resolve modules when it follows
+ * convex/_generated/api.d.ts into other convex TypeScript sources (convex/*,
+ * @convex-dev/*, @better-auth/*, etc.). Website-only installs do not populate
+ * ../node_modules by default.
  */
 
 const { execSync } = require("child_process");
