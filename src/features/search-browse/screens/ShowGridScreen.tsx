@@ -1,7 +1,9 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -48,6 +50,16 @@ export default function ShowGridScreen() {
 
   const config = CATEGORIES[category ?? ""] ?? CATEGORIES["now-playing"];
 
+  // router.push() with an absolute pathname dispatches through the root
+  // navigator tree and can end up placing show/[showId] as the only screen
+  // in the search stack on subsequent navigations. That leaves the back button
+  // visible (parent tab has history so canGoBack() is true) but non-functional
+  // (the search stack itself has nothing to pop). Using navigation.push()
+  // directly targets the nearest Stack navigator (the search stack) so every
+  // tap correctly lands on top of the existing [index → shows/[cat]] stack.
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const isNavigatingRef = useRef(false);
+
   const currentShows = useQuery(
     api.productions.listCurrent,
     config.query === "now-playing" ? {} : "skip",
@@ -66,10 +78,10 @@ export default function ShowGridScreen() {
   );
 
   const navigateToShow = (showId: string, showName?: string) => {
-    router.push({
-      pathname: "/(tabs)/search/show/[showId]",
-      params: { showId, name: showName, _ts: Date.now().toString() },
-    });
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    navigation.push("show/[showId]", { showId, name: showName });
+    setTimeout(() => { isNavigatingRef.current = false; }, 800);
   };
 
   const items = useMemo(() => {
