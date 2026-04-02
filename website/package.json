@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "vercel-install": "node scripts/vercel-install.js",
     "copy-convex": "node scripts/copy-convex-generated.js",
     "predev": "npm run copy-convex",
     "dev": "next dev",
