@@ -26,6 +26,14 @@ export function Nav() {
           >
             Review Queue
           </Link>
+          <div className="ml-auto">
+            <a
+              href="/api/admin/logout"
+              className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
+            >
+              Log out
+            </a>
+          </div>
         </div>
       </div>
     </nav>
