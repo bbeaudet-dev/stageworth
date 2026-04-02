@@ -20,7 +20,12 @@ const src = path.resolve(__dirname, "../../convex/_generated");
 const dst = path.resolve(__dirname, "../convex_generated");
 
 if (!fs.existsSync(src)) {
-  console.warn(`[copy-convex-generated] Source not found: ${src}. Skipping.`);
+  const msg = `[copy-convex-generated] Source not found: ${src}`;
+  if (process.env.VERCEL === "1") {
+    console.error(`${msg}. Commit convex/_generated or fix repo layout.`);
+    process.exit(1);
+  }
+  console.warn(`${msg}. Skipping (local).`);
   process.exit(0);
 }
 
