@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import type React from "react";
 
 type Decision = "approved" | "rejected" | "edited";
 type DataStatus = "needs_review" | "partial" | "complete";
@@ -120,6 +121,30 @@ const PRODUCTION_FIELDS: FieldDef[] = [
   { field: "notes", label: "Notes", inputType: "textarea" },
 ];
 
+// ─── Auto-detect helpers ──────────────────────────────────────────────────────
+
+type ShowDoc = { hotlinkImageUrl?: string; images: string[] };
+type ProdDoc = {
+  theatre?: string;
+  city?: string;
+  openingDate?: string;
+  closingDate?: string;
+};
+
+function computeShowStatus(show: ShowDoc): DataStatus {
+  const hasImage = !!(show.hotlinkImageUrl || show.images.length > 0);
+  return hasImage ? "complete" : "partial";
+}
+
+function computeProductionStatus(prod: ProdDoc): DataStatus {
+  const hasTheatre = !!prod.theatre;
+  const hasCity = !!prod.city;
+  const hasDate = !!(prod.openingDate || prod.closingDate);
+  return hasTheatre && hasCity && hasDate ? "complete" : "partial";
+}
+
+// ─── Field value normalisation ────────────────────────────────────────────────
+
 /**
  * Normalises a raw document field value to string | undefined so the rest of
  * the UI can treat every value uniformly.  Booleans become "true" / "false"
@@ -214,6 +239,38 @@ export default function ShowReviewDetail() {
     []
   );
 
+  const approveAllShow = useCallback(() => {
+    if (!detail) return;
+    const pending = detail.showReviewEntries.filter(
+      (e) => e.status === "pending"
+    );
+    setDecisions((prev) => {
+      const next = new Map(prev);
+      for (const e of pending) {
+        next.set(e._id, { entryId: e._id, decision: "approved" });
+      }
+      return next;
+    });
+    setShowDataStatus(computeShowStatus(detail.show));
+  }, [detail]);
+
+  const approveAllForProduction = useCallback(
+    (prodId: string, prod: ProdDoc & { reviewEntries: { _id: string; status: string }[] }) => {
+      const pending = prod.reviewEntries.filter((e) => e.status === "pending");
+      setDecisions((prev) => {
+        const next = new Map(prev);
+        for (const e of pending) {
+          next.set(e._id, { entryId: e._id, decision: "approved" });
+        }
+        return next;
+      });
+      setProductionStatuses((prev) =>
+        new Map(prev).set(prodId, computeProductionStatus(prod))
+      );
+    },
+    []
+  );
+
   const handleSubmit = async () => {
     if (!detail) return;
     setSubmitting(true);
@@ -298,14 +355,24 @@ export default function ShowReviewDetail() {
 
       {/* Show fields */}
       <section className="mb-10">
-        <h2 className="text-lg font-semibold mb-3 border-b pb-2">
-          Show Data
+        <div className="flex items-center justify-between mb-3 border-b pb-2">
+          <h2 className="text-lg font-semibold">
+            Show Data
+            {pendingShowCount > 0 && (
+              <span className="ml-2 text-sm font-normal text-amber-600">
+                ({pendingShowCount} pending)
+              </span>
+            )}
+          </h2>
           {pendingShowCount > 0 && (
-            <span className="ml-2 text-sm font-normal text-amber-600">
-              ({pendingShowCount} pending)
-            </span>
+            <button
+              onClick={approveAllShow}
+              className="rounded-md bg-green-50 border border-green-200 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
+            >
+              Approve All
+            </button>
           )}
-        </h2>
+        </div>
         <div className="space-y-2">
           {SHOW_FIELDS.map(
             ({ field, label, isImage, alwaysPresent, inputType, options }) => {
@@ -433,32 +500,42 @@ export default function ShowReviewDetail() {
 
                   {isExpanded && (
                     <div className="px-4 py-4 space-y-2">
-                      {/* Production status selector */}
-                      <div className="flex items-center gap-3 pb-3 mb-1 border-b border-gray-100">
-                        <span className="text-sm font-medium text-gray-700">
-                          Status:
-                        </span>
-                        {STATUS_OPTIONS.map((opt) => (
-                          <label
-                            key={opt.value}
-                            className="flex items-center gap-1.5 text-sm"
+                      {/* Production status selector + Approve All */}
+                      <div className="flex items-center justify-between gap-3 pb-3 mb-1 border-b border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-gray-700">
+                            Status:
+                          </span>
+                          {STATUS_OPTIONS.map((opt) => (
+                            <label
+                              key={opt.value}
+                              className="flex items-center gap-1.5 text-sm"
+                            >
+                              <input
+                                type="radio"
+                                name={`prod-status-${prod._id}`}
+                                checked={
+                                  productionStatuses.get(prod._id) === opt.value
+                                }
+                                onChange={() =>
+                                  setProductionStatuses((prev) =>
+                                    new Map(prev).set(prod._id, opt.value)
+                                  )
+                                }
+                                className="accent-gray-900"
+                              />
+                              {opt.label}
+                            </label>
+                          ))}
+                        </div>
+                        {pendingCount > 0 && (
+                          <button
+                            onClick={() => approveAllForProduction(prod._id, prod)}
+                            className="rounded-md bg-green-50 border border-green-200 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors shrink-0"
                           >
-                            <input
-                              type="radio"
-                              name={`prod-status-${prod._id}`}
-                              checked={
-                                productionStatuses.get(prod._id) === opt.value
-                              }
-                              onChange={() =>
-                                setProductionStatuses((prev) =>
-                                  new Map(prev).set(prod._id, opt.value)
-                                )
-                              }
-                              className="accent-gray-900"
-                            />
-                            {opt.label}
-                          </label>
-                        ))}
+                            Approve All
+                          </button>
+                        )}
                       </div>
 
                       {PRODUCTION_FIELDS.map(
@@ -480,6 +557,21 @@ export default function ShowReviewDetail() {
                           const stagedEdit = directEdits.get(
                             editKey("production", prod._id, field)
                           );
+
+                          // Venue match badge on the Theatre field
+                          const extraBadge =
+                            field === "theatre" ? (
+                              prod.venueMatch ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-xs text-teal-700 shrink-0">
+                                  ✓ {prod.venueMatch.name}
+                                </span>
+                              ) : value ? (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-xs text-gray-500 shrink-0">
+                                  No venue match
+                                </span>
+                              ) : undefined
+                            ) : undefined;
+
                           return (
                             <FieldRow
                               key={field}
@@ -491,6 +583,7 @@ export default function ShowReviewDetail() {
                               options={options}
                               entry={entry}
                               stagedEdit={stagedEdit}
+                              extraBadge={extraBadge}
                               decision={
                                 entry ? decisions.get(entry._id) : undefined
                               }
@@ -593,6 +686,7 @@ function FieldRow({
   options,
   entry,
   stagedEdit,
+  extraBadge,
   decision,
   editValue,
   onDecision,
@@ -608,6 +702,7 @@ function FieldRow({
   options?: string[];
   entry?: QueueEntry;
   stagedEdit?: { newValue?: string };
+  extraBadge?: React.ReactNode;
   decision?: EntryDecision;
   editValue?: string;
   onDecision?: (decision: Decision, reviewedValue?: string) => void;
@@ -813,7 +908,8 @@ function FieldRow({
           </span>
         )}
       </div>
-      <div className="shrink-0 flex items-center gap-1.5">
+      <div className="shrink-0 flex items-center gap-1.5 flex-wrap justify-end">
+        {extraBadge}
         {statusBadge}
         {/* Edit / Clear / Undo controls */}
         {hasStagedEdit ? (

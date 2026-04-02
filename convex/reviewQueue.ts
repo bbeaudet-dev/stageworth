@@ -178,11 +178,28 @@ export const getShowReviewDetail = query({
           )
           .collect();
 
+        // Try to find a matching venue by normalized theatre name.
+        let venueMatch: { _id: string; name: string; city: string } | null =
+          null;
+        if (p.theatre) {
+          const normalizedName = normalizeForVenueMatch(p.theatre);
+          const venue = await ctx.db
+            .query("venues")
+            .withIndex("by_normalized_name", (q) =>
+              q.eq("normalizedName", normalizedName)
+            )
+            .first();
+          if (venue) {
+            venueMatch = { _id: venue._id, name: venue.name, city: venue.city };
+          }
+        }
+
         return {
           ...p,
           posterUrl,
           dataStatus: p.dataStatus ?? "needs_review",
           reviewEntries: entries,
+          venueMatch,
         };
       })
     );
@@ -382,6 +399,17 @@ export const createEntry = internalMutation({
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Same normalization used by the venues seeder — kept in sync manually. */
+function normalizeForVenueMatch(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/['']/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 // Fields stored as booleans — string values "true"/"false" must be converted.
 const BOOLEAN_FIELDS = new Set(["isOpenRun"]);
