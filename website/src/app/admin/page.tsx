@@ -120,7 +120,15 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {shows.map((show) => (
+              {shows.map((show: {
+                _id: string;
+                name: string;
+                type: string;
+                dataStatus: string;
+                imageUrl: string | null;
+                pendingCount: number;
+                productionCount: number;
+              }) => (
                 <tr key={show._id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <Link
