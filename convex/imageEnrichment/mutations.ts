@@ -21,18 +21,18 @@ export const setShowHotlinkImage = internalMutation({
     const show = await ctx.db.get(args.showId);
     if (!show) return;
 
-    // Don't let Wikipedia overwrite an existing Ticketmaster image.
-    if (
-      args.hotlinkImageSource === "wikipedia" &&
-      show.hotlinkImageSource === "ticketmaster" &&
-      show.hotlinkImageUrl
-    ) {
-      // Still store the Wikipedia title for reference.
-      if (args.wikipediaTitle && !show.wikipediaTitle) {
-        await ctx.db.patch(args.showId, {
-          wikipediaTitle: args.wikipediaTitle,
-        });
-      }
+    // Don't overwrite an existing image from a different source.
+    // Wikipedia is preferred at the show level (portrait poster art);
+    // TM should only fill in when there's nothing at all.
+    if (show.hotlinkImageUrl) {
+      // Still store metadata for reference.
+      const metaPatch: Record<string, unknown> = {};
+      if (args.wikipediaTitle && !show.wikipediaTitle)
+        metaPatch.wikipediaTitle = args.wikipediaTitle;
+      if (args.ticketmasterAttractionId && !show.ticketmasterAttractionId)
+        metaPatch.ticketmasterAttractionId = args.ticketmasterAttractionId;
+      if (Object.keys(metaPatch).length > 0)
+        await ctx.db.patch(args.showId, metaPatch);
       return;
     }
 

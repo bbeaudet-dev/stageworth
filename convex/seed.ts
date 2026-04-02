@@ -44,9 +44,6 @@ interface ProductionEntry {
 }
 
 // ─── One-time: clear curated playbill-banner images from all shows ───────────
-// Run from dashboard: npx convex run seed:clearShowStorageImages
-// After running, all shows will have images: [] and the enrichment pipeline
-// (Wikipedia / Ticketmaster) will fill in hotlink URLs on the next backfill run.
 export const clearShowStorageImages = internalMutation({
   handler: async (ctx) => {
     const shows = await ctx.db.query("shows").collect();
@@ -60,6 +57,32 @@ export const clearShowStorageImages = internalMutation({
       cleared++;
     }
     return { cleared, total: shows.length };
+  },
+});
+
+// ─── One-time: restore TM images for shows that have no other image ──────────
+// Copies hotlinkPosterUrl from TM-enriched productions to their parent show
+// when the show has no hotlinkImageUrl at all.
+export const restoreTmFallbackImages = internalMutation({
+  handler: async (ctx) => {
+    const shows = await ctx.db.query("shows").collect();
+    let restored = 0;
+    for (const show of shows) {
+      if (show.hotlinkImageUrl) continue;
+      const productions = await ctx.db
+        .query("productions")
+        .withIndex("by_show", (q) => q.eq("showId", show._id))
+        .collect();
+      const tmProd = productions.find((p) => p.hotlinkPosterUrl);
+      if (tmProd) {
+        await ctx.db.patch(show._id, {
+          hotlinkImageUrl: tmProd.hotlinkPosterUrl,
+          hotlinkImageSource: "ticketmaster" as const,
+        });
+        restored++;
+      }
+    }
+    return { restored };
   },
 });
 

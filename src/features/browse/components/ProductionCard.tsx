@@ -76,7 +76,18 @@ export function ProductionCard({
       onPress={onPress}
     >
       {image ? (
-        <Image source={{ uri: image }} style={styles.playbillImage} contentFit="cover" />
+        <Image
+          source={{ uri: image }}
+          style={[
+            styles.playbillImage,
+            production.posterUrl && !show?.images?.[0]
+              ? { backgroundColor: isDark ? "#1a1a2e" : "#f0f0f4" }
+              : undefined,
+          ]}
+          contentFit={
+            production.posterUrl && !show?.images?.[0] ? "contain" : "cover"
+          }
+        />
       ) : (
         <ShowPlaceholder name={show?.name ?? ""} type={show?.type} />
       )}

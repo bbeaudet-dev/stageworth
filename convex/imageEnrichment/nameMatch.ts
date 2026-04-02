@@ -89,11 +89,12 @@ export type TicketmasterImage = {
   fallback: boolean;
 };
 
-const PREFERRED_RATIOS = ["3_2", "4_3", "16_9"];
+const PREFERRED_RATIOS = ["4_3", "3_2", "16_9"];
 
 /**
  * Pick the best non-fallback image from a Ticketmaster image array.
- * Prefers portrait-ish ratios at the highest resolution.
+ * Prefers squarer ratios (4:3) over wide banners (16:9) since images
+ * are displayed in portrait card layouts.
  * Returns null if only fallback/placeholder images are available.
  */
 export function pickBestTicketmasterImage(
@@ -108,6 +109,5 @@ export function pickBestTicketmasterImage(
       .sort((a, b) => b.width - a.width);
     if (candidates.length > 0) return candidates[0];
   }
-  // No preferred ratio matched — pick the largest non-fallback image.
   return real.sort((a, b) => b.width - a.width)[0] ?? null;
 }
