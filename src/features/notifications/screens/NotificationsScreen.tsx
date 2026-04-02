@@ -57,7 +57,7 @@ export default function NotificationsScreen() {
     | undefined;
   const markAllAsRead = useMutation(api.notifications.markAllAsRead);
   const markAsRead = useMutation(api.notifications.markAsRead);
-  const respondToTripInvitation = useMutation(api.trips.respondToTripInvitation);
+  const respondToTripInvitation = useMutation(api["trips/trips"].respondToTripInvitation);
   const [inviteResponding, setInviteResponding] = useState<string | null>(null);
 
   const bg = Colors[theme].background;

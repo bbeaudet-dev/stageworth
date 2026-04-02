@@ -30,12 +30,12 @@ export function UserProfilePanel({ visible, onClose, userId }: UserProfilePanelP
   const accentColor = Colors[theme].accent;
 
   const profile = useQuery(
-    api.profiles.getPublicProfileByUserId,
+    api["social/profiles"].getPublicProfileByUserId,
     userId ? { userId } : "skip"
   );
 
-  const followUser = useMutation(api.social.followUser);
-  const unfollowUser = useMutation(api.social.unfollowUser);
+  const followUser = useMutation(api["social/social"].followUser);
+  const unfollowUser = useMutation(api["social/social"].unfollowUser);
 
   const initials = (() => {
     const source = profile?.name?.trim() || profile?.username || "?";

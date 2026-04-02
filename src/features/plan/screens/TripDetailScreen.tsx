@@ -108,15 +108,15 @@ export default function TripDetailScreen() {
   const closingSoon = useClosingSoonForTrip(typedTripId);
   const { updateTrip, deleteTrip } = useTripData();
 
-  const tripPresenceOthers = useQuery(api.tripPresence.getTripPresence, {
+  const tripPresenceOthers = useQuery(api["trips/tripPresence"].getTripPresence, {
     tripId: typedTripId,
   });
   const heartbeatTripPresence = useMutation(
-    api.tripPresence.heartbeatTripPresence,
+    api["trips/tripPresence"].heartbeatTripPresence,
   );
-  const clearTripPresence = useMutation(api.tripPresence.clearTripPresence);
+  const clearTripPresence = useMutation(api["trips/tripPresence"].clearTripPresence);
   const respondToTripInvitation = useMutation(
-    api.trips.respondToTripInvitation,
+    api["trips/trips"].respondToTripInvitation,
   );
 
   const handleInviteRespond = async (accept: boolean) => {

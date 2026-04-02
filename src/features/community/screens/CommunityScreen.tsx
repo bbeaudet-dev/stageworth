@@ -147,11 +147,11 @@ export default function CommunityScreen() {
   const [selectedTab, setSelectedTab] = useState<FeedTab>("following");
 
   const followingFeed = useQuery(
-    api.community.getFollowingFeed,
+    api["social/community"].getFollowingFeed,
     selectedTab === "following" ? { limit: 40 } : "skip",
   );
   const globalFeed = useQuery(
-    api.community.getGlobalFeed,
+    api["social/community"].getGlobalFeed,
     selectedTab === "global" ? { limit: 40 } : "skip",
   );
   const unreadCount = useQuery(api.notifications.getUnreadCount) ?? 0;

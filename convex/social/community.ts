@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
-import { requireConvexUserId } from "./auth";
-import { resolveShowImageUrls } from "./helpers";
+import { query } from "../_generated/server";
+import { requireConvexUserId } from "../auth";
+import { resolveShowImageUrls } from "../helpers";
 
 const MAX_LIMIT = 50;
 

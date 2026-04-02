@@ -3,15 +3,15 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
-} from "./_generated/server";
-import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+} from "../_generated/server";
+import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import {
   isLikelyLowQualityShowName,
   mapExternalTypeToShowType,
   normalizeShowName,
   type ShowType,
-} from "./showNormalization";
+} from "../showNormalization";
 
 type ProductionType =
   | "original"
@@ -542,7 +542,7 @@ function addReasonCount(reasonCounts: Record<string, number>, reason: ImportReas
 
 // Validated bulk import for historical shows from Wikidata exports.
 // Safe to re-run: duplicate checks happen by external ID and normalized name.
-// Run: npx convex run seed:importWikidataShows '{"entries":[...], "dryRun": true}'
+// Run: npx convex run admin/seed:importWikidataShows '{"entries":[...], "dryRun": true}'
 export const importWikidataShows = internalMutation({
   args: {
     entries: v.array(wikidataImportEntryValidator),
@@ -843,7 +843,7 @@ function similarityForShowMatch(queryNorm: string, showNorm: string): number {
 }
 
 // Fuzzy match Playbill / paste names to existing shows (same normalization as applyPlaybillProductionPaste).
-// Run: npx convex run seed:suggestShowMatchesForNames '{"names":["Aladdin","Wicked"],"limitPerName":8}'
+// Run: npx convex run admin/seed:suggestShowMatchesForNames '{"names":["Aladdin","Wicked"],"limitPerName":8}'
 export const suggestShowMatchesForNames = internalQuery({
   args: {
     names: v.array(v.string()),
@@ -1014,7 +1014,7 @@ export const applyPlaybillProductionPaste = internalMutation({
 });
 
 // Cleanup synthetic theatre labels from early Wikipedia imports.
-// Run: npx convex run seed:cleanupSyntheticWikipediaProductions
+// Run: npx convex run admin/seed:cleanupSyntheticWikipediaProductions
 export const cleanupSyntheticWikipediaProductions = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -1133,7 +1133,7 @@ const OFF_BROADWAY_PRODUCTIONS: ProductionEntry[] = [
 // Seeds the productions table with all current & upcoming Broadway shows.
 // Dates sourced from Playbill.com on Mar 9, 2026.
 // Safe to run multiple times — skips already-existing productions.
-// Run: npx convex run seed:seedBroadwayProductions
+// Run: npx convex run admin/seed:seedBroadwayProductions
 export const seedBroadwayProductions = internalAction({
   handler: async (ctx) => {
     let created = 0;
@@ -1142,12 +1142,12 @@ export const seedBroadwayProductions = internalAction({
 
     for (const entry of BROADWAY_PRODUCTIONS) {
       try {
-        const showId = await ctx.runMutation(internal.seed.findOrCreateShow, {
+        const showId = await ctx.runMutation(internal.admin.seed.findOrCreateShow, {
           name: entry.showName,
           type: entry.showType,
         });
 
-        const result = await ctx.runMutation(internal.seed.insertProduction, {
+        const result = await ctx.runMutation(internal.admin.seed.insertProduction, {
           showId,
           theatre: entry.theatre,
           city: entry.city,
@@ -1174,7 +1174,7 @@ export const seedBroadwayProductions = internalAction({
 // Seeds missed Broadway shows + Off-Broadway productions.
 // Dates sourced from Playbill.com on Mar 9, 2026.
 // Safe to run multiple times — skips already-existing productions.
-// Run: npx convex run seed:seedAdditionalProductions
+// Run: npx convex run admin/seed:seedAdditionalProductions
 export const seedAdditionalProductions = internalAction({
   handler: async (ctx) => {
     let created = 0;
@@ -1183,12 +1183,12 @@ export const seedAdditionalProductions = internalAction({
 
     for (const entry of [...BROADWAY_ADDITIONS, ...OFF_BROADWAY_PRODUCTIONS]) {
       try {
-        const showId = await ctx.runMutation(internal.seed.findOrCreateShow, {
+        const showId = await ctx.runMutation(internal.admin.seed.findOrCreateShow, {
           name: entry.showName,
           type: entry.showType,
         });
 
-        const result = await ctx.runMutation(internal.seed.insertProduction, {
+        const result = await ctx.runMutation(internal.admin.seed.insertProduction, {
           showId,
           theatre: entry.theatre,
           city: entry.city,
@@ -1213,10 +1213,10 @@ export const seedAdditionalProductions = internalAction({
 });
 
 // Populates the shows table with playbill images from benbeaudet.com.
-// Run: npx convex run seed:populateShows
+// Run: npx convex run admin/seed:populateShows
 export const populateShows = internalAction({
   handler: async (ctx) => {
-    const isEmpty = await ctx.runQuery(internal.seed.checkShowsEmpty);
+    const isEmpty = await ctx.runQuery(internal.admin.seed.checkShowsEmpty);
     if (!isEmpty) {
       throw new Error(
         "Shows table already has entries — clear it first to re-seed"
@@ -1242,7 +1242,7 @@ export const populateShows = internalAction({
             const blob = await response.blob();
             const storageId = await ctx.storage.store(blob);
 
-            await ctx.runMutation(internal.seed.insertShow, {
+            await ctx.runMutation(internal.admin.seed.insertShow, {
               name: show.name,
               type: show.type,
               storageId,
@@ -1385,7 +1385,7 @@ async function hasShowReferences(ctx: any, showId: Id<"shows">) {
 
 // Cleanup helper for imported catalog noise and known title merges.
 // Run:
-// npx convex run seed:cleanupShowCatalog '{"canonicalName":"SIX: The Musical","aliasNames":["Six"],"removeNames":["balugrastim"]}'
+// npx convex run admin/seed:cleanupShowCatalog '{"canonicalName":"SIX: The Musical","aliasNames":["Six"],"removeNames":["balugrastim"]}'
 export const cleanupShowCatalog = internalMutation({
   args: {
     canonicalName: v.string(),
@@ -1438,7 +1438,7 @@ export const cleanupShowCatalog = internalMutation({
 // Remove duplicate show rows when a Wikidata-backed canonical exists for the same normalizedName.
 // Keeps one Wikidata-backed row per normalizedName and deletes non-Wikidata duplicates
 // that have no references anywhere else in the system.
-// Run: npx convex run seed:cleanupNonWikidataDuplicateShows
+// Run: npx convex run admin/seed:cleanupNonWikidataDuplicateShows
 export const cleanupNonWikidataDuplicateShows = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -1500,7 +1500,7 @@ export const cleanupNonWikidataDuplicateShows = internalMutation({
 // along with their dependent data (productions, visits, userShows, rankings,
 // lists, activityPosts). This is destructive and will break references;
 // only run when you're explicitly rebuilding from Wikidata.
-// Run: npx convex run seed:wipeNonWikidataShows
+// Run: npx convex run admin/seed:wipeNonWikidataShows
 export const wipeNonWikidataShows = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -1580,7 +1580,7 @@ export const wipeNonWikidataShows = internalMutation({
 
 // Re-import a fixed set of important shows directly from Wikidata via their Wikipedia pages.
 // This targets shows we previously wiped when removing non-Wikidata rows.
-// Run: npx convex run seed:importSpecificWikidataShows
+// Run: npx convex run admin/seed:importSpecificWikidataShows
 export const importSpecificWikidataShows = internalAction({
   args: {},
   handler: async (ctx) => {
@@ -1722,7 +1722,7 @@ export const importSpecificWikidataShows = internalAction({
 
     let importResult: any = null;
     if (entries.length > 0) {
-      importResult = await ctx.runMutation(internal.seed.importWikidataShows, {
+      importResult = await ctx.runMutation(internal.admin.seed.importWikidataShows, {
         entries,
         dryRun: false,
       });
@@ -1842,7 +1842,7 @@ function buildShowTitleCleanupDecisions(shows: any[]) {
 }
 
 // Dry-run cleanup preview for generic "(musical)/(play)/(opera)/(revue)" suffixes.
-// Run: npx convex run seed:previewShowTitleCleanup
+// Run: npx convex run admin/seed:previewShowTitleCleanup
 export const previewShowTitleCleanup = internalQuery({
   args: {
     sampleLimit: v.optional(v.number()),
@@ -1875,7 +1875,7 @@ export const previewShowTitleCleanup = internalQuery({
 });
 
 // Apply cleanup/merge for generic "(musical)/(play)/(opera)/(revue)" suffixes.
-// Run: npx convex run seed:applyShowTitleCleanup
+// Run: npx convex run admin/seed:applyShowTitleCleanup
 export const applyShowTitleCleanup = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -2179,13 +2179,13 @@ export const importWikipediaProductionsForShow = internalAction({
     const { showName, showType, wikipediaTitle } = args;
 
     // Resolve or create the show first.
-    const showId = await ctx.runMutation(internal.seed.findOrCreateShow, {
+    const showId = await ctx.runMutation(internal.admin.seed.findOrCreateShow, {
       name: showName,
       type: showType,
     });
 
     const preview = await ctx.runAction(
-      internal.seed.previewWikipediaProductionsForShow,
+      internal.admin.seed.previewWikipediaProductionsForShow,
       { title: wikipediaTitle }
     );
 
@@ -2222,7 +2222,7 @@ export const importWikipediaProductionsForShow = internalAction({
             ? `${candidate.approxEndYear}-12-31`
             : undefined;
 
-        const result = await ctx.runMutation(internal.seed.insertProduction, {
+        const result = await ctx.runMutation(internal.admin.seed.insertProduction, {
           showId,
           theatre,
           city,

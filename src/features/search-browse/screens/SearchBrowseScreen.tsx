@@ -62,7 +62,7 @@ export default function SearchBrowseScreen() {
     isSearchActive ? { q: trimmed, limit: 12 } : "skip",
   );
   const userResults = useQuery(
-    api.profiles.searchUsers,
+    api["social/profiles"].searchUsers,
     isSearchActive ? { q: trimmed } : "skip",
   );
 

@@ -27,19 +27,19 @@ export default function PublicProfileScreen() {
   const username = typeof params.username === "string" ? params.username : "";
 
   const profile = useQuery(
-    api.profiles.getPublicProfileByUsername,
+    api["social/profiles"].getPublicProfileByUsername,
     username ? { username } : "skip",
   );
   const stats = useQuery(
-    api.profiles.getProfileStats,
+    api["social/profiles"].getProfileStats,
     profile ? { userId: profile._id } : "skip",
   );
   const userStats = useQuery(
     api.userStats.getUserStats,
     profile ? { userId: profile._id } : "skip",
   );
-  const followUser = useMutation(api.social.followUser);
-  const unfollowUser = useMutation(api.social.unfollowUser);
+  const followUser = useMutation(api["social/social"].followUser);
+  const unfollowUser = useMutation(api["social/social"].unfollowUser);
   const [followPending, setFollowPending] = useState(false);
 
   const handleFollow = async () => {

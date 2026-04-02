@@ -8,11 +8,11 @@
  * @module
  */
 
+import type * as admin_seed from "../admin/seed.js";
 import type * as auth from "../auth.js";
 import type * as authFactory from "../authFactory.js";
 import type * as botIngestion from "../botIngestion.js";
 import type * as challenges from "../challenges.js";
-import type * as community from "../community.js";
 import type * as crons from "../crons.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
@@ -27,16 +27,16 @@ import type * as lists from "../lists.js";
 import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
 import type * as productions from "../productions.js";
-import type * as profiles from "../profiles.js";
 import type * as rankings from "../rankings.js";
-import type * as seed from "../seed.js";
 import type * as showNormalization from "../showNormalization.js";
 import type * as shows from "../shows.js";
-import type * as social from "../social.js";
+import type * as social_community from "../social/community.js";
+import type * as social_profiles from "../social/profiles.js";
+import type * as social_social from "../social/social.js";
 import type * as tasteProfile from "../tasteProfile.js";
-import type * as tripLabels from "../tripLabels.js";
-import type * as tripPresence from "../tripPresence.js";
-import type * as trips from "../trips.js";
+import type * as trips_tripLabels from "../trips/tripLabels.js";
+import type * as trips_tripPresence from "../trips/tripPresence.js";
+import type * as trips_trips from "../trips/trips.js";
 import type * as userStats from "../userStats.js";
 import type * as venues from "../venues.js";
 import type * as visits from "../visits.js";
@@ -48,11 +48,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "admin/seed": typeof admin_seed;
   auth: typeof auth;
   authFactory: typeof authFactory;
   botIngestion: typeof botIngestion;
   challenges: typeof challenges;
-  community: typeof community;
   crons: typeof crons;
   helpers: typeof helpers;
   http: typeof http;
@@ -67,16 +67,16 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   notifications: typeof notifications;
   productions: typeof productions;
-  profiles: typeof profiles;
   rankings: typeof rankings;
-  seed: typeof seed;
   showNormalization: typeof showNormalization;
   shows: typeof shows;
-  social: typeof social;
+  "social/community": typeof social_community;
+  "social/profiles": typeof social_profiles;
+  "social/social": typeof social_social;
   tasteProfile: typeof tasteProfile;
-  tripLabels: typeof tripLabels;
-  tripPresence: typeof tripPresence;
-  trips: typeof trips;
+  "trips/tripLabels": typeof trips_tripLabels;
+  "trips/tripPresence": typeof trips_tripPresence;
+  "trips/trips": typeof trips_trips;
   userStats: typeof userStats;
   venues: typeof venues;
   visits: typeof visits;

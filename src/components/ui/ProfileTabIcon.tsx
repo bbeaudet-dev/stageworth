@@ -15,7 +15,7 @@ interface ProfileTabIconProps {
 
 export function ProfileTabIcon({ color, size = 28 }: ProfileTabIconProps) {
   const { data: session } = useSession();
-  const myProfile = useQuery(api.profiles.getMyProfile);
+  const myProfile = useQuery(api["social/profiles"].getMyProfile);
 
   const rawSessionImage =
     typeof session?.user?.image === "string" ? session.user.image : undefined;

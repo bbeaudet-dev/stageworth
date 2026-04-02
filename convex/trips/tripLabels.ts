@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
-import { mutation } from "./_generated/server";
-import { requireConvexUserId } from "./auth";
+import type { Id } from "../_generated/dataModel";
+import { mutation } from "../_generated/server";
+import { requireConvexUserId } from "../auth";
 
 export const tripShowLabelValue = v.union(
   v.literal("must_see"),

@@ -43,20 +43,20 @@ export default function FollowListScreen() {
   const kind: FollowKind = params.kind === "following" ? "following" : "followers";
 
   const profile = useQuery(
-    api.profiles.getPublicProfileByUsername,
+    api["social/profiles"].getPublicProfileByUsername,
     username ? { username } : "skip"
   );
   const followers = useQuery(
-    api.social.listFollowers,
+    api["social/social"].listFollowers,
     profile && kind === "followers" ? { userId: profile._id, limit: 100 } : "skip"
   );
   const following = useQuery(
-    api.social.listFollowing,
+    api["social/social"].listFollowing,
     profile && kind === "following" ? { userId: profile._id, limit: 100 } : "skip"
   );
 
-  const followUser = useMutation(api.social.followUser);
-  const unfollowUser = useMutation(api.social.unfollowUser);
+  const followUser = useMutation(api["social/social"].followUser);
+  const unfollowUser = useMutation(api["social/social"].unfollowUser);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
 
   const handleToggleFollow = useCallback(
