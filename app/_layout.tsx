@@ -36,6 +36,10 @@ export default function RootLayout() {
               options={{ presentation: "modal", headerShown: false }}
             />
             <Stack.Screen
+              name="edit-visit/[visitId]"
+              options={{ presentation: "modal", headerShown: false }}
+            />
+            <Stack.Screen
               name="account-settings"
               options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
             />

@@ -22,6 +22,14 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
+function getDisplayName(name?: string | null, fallback?: string) {
+  const trimmed = name?.trim();
+  if (!trimmed) return fallback ?? "";
+  const parts = trimmed.split(/\s+/);
+  if (parts.length >= 2) return `${parts[0]} ${parts[1][0]}.`;
+  return parts[0] || fallback || "";
+}
+
 function getInitials(name?: string | null, username?: string) {
   const source = name?.trim() || username || "?";
   const parts = source.split(/\s+/);
@@ -218,13 +226,13 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
                       <Pressable
                         key={String(user._id)}
                         style={[styles.friendChip, { backgroundColor: isPending ? accentColor : chipBg, borderColor: isPending ? accentColor : borderColor }]}
-                        onPress={() => setPendingAdd(isPending ? null : { _id: user._id, name: user.name?.split(" ")[0] ?? user.username })}
+                        onPress={() => setPendingAdd(isPending ? null : { _id: user._id, name: getDisplayName(user.name, user.username) })}
                       >
                         {user.avatarUrl
                           ? <Image source={{ uri: user.avatarUrl }} style={styles.friendChipAvatar} contentFit="cover" />
                           : <View style={[styles.friendChipAvatar, styles.friendChipAvatarFb, { backgroundColor: isPending ? "rgba(255,255,255,0.25)" : accentColor + "30" }]}><Text style={[styles.friendChipInitials, { color: isPending ? "#fff" : accentColor }]}>{getInitials(user.name, user.username)}</Text></View>}
                         <Text style={[styles.friendChipName, { color: isPending ? "#fff" : primaryTextColor }]} numberOfLines={1}>
-                          {user.name?.split(" ")[0] ?? user.username}
+                          {getDisplayName(user.name, user.username)}
                         </Text>
                       </Pressable>
                     );

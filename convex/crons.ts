@@ -158,4 +158,12 @@ crons.daily(
   {}
 );
 
+// Recompute global theatre ranks daily at 3:00 AM ET (8:00 UTC).
+crons.daily(
+  "recompute-theatre-ranks",
+  { hourUTC: 8, minuteUTC: 0 },
+  internal.userStats.recomputeAllRanks,
+  {}
+);
+
 export default crons;

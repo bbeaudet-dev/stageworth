@@ -74,36 +74,6 @@ export function TasteProfile({ userId }: TasteProfileProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: surfaceColor, borderColor }]}>
-      <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>
-        Theatre Insights
-      </Text>
-
-      {/* 30-day snapshot */}
-      {recentActivity && recentActivity.visitCount > 0 && (
-        <View style={[styles.snapshotCard, { backgroundColor: chipBg }]}>
-          <Text style={[styles.snapshotLabel, { color: mutedTextColor }]}>
-            Last 30 days
-          </Text>
-          <Text style={[styles.snapshotText, { color: primaryTextColor }]}>
-            Top {100 - recentActivity.percentile}% theatregoer
-            {" · "}
-            {recentActivity.showCount}{" "}
-            {recentActivity.showCount === 1 ? "Show" : "Shows"}
-            {" · "}
-            {recentActivity.typeCount}{" "}
-            {recentActivity.typeCount === 1 ? "Genre" : "Genres"}
-          </Text>
-          {recentActivity.locationLabel && (
-            <Text style={[styles.snapshotSub, { color: mutedTextColor }]}>
-              More active than {recentActivity.percentile}% of theatregoers
-              {recentActivity.locationLabel
-                ? ` in ${recentActivity.locationLabel}`
-                : ""}
-            </Text>
-          )}
-        </View>
-      )}
-
       {/* Category selector */}
       <View style={styles.categoryRow}>
         {(["type", "city", "district"] as StatsCategory[]).map((cat) => (
@@ -179,30 +149,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
     gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  snapshotCard: {
-    borderRadius: 10,
-    padding: 12,
-    gap: 4,
-  },
-  snapshotLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  snapshotText: {
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 20,
-  },
-  snapshotSub: {
-    fontSize: 12,
-    lineHeight: 16,
   },
   categoryRow: {
     flexDirection: "row",

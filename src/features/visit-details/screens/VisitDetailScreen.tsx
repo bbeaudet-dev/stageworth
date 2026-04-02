@@ -27,7 +27,28 @@ export default function VisitDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["bottom"]}>
-      <Stack.Screen options={{ title: "Visit", headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
+      <Stack.Screen
+        options={{
+          title: "Visit",
+          headerShown: true,
+          headerBackButtonDisplayMode: "minimal",
+          headerRight: visit
+            ? () => (
+                <Pressable
+                  hitSlop={10}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/edit-visit/[visitId]",
+                      params: { visitId: String(visitId) },
+                    })
+                  }
+                >
+                  <Text style={{ color: accentColor, fontSize: 16, fontWeight: "500" }}>Edit</Text>
+                </Pressable>
+              )
+            : undefined,
+        }}
+      />
 
       <ScrollView contentContainerStyle={styles.content}>
         {!visit ? (

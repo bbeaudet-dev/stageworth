@@ -22,6 +22,7 @@ export default function ProfileScreen() {
   const myProfile = useQuery(api.social.profiles.getMyProfile);
   const stats = useQuery(api.social.profiles.getProfileStats, {});
   const userStats = useQuery(api.userStats.getUserStats, {});
+  const recentActivity = useQuery(api.tasteProfile.getRecentActivity, {});
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -72,6 +73,12 @@ export default function ProfileScreen() {
           stats={stats}
           theatreRank={userStats?.theatreRank}
           streakWeeks={userStats?.currentStreakWeeks}
+          activitySummary={recentActivity?.visitCount ? {
+            showCount: recentActivity.showCount,
+            typeCount: recentActivity.typeCount,
+            percentile: recentActivity.percentile,
+            locationLabel: recentActivity.locationLabel,
+          } : null}
           onPressFollowers={() =>
             router.push({
               pathname: "/(tabs)/profile/user/[username]/[kind]",
@@ -89,7 +96,12 @@ export default function ProfileScreen() {
         <TheatreChallenge />
 
         {myProfile._id && (
-          <PublicShowsGrid userId={myProfile._id} />
+          <PublicShowsGrid
+            userId={myProfile._id}
+            onPressShow={(showId, showName) =>
+              router.push({ pathname: "/show/[showId]", params: { showId: String(showId), name: showName } })
+            }
+          />
         )}
 
         <ProfileMapSection />

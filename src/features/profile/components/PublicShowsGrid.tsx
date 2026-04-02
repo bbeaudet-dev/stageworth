@@ -1,7 +1,7 @@
 import { useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useMemo } from "react";
-import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
@@ -14,9 +14,10 @@ const CONTAINER_PADDING = 16;
 
 interface PublicShowsGridProps {
   userId: Id<"users">;
+  onPressShow?: (showId: Id<"shows">, showName: string) => void;
 }
 
-export function PublicShowsGrid({ userId }: PublicShowsGridProps) {
+export function PublicShowsGrid({ userId, onPressShow }: PublicShowsGridProps) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const { width: screenWidth } = useWindowDimensions();
@@ -49,15 +50,15 @@ export function PublicShowsGrid({ userId }: PublicShowsGridProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: surfaceColor, borderColor }]}>
-      <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>
-        Rankings
-      </Text>
-
       <View style={styles.grid}>
         {rows.map((row, ri) => (
           <View key={ri} style={styles.gridRow}>
             {row.map((show) => (
-              <View key={String(show._id)} style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}>
+              <Pressable
+                key={String(show._id)}
+                style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}
+                onPress={onPressShow ? () => onPressShow(show._id, show.name) : undefined}
+              >
                 {show.images[0] ? (
                   <Image
                     source={{ uri: show.images[0] }}
@@ -76,7 +77,7 @@ export function PublicShowsGrid({ userId }: PublicShowsGridProps) {
                     </Text>
                   </View>
                 )}
-              </View>
+              </Pressable>
             ))}
           </View>
         ))}
@@ -90,11 +91,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     padding: CONTAINER_PADDING,
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
   },
   grid: {
     gap: GRID_GAP,

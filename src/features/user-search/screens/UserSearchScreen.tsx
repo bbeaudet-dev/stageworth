@@ -86,7 +86,7 @@ export default function UserSearchScreen() {
         });
       }
       router.push({
-        pathname: "/user/[username]",
+        pathname: "/(tabs)/community/user/[username]",
         params: { username },
       });
     },
@@ -261,14 +261,17 @@ export default function UserSearchScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor }]}
-      edges={["bottom"]}
+      edges={["top", "bottom"]}
     >
-      <Stack.Screen
-        options={{
-          title: "Search Users",
-          headerBackButtonDisplayMode: "minimal",
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View style={styles.navRow}>
+        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
+          <IconSymbol name="chevron.left" size={22} color={primaryTextColor} />
+        </Pressable>
+        <Text style={[styles.navTitle, { color: primaryTextColor }]}>Search Users</Text>
+        <View style={styles.backButton} />
+      </View>
 
       <View style={styles.searchWrap}>
         <View
@@ -312,6 +315,21 @@ export default function UserSearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  navRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  backButton: {
+    width: 32,
+    alignItems: "center",
+  },
+  navTitle: {
+    fontSize: 17,
+    fontWeight: "700",
   },
   searchWrap: {
     paddingHorizontal: 16,

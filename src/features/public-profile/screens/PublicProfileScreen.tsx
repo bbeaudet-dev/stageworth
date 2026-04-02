@@ -38,6 +38,10 @@ export default function PublicProfileScreen() {
     api.userStats.getUserStats,
     profile ? { userId: profile._id } : "skip",
   );
+  const recentActivity = useQuery(
+    api.tasteProfile.getRecentActivity,
+    profile ? { userId: profile._id } : "skip",
+  );
   const followUser = useMutation(api.social.social.followUser);
   const unfollowUser = useMutation(api.social.social.unfollowUser);
   const [followPending, setFollowPending] = useState(false);
@@ -99,6 +103,12 @@ export default function PublicProfileScreen() {
               stats={stats}
               theatreRank={userStats?.theatreRank}
               streakWeeks={userStats?.currentStreakWeeks}
+              activitySummary={recentActivity?.visitCount ? {
+                showCount: recentActivity.showCount,
+                typeCount: recentActivity.typeCount,
+                percentile: recentActivity.percentile,
+                locationLabel: recentActivity.locationLabel,
+              } : null}
               onPressFollowers={() => pushFollowList(profile.username, "followers")}
               onPressFollowing={() => pushFollowList(profile.username, "following")}
             />
@@ -108,7 +118,12 @@ export default function PublicProfileScreen() {
               isSelf={profile.viewerIsSelf}
             />
 
-            <PublicShowsGrid userId={profile._id} />
+            <PublicShowsGrid
+              userId={profile._id}
+              onPressShow={(showId, showName) =>
+                router.push({ pathname: "/show/[showId]", params: { showId: String(showId), name: showName } })
+              }
+            />
 
             <TasteProfile userId={profile._id} />
           </>
