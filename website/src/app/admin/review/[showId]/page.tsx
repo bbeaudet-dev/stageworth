@@ -15,12 +15,21 @@ interface EntryDecision {
   note?: string;
 }
 
+interface DirectEdit {
+  entityType: "show" | "production";
+  entityId: string;
+  field: string;
+  newValue?: string;
+}
+
 interface FieldDef {
   field: string;
   label: string;
   isImage?: boolean;
-  /** Fields that are always populated — display-only, no review actions needed */
+  /** Required fields — never show a Missing badge or a Clear button */
   alwaysPresent?: boolean;
+  inputType?: "text" | "select" | "date" | "url" | "textarea";
+  options?: string[];
 }
 
 const STATUS_OPTIONS: { value: DataStatus; label: string }[] = [
@@ -36,27 +45,86 @@ const REVIEWED_STATUS_STYLES: Record<string, string> = {
 };
 
 const SHOW_FIELDS: FieldDef[] = [
-  { field: "name", label: "Name", alwaysPresent: true },
-  { field: "type", label: "Type", alwaysPresent: true },
-  { field: "subtype", label: "Sub-type" },
-  { field: "hotlinkImageUrl", label: "Image", isImage: true },
-  { field: "hotlinkImageSource", label: "Image Source" },
-  { field: "wikipediaTitle", label: "Wikipedia Title" },
-  { field: "ticketmasterAttractionId", label: "Ticketmaster ID" },
+  { field: "name", label: "Name", alwaysPresent: true, inputType: "text" },
+  {
+    field: "type",
+    label: "Type",
+    alwaysPresent: true,
+    inputType: "select",
+    options: ["musical", "play", "opera", "dance", "other"],
+  },
+  { field: "subtype", label: "Sub-type", inputType: "text" },
+  { field: "hotlinkImageUrl", label: "Image", isImage: true, inputType: "url" },
+  {
+    field: "hotlinkImageSource",
+    label: "Image Source",
+    inputType: "select",
+    options: ["wikipedia", "ticketmaster"],
+  },
+  { field: "wikipediaTitle", label: "Wikipedia Title", inputType: "text" },
+  {
+    field: "ticketmasterAttractionId",
+    label: "Ticketmaster ID",
+    inputType: "text",
+  },
 ];
 
 const PRODUCTION_FIELDS: FieldDef[] = [
-  { field: "theatre", label: "Theatre" },
-  { field: "city", label: "City" },
-  { field: "district", label: "District", alwaysPresent: true },
-  { field: "previewDate", label: "Preview Date" },
-  { field: "openingDate", label: "Opening Date" },
-  { field: "closingDate", label: "Closing Date" },
-  { field: "productionType", label: "Production Type", alwaysPresent: true },
-  { field: "hotlinkPosterUrl", label: "Poster Image", isImage: true },
-  { field: "ticketmasterEventUrl", label: "Ticketmaster URL" },
-  { field: "notes", label: "Notes" },
+  { field: "theatre", label: "Theatre", inputType: "text" },
+  { field: "city", label: "City", inputType: "text" },
+  {
+    field: "district",
+    label: "District",
+    alwaysPresent: true,
+    inputType: "select",
+    options: [
+      "broadway",
+      "off_broadway",
+      "off_off_broadway",
+      "west_end",
+      "touring",
+      "regional",
+      "other",
+    ],
+  },
+  { field: "previewDate", label: "Preview Date", inputType: "date" },
+  { field: "openingDate", label: "Opening Date", inputType: "date" },
+  { field: "closingDate", label: "Closing Date", inputType: "date" },
+  {
+    field: "productionType",
+    label: "Production Type",
+    alwaysPresent: true,
+    inputType: "select",
+    options: [
+      "original",
+      "revival",
+      "transfer",
+      "touring",
+      "concert",
+      "workshop",
+      "other",
+    ],
+  },
+  {
+    field: "hotlinkPosterUrl",
+    label: "Poster Image",
+    isImage: true,
+    inputType: "url",
+  },
+  {
+    field: "ticketmasterEventUrl",
+    label: "Ticketmaster URL",
+    inputType: "url",
+  },
+  { field: "notes", label: "Notes", inputType: "textarea" },
 ];
+
+// Stable key for tracking direct edits in a Map
+const editKey = (
+  entityType: "show" | "production",
+  entityId: string,
+  field: string
+) => `${entityType}:${entityId}:${field}`;
 
 export default function ShowReviewDetail() {
   const params = useParams();
@@ -73,7 +141,12 @@ export default function ShowReviewDetail() {
     new Map()
   );
   const [editValues, setEditValues] = useState<Map<string, string>>(new Map());
-  const [showDataStatus, setShowDataStatus] = useState<DataStatus>("needs_review");
+  // Direct edits: staged but not yet submitted patches to any field
+  const [directEdits, setDirectEdits] = useState<Map<string, DirectEdit>>(
+    new Map()
+  );
+  const [showDataStatus, setShowDataStatus] =
+    useState<DataStatus>("needs_review");
   const [productionStatuses, setProductionStatuses] = useState<
     Map<string, DataStatus>
   >(new Map());
@@ -105,6 +178,25 @@ export default function ShowReviewDetail() {
     []
   );
 
+  const stageDirectEdit = useCallback((edit: DirectEdit) => {
+    setDirectEdits((prev) => {
+      const next = new Map(prev);
+      next.set(editKey(edit.entityType, edit.entityId, edit.field), edit);
+      return next;
+    });
+  }, []);
+
+  const unstageDirectEdit = useCallback(
+    (entityType: "show" | "production", entityId: string, field: string) => {
+      setDirectEdits((prev) => {
+        const next = new Map(prev);
+        next.delete(editKey(entityType, entityId, field));
+        return next;
+      });
+    },
+    []
+  );
+
   const handleSubmit = async () => {
     if (!detail) return;
     setSubmitting(true);
@@ -121,11 +213,14 @@ export default function ShowReviewDetail() {
           dataStatus: status,
         })
       );
+      const directEditsArr = Array.from(directEdits.values());
+
       await submitReview({
         showId: showId as Id<"shows">,
         showDataStatus,
         entryDecisions,
         productionStatuses: prodStatuses,
+        directEdits: directEditsArr,
       });
       router.push("/admin");
     } catch (err) {
@@ -147,6 +242,13 @@ export default function ShowReviewDetail() {
   const pendingShowCount = showReviewEntries.filter(
     (e) => e.status === "pending"
   ).length;
+  const pendingTotalCount =
+    pendingShowCount +
+    productions.reduce(
+      (sum, p) => sum + p.reviewEntries.filter((e) => e.status === "pending").length,
+      0
+    );
+  const dirtyCount = directEdits.size;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 pb-32">
@@ -157,31 +259,29 @@ export default function ShowReviewDetail() {
         &larr; Back to dashboard
       </button>
 
-      {/* Show header */}
-      <div className="flex items-start gap-6 mb-8">
-        {show.images[0] ? (
-          <img
-            src={show.images[0]}
-            alt={show.name}
-            className="h-32 w-32 rounded-lg object-cover bg-gray-100 shrink-0"
-          />
-        ) : (
-          <div className="h-32 w-32 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400 shrink-0 text-sm">
-            No image
-          </div>
-        )}
-        <div>
-          <h1 className="text-2xl font-bold">{show.name}</h1>
-          <p className="text-gray-600 capitalize">{show.type}</p>
-          {show.subtype && (
-            <p className="text-gray-500 text-sm">{show.subtype}</p>
+      {/* Page title */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">{show.name}</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          {pendingTotalCount > 0 && (
+            <span className="text-amber-600 font-medium">
+              {pendingTotalCount} pending
+            </span>
           )}
-        </div>
+          {pendingTotalCount > 0 && dirtyCount > 0 && (
+            <span className="mx-1.5 text-gray-300">·</span>
+          )}
+          {dirtyCount > 0 && (
+            <span className="text-yellow-600 font-medium">
+              {dirtyCount} staged edit{dirtyCount !== 1 ? "s" : ""}
+            </span>
+          )}
+        </p>
       </div>
 
       {/* Show fields */}
       <section className="mb-10">
-        <h2 className="text-lg font-semibold mb-4 border-b pb-2">
+        <h2 className="text-lg font-semibold mb-3 border-b pb-2">
           Show Data
           {pendingShowCount > 0 && (
             <span className="ml-2 text-sm font-normal text-amber-600">
@@ -189,44 +289,63 @@ export default function ShowReviewDetail() {
             </span>
           )}
         </h2>
-        <div className="space-y-3">
-          {SHOW_FIELDS.map(({ field, label, isImage, alwaysPresent }) => {
-            const value = (show as Record<string, unknown>)[field] as
-              | string
-              | undefined;
-            const entry = showReviewEntries.find((e) => e.field === field);
-            return (
-              <FieldRow
-                key={field}
-                label={label}
-                value={value}
-                isImage={isImage}
-                alwaysPresent={alwaysPresent}
-                entry={entry}
-                decision={entry ? decisions.get(entry._id) : undefined}
-                editValue={entry ? editValues.get(entry._id) : undefined}
-                onDecision={
-                  entry
-                    ? (d, v) => setDecision(entry._id, d, v)
-                    : undefined
-                }
-                onEditValueChange={
-                  entry
-                    ? (v) =>
-                        setEditValues((prev) =>
-                          new Map(prev).set(entry._id, v)
-                        )
-                    : undefined
-                }
-              />
-            );
-          })}
+        <div className="space-y-2">
+          {SHOW_FIELDS.map(
+            ({ field, label, isImage, alwaysPresent, inputType, options }) => {
+              const value = (show as Record<string, unknown>)[field] as
+                | string
+                | undefined;
+              const entry = showReviewEntries.find((e) => e.field === field);
+              const stagedEdit = directEdits.get(
+                editKey("show", show._id, field)
+              );
+              return (
+                <FieldRow
+                  key={field}
+                  label={label}
+                  value={value}
+                  isImage={isImage}
+                  alwaysPresent={alwaysPresent}
+                  inputType={inputType}
+                  options={options}
+                  entry={entry}
+                  stagedEdit={stagedEdit}
+                  decision={entry ? decisions.get(entry._id) : undefined}
+                  editValue={entry ? editValues.get(entry._id) : undefined}
+                  onDecision={
+                    entry
+                      ? (d, v) => setDecision(entry._id, d, v)
+                      : undefined
+                  }
+                  onEditValueChange={
+                    entry
+                      ? (v) =>
+                          setEditValues((prev) =>
+                            new Map(prev).set(entry._id, v)
+                          )
+                      : undefined
+                  }
+                  onStageEdit={(newValue) =>
+                    stageDirectEdit({
+                      entityType: "show",
+                      entityId: show._id,
+                      field,
+                      newValue,
+                    })
+                  }
+                  onUnstageEdit={() =>
+                    unstageDirectEdit("show", show._id, field)
+                  }
+                />
+              );
+            }
+          )}
         </div>
       </section>
 
       {/* Productions */}
       <section className="mb-10">
-        <h2 className="text-lg font-semibold mb-4 border-b pb-2">
+        <h2 className="text-lg font-semibold mb-3 border-b pb-2">
           Productions ({productions.length})
         </h2>
 
@@ -239,13 +358,15 @@ export default function ShowReviewDetail() {
               const pendingCount = prod.reviewEntries.filter(
                 (e) => e.status === "pending"
               ).length;
+              const prodStagedCount = Array.from(directEdits.keys()).filter(
+                (k) => k.startsWith(`production:${prod._id}:`)
+              ).length;
 
               return (
                 <div
                   key={prod._id}
                   className="border border-gray-200 rounded-lg overflow-hidden"
                 >
-                  {/* Production header */}
                   <button
                     onClick={() =>
                       setExpandedProductions((prev) => {
@@ -284,6 +405,11 @@ export default function ShowReviewDetail() {
                           {pendingCount} pending
                         </span>
                       )}
+                      {prodStagedCount > 0 && (
+                        <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                          {prodStagedCount} staged
+                        </span>
+                      )}
                       <span className="text-gray-400 text-sm">
                         {isExpanded ? "▲" : "▼"}
                       </span>
@@ -291,9 +417,9 @@ export default function ShowReviewDetail() {
                   </button>
 
                   {isExpanded && (
-                    <div className="px-4 py-4 space-y-3">
-                      {/* Production status */}
-                      <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+                    <div className="px-4 py-4 space-y-2">
+                      {/* Production status selector */}
+                      <div className="flex items-center gap-3 pb-3 mb-1 border-b border-gray-100">
                         <span className="text-sm font-medium text-gray-700">
                           Status:
                         </span>
@@ -320,14 +446,23 @@ export default function ShowReviewDetail() {
                         ))}
                       </div>
 
-                      {/* All production fields */}
                       {PRODUCTION_FIELDS.map(
-                        ({ field, label, isImage, alwaysPresent }) => {
+                        ({
+                          field,
+                          label,
+                          isImage,
+                          alwaysPresent,
+                          inputType,
+                          options,
+                        }) => {
                           const value = (
                             prod as Record<string, unknown>
                           )[field] as string | undefined;
                           const entry = prod.reviewEntries.find(
                             (e) => e.field === field
+                          );
+                          const stagedEdit = directEdits.get(
+                            editKey("production", prod._id, field)
                           );
                           return (
                             <FieldRow
@@ -336,7 +471,10 @@ export default function ShowReviewDetail() {
                               value={value}
                               isImage={isImage}
                               alwaysPresent={alwaysPresent}
+                              inputType={inputType}
+                              options={options}
                               entry={entry}
+                              stagedEdit={stagedEdit}
                               decision={
                                 entry ? decisions.get(entry._id) : undefined
                               }
@@ -355,6 +493,21 @@ export default function ShowReviewDetail() {
                                         new Map(prev).set(entry._id, v)
                                       )
                                   : undefined
+                              }
+                              onStageEdit={(newValue) =>
+                                stageDirectEdit({
+                                  entityType: "production",
+                                  entityId: prod._id,
+                                  field,
+                                  newValue,
+                                })
+                              }
+                              onUnstageEdit={() =>
+                                unstageDirectEdit(
+                                  "production",
+                                  prod._id,
+                                  field
+                                )
                               }
                             />
                           );
@@ -405,7 +558,7 @@ export default function ShowReviewDetail() {
   );
 }
 
-// ─── FieldRow: single field with all states ───────────────────────────────────
+// ─── FieldRow ─────────────────────────────────────────────────────────────────
 
 type QueueEntry = {
   _id: string;
@@ -420,27 +573,50 @@ function FieldRow({
   value,
   isImage,
   alwaysPresent,
+  inputType = "text",
+  options,
   entry,
+  stagedEdit,
   decision,
   editValue,
   onDecision,
   onEditValueChange,
+  onStageEdit,
+  onUnstageEdit,
 }: {
   label: string;
   value: string | undefined;
   isImage?: boolean;
   alwaysPresent?: boolean;
+  inputType?: "text" | "select" | "date" | "url" | "textarea";
+  options?: string[];
   entry?: QueueEntry;
+  stagedEdit?: { newValue?: string };
   decision?: EntryDecision;
   editValue?: string;
   onDecision?: (decision: Decision, reviewedValue?: string) => void;
   onEditValueChange?: (value: string) => void;
+  onStageEdit: (newValue?: string) => void;
+  onUnstageEdit: () => void;
 }) {
+  const [isInlineEditing, setIsInlineEditing] = useState(false);
+  const [inlineValue, setInlineValue] = useState("");
+
   const isEmpty = value === undefined || value === null || value === "";
   const currentDecision = decision?.decision;
   const isEditing = currentDecision === "edited";
 
-  // Pending entry — full interactive row
+  const startInlineEdit = () => {
+    setInlineValue(value ?? "");
+    setIsInlineEditing(true);
+  };
+
+  const saveInlineEdit = () => {
+    onStageEdit(inlineValue === "" ? undefined : inlineValue);
+    setIsInlineEditing(false);
+  };
+
+  // ── Pending queue entry: full Approve / Edit / Reject card ────────────────
   if (entry && entry.status === "pending") {
     return (
       <div className="rounded-lg border border-gray-200 p-4">
@@ -495,7 +671,7 @@ function FieldRow({
           />
         ) : (
           <div className="text-sm text-gray-700 bg-gray-50 rounded px-3 py-2 break-all">
-            {value ?? <span className="text-gray-400">Empty</span>}
+            {value ?? <span className="text-gray-400 italic">Empty</span>}
           </div>
         )}
 
@@ -504,14 +680,14 @@ function FieldRow({
             <label className="text-xs font-medium text-gray-600 block mb-1">
               {isImage ? "New image URL" : "New value"}
             </label>
-            <input
-              type="text"
+            <FieldInput
+              inputType={inputType}
+              options={options}
               value={editValue ?? value ?? ""}
-              onChange={(e) => {
-                onEditValueChange?.(e.target.value);
-                onDecision?.("edited", e.target.value);
+              onChange={(v) => {
+                onEditValueChange?.(v);
+                onDecision?.("edited", v);
               }}
-              className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
             />
             {isImage && editValue && (
               <img
@@ -526,40 +702,183 @@ function FieldRow({
     );
   }
 
-  // Compact row for everything else
-  const statusBadge = entry ? (
+  // ── Compact row for reviewed / unqueued fields ────────────────────────────
+
+  // Determine what to display as the "live" value
+  const hasStagedEdit = stagedEdit !== undefined;
+  const displayValue = hasStagedEdit ? stagedEdit?.newValue : value;
+  const displayIsEmpty =
+    displayValue === undefined || displayValue === null || displayValue === "";
+
+  const statusBadge = hasStagedEdit ? (
+    <span className="inline-flex items-center rounded-full bg-yellow-50 border border-yellow-300 px-2 py-0.5 text-xs font-medium text-yellow-700">
+      Staged
+    </span>
+  ) : entry ? (
     <span
       className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${
-        REVIEWED_STATUS_STYLES[entry.status] ?? "bg-gray-50 text-gray-500 border-gray-200"
+        REVIEWED_STATUS_STYLES[entry.status] ??
+        "bg-gray-50 text-gray-500 border-gray-200"
       }`}
     >
       {entry.status}
     </span>
-  ) : isEmpty && !alwaysPresent ? (
+  ) : displayIsEmpty && !alwaysPresent ? (
     <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs text-amber-700">
       Missing
     </span>
   ) : null;
 
-  return (
-    <div className="flex items-start gap-3 px-3 py-2 rounded-lg bg-gray-50 text-sm">
-      <span className="font-medium text-gray-600 w-36 shrink-0">{label}</span>
-      <div className="flex-1 min-w-0">
-        {isImage && value ? (
+  if (isInlineEditing) {
+    return (
+      <div className="rounded-lg border border-blue-200 bg-blue-50/30 p-3">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <span className="text-sm font-medium text-gray-700">{label}</span>
+          <div className="flex gap-2">
+            <button
+              onClick={saveInlineEdit}
+              className="rounded-md bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-gray-700"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => setIsInlineEditing(false)}
+              className="rounded-md bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+        <FieldInput
+          inputType={inputType}
+          options={options}
+          value={inlineValue}
+          onChange={setInlineValue}
+          autoFocus
+        />
+        {isImage && inlineValue && (
           <img
-            src={value}
+            src={inlineValue}
+            alt="preview"
+            className="mt-2 max-h-32 rounded border border-gray-200 object-contain"
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`group flex items-start gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+        hasStagedEdit ? "bg-yellow-50 border border-yellow-200" : "bg-gray-50 hover:bg-gray-100"
+      }`}
+    >
+      <span className="font-medium text-gray-600 w-36 shrink-0 pt-0.5">
+        {label}
+      </span>
+      <div className="flex-1 min-w-0">
+        {isImage && displayValue ? (
+          <img
+            src={displayValue}
             alt={label}
             className="max-h-24 rounded border border-gray-200 object-contain"
           />
         ) : (
           <span
-            className={`break-all ${isEmpty ? "text-gray-400 italic" : "text-gray-800"}`}
+            className={`break-all ${displayIsEmpty ? "text-gray-400 italic" : "text-gray-800"}`}
           >
-            {isEmpty ? "—" : value}
+            {displayIsEmpty ? "—" : displayValue}
           </span>
         )}
       </div>
-      {statusBadge && <div className="shrink-0">{statusBadge}</div>}
+      <div className="shrink-0 flex items-center gap-1.5">
+        {statusBadge}
+        {/* Edit / Clear / Undo controls */}
+        {hasStagedEdit ? (
+          <button
+            onClick={onUnstageEdit}
+            className="opacity-0 group-hover:opacity-100 rounded px-2 py-0.5 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-200 transition-all"
+          >
+            Undo
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={startInlineEdit}
+              className="opacity-0 group-hover:opacity-100 rounded px-2 py-0.5 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-200 transition-all"
+            >
+              Edit
+            </button>
+            {!displayIsEmpty && !alwaysPresent && (
+              <button
+                onClick={() => onStageEdit(undefined)}
+                className="opacity-0 group-hover:opacity-100 rounded px-2 py-0.5 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 transition-all"
+              >
+                Clear
+              </button>
+            )}
+          </>
+        )}
+      </div>
     </div>
+  );
+}
+
+// ─── FieldInput: renders the right input type for a field ─────────────────────
+
+function FieldInput({
+  inputType,
+  options,
+  value,
+  onChange,
+  autoFocus,
+}: {
+  inputType?: "text" | "select" | "date" | "url" | "textarea";
+  options?: string[];
+  value: string;
+  onChange: (v: string) => void;
+  autoFocus?: boolean;
+}) {
+  const base =
+    "w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 bg-white";
+
+  if (inputType === "select" && options) {
+    return (
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoFocus={autoFocus}
+        className={base}
+      >
+        <option value="">— select —</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o.replace(/_/g, " ")}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (inputType === "textarea") {
+    return (
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoFocus={autoFocus}
+        rows={3}
+        className={`${base} resize-y`}
+      />
+    );
+  }
+
+  return (
+    <input
+      type={inputType === "date" ? "date" : "text"}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      autoFocus={autoFocus}
+      className={base}
+    />
   );
 }

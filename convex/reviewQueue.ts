@@ -268,6 +268,19 @@ export const submitShowReview = mutation({
         })
       )
     ),
+    // Ad-hoc field patches that bypass the review queue (e.g. direct edits /
+    // clears on fields that have no pending queue entry).
+    directEdits: v.optional(
+      v.array(
+        v.object({
+          entityType: v.union(v.literal("show"), v.literal("production")),
+          entityId: v.string(),
+          field: v.string(),
+          // undefined = clear the field
+          newValue: v.optional(v.string()),
+        })
+      )
+    ),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -301,6 +314,19 @@ export const submitShowReview = mutation({
           entry.entityId,
           entry.field,
           decision.reviewedValue
+        );
+      }
+    }
+
+    // Apply direct field edits/clears (no queue entry required).
+    if (args.directEdits) {
+      for (const edit of args.directEdits) {
+        await applyFieldChange(
+          ctx,
+          edit.entityType,
+          edit.entityId,
+          edit.field,
+          edit.newValue
         );
       }
     }
