@@ -89,7 +89,12 @@ export default function ProfileScreen() {
         <TheatreChallenge />
 
         {myProfile._id && (
-          <PublicShowsGrid userId={myProfile._id} />
+          <PublicShowsGrid
+            userId={myProfile._id}
+            onPressShow={(showId, showName) =>
+              router.push({ pathname: "/show/[showId]", params: { showId: String(showId), name: showName } })
+            }
+          />
         )}
 
         <ProfileMapSection />

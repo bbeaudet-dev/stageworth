@@ -322,6 +322,7 @@ export default function CommunityScreen() {
                 post.actor.name,
                 post.actor.username,
               );
+              const isGlobal = selectedTab === "global";
               const tagged: TaggedUser[] = post.taggedUsers ?? [];
               const location = formatVisitLocation(
                 post.visitDate,
@@ -348,6 +349,25 @@ export default function CommunityScreen() {
                 >
                   <View style={styles.postRow}>
                     <View style={styles.postMain}>
+                      {isGlobal && (
+                        <Pressable
+                          onPress={() =>
+                            router.push({
+                              pathname: "/(tabs)/community/user/[username]",
+                              params: { username: post.actor.username },
+                            })
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.actorHandleText,
+                              { color: actorHandleColor },
+                            ]}
+                          >
+                            @{post.actor.username}
+                          </Text>
+                        </Pressable>
+                      )}
                       <Text
                         style={[styles.postTitle, { color: primaryTextColor }]}
                       >
@@ -425,7 +445,7 @@ export default function CommunityScreen() {
                         <Text
                           style={[styles.rankText, { color: rankTextColor }]}
                         >
-                          Ranked #{post.rankAtPost} / {post.rankingTotal}
+                          Ranked #{post.rankAtPost} of {post.rankingTotal}
                         </Text>
                       ) : (
                         <Text
@@ -434,23 +454,6 @@ export default function CommunityScreen() {
                           Not currently ranked
                         </Text>
                       )}
-                      <Pressable
-                        onPress={() =>
-                          router.push({
-                            pathname: "/(tabs)/community/user/[username]",
-                            params: { username: post.actor.username },
-                          })
-                        }
-                      >
-                        <Text
-                          style={[
-                            styles.actorHandleText,
-                            { color: actorHandleColor },
-                          ]}
-                        >
-                          @{post.actor.username}
-                        </Text>
-                      </Pressable>
                     </View>
                     <Pressable
                       style={[

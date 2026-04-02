@@ -108,7 +108,12 @@ export default function PublicProfileScreen() {
               isSelf={profile.viewerIsSelf}
             />
 
-            <PublicShowsGrid userId={profile._id} />
+            <PublicShowsGrid
+              userId={profile._id}
+              onPressShow={(showId, showName) =>
+                router.push({ pathname: "/show/[showId]", params: { showId: String(showId), name: showName } })
+              }
+            />
 
             <TasteProfile userId={profile._id} />
           </>

@@ -891,6 +891,84 @@ export const backfillVisitVenueData = mutation({
   },
 });
 
+export const updateVisit = mutation({
+  args: {
+    visitId: v.id("visits"),
+    date: v.string(),
+    productionId: v.optional(v.id("productions")),
+    city: v.optional(v.string()),
+    theatre: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    taggedUserIds: v.optional(v.array(v.id("users"))),
+    seat: v.optional(v.string()),
+    isMatinee: v.optional(v.boolean()),
+    isPreview: v.optional(v.boolean()),
+    isFinalPerformance: v.optional(v.boolean()),
+    cast: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+    const visit = await ctx.db.get(args.visitId);
+    if (!visit) throw new Error("Visit not found");
+    if (visit.userId !== userId) throw new Error("Not authorized");
+
+    const production = args.productionId ? await ctx.db.get(args.productionId) : null;
+    const theatre = args.theatre?.trim() || production?.theatre?.trim();
+    const city = args.city?.trim() || production?.city?.trim();
+    const district = production?.district ?? visit.district;
+    const resolvedVenueId = await resolveVenueIdForVisit(ctx, theatre, city);
+    const venueId = resolvedVenueId ?? visit.venueId;
+
+    const previousTaggedIds = visit.taggedUserIds ?? [];
+    const validTaggedUserIds = (args.taggedUserIds ?? []).filter((id) => id !== userId);
+    const newlyTaggedIds = validTaggedUserIds.filter((id) => !previousTaggedIds.includes(id));
+
+    await ctx.db.patch(args.visitId, {
+      date: args.date,
+      productionId: args.productionId,
+      venueId,
+      city,
+      theatre,
+      district,
+      notes: args.notes,
+      taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
+      seat: args.seat,
+      isMatinee: args.isMatinee,
+      isPreview: args.isPreview,
+      isFinalPerformance: args.isFinalPerformance,
+      cast: args.cast,
+    });
+
+    if (newlyTaggedIds.length > 0) {
+      const show = await ctx.db.get(visit.showId);
+      const showName = show?.name ?? "a show";
+      const actor = await ctx.db.get(userId);
+      const actorLabel = actor?.name?.split(" ")[0] ?? actor?.username ?? "Someone";
+      const now = Date.now();
+      await Promise.all(
+        newlyTaggedIds.flatMap((recipientId) => [
+          ctx.db.insert("notifications", {
+            recipientUserId: recipientId,
+            actorKind: "user",
+            actorUserId: userId,
+            type: "visit_tag",
+            visitId: args.visitId,
+            showId: visit.showId,
+            isRead: false,
+            createdAt: now,
+          }),
+          ctx.scheduler.runAfter(0, internal.notifications.sendPushNotification, {
+            recipientUserId: recipientId,
+            title: "You were tagged in a visit",
+            body: `${actorLabel} tagged you in their visit to ${showName}`,
+            data: { type: "visit_tag", visitId: args.visitId },
+          }),
+        ])
+      );
+    }
+  },
+});
+
 export const remove = mutation({
   args: { visitId: v.id("visits") },
   handler: async (ctx, args) => {

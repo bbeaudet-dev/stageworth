@@ -25,6 +25,14 @@ function getInitials(name?: string | null, username?: string) {
   return source.slice(0, 2).toUpperCase();
 }
 
+function getDisplayName(name?: string | null, fallback?: string) {
+  const trimmed = name?.trim();
+  if (!trimmed) return fallback ?? "";
+  const parts = trimmed.split(/\s+/);
+  if (parts.length >= 2) return `${parts[0]} ${parts[1][0]}.`;
+  return parts[0] || fallback || "";
+}
+
 export function TagFriendsSection({ following, taggedUserIds, onToggle }: Props) {
   const theme = useColorScheme() ?? "light";
   const text = Colors[theme].text;
@@ -104,7 +112,7 @@ export function TagFriendsSection({ following, taggedUserIds, onToggle }: Props)
                   ]}
                   numberOfLines={1}
                 >
-                  {user.name?.split(" ")[0] ?? user.username}
+                  {getDisplayName(user.name, user.username)}
                 </Text>
                 {isSelected && (
                   <Text style={styles.checkmark}>✓</Text>

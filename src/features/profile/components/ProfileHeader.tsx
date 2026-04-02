@@ -222,7 +222,7 @@ export function ProfileHeader({
       {/* Streak & Challenge row */}
       {(streakWeeks != null && streakWeeks > 0) && (
         <View style={[styles.streakCard, { backgroundColor: surfaceColor, borderColor }]}>
-          <Text style={[styles.streakEmoji]}>🔥</Text>
+          <Text style={[styles.streakEmoji, { fontFamily: undefined }]}>🔥</Text>
           <Text style={[styles.streakValue, { color: primaryTextColor }]}>
             {streakWeeks} {streakWeeks === 1 ? "week" : "week"} streak
           </Text>

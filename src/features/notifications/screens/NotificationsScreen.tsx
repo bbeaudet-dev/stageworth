@@ -25,6 +25,14 @@ type NotificationListItem = {
   trip: { _id: Id<"trips">; name: string } | null;
 };
 
+function getDisplayName(name?: string | null, fallback?: string) {
+  const trimmed = name?.trim();
+  if (!trimmed) return fallback ?? "";
+  const parts = trimmed.split(/\s+/);
+  if (parts.length >= 2) return `${parts[0]} ${parts[1][0]}.`;
+  return parts[0] || fallback || "";
+}
+
 function formatRelativeTime(ts: number): string {
   const diffMs = Date.now() - ts;
   const diffMins = Math.floor(diffMs / 60_000);
@@ -143,7 +151,7 @@ export default function NotificationsScreen() {
           const isSystemNotif = notif.type === "closing_soon" || notif.type === "show_announced";
           const actorLabel = isSystemNotif
             ? ""
-            : (notif.actor?.name?.split(" ")[0] ?? notif.actor?.username ?? "Someone");
+            : getDisplayName(notif.actor?.name, notif.actor?.username ?? "Someone");
           const isTripInvite = notif.type === "trip_invite";
           const acceptKey = notif._id + ":accept";
           const declineKey = notif._id + ":decline";
