@@ -7,8 +7,11 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const shows = await ctx.db.query("shows").collect();
+    const visible = shows.filter(
+      (s) => s.dataStatus === "partial" || s.dataStatus === "complete"
+    );
     return Promise.all(
-      shows.map(async (show) => ({
+      visible.map(async (show) => ({
         ...show,
         images: await resolveShowImageUrls(ctx, show),
       }))
@@ -47,10 +50,13 @@ export const search = query({
     const needle = args.q.trim().toLowerCase();
     const max = Math.min(args.limit ?? 20, 50);
     const allShows = await ctx.db.query("shows").collect();
+    const visible = allShows.filter(
+      (s) => s.dataStatus === "partial" || s.dataStatus === "complete"
+    );
 
     const matched = needle.length === 0
-      ? allShows.slice(0, max)
-      : allShows
+      ? visible.slice(0, max)
+      : visible
           .filter((s) => s.name.toLowerCase().includes(needle))
           .slice(0, max);
 

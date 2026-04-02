@@ -9,9 +9,13 @@ export { getProductionStatus } from "../src/utils/productions";
 
 const today = () => new Date().toISOString().split("T")[0];
 
+function isShowVisible(show: { dataStatus?: string }) {
+  return show.dataStatus === "partial" || show.dataStatus === "complete";
+}
+
 async function withShow(ctx: any, production: any) {
   const show = await ctx.db.get(production.showId);
-  if (!show) return null;
+  if (!show || !isShowVisible(show)) return null;
   const posterUrl = await resolveProductionPosterUrl(ctx, production);
   const showImages = await resolveShowImageUrls(ctx, show);
   return {
