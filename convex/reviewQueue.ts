@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { resolveShowImageUrls, resolveProductionPosterUrl } from "./helpers";
 
@@ -75,11 +76,15 @@ export const listShowsForReview = query({
   args: {
     statusFilter: v.optional(dataStatusValidator),
     search: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
+    const offset = Math.max(args.offset ?? 0, 0);
+
     let shows = await ctx.db.query("shows").collect();
 
-    // Filter by dataStatus
     if (args.statusFilter) {
       shows = shows.filter((s) => {
         const status = s.dataStatus ?? "needs_review";
@@ -87,7 +92,6 @@ export const listShowsForReview = query({
       });
     }
 
-    // Filter by name search
     if (args.search) {
       const needle = args.search.trim().toLowerCase();
       if (needle.length > 0) {
@@ -95,7 +99,6 @@ export const listShowsForReview = query({
       }
     }
 
-    // Sort: needs_review first, then partial, then complete
     const statusOrder = { needs_review: 0, partial: 1, complete: 2 };
     shows.sort((a, b) => {
       const aOrder = statusOrder[a.dataStatus ?? "needs_review"];
@@ -104,7 +107,9 @@ export const listShowsForReview = query({
       return a.name.localeCompare(b.name);
     });
 
-    // Get pending review counts per show
+    const total = shows.length;
+    const pageShows = shows.slice(offset, offset + limit);
+
     const pendingEntries = await ctx.db
       .query("reviewQueue")
       .withIndex("by_status", (q) => q.eq("status", "pending"))
@@ -116,20 +121,23 @@ export const listShowsForReview = query({
       pendingCountByEntity.set(key, (pendingCountByEntity.get(key) || 0) + 1);
     }
 
-    return Promise.all(
-      shows.map(async (show) => {
+    const allProductions = await ctx.db.query("productions").collect();
+    const productionIdsByShow = new Map<Id<"shows">, Id<"productions">[]>();
+    for (const p of allProductions) {
+      const list = productionIdsByShow.get(p.showId) ?? [];
+      list.push(p._id);
+      productionIdsByShow.set(p.showId, list);
+    }
+
+    const page = await Promise.all(
+      pageShows.map(async (show) => {
         const images = await resolveShowImageUrls(ctx, show);
         const showPending = pendingCountByEntity.get(`show:${show._id}`) ?? 0;
-
-        // Also count pending production entries for this show
-        const productions = await ctx.db
-          .query("productions")
-          .withIndex("by_show", (q) => q.eq("showId", show._id))
-          .collect();
+        const prodIds = productionIdsByShow.get(show._id) ?? [];
         let productionPending = 0;
-        for (const p of productions) {
+        for (const pid of prodIds) {
           productionPending +=
-            pendingCountByEntity.get(`production:${p._id}`) ?? 0;
+            pendingCountByEntity.get(`production:${pid}`) ?? 0;
         }
 
         return {
@@ -139,10 +147,16 @@ export const listShowsForReview = query({
           dataStatus: show.dataStatus ?? "needs_review",
           imageUrl: images[0] ?? null,
           pendingCount: showPending + productionPending,
-          productionCount: productions.length,
+          productionCount: prodIds.length,
         };
       })
     );
+
+    return {
+      page,
+      total,
+      hasMore: offset + page.length < total,
+    };
   },
 });
 
