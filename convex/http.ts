@@ -38,4 +38,45 @@ http.route({
   }),
 });
 
+// ─── Bot activity endpoint (for OpenClaw morning summary) ─────────────────────
+// GET /bot/activity?since=<ISO timestamp or epoch ms>
+// Authorization: Bearer {BOT_SECRET}
+
+http.route({
+  path: "/bot/activity",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const auth = request.headers.get("Authorization");
+    if (auth !== `Bearer ${process.env.BOT_SECRET}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const sinceParam = url.searchParams.get("since");
+    let since: number;
+
+    if (!sinceParam) {
+      // Default: last 24 hours
+      since = Date.now() - 24 * 60 * 60 * 1000;
+    } else if (/^\d+$/.test(sinceParam)) {
+      since = parseInt(sinceParam, 10);
+    } else {
+      since = new Date(sinceParam).getTime();
+      if (isNaN(since)) {
+        return new Response("Invalid 'since' parameter", { status: 400 });
+      }
+    }
+
+    const rows = await ctx.runQuery(
+      internal.botIngestion.listBotActivitySince,
+      { since }
+    );
+
+    return new Response(JSON.stringify(rows), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
 export default http;

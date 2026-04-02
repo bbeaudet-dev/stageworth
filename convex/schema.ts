@@ -377,4 +377,22 @@ export default defineSchema({
   })
     .index("by_trip", ["tripId"])
     .index("by_trip_user", ["tripId", "userId"]),
+
+  botActivity: defineTable({
+    sourceUrl: v.string(),
+    showName: v.string(),
+    showType: v.string(),
+    district: v.string(),
+    confidence: v.number(),
+    action: v.union(
+      v.literal("show_created"),
+      v.literal("production_created"),
+      v.literal("production_updated"),
+      v.literal("skipped"),
+    ),
+    summary: v.string(),
+    showId: v.optional(v.id("shows")),
+    productionId: v.optional(v.id("productions")),
+    createdAt: v.number(),
+  }).index("by_createdAt", ["createdAt"]),
 });

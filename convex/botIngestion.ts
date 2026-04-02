@@ -164,6 +164,42 @@ export const ingestProduction = internalMutation({
 
     if (!productionId) return; // defensive
 
+    // ── Audit log ──────────────────────────────────────────────────────────
+    const activityBase = {
+      sourceUrl: args.sourceUrl,
+      showName: p.show_name,
+      showType: p.show_type,
+      district: p.district,
+      confidence: p.confidence,
+      summary: p.summary,
+      showId: show._id,
+      productionId,
+      createdAt: Date.now(),
+    };
+
+    if (isNewShow) {
+      await ctx.db.insert("botActivity", {
+        ...activityBase,
+        action: "show_created" as const,
+      });
+    }
+    if (isNewProduction) {
+      await ctx.db.insert("botActivity", {
+        ...activityBase,
+        action: "production_created" as const,
+      });
+    } else if (dateChanged) {
+      await ctx.db.insert("botActivity", {
+        ...activityBase,
+        action: "production_updated" as const,
+      });
+    } else if (!isNewShow && !isNewProduction) {
+      await ctx.db.insert("botActivity", {
+        ...activityBase,
+        action: "skipped" as const,
+      });
+    }
+
     // 3. If it's a new, non-closed production: add to all users' uncategorized list.
     const productionForStatus = {
       previewDate: p.preview_date ?? undefined,
@@ -295,6 +331,28 @@ export const fanOutDateChangedNotifications = internalAction({
         })
       )
     );
+  },
+});
+
+// ─── Bot activity query (for OpenClaw morning summary) ────────────────────────
+
+export const listBotActivitySince = internalQuery({
+  args: { since: v.number() },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("botActivity")
+      .withIndex("by_createdAt", (q) => q.gte("createdAt", args.since))
+      .collect();
+    return rows
+      .filter((r) => r.action !== "skipped")
+      .map((r) => ({
+        showName: r.showName,
+        action: r.action,
+        confidence: r.confidence,
+        summary: r.summary,
+        sourceUrl: r.sourceUrl,
+        createdAt: r.createdAt,
+      }));
   },
 });
 
