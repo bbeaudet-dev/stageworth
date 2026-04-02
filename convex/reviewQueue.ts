@@ -383,6 +383,9 @@ export const createEntry = internalMutation({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// Fields stored as booleans — string values "true"/"false" must be converted.
+const BOOLEAN_FIELDS = new Set(["isOpenRun"]);
+
 async function applyFieldChange(
   ctx: any,
   entityType: string,
@@ -390,22 +393,24 @@ async function applyFieldChange(
   field: string,
   value: string | undefined
 ) {
-  const tableName = entityType === "show" ? "shows" : "productions";
   const doc = await ctx.db.get(entityId as any);
   if (!doc) return;
 
   if (value === undefined) {
-    // Reject: clear the field
+    // Clear the field (reject or explicit clear).
+    // Clearing hotlinkImageUrl should also clear its source.
     if (field === "hotlinkImageUrl") {
       await ctx.db.patch(entityId as any, {
         hotlinkImageUrl: undefined,
         hotlinkImageSource: undefined,
       });
-    } else if (field === "hotlinkPosterUrl") {
-      await ctx.db.patch(entityId as any, { hotlinkPosterUrl: undefined });
     } else {
       await ctx.db.patch(entityId as any, { [field]: undefined });
     }
+  } else if (BOOLEAN_FIELDS.has(field)) {
+    const boolValue =
+      value === "true" ? true : value === "false" ? false : undefined;
+    await ctx.db.patch(entityId as any, { [field]: boolValue });
   } else {
     await ctx.db.patch(entityId as any, { [field]: value });
   }

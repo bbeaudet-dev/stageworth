@@ -9,7 +9,7 @@ type StatusFilter = "needs_review" | "partial" | "complete" | undefined;
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   needs_review: {
-    label: "Needs Review",
+    label: "Unpublished",
     className: "bg-amber-100 text-amber-800",
   },
   partial: {
@@ -40,7 +40,7 @@ export default function AdminDashboard() {
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           <StatCard
-            label="Needs Review"
+            label="Unpublished"
             value={stats.shows.needsReview}
             className="border-amber-200 bg-amber-50"
           />

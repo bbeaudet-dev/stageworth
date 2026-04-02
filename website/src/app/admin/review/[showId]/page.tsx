@@ -28,12 +28,12 @@ interface FieldDef {
   isImage?: boolean;
   /** Required fields — never show a Missing badge or a Clear button */
   alwaysPresent?: boolean;
-  inputType?: "text" | "select" | "date" | "url" | "textarea";
+  inputType?: "text" | "select" | "date" | "url" | "textarea" | "boolean";
   options?: string[];
 }
 
 const STATUS_OPTIONS: { value: DataStatus; label: string }[] = [
-  { value: "needs_review", label: "Needs Review" },
+  { value: "needs_review", label: "Unpublished" },
   { value: "partial", label: "Partial" },
   { value: "complete", label: "Complete" },
 ];
@@ -90,6 +90,7 @@ const PRODUCTION_FIELDS: FieldDef[] = [
   { field: "previewDate", label: "Preview Date", inputType: "date" },
   { field: "openingDate", label: "Opening Date", inputType: "date" },
   { field: "closingDate", label: "Closing Date", inputType: "date" },
+  { field: "isOpenRun", label: "Open Run", inputType: "boolean" },
   {
     field: "productionType",
     label: "Production Type",
@@ -118,6 +119,22 @@ const PRODUCTION_FIELDS: FieldDef[] = [
   },
   { field: "notes", label: "Notes", inputType: "textarea" },
 ];
+
+/**
+ * Normalises a raw document field value to string | undefined so the rest of
+ * the UI can treat every value uniformly.  Booleans become "true" / "false"
+ * and are displayed as "Yes" / "No" by FieldRow.
+ */
+function getFieldValue(
+  doc: Record<string, unknown>,
+  field: string
+): string | undefined {
+  const raw = doc[field];
+  if (raw === true) return "true";
+  if (raw === false) return "false";
+  if (raw === null || raw === undefined) return undefined;
+  return String(raw);
+}
 
 // Stable key for tracking direct edits in a Map
 const editKey = (
@@ -292,9 +309,7 @@ export default function ShowReviewDetail() {
         <div className="space-y-2">
           {SHOW_FIELDS.map(
             ({ field, label, isImage, alwaysPresent, inputType, options }) => {
-              const value = (show as Record<string, unknown>)[field] as
-                | string
-                | undefined;
+              const value = getFieldValue(show as Record<string, unknown>, field);
               const entry = showReviewEntries.find((e) => e.field === field);
               const stagedEdit = directEdits.get(
                 editKey("show", show._id, field)
@@ -455,9 +470,10 @@ export default function ShowReviewDetail() {
                           inputType,
                           options,
                         }) => {
-                          const value = (
-                            prod as Record<string, unknown>
-                          )[field] as string | undefined;
+                          const value = getFieldValue(
+                            prod as Record<string, unknown>,
+                            field
+                          );
                           const entry = prod.reviewEntries.find(
                             (e) => e.field === field
                           );
@@ -588,7 +604,7 @@ function FieldRow({
   value: string | undefined;
   isImage?: boolean;
   alwaysPresent?: boolean;
-  inputType?: "text" | "select" | "date" | "url" | "textarea";
+  inputType?: "text" | "select" | "date" | "url" | "textarea" | "boolean";
   options?: string[];
   entry?: QueueEntry;
   stagedEdit?: { newValue?: string };
@@ -787,7 +803,13 @@ function FieldRow({
           <span
             className={`break-all ${displayIsEmpty ? "text-gray-400 italic" : "text-gray-800"}`}
           >
-            {displayIsEmpty ? "—" : displayValue}
+            {displayIsEmpty
+              ? "—"
+              : displayValue === "true"
+                ? "Yes"
+                : displayValue === "false"
+                  ? "No"
+                  : displayValue}
           </span>
         )}
       </div>
@@ -833,7 +855,7 @@ function FieldInput({
   onChange,
   autoFocus,
 }: {
-  inputType?: "text" | "select" | "date" | "url" | "textarea";
+  inputType?: "text" | "select" | "date" | "url" | "textarea" | "boolean";
   options?: string[];
   value: string;
   onChange: (v: string) => void;
@@ -841,6 +863,21 @@ function FieldInput({
 }) {
   const base =
     "w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 bg-white";
+
+  if (inputType === "boolean") {
+    return (
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoFocus={autoFocus}
+        className={base}
+      >
+        <option value="">— Unknown</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+    );
+  }
 
   if (inputType === "select" && options) {
     return (
