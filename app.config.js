@@ -9,6 +9,22 @@ if (process.env.GOOGLE_SERVICES_JSON) {
   );
 }
 
+// Fail the build instead of shipping an app that crashes on launch (ConvexReactClient throws if URL is missing).
+if (process.env.EAS_BUILD === "true" || process.env.EAS_BUILD_PROFILE) {
+  const required = [
+    "EXPO_PUBLIC_CONVEX_URL",
+    "EXPO_PUBLIC_CONVEX_SITE_URL",
+  ];
+  const missing = required.filter((k) => !process.env[k]);
+  if (missing.length > 0) {
+    throw new Error(
+      `EAS build is missing required env vars: ${missing.join(", ")}. ` +
+        "Add them with eas env:create (scope: project, same environment as your build profile, e.g. production). " +
+        "See https://docs.expo.dev/build-reference/variables/",
+    );
+  }
+}
+
 /** @type {import('expo/config').ExpoConfig} */
 module.exports = {
   name: "Theatre Diary",
