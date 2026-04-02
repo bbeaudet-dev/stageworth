@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# Next/Vercel: minimal Convex install + symlink (see website/scripts/vercel-install.js)
+.convex-vendor/
+
 # Expo
 .expo/
 dist/

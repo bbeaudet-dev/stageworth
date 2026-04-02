@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation } from "../_generated/server";
+import { internalMutation, mutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import {
   SHOW_REVIEWABLE_FIELDS,
@@ -174,5 +174,31 @@ export const seedReviewQueueForProductions = internalMutation({
     }
 
     return { processed, hasMore: nextIdx < allProductions.length };
+  },
+});
+
+// ─── Public triggers (callable from CLI / dashboard) ─────────────────────────
+
+export const runSeedShows = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await ctx.scheduler.runAfter(
+      0,
+      internal.admin.reviewBackfill.seedReviewQueueForShows,
+      {}
+    );
+    return "Queued seedReviewQueueForShows";
+  },
+});
+
+export const runSeedProductions = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await ctx.scheduler.runAfter(
+      0,
+      internal.admin.reviewBackfill.seedReviewQueueForProductions,
+      {}
+    );
+    return "Queued seedReviewQueueForProductions";
   },
 });

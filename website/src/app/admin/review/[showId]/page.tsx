@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import type React from "react";
 
 type Decision = "approved" | "rejected" | "edited";
 type DataStatus = "needs_review" | "partial" | "complete";
@@ -15,26 +16,157 @@ interface EntryDecision {
   note?: string;
 }
 
+interface DirectEdit {
+  entityType: "show" | "production";
+  entityId: string;
+  field: string;
+  newValue?: string;
+}
+
+interface FieldDef {
+  field: string;
+  label: string;
+  isImage?: boolean;
+  /** Required fields — never show a Missing badge or a Clear button */
+  alwaysPresent?: boolean;
+  inputType?: "text" | "select" | "date" | "url" | "textarea" | "boolean";
+  options?: string[];
+}
+
 const STATUS_OPTIONS: { value: DataStatus; label: string }[] = [
-  { value: "needs_review", label: "Needs Review" },
+  { value: "needs_review", label: "Unpublished" },
   { value: "partial", label: "Partial" },
   { value: "complete", label: "Complete" },
 ];
 
-const FIELD_LABELS: Record<string, string> = {
-  name: "Name",
-  type: "Type",
-  subtype: "Sub-type",
-  hotlinkImageUrl: "Image",
-  theatre: "Theatre",
-  city: "City",
-  district: "District",
-  previewDate: "Preview Date",
-  openingDate: "Opening Date",
-  closingDate: "Closing Date",
-  productionType: "Production Type",
-  hotlinkPosterUrl: "Poster Image",
+const REVIEWED_STATUS_STYLES: Record<string, string> = {
+  approved: "bg-green-50 text-green-700 border-green-200",
+  rejected: "bg-red-50 text-red-700 border-red-200",
+  edited: "bg-blue-50 text-blue-700 border-blue-200",
 };
+
+const SHOW_FIELDS: FieldDef[] = [
+  { field: "name", label: "Name", alwaysPresent: true, inputType: "text" },
+  {
+    field: "type",
+    label: "Type",
+    alwaysPresent: true,
+    inputType: "select",
+    options: ["musical", "play", "opera", "dance", "other"],
+  },
+  { field: "subtype", label: "Sub-type", inputType: "text" },
+  { field: "hotlinkImageUrl", label: "Image", isImage: true, inputType: "url" },
+  {
+    field: "hotlinkImageSource",
+    label: "Image Source",
+    inputType: "select",
+    options: ["wikipedia", "ticketmaster"],
+  },
+  { field: "wikipediaTitle", label: "Wikipedia Title", inputType: "text" },
+  {
+    field: "ticketmasterAttractionId",
+    label: "Ticketmaster ID",
+    inputType: "text",
+  },
+];
+
+const PRODUCTION_FIELDS: FieldDef[] = [
+  { field: "theatre", label: "Theatre", inputType: "text" },
+  { field: "city", label: "City", inputType: "text" },
+  {
+    field: "district",
+    label: "District",
+    alwaysPresent: true,
+    inputType: "select",
+    options: [
+      "broadway",
+      "off_broadway",
+      "off_off_broadway",
+      "west_end",
+      "touring",
+      "regional",
+      "other",
+    ],
+  },
+  { field: "previewDate", label: "Preview Date", inputType: "date" },
+  { field: "openingDate", label: "Opening Date", inputType: "date" },
+  { field: "closingDate", label: "Closing Date", inputType: "date" },
+  { field: "isOpenRun", label: "Open Run", inputType: "boolean" },
+  {
+    field: "productionType",
+    label: "Production Type",
+    alwaysPresent: true,
+    inputType: "select",
+    options: [
+      "original",
+      "revival",
+      "transfer",
+      "touring",
+      "concert",
+      "workshop",
+      "other",
+    ],
+  },
+  {
+    field: "hotlinkPosterUrl",
+    label: "Poster Image",
+    isImage: true,
+    inputType: "url",
+  },
+  {
+    field: "ticketmasterEventUrl",
+    label: "Ticketmaster URL",
+    inputType: "url",
+  },
+  { field: "notes", label: "Notes", inputType: "textarea" },
+];
+
+// ─── Auto-detect helpers ──────────────────────────────────────────────────────
+
+type ShowDoc = { hotlinkImageUrl?: string; images: string[] };
+type ProdDoc = {
+  theatre?: string;
+  city?: string;
+  openingDate?: string;
+  closingDate?: string;
+};
+
+function computeShowStatus(show: ShowDoc): DataStatus {
+  const hasImage = !!(show.hotlinkImageUrl || show.images.length > 0);
+  return hasImage ? "complete" : "partial";
+}
+
+function computeProductionStatus(prod: ProdDoc): DataStatus {
+  const hasTheatre = !!prod.theatre;
+  const hasCity = !!prod.city;
+  const hasDate = !!(prod.openingDate || prod.closingDate);
+  return hasTheatre && hasCity && hasDate ? "complete" : "partial";
+}
+
+// ─── Field value normalisation ────────────────────────────────────────────────
+
+/**
+ * Normalises a raw document field value to string | undefined so the rest of
+ * the UI can treat every value uniformly.  Booleans become "true" / "false"
+ * and are displayed as "Yes" / "No" by FieldRow.
+ */
+function getFieldValue(
+  doc: Record<string, unknown>,
+  field: string
+): string | undefined {
+  const raw = doc[field];
+  if (raw === true) return "true";
+  if (raw === false) return "false";
+  if (raw === null || raw === undefined) return undefined;
+  return String(raw);
+}
+
+// Stable key for tracking direct edits in a Map
+const editKey = (
+  entityType: "show" | "production",
+  entityId: string,
+  field: string
+) => `${entityType}:${entityId}:${field}`;
 
 export default function ShowReviewDetail() {
   const params = useParams();
@@ -51,7 +183,12 @@ export default function ShowReviewDetail() {
     new Map()
   );
   const [editValues, setEditValues] = useState<Map<string, string>>(new Map());
-  const [showDataStatus, setShowDataStatus] = useState<DataStatus>("needs_review");
+  // Direct edits: staged but not yet submitted patches to any field
+  const [directEdits, setDirectEdits] = useState<Map<string, DirectEdit>>(
+    new Map()
+  );
+  const [showDataStatus, setShowDataStatus] =
+    useState<DataStatus>("needs_review");
   const [productionStatuses, setProductionStatuses] = useState<
     Map<string, DataStatus>
   >(new Map());
@@ -68,8 +205,6 @@ export default function ShowReviewDetail() {
         prodStatuses.set(p._id, p.dataStatus as DataStatus);
       }
       setProductionStatuses(prodStatuses);
-
-      // Expand all productions by default
       setExpandedProductions(new Set(detail.productions.map((p) => p._id)));
     }
   }, [detail]);
@@ -85,10 +220,60 @@ export default function ShowReviewDetail() {
     []
   );
 
+  const stageDirectEdit = useCallback((edit: DirectEdit) => {
+    setDirectEdits((prev) => {
+      const next = new Map(prev);
+      next.set(editKey(edit.entityType, edit.entityId, edit.field), edit);
+      return next;
+    });
+  }, []);
+
+  const unstageDirectEdit = useCallback(
+    (entityType: "show" | "production", entityId: string, field: string) => {
+      setDirectEdits((prev) => {
+        const next = new Map(prev);
+        next.delete(editKey(entityType, entityId, field));
+        return next;
+      });
+    },
+    []
+  );
+
+  const approveAllShow = useCallback(() => {
+    if (!detail) return;
+    const pending = detail.showReviewEntries.filter(
+      (e) => e.status === "pending"
+    );
+    setDecisions((prev) => {
+      const next = new Map(prev);
+      for (const e of pending) {
+        next.set(e._id, { entryId: e._id, decision: "approved" });
+      }
+      return next;
+    });
+    setShowDataStatus(computeShowStatus(detail.show));
+  }, [detail]);
+
+  const approveAllForProduction = useCallback(
+    (prodId: string, prod: ProdDoc & { reviewEntries: { _id: string; status: string }[] }) => {
+      const pending = prod.reviewEntries.filter((e) => e.status === "pending");
+      setDecisions((prev) => {
+        const next = new Map(prev);
+        for (const e of pending) {
+          next.set(e._id, { entryId: e._id, decision: "approved" });
+        }
+        return next;
+      });
+      setProductionStatuses((prev) =>
+        new Map(prev).set(prodId, computeProductionStatus(prod))
+      );
+    },
+    []
+  );
+
   const handleSubmit = async () => {
     if (!detail) return;
     setSubmitting(true);
-
     try {
       const entryDecisions = Array.from(decisions.values()).map((d) => ({
         entryId: d.entryId as Id<"reviewQueue">,
@@ -96,21 +281,21 @@ export default function ShowReviewDetail() {
         reviewedValue: d.reviewedValue,
         note: d.note,
       }));
-
       const prodStatuses = Array.from(productionStatuses.entries()).map(
         ([id, status]) => ({
           productionId: id as Id<"productions">,
           dataStatus: status,
         })
       );
+      const directEditsArr = Array.from(directEdits.values());
 
       await submitReview({
         showId: showId as Id<"shows">,
         showDataStatus,
         entryDecisions,
         productionStatuses: prodStatuses,
+        directEdits: directEditsArr,
       });
-
       router.push("/admin");
     } catch (err) {
       console.error("Failed to submit review:", err);
@@ -128,17 +313,19 @@ export default function ShowReviewDetail() {
   }
 
   const { show, showReviewEntries, productions } = detail;
-
-  const pendingShowEntries = showReviewEntries.filter(
+  const pendingShowCount = showReviewEntries.filter(
     (e) => e.status === "pending"
-  );
-  const reviewedShowEntries = showReviewEntries.filter(
-    (e) => e.status !== "pending"
-  );
+  ).length;
+  const pendingTotalCount =
+    pendingShowCount +
+    productions.reduce(
+      (sum, p) => sum + p.reviewEntries.filter((e) => e.status === "pending").length,
+      0
+    );
+  const dirtyCount = directEdits.size;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 pb-32">
-      {/* Back link */}
       <button
         onClick={() => router.push("/admin")}
         className="text-sm text-gray-500 hover:text-gray-900 mb-6 block"
@@ -146,102 +333,116 @@ export default function ShowReviewDetail() {
         &larr; Back to dashboard
       </button>
 
-      {/* Show header */}
-      <div className="flex items-start gap-6 mb-8">
-        {show.images[0] ? (
-          <img
-            src={show.images[0]}
-            alt={show.name}
-            className="h-32 w-32 rounded-lg object-cover bg-gray-100"
-          />
-        ) : (
-          <div className="h-32 w-32 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400">
-            No image
-          </div>
-        )}
-        <div>
-          <h1 className="text-2xl font-bold">{show.name}</h1>
-          <p className="text-gray-600 capitalize">{show.type}</p>
-          {show.subtype && (
-            <p className="text-gray-500 text-sm">{show.subtype}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Show fields section */}
-      <section className="mb-10">
-        <h2 className="text-lg font-semibold mb-4 border-b pb-2">
-          Show Data
-          {pendingShowEntries.length > 0 && (
-            <span className="ml-2 text-sm font-normal text-amber-600">
-              ({pendingShowEntries.length} pending)
+      {/* Page title */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">{show.name}</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          {pendingTotalCount > 0 && (
+            <span className="text-amber-600 font-medium">
+              {pendingTotalCount} pending
             </span>
           )}
-        </h2>
+          {pendingTotalCount > 0 && dirtyCount > 0 && (
+            <span className="mx-1.5 text-gray-300">·</span>
+          )}
+          {dirtyCount > 0 && (
+            <span className="text-yellow-600 font-medium">
+              {dirtyCount} staged edit{dirtyCount !== 1 ? "s" : ""}
+            </span>
+          )}
+        </p>
+      </div>
 
-        {pendingShowEntries.length === 0 && reviewedShowEntries.length === 0 ? (
-          <p className="text-gray-500 text-sm">
-            No review queue entries for this show.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {pendingShowEntries.map((entry) => (
-              <ReviewEntryRow
-                key={entry._id}
-                entry={entry}
-                decision={decisions.get(entry._id)}
-                editValue={editValues.get(entry._id)}
-                onDecision={(d, v) => setDecision(entry._id, d, v)}
-                onEditValueChange={(v) =>
-                  setEditValues((prev) => new Map(prev).set(entry._id, v))
-                }
-              />
-            ))}
-            {reviewedShowEntries.length > 0 && (
-              <details className="mt-4">
-                <summary className="text-sm text-gray-500 cursor-pointer hover:text-gray-700">
-                  {reviewedShowEntries.length} previously reviewed
-                </summary>
-                <div className="mt-2 space-y-2">
-                  {reviewedShowEntries.map((entry) => (
-                    <div
-                      key={entry._id}
-                      className="rounded border border-gray-100 bg-gray-50 px-4 py-2 text-sm text-gray-500"
-                    >
-                      <span className="font-medium">
-                        {FIELD_LABELS[entry.field] ?? entry.field}
-                      </span>
-                      : {entry.currentValue ?? "—"}{" "}
-                      <span className="capitalize">({entry.status})</span>
-                    </div>
-                  ))}
-                </div>
-              </details>
+      {/* Show fields */}
+      <section className="mb-10">
+        <div className="flex items-center justify-between mb-3 border-b pb-2">
+          <h2 className="text-lg font-semibold">
+            Show Data
+            {pendingShowCount > 0 && (
+              <span className="ml-2 text-sm font-normal text-amber-600">
+                ({pendingShowCount} pending)
+              </span>
             )}
-          </div>
-        )}
+          </h2>
+          {pendingShowCount > 0 && (
+            <button
+              onClick={approveAllShow}
+              className="rounded-md bg-green-50 border border-green-200 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
+            >
+              Approve All
+            </button>
+          )}
+        </div>
+        <div className="space-y-2">
+          {SHOW_FIELDS.map(
+            ({ field, label, isImage, alwaysPresent, inputType, options }) => {
+              const value = getFieldValue(show as Record<string, unknown>, field);
+              const entry = showReviewEntries.find((e) => e.field === field);
+              const stagedEdit = directEdits.get(
+                editKey("show", show._id, field)
+              );
+              return (
+                <FieldRow
+                  key={field}
+                  label={label}
+                  value={value}
+                  isImage={isImage}
+                  alwaysPresent={alwaysPresent}
+                  inputType={inputType}
+                  options={options}
+                  entry={entry}
+                  stagedEdit={stagedEdit}
+                  decision={entry ? decisions.get(entry._id) : undefined}
+                  editValue={entry ? editValues.get(entry._id) : undefined}
+                  onDecision={
+                    entry
+                      ? (d, v) => setDecision(entry._id, d, v)
+                      : undefined
+                  }
+                  onEditValueChange={
+                    entry
+                      ? (v) =>
+                          setEditValues((prev) =>
+                            new Map(prev).set(entry._id, v)
+                          )
+                      : undefined
+                  }
+                  onStageEdit={(newValue) =>
+                    stageDirectEdit({
+                      entityType: "show",
+                      entityId: show._id,
+                      field,
+                      newValue,
+                    })
+                  }
+                  onUnstageEdit={() =>
+                    unstageDirectEdit("show", show._id, field)
+                  }
+                />
+              );
+            }
+          )}
+        </div>
       </section>
 
-      {/* Productions section */}
+      {/* Productions */}
       <section className="mb-10">
-        <h2 className="text-lg font-semibold mb-4 border-b pb-2">
+        <h2 className="text-lg font-semibold mb-3 border-b pb-2">
           Productions ({productions.length})
         </h2>
 
         {productions.length === 0 ? (
-          <p className="text-gray-500 text-sm">
-            No productions for this show.
-          </p>
+          <p className="text-gray-500 text-sm">No productions for this show.</p>
         ) : (
           <div className="space-y-4">
             {productions.map((prod) => {
               const isExpanded = expandedProductions.has(prod._id);
-              const pendingEntries = prod.reviewEntries.filter(
+              const pendingCount = prod.reviewEntries.filter(
                 (e) => e.status === "pending"
-              );
-              const reviewedEntries = prod.reviewEntries.filter(
-                (e) => e.status !== "pending"
-              );
+              ).length;
+              const prodStagedCount = Array.from(directEdits.keys()).filter(
+                (k) => k.startsWith(`production:${prod._id}:`)
+              ).length;
 
               return (
                 <div
@@ -264,10 +465,10 @@ export default function ShowReviewDetail() {
                         <img
                           src={prod.posterUrl}
                           alt="poster"
-                          className="h-8 w-8 rounded object-cover bg-gray-100"
+                          className="h-8 w-8 rounded object-cover bg-gray-100 shrink-0"
                         />
                       ) : (
-                        <div className="h-8 w-8 rounded bg-gray-200" />
+                        <div className="h-8 w-8 rounded bg-gray-200 shrink-0" />
                       )}
                       <div>
                         <span className="text-sm font-medium">
@@ -281,9 +482,14 @@ export default function ShowReviewDetail() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {pendingEntries.length > 0 && (
+                      {pendingCount > 0 && (
                         <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                          {pendingEntries.length} pending
+                          {pendingCount} pending
+                        </span>
+                      )}
+                      {prodStagedCount > 0 && (
+                        <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                          {prodStagedCount} staged
                         </span>
                       )}
                       <span className="text-gray-400 text-sm">
@@ -293,79 +499,128 @@ export default function ShowReviewDetail() {
                   </button>
 
                   {isExpanded && (
-                    <div className="px-4 py-4 space-y-4">
-                      {/* Production status selector */}
-                      <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
-                        <span className="text-sm font-medium text-gray-700">
-                          Production status:
-                        </span>
-                        {STATUS_OPTIONS.map((opt) => (
-                          <label
-                            key={opt.value}
-                            className="flex items-center gap-1.5 text-sm"
+                    <div className="px-4 py-4 space-y-2">
+                      {/* Production status selector + Approve All */}
+                      <div className="flex items-center justify-between gap-3 pb-3 mb-1 border-b border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-gray-700">
+                            Status:
+                          </span>
+                          {STATUS_OPTIONS.map((opt) => (
+                            <label
+                              key={opt.value}
+                              className="flex items-center gap-1.5 text-sm"
+                            >
+                              <input
+                                type="radio"
+                                name={`prod-status-${prod._id}`}
+                                checked={
+                                  productionStatuses.get(prod._id) === opt.value
+                                }
+                                onChange={() =>
+                                  setProductionStatuses((prev) =>
+                                    new Map(prev).set(prod._id, opt.value)
+                                  )
+                                }
+                                className="accent-gray-900"
+                              />
+                              {opt.label}
+                            </label>
+                          ))}
+                        </div>
+                        {pendingCount > 0 && (
+                          <button
+                            onClick={() => approveAllForProduction(prod._id, prod)}
+                            className="rounded-md bg-green-50 border border-green-200 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors shrink-0"
                           >
-                            <input
-                              type="radio"
-                              name={`prod-status-${prod._id}`}
-                              checked={
-                                productionStatuses.get(prod._id) === opt.value
-                              }
-                              onChange={() =>
-                                setProductionStatuses((prev) =>
-                                  new Map(prev).set(prod._id, opt.value)
-                                )
-                              }
-                              className="accent-gray-900"
-                            />
-                            {opt.label}
-                          </label>
-                        ))}
+                            Approve All
+                          </button>
+                        )}
                       </div>
 
-                      {pendingEntries.map((entry) => (
-                        <ReviewEntryRow
-                          key={entry._id}
-                          entry={entry}
-                          decision={decisions.get(entry._id)}
-                          editValue={editValues.get(entry._id)}
-                          onDecision={(d, v) => setDecision(entry._id, d, v)}
-                          onEditValueChange={(v) =>
-                            setEditValues((prev) =>
-                              new Map(prev).set(entry._id, v)
-                            )
-                          }
-                        />
-                      ))}
+                      {PRODUCTION_FIELDS.map(
+                        ({
+                          field,
+                          label,
+                          isImage,
+                          alwaysPresent,
+                          inputType,
+                          options,
+                        }) => {
+                          const value = getFieldValue(
+                            prod as Record<string, unknown>,
+                            field
+                          );
+                          const entry = prod.reviewEntries.find(
+                            (e) => e.field === field
+                          );
+                          const stagedEdit = directEdits.get(
+                            editKey("production", prod._id, field)
+                          );
 
-                      {pendingEntries.length === 0 &&
-                        reviewedEntries.length === 0 && (
-                          <p className="text-gray-500 text-sm">
-                            No review queue entries.
-                          </p>
-                        )}
+                          // Venue match badge on the Theatre field
+                          const extraBadge =
+                            field === "theatre" ? (
+                              prod.venueMatch ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-xs text-teal-700 shrink-0">
+                                  ✓ {prod.venueMatch.name}
+                                </span>
+                              ) : value ? (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-xs text-gray-500 shrink-0">
+                                  No venue match
+                                </span>
+                              ) : undefined
+                            ) : undefined;
 
-                      {reviewedEntries.length > 0 && (
-                        <details>
-                          <summary className="text-sm text-gray-500 cursor-pointer hover:text-gray-700">
-                            {reviewedEntries.length} previously reviewed
-                          </summary>
-                          <div className="mt-2 space-y-2">
-                            {reviewedEntries.map((entry) => (
-                              <div
-                                key={entry._id}
-                                className="rounded border border-gray-100 bg-gray-50 px-4 py-2 text-sm text-gray-500"
-                              >
-                                <span className="font-medium">
-                                  {FIELD_LABELS[entry.field] ?? entry.field}
-                                </span>
-                                : {entry.currentValue ?? "—"}{" "}
-                                <span className="capitalize">
-                                  ({entry.status})
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </details>
+                          return (
+                            <FieldRow
+                              key={field}
+                              label={label}
+                              value={value}
+                              isImage={isImage}
+                              alwaysPresent={alwaysPresent}
+                              inputType={inputType}
+                              options={options}
+                              entry={entry}
+                              stagedEdit={stagedEdit}
+                              extraBadge={extraBadge}
+                              decision={
+                                entry ? decisions.get(entry._id) : undefined
+                              }
+                              editValue={
+                                entry ? editValues.get(entry._id) : undefined
+                              }
+                              onDecision={
+                                entry
+                                  ? (d, v) => setDecision(entry._id, d, v)
+                                  : undefined
+                              }
+                              onEditValueChange={
+                                entry
+                                  ? (v) =>
+                                      setEditValues((prev) =>
+                                        new Map(prev).set(entry._id, v)
+                                      )
+                                  : undefined
+                              }
+                              onStageEdit={(newValue) =>
+                                stageDirectEdit({
+                                  entityType: "production",
+                                  entityId: prod._id,
+                                  field,
+                                  newValue,
+                                })
+                              }
+                              onUnstageEdit={() =>
+                                unstageDirectEdit(
+                                  "production",
+                                  prod._id,
+                                  field
+                                )
+                              }
+                            />
+                          );
+                        }
                       )}
                     </div>
                   )}
@@ -412,116 +667,351 @@ export default function ShowReviewDetail() {
   );
 }
 
-// ─── Review entry row component ───────────────────────────────────────────────
+// ─── FieldRow ─────────────────────────────────────────────────────────────────
 
-function ReviewEntryRow({
+type QueueEntry = {
+  _id: string;
+  field: string;
+  currentValue?: string;
+  source: string;
+  status: string;
+};
+
+function FieldRow({
+  label,
+  value,
+  isImage,
+  alwaysPresent,
+  inputType = "text",
+  options,
   entry,
+  stagedEdit,
+  extraBadge,
   decision,
   editValue,
   onDecision,
   onEditValueChange,
+  onStageEdit,
+  onUnstageEdit,
 }: {
-  entry: {
-    _id: string;
-    field: string;
-    currentValue?: string;
-    source: string;
-    status: string;
-  };
+  label: string;
+  value: string | undefined;
+  isImage?: boolean;
+  alwaysPresent?: boolean;
+  inputType?: "text" | "select" | "date" | "url" | "textarea" | "boolean";
+  options?: string[];
+  entry?: QueueEntry;
+  stagedEdit?: { newValue?: string };
+  extraBadge?: React.ReactNode;
   decision?: EntryDecision;
   editValue?: string;
-  onDecision: (decision: Decision, reviewedValue?: string) => void;
-  onEditValueChange: (value: string) => void;
+  onDecision?: (decision: Decision, reviewedValue?: string) => void;
+  onEditValueChange?: (value: string) => void;
+  onStageEdit: (newValue?: string) => void;
+  onUnstageEdit: () => void;
 }) {
-  const isImage =
-    entry.field === "hotlinkImageUrl" || entry.field === "hotlinkPosterUrl";
+  const [isInlineEditing, setIsInlineEditing] = useState(false);
+  const [inlineValue, setInlineValue] = useState("");
+
+  const isEmpty = value === undefined || value === null || value === "";
   const currentDecision = decision?.decision;
   const isEditing = currentDecision === "edited";
 
-  return (
-    <div className="rounded-lg border border-gray-200 p-4">
-      <div className="flex items-start justify-between gap-4 mb-3">
-        <div>
-          <div className="text-sm font-medium text-gray-900">
-            {FIELD_LABELS[entry.field] ?? entry.field}
-          </div>
-          <div className="text-xs text-gray-500 capitalize">
-            Source: {entry.source}
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => onDecision("approved")}
-            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-              currentDecision === "approved"
-                ? "bg-green-600 text-white"
-                : "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
-            }`}
-          >
-            Approve
-          </button>
-          <button
-            onClick={() =>
-              onDecision("edited", editValue ?? entry.currentValue ?? "")
-            }
-            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-              currentDecision === "edited"
-                ? "bg-blue-600 text-white"
-                : "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
-            }`}
-          >
-            Edit
-          </button>
-          <button
-            onClick={() => onDecision("rejected")}
-            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-              currentDecision === "rejected"
-                ? "bg-red-600 text-white"
-                : "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
-            }`}
-          >
-            Reject
-          </button>
-        </div>
-      </div>
+  const startInlineEdit = () => {
+    setInlineValue(value ?? "");
+    setIsInlineEditing(true);
+  };
 
-      {/* Current value display */}
-      {isImage && entry.currentValue ? (
-        <img
-          src={entry.currentValue}
-          alt={entry.field}
-          className="max-h-48 rounded border border-gray-200 bg-gray-50 object-contain"
-        />
-      ) : (
-        <div className="text-sm text-gray-700 bg-gray-50 rounded px-3 py-2">
-          {entry.currentValue ?? <span className="text-gray-400">Empty</span>}
-        </div>
-      )}
+  const saveInlineEdit = () => {
+    onStageEdit(inlineValue === "" ? undefined : inlineValue);
+    setIsInlineEditing(false);
+  };
 
-      {/* Edit field */}
-      {isEditing && (
-        <div className="mt-3">
-          <label className="text-xs font-medium text-gray-600 block mb-1">
-            {isImage ? "New image URL" : "New value"}
-          </label>
-          <input
-            type="text"
-            value={editValue ?? entry.currentValue ?? ""}
-            onChange={(e) => {
-              onEditValueChange(e.target.value);
-              onDecision("edited", e.target.value);
-            }}
-            className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+  // ── Pending queue entry: full Approve / Edit / Reject card ────────────────
+  if (entry && entry.status === "pending") {
+    return (
+      <div className="rounded-lg border border-gray-200 p-4">
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <div>
+            <span className="text-sm font-medium text-gray-900">{label}</span>
+            <span className="ml-2 text-xs text-gray-400 capitalize">
+              via {entry.source}
+            </span>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => onDecision?.("approved")}
+              className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                currentDecision === "approved"
+                  ? "bg-green-600 text-white"
+                  : "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
+              }`}
+            >
+              Approve
+            </button>
+            <button
+              onClick={() =>
+                onDecision?.("edited", editValue ?? value ?? "")
+              }
+              className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                currentDecision === "edited"
+                  ? "bg-blue-600 text-white"
+                  : "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+              }`}
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => onDecision?.("rejected")}
+              className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                currentDecision === "rejected"
+                  ? "bg-red-600 text-white"
+                  : "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+              }`}
+            >
+              Reject
+            </button>
+          </div>
+        </div>
+
+        {isImage && value ? (
+          <img
+            src={value}
+            alt={label}
+            className="max-h-48 rounded border border-gray-200 bg-gray-50 object-contain"
           />
-          {isImage && editValue && (
-            <img
-              src={editValue}
-              alt="preview"
-              className="mt-2 max-h-32 rounded border border-gray-200 object-contain"
+        ) : (
+          <div className="text-sm text-gray-700 bg-gray-50 rounded px-3 py-2 break-all">
+            {value ?? <span className="text-gray-400 italic">Empty</span>}
+          </div>
+        )}
+
+        {isEditing && (
+          <div className="mt-3">
+            <label className="text-xs font-medium text-gray-600 block mb-1">
+              {isImage ? "New image URL" : "New value"}
+            </label>
+            <FieldInput
+              inputType={inputType}
+              options={options}
+              value={editValue ?? value ?? ""}
+              onChange={(v) => {
+                onEditValueChange?.(v);
+                onDecision?.("edited", v);
+              }}
             />
-          )}
+            {isImage && editValue && (
+              <img
+                src={editValue}
+                alt="preview"
+                className="mt-2 max-h-32 rounded border border-gray-200 object-contain"
+              />
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Compact row for reviewed / unqueued fields ────────────────────────────
+
+  // Determine what to display as the "live" value
+  const hasStagedEdit = stagedEdit !== undefined;
+  const displayValue = hasStagedEdit ? stagedEdit?.newValue : value;
+  const displayIsEmpty =
+    displayValue === undefined || displayValue === null || displayValue === "";
+
+  const statusBadge = hasStagedEdit ? (
+    <span className="inline-flex items-center rounded-full bg-yellow-50 border border-yellow-300 px-2 py-0.5 text-xs font-medium text-yellow-700">
+      Staged
+    </span>
+  ) : entry ? (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${
+        REVIEWED_STATUS_STYLES[entry.status] ??
+        "bg-gray-50 text-gray-500 border-gray-200"
+      }`}
+    >
+      {entry.status}
+    </span>
+  ) : displayIsEmpty && !alwaysPresent ? (
+    <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs text-amber-700">
+      Missing
+    </span>
+  ) : null;
+
+  if (isInlineEditing) {
+    return (
+      <div className="rounded-lg border border-blue-200 bg-blue-50/30 p-3">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <span className="text-sm font-medium text-gray-700">{label}</span>
+          <div className="flex gap-2">
+            <button
+              onClick={saveInlineEdit}
+              className="rounded-md bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-gray-700"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => setIsInlineEditing(false)}
+              className="rounded-md bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
-      )}
+        <FieldInput
+          inputType={inputType}
+          options={options}
+          value={inlineValue}
+          onChange={setInlineValue}
+          autoFocus
+        />
+        {isImage && inlineValue && (
+          <img
+            src={inlineValue}
+            alt="preview"
+            className="mt-2 max-h-32 rounded border border-gray-200 object-contain"
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`group flex items-start gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+        hasStagedEdit ? "bg-yellow-50 border border-yellow-200" : "bg-gray-50 hover:bg-gray-100"
+      }`}
+    >
+      <span className="font-medium text-gray-600 w-36 shrink-0 pt-0.5">
+        {label}
+      </span>
+      <div className="flex-1 min-w-0">
+        {isImage && displayValue ? (
+          <img
+            src={displayValue}
+            alt={label}
+            className="max-h-24 rounded border border-gray-200 object-contain"
+          />
+        ) : (
+          <span
+            className={`break-all ${displayIsEmpty ? "text-gray-400 italic" : "text-gray-800"}`}
+          >
+            {displayIsEmpty
+              ? "—"
+              : displayValue === "true"
+                ? "Yes"
+                : displayValue === "false"
+                  ? "No"
+                  : displayValue}
+          </span>
+        )}
+      </div>
+      <div className="shrink-0 flex items-center gap-1.5 flex-wrap justify-end">
+        {extraBadge}
+        {statusBadge}
+        {/* Edit / Clear / Undo controls */}
+        {hasStagedEdit ? (
+          <button
+            onClick={onUnstageEdit}
+            className="opacity-0 group-hover:opacity-100 rounded px-2 py-0.5 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-200 transition-all"
+          >
+            Undo
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={startInlineEdit}
+              className="opacity-0 group-hover:opacity-100 rounded px-2 py-0.5 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-200 transition-all"
+            >
+              Edit
+            </button>
+            {!displayIsEmpty && !alwaysPresent && (
+              <button
+                onClick={() => onStageEdit(undefined)}
+                className="opacity-0 group-hover:opacity-100 rounded px-2 py-0.5 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 transition-all"
+              >
+                Clear
+              </button>
+            )}
+          </>
+        )}
+      </div>
     </div>
+  );
+}
+
+// ─── FieldInput: renders the right input type for a field ─────────────────────
+
+function FieldInput({
+  inputType,
+  options,
+  value,
+  onChange,
+  autoFocus,
+}: {
+  inputType?: "text" | "select" | "date" | "url" | "textarea" | "boolean";
+  options?: string[];
+  value: string;
+  onChange: (v: string) => void;
+  autoFocus?: boolean;
+}) {
+  const base =
+    "w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 bg-white";
+
+  if (inputType === "boolean") {
+    return (
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoFocus={autoFocus}
+        className={base}
+      >
+        <option value="">— Unknown</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+    );
+  }
+
+  if (inputType === "select" && options) {
+    return (
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoFocus={autoFocus}
+        className={base}
+      >
+        <option value="">— select —</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o.replace(/_/g, " ")}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (inputType === "textarea") {
+    return (
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoFocus={autoFocus}
+        rows={3}
+        className={`${base} resize-y`}
+      />
+    );
+  }
+
+  return (
+    <input
+      type={inputType === "date" ? "date" : "text"}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      autoFocus={autoFocus}
+      className={base}
+    />
   );
 }

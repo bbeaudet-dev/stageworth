@@ -178,11 +178,28 @@ export const getShowReviewDetail = query({
           )
           .collect();
 
+        // Try to find a matching venue by normalized theatre name.
+        let venueMatch: { _id: string; name: string; city: string } | null =
+          null;
+        if (p.theatre) {
+          const normalizedName = normalizeForVenueMatch(p.theatre);
+          const venue = await ctx.db
+            .query("venues")
+            .withIndex("by_normalized_name", (q) =>
+              q.eq("normalizedName", normalizedName)
+            )
+            .first();
+          if (venue) {
+            venueMatch = { _id: venue._id, name: venue.name, city: venue.city };
+          }
+        }
+
         return {
           ...p,
           posterUrl,
           dataStatus: p.dataStatus ?? "needs_review",
           reviewEntries: entries,
+          venueMatch,
         };
       })
     );
@@ -268,6 +285,19 @@ export const submitShowReview = mutation({
         })
       )
     ),
+    // Ad-hoc field patches that bypass the review queue (e.g. direct edits /
+    // clears on fields that have no pending queue entry).
+    directEdits: v.optional(
+      v.array(
+        v.object({
+          entityType: v.union(v.literal("show"), v.literal("production")),
+          entityId: v.string(),
+          field: v.string(),
+          // undefined = clear the field
+          newValue: v.optional(v.string()),
+        })
+      )
+    ),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -301,6 +331,19 @@ export const submitShowReview = mutation({
           entry.entityId,
           entry.field,
           decision.reviewedValue
+        );
+      }
+    }
+
+    // Apply direct field edits/clears (no queue entry required).
+    if (args.directEdits) {
+      for (const edit of args.directEdits) {
+        await applyFieldChange(
+          ctx,
+          edit.entityType,
+          edit.entityId,
+          edit.field,
+          edit.newValue
         );
       }
     }
@@ -357,6 +400,20 @@ export const createEntry = internalMutation({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Same normalization used by the venues seeder — kept in sync manually. */
+function normalizeForVenueMatch(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/['']/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Fields stored as booleans — string values "true"/"false" must be converted.
+const BOOLEAN_FIELDS = new Set(["isOpenRun"]);
+
 async function applyFieldChange(
   ctx: any,
   entityType: string,
@@ -364,22 +421,24 @@ async function applyFieldChange(
   field: string,
   value: string | undefined
 ) {
-  const tableName = entityType === "show" ? "shows" : "productions";
   const doc = await ctx.db.get(entityId as any);
   if (!doc) return;
 
   if (value === undefined) {
-    // Reject: clear the field
+    // Clear the field (reject or explicit clear).
+    // Clearing hotlinkImageUrl should also clear its source.
     if (field === "hotlinkImageUrl") {
       await ctx.db.patch(entityId as any, {
         hotlinkImageUrl: undefined,
         hotlinkImageSource: undefined,
       });
-    } else if (field === "hotlinkPosterUrl") {
-      await ctx.db.patch(entityId as any, { hotlinkPosterUrl: undefined });
     } else {
       await ctx.db.patch(entityId as any, { [field]: undefined });
     }
+  } else if (BOOLEAN_FIELDS.has(field)) {
+    const boolValue =
+      value === "true" ? true : value === "false" ? false : undefined;
+    await ctx.db.patch(entityId as any, { [field]: boolValue });
   } else {
     await ctx.db.patch(entityId as any, { [field]: value });
   }
