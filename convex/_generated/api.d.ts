@@ -8,7 +8,10 @@
  * @module
  */
 
+import type * as admin_legacyWikidata from "../admin/legacyWikidata.js";
+import type * as admin_maintenance from "../admin/maintenance.js";
 import type * as admin_seed from "../admin/seed.js";
+import type * as admin_wikiApi from "../admin/wikiApi.js";
 import type * as auth from "../auth.js";
 import type * as authFactory from "../authFactory.js";
 import type * as botIngestion from "../botIngestion.js";
@@ -48,7 +51,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "admin/legacyWikidata": typeof admin_legacyWikidata;
+  "admin/maintenance": typeof admin_maintenance;
   "admin/seed": typeof admin_seed;
+  "admin/wikiApi": typeof admin_wikiApi;
   auth: typeof auth;
   authFactory: typeof authFactory;
   botIngestion: typeof botIngestion;
