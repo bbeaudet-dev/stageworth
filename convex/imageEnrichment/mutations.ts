@@ -50,6 +50,19 @@ export const setShowHotlinkImage = internalMutation({
 });
 
 /**
+ * Mark a show as checked by Wikipedia when no image was found.
+ * Prevents re-processing on subsequent backfill runs.
+ */
+export const markWikipediaChecked = internalMutation({
+  args: { showId: v.id("shows") },
+  handler: async (ctx, args) => {
+    const show = await ctx.db.get(args.showId);
+    if (!show || show.wikipediaTitle) return;
+    await ctx.db.patch(args.showId, { wikipediaTitle: "_not_found" });
+  },
+});
+
+/**
  * Set a hotlink poster URL on a production record from Ticketmaster.
  */
 export const setProductionHotlinkImage = internalMutation({

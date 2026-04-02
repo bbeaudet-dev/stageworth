@@ -13,9 +13,10 @@ export const showsNeedingImages = internalQuery({
   handler: async (ctx, args) => {
     const all = await ctx.db.query("shows").collect();
 
-    // Find shows with no images at all.
+    // Find shows with no images and not yet checked by Wikipedia.
     const needsImage = all.filter(
-      (s) => s.images.length === 0 && !s.hotlinkImageUrl
+      (s) =>
+        s.images.length === 0 && !s.hotlinkImageUrl && !s.wikipediaTitle
     );
 
     // Simple cursor: the show _id to start after.

@@ -9,8 +9,9 @@ import {
 } from "./nameMatch";
 
 const USER_AGENT = "TheatreDiaryApp/1.0 (https://github.com/theatre-diary)";
-const BATCH_SIZE = 40;
+const BATCH_SIZE = 100;
 const DELAY_MS = 150; // ~6–7 req/s, well within Wikipedia's 200 req/s guidance
+const MAX_RETRIES = 3;
 
 type WikiSummary = {
   title: string;
@@ -19,12 +20,38 @@ type WikiSummary = {
   originalimage?: { source: string; width: number; height: number };
 };
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit
+): Promise<Response | null> {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fetch(url, init);
+    } catch (err) {
+      if (attempt === MAX_RETRIES) {
+        console.log(`Fetch failed after ${MAX_RETRIES + 1} attempts: ${url}`);
+        return null;
+      }
+      const backoff = 1000 * 2 ** attempt;
+      console.log(
+        `Fetch error (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying in ${backoff}ms: ${(err as Error).message}`
+      );
+      await sleep(backoff);
+    }
+  }
+  return null;
+}
+
 async function fetchWikiSummary(title: string): Promise<WikiSummary | null> {
   const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeWikipediaTitle(title)}`;
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
   });
-  if (!res.ok) return null;
+  if (!res || !res.ok) return null;
   return (await res.json()) as WikiSummary;
 }
 
@@ -36,19 +63,15 @@ async function searchWikipedia(showName: string): Promise<string | null> {
     format: "json",
     srlimit: "3",
   });
-  const res = await fetch(
+  const res = await fetchWithRetry(
     `https://en.wikipedia.org/w/api.php?${params.toString()}`,
     { headers: { "User-Agent": USER_AGENT } }
   );
-  if (!res.ok) return null;
+  if (!res || !res.ok) return null;
   const data = (await res.json()) as {
     query?: { search?: { title: string }[] };
   };
   return data.query?.search?.[0]?.title ?? null;
-}
-
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
 }
 
 /**
@@ -115,7 +138,10 @@ export const backfillWikipediaImages = internalAction({
         );
         enriched++;
       } else {
-        console.log(`Wikipedia: no image for "${show.name}" (${show._id})`);
+        await ctx.runMutation(
+          internal.imageEnrichment.mutations.markWikipediaChecked,
+          { showId: show._id }
+        );
         failed++;
       }
       await sleep(DELAY_MS);
