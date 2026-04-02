@@ -1,11 +1,11 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
-  // Allow importing from outside the website/ directory (e.g. ../convex/_generated/).
-  // Without this, the bundler can't resolve "convex/server" from api.js which lives
-  // at the repo root.
-  experimental: {
-    externalDir: true,
+  turbopack: {
+    // Treat website/ as the project root so Turbopack finds "convex/server"
+    // in website/node_modules when bundling the copied convex_generated/ files.
+    root: path.resolve(__dirname),
   },
   images: {
     remotePatterns: [
