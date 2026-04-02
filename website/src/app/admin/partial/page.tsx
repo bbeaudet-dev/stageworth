@@ -2,38 +2,10 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/lib/api";
-import { useSession, signIn } from "@/lib/auth-client";
 import Link from "next/link";
 
 export default function PartialShowsPage() {
-  const { data: session, isPending } = useSession();
-  const authenticated = !!session?.user;
-  const shows = useQuery(
-    api.reviewQueue.listPartialShows,
-    authenticated ? {} : "skip"
-  );
-
-  if (isPending) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        <div className="text-gray-500 text-sm">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!authenticated) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold mb-4">Sign in required</h1>
-        <button
-          onClick={() => signIn.social({ provider: "google", callbackURL: "/admin/partial" })}
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
-        >
-          Sign in with Google
-        </button>
-      </div>
-    );
-  }
+  const shows = useQuery(api.reviewQueue.listPartialShows);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">

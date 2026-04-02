@@ -2,7 +2,6 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/lib/api";
-import { useSession, signIn } from "@/lib/auth-client";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -24,43 +23,14 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
 };
 
 export default function AdminDashboard() {
-  const { data: session, isPending } = useSession();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("needs_review");
   const [search, setSearch] = useState("");
 
-  const authenticated = !!session?.user;
-  const stats = useQuery(api.reviewQueue.stats, authenticated ? {} : "skip");
-  const shows = useQuery(
-    api.reviewQueue.listShowsForReview,
-    authenticated
-      ? { statusFilter: statusFilter, search: search || undefined }
-      : "skip"
-  );
-
-  if (isPending) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        <div className="text-gray-500 text-sm">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!authenticated) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold mb-4">Sign in required</h1>
-        <p className="text-gray-600 mb-6">
-          You need to sign in to access the admin dashboard.
-        </p>
-        <button
-          onClick={() => signIn.social({ provider: "google", callbackURL: "/admin" })}
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
-        >
-          Sign in with Google
-        </button>
-      </div>
-    );
-  }
+  const stats = useQuery(api.reviewQueue.stats);
+  const shows = useQuery(api.reviewQueue.listShowsForReview, {
+    statusFilter: statusFilter,
+    search: search || undefined,
+  });
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -106,9 +76,7 @@ export default function AdminDashboard() {
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
-                {status
-                  ? STATUS_LABELS[status].label
-                  : "All"}
+                {status ? STATUS_LABELS[status].label : "All"}
               </button>
             )
           )}

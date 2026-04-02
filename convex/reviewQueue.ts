@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
-import { requireConvexUserId } from "./auth";
 import { resolveShowImageUrls, resolveProductionPosterUrl } from "./helpers";
 
 // Fields we track in the review queue for each entity type.
@@ -48,7 +47,6 @@ const sourceValidator = v.union(
 export const stats = query({
   args: {},
   handler: async (ctx) => {
-    await requireConvexUserId(ctx);
     const allShows = await ctx.db.query("shows").collect();
 
     let needsReview = 0;
@@ -79,8 +77,6 @@ export const listShowsForReview = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireConvexUserId(ctx);
-
     let shows = await ctx.db.query("shows").collect();
 
     // Filter by dataStatus
@@ -153,8 +149,6 @@ export const listShowsForReview = query({
 export const getShowReviewDetail = query({
   args: { showId: v.id("shows") },
   handler: async (ctx, args) => {
-    await requireConvexUserId(ctx);
-
     const show = await ctx.db.get(args.showId);
     if (!show) return null;
 
@@ -208,8 +202,6 @@ export const getShowReviewDetail = query({
 export const listPartialShows = query({
   args: {},
   handler: async (ctx) => {
-    await requireConvexUserId(ctx);
-
     const shows = await ctx.db.query("shows").collect();
     const partialShows = shows.filter(
       (s) => s.dataStatus === "partial"
@@ -278,7 +270,6 @@ export const submitShowReview = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireConvexUserId(ctx);
     const now = Date.now();
 
     for (const decision of args.entryDecisions) {
