@@ -19,22 +19,12 @@ export function Nav() {
           <Link
             href="/admin"
             className={`text-sm font-medium ${
-              pathname.startsWith("/admin") && !pathname.startsWith("/admin/partial")
+              pathname.startsWith("/admin")
                 ? "text-gray-900"
                 : "text-gray-500 hover:text-gray-900"
             }`}
           >
             Review Queue
-          </Link>
-          <Link
-            href="/admin/partial"
-            className={`text-sm font-medium ${
-              pathname.startsWith("/admin/partial")
-                ? "text-gray-900"
-                : "text-gray-500 hover:text-gray-900"
-            }`}
-          >
-            Partial Shows
           </Link>
         </div>
       </div>
