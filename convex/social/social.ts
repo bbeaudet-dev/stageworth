@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { internal } from "./_generated/api";
-import { getConvexUserId, requireConvexUserId } from "./auth";
+import { mutation, query } from "../_generated/server";
+import { internal } from "../_generated/api";
+import { getConvexUserId, requireConvexUserId } from "../auth";
 
 async function resolveFollowUserRow(ctx: any, userId: string) {
   const user = await ctx.db.get(userId);

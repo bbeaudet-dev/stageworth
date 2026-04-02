@@ -1,15 +1,16 @@
 import { Image } from "expo-image";
-import { Pressable, Text, View } from "react-native";
+import { Pressable } from "react-native";
 
 import { styles } from "@/features/browse/styles";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 
 export function ShowCard({
   show,
   onPress,
 }: {
-  show: { name: string; images: string[] };
+  show: { name: string; type?: string; images: string[] };
   onPress: () => void;
 }) {
   const theme = useColorScheme() ?? "light";
@@ -24,16 +25,7 @@ export function ShowCard({
       {image ? (
         <Image source={{ uri: image }} style={styles.playbillImage} contentFit="cover" />
       ) : (
-        <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
-          <Text
-            style={[styles.playbillFallbackText, { color: c.mutedText }]}
-            numberOfLines={5}
-            adjustsFontSizeToFit
-            minimumFontScale={0.6}
-          >
-            {show.name}
-          </Text>
-        </View>
+        <ShowPlaceholder name={show.name} type={show.type} />
       )}
     </Pressable>
   );

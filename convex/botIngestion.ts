@@ -6,6 +6,8 @@ import { normalizeShowName, mapExternalTypeToShowType } from "./showNormalizatio
 import { addShowToAllUsersUncategorizedIfEligible } from "./listRules";
 import { getProductionStatus } from "../src/utils/productions";
 
+const NYC_DISTRICTS = new Set(["broadway", "off_broadway", "off_off_broadway"]);
+
 // ─── Validators (mirrors bot/src/parser.ts types) ────────────────────────────
 
 const districtValidator = v.union(
@@ -162,6 +164,42 @@ export const ingestProduction = internalMutation({
 
     if (!productionId) return; // defensive
 
+    // ── Audit log ──────────────────────────────────────────────────────────
+    const activityBase = {
+      sourceUrl: args.sourceUrl,
+      showName: p.show_name,
+      showType: p.show_type,
+      district: p.district,
+      confidence: p.confidence,
+      summary: p.summary,
+      showId: show._id,
+      productionId,
+      createdAt: Date.now(),
+    };
+
+    if (isNewShow) {
+      await ctx.db.insert("botActivity", {
+        ...activityBase,
+        action: "show_created" as const,
+      });
+    }
+    if (isNewProduction) {
+      await ctx.db.insert("botActivity", {
+        ...activityBase,
+        action: "production_created" as const,
+      });
+    } else if (dateChanged) {
+      await ctx.db.insert("botActivity", {
+        ...activityBase,
+        action: "production_updated" as const,
+      });
+    } else if (!isNewShow && !isNewProduction) {
+      await ctx.db.insert("botActivity", {
+        ...activityBase,
+        action: "skipped" as const,
+      });
+    }
+
     // 3. If it's a new, non-closed production: add to all users' uncategorized list.
     const productionForStatus = {
       previewDate: p.preview_date ?? undefined,
@@ -189,6 +227,34 @@ export const ingestProduction = internalMutation({
         summary: p.summary,
         showName: show.name,
       });
+    }
+
+    // 5. Schedule image enrichment for the new show/production.
+    const showHasImage = show.images.length > 0 || !!show.hotlinkImageUrl;
+
+    if (NYC_DISTRICTS.has(p.district) && !showHasImage) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.imageEnrichment.ticketmaster.enrichProductionTicketmaster,
+        {
+          productionId,
+          showId: show._id,
+          showName: show.name,
+          showHasImage: false,
+        }
+      );
+    }
+
+    if (isNewShow && !showHasImage) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.imageEnrichment.wikipedia.enrichShowWikipedia,
+        {
+          showId: show._id,
+          showName: show.name,
+          showType: show.type,
+        }
+      );
     }
   },
 });
@@ -265,6 +331,28 @@ export const fanOutDateChangedNotifications = internalAction({
         })
       )
     );
+  },
+});
+
+// ─── Bot activity query (for OpenClaw morning summary) ────────────────────────
+
+export const listBotActivitySince = internalQuery({
+  args: { since: v.number() },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("botActivity")
+      .withIndex("by_createdAt", (q) => q.gte("createdAt", args.since))
+      .collect();
+    return rows
+      .filter((r) => r.action !== "skipped")
+      .map((r) => ({
+        showName: r.showName,
+        action: r.action,
+        confidence: r.confidence,
+        summary: r.summary,
+        sourceUrl: r.sourceUrl,
+        createdAt: r.createdAt,
+      }));
   },
 });
 

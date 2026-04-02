@@ -85,23 +85,6 @@ export const incrementProgress = mutation({
       updatedAt: Date.now(),
     });
 
-    const milestones = [0.25, 0.5, 0.75, 1.0];
-    const progress = newCount / challenge.targetCount;
-    for (const milestone of milestones) {
-      const prevProgress = (newCount - 1) / challenge.targetCount;
-      if (prevProgress < milestone && progress >= milestone) {
-        await ctx.db.insert("activityPosts", {
-          actorUserId: args.userId,
-          type: "challenge_milestone" as any,
-          visitDate: new Date().toISOString().slice(0, 10),
-          showId: undefined as any,
-          notes: `Reached ${Math.round(milestone * 100)}% of their ${challenge.year} Theatre Challenge (${newCount}/${challenge.targetCount} shows)!`,
-          createdAt: Date.now(),
-        });
-        break;
-      }
-    }
-
     return { currentCount: newCount, targetCount: challenge.targetCount };
   },
 });

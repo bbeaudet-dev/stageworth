@@ -19,8 +19,8 @@ export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { data: session } = useSession();
-  const myProfile = useQuery(api.profiles.getMyProfile);
-  const stats = useQuery(api.profiles.getProfileStats, {});
+  const myProfile = useQuery(api.social.profiles.getMyProfile);
+  const stats = useQuery(api.social.profiles.getProfileStats, {});
   const userStats = useQuery(api.userStats.getUserStats, {});
 
   const colorScheme = useColorScheme();

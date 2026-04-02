@@ -62,7 +62,7 @@ export default function SearchBrowseScreen() {
     isSearchActive ? { q: trimmed, limit: 12 } : "skip",
   );
   const userResults = useQuery(
-    api.profiles.searchUsers,
+    api.social.profiles.searchUsers,
     isSearchActive ? { q: trimmed } : "skip",
   );
 
@@ -223,35 +223,6 @@ export default function SearchBrowseScreen() {
         {/* ─── Default browse content — always visible unless showing results ─── */}
         {!isSearchActive && (
           <>
-            {/* Quick actions */}
-            <View style={styles.quickActionsRow}>
-              <Pressable
-                style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}
-                onPress={() => router.push("/add-visit")}
-              >
-                <IconSymbol name="plus.circle.fill" size={16} color={accent} />
-                <Text style={[styles.quickActionText, { color: text }]}>Add Visit</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}
-                onPress={() =>
-                  router.push({ pathname: "/(tabs)/plan", params: { createTrip: "1" } })
-                }
-              >
-                <IconSymbol name="airplane" size={16} color={accent} />
-                <Text style={[styles.quickActionText, { color: text }]}>New Trip</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}
-                onPress={() =>
-                  router.push({ pathname: "/(tabs)/plan", params: { createList: "1" } })
-                }
-              >
-                <IconSymbol name="list.bullet" size={16} color={accent} />
-                <Text style={[styles.quickActionText, { color: text }]}>New List</Text>
-              </Pressable>
-            </View>
-
             {currentShows && currentShows.length > 0 && (
               <BrowseRail
                 title="Now Playing"
@@ -304,6 +275,35 @@ export default function SearchBrowseScreen() {
               <Text style={[styles.seeAllText, { color: accent }]}>See All Shows</Text>
               <IconSymbol name="chevron.right" size={14} color={accent} />
             </Pressable>
+
+            {/* Quick actions */}
+            <View style={styles.quickActionsRow}>
+              <Pressable
+                style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}
+                onPress={() => router.push("/add-visit")}
+              >
+                <IconSymbol name="plus.circle.fill" size={16} color={accent} />
+                <Text style={[styles.quickActionText, { color: text }]}>Add Visit</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}
+                onPress={() =>
+                  router.push({ pathname: "/(tabs)/plan", params: { createTrip: "1" } })
+                }
+              >
+                <IconSymbol name="airplane" size={16} color={accent} />
+                <Text style={[styles.quickActionText, { color: text }]}>New Trip</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}
+                onPress={() =>
+                  router.push({ pathname: "/(tabs)/plan", params: { createList: "1" } })
+                }
+              >
+                <IconSymbol name="list.bullet" size={16} color={accent} />
+                <Text style={[styles.quickActionText, { color: text }]}>New List</Text>
+              </Pressable>
+            </View>
           </>
         )}
       </ScrollView>

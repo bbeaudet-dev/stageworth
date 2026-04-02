@@ -57,9 +57,9 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
   const [addingFriendRole, setAddingFriendRole] = useState<"edit" | "view" | null>(null);
   const [addingSearchRole, setAddingSearchRole] = useState<{ userId: string; role: "edit" | "view" } | null>(null);
 
-  const myFollowing = useQuery(api.social.listMyFollowing, {});
+  const myFollowing = useQuery(api.social.social.listMyFollowing, {});
   const myUserId = useQuery(api.auth.getConvexUserIdQuery);
-  const searchResults = useQuery(api.profiles.searchUsers, {
+  const searchResults = useQuery(api.social.profiles.searchUsers, {
     q: otherQuery.trim(),
   });
 

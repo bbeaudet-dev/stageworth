@@ -50,9 +50,6 @@ app-example
 /ios
 /android
 
-# local docs
-docs/
-
 # local data / import artifacts
 data/
 

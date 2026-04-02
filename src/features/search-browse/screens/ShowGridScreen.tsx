@@ -1,7 +1,7 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -13,6 +13,7 @@ import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const GRID_COLUMNS = 4;
+const PAGE_SIZE = 100;
 
 type CategoryConfig = {
   title: string;
@@ -36,12 +37,14 @@ export default function ShowGridScreen() {
   const { category } = useLocalSearchParams<{ category: string }>();
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
+  const [limit, setLimit] = useState(PAGE_SIZE);
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const bg = Colors[theme].background;
   const text = Colors[theme].text;
   const muted = Colors[theme].mutedText;
+  const accent = Colors[theme].accent;
 
   const config = CATEGORIES[category ?? ""] ?? CATEGORIES["now-playing"];
 
@@ -108,6 +111,8 @@ export default function ShowGridScreen() {
   }, [config.query, allShows, currentShows, closingSoon, upcomingShows]);
 
   const isLoading = items === null;
+  const visible = items ? items.slice(0, limit) : [];
+  const remaining = items ? items.length - visible.length : 0;
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: bg }]} edges={["top"]}>
@@ -133,7 +138,7 @@ export default function ShowGridScreen() {
             <Text style={[s.countText, { color: muted }]}>
               {items.length} show{items.length !== 1 ? "s" : ""}
             </Text>
-            {chunkIntoRows(items, GRID_COLUMNS).map((row, ri) => (
+            {chunkIntoRows(visible, GRID_COLUMNS).map((row, ri) => (
               <View key={ri} style={browseStyles.gridRow}>
                 {row.map((item) => (
                   <ShowCard
@@ -148,6 +153,16 @@ export default function ShowGridScreen() {
                   ))}
               </View>
             ))}
+            {remaining > 0 && (
+              <Pressable
+                style={browseStyles.loadMoreButton}
+                onPress={() => setLimit((prev) => prev + PAGE_SIZE)}
+              >
+                <Text style={[browseStyles.loadMoreText, { color: accent }]}>
+                  Load more ({remaining} remaining)
+                </Text>
+              </Pressable>
+            )}
           </>
         )}
       </ScrollView>

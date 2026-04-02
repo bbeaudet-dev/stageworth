@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireConvexUserId } from "./auth";
-import { resolveImageUrls } from "./helpers";
+import { resolveProductionPosterUrl, resolveShowImageUrls } from "./helpers";
 import { getProductionStatus } from "../src/utils/productions";
 import { addShowToAllUsersUncategorizedIfEligible } from "./listRules";
 
@@ -9,19 +9,11 @@ export { getProductionStatus } from "../src/utils/productions";
 
 const today = () => new Date().toISOString().split("T")[0];
 
-// Attach the parent show (with resolved image URLs) and the production's own
-// resolved posterUrl to a production document.
 async function withShow(ctx: any, production: any) {
   const show = await ctx.db.get(production.showId);
   if (!show) return null;
-  const posterUrl = production.posterImage
-    ? await ctx.storage.getUrl(production.posterImage)
-    : null;
-  // Resolve show-level images; use the production poster as a fallback so the
-  // card always has something to display when show.images is empty.
-  const showImages = show.images.length > 0
-    ? await resolveImageUrls(ctx, show.images)
-    : posterUrl ? [posterUrl] : [];
+  const posterUrl = await resolveProductionPosterUrl(ctx, production);
+  const showImages = await resolveShowImageUrls(ctx, show);
   return {
     ...production,
     posterUrl: posterUrl ?? null,
@@ -124,7 +116,7 @@ export const listByShowWithImages = query({
     return Promise.all(
       productions.map(async (p) => ({
         ...p,
-        posterUrl: p.posterImage ? await ctx.storage.getUrl(p.posterImage) : null,
+        posterUrl: await resolveProductionPosterUrl(ctx, p),
       }))
     );
   },

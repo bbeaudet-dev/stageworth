@@ -5,22 +5,22 @@ import { useSession } from "@/lib/auth-client";
 
 export function useTripData() {
   const { data: session, isPending } = useSession();
-  const trips = useQuery(api.trips.getMyTrips, !isPending && session ? {} : "skip");
-  const createTrip = useMutation(api.trips.createTrip);
-  const updateTrip = useMutation(api.trips.updateTrip);
-  const deleteTrip = useMutation(api.trips.deleteTrip);
-  const addShowToTrip = useMutation(api.trips.addShowToTrip);
-  const removeShowFromTrip = useMutation(api.trips.removeShowFromTrip);
-  const assignShowToDay = useMutation(api.trips.assignShowToDay);
-  const reorderTripDay = useMutation(api.trips.reorderTripDay);
-  const addTripMember = useMutation(api.trips.addTripMember);
-  const updateTripMemberRole = useMutation(api.trips.updateTripMemberRole);
-  const removeTripMember = useMutation(api.trips.removeTripMember);
-  const addTripDayNote = useMutation(api.trips.addTripDayNote);
-  const removeTripDayNote = useMutation(api.trips.removeTripDayNote);
-  const setTripShowLabel = useMutation(api.tripLabels.setTripShowLabel);
-  const clearTripShowLabel = useMutation(api.tripLabels.clearTripShowLabel);
-  const respondToTripInvitation = useMutation(api.trips.respondToTripInvitation);
+  const trips = useQuery(api.trips.trips.getMyTrips, !isPending && session ? {} : "skip");
+  const createTrip = useMutation(api.trips.trips.createTrip);
+  const updateTrip = useMutation(api.trips.trips.updateTrip);
+  const deleteTrip = useMutation(api.trips.trips.deleteTrip);
+  const addShowToTrip = useMutation(api.trips.trips.addShowToTrip);
+  const removeShowFromTrip = useMutation(api.trips.trips.removeShowFromTrip);
+  const assignShowToDay = useMutation(api.trips.trips.assignShowToDay);
+  const reorderTripDay = useMutation(api.trips.trips.reorderTripDay);
+  const addTripMember = useMutation(api.trips.trips.addTripMember);
+  const updateTripMemberRole = useMutation(api.trips.trips.updateTripMemberRole);
+  const removeTripMember = useMutation(api.trips.trips.removeTripMember);
+  const addTripDayNote = useMutation(api.trips.trips.addTripDayNote);
+  const removeTripDayNote = useMutation(api.trips.trips.removeTripDayNote);
+  const setTripShowLabel = useMutation(api.trips.tripLabels.setTripShowLabel);
+  const clearTripShowLabel = useMutation(api.trips.tripLabels.clearTripShowLabel);
+  const respondToTripInvitation = useMutation(api.trips.trips.respondToTripInvitation);
 
   return {
     trips,
@@ -43,9 +43,9 @@ export function useTripData() {
 }
 
 export function useTripById(tripId: Id<"trips">) {
-  return useQuery(api.trips.getTripById, { tripId });
+  return useQuery(api.trips.trips.getTripById, { tripId });
 }
 
 export function useClosingSoonForTrip(tripId: Id<"trips">) {
-  return useQuery(api.trips.getClosingSoonForTrip, { tripId });
+  return useQuery(api.trips.trips.getClosingSoonForTrip, { tripId });
 }

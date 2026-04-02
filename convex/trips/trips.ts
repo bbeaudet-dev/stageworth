@@ -1,9 +1,9 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
-import { mutation, query } from "./_generated/server";
-import { requireConvexUserId } from "./auth";
-import { resolveShowImageUrls } from "./helpers";
+import type { Id } from "../_generated/dataModel";
+import { internal } from "../_generated/api";
+import { mutation, query } from "../_generated/server";
+import { requireConvexUserId } from "../auth";
+import { resolveShowImageUrls } from "../helpers";
 import {
   deleteTripShowLabelsForTripShow,
   enrichTripShowRowsWithLabels,

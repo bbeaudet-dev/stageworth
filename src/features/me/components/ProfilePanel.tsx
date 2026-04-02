@@ -28,7 +28,7 @@ export function ProfilePanel({ visible, onClose }: ProfilePanelProps) {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
-  const myProfile = useQuery(api.profiles.getMyProfile);
+  const myProfile = useQuery(api.social.profiles.getMyProfile);
   const removePushToken = useMutation(api.notifications.removePushToken);
   const [isSigningOut, setIsSigningOut] = useState(false);
 

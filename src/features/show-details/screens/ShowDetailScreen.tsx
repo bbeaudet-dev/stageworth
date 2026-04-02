@@ -92,11 +92,11 @@ export default function ShowDetailScreen() {
     !isPending && session ? {} : "skip"
   );
   const myTrips = useQuery(
-    api.trips.getMyTrips,
+    api.trips.trips.getMyTrips,
     !isPending && session ? {} : "skip"
   );
   const addShowToList = useMutation(api.lists.addShowToList);
-  const addShowToTrip = useMutation(api.trips.addShowToTrip);
+  const addShowToTrip = useMutation(api.trips.trips.addShowToTrip);
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";

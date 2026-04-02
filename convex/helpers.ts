@@ -17,26 +17,55 @@ export async function resolveImageUrls(
 }
 
 /**
- * Resolve images for a show, falling back to a production posterImage when
- * show.images is empty. This covers shows whose art is stored on productions
- * rather than on the show record itself.
+ * Full show-level image resolution hierarchy:
+ *   1. Curated storage images (show.images)
+ *   2. Ticketmaster hotlink URL (show.hotlinkImageUrl where source=ticketmaster)
+ *   3. Wikipedia hotlink URL (show.hotlinkImageUrl where source=wikipedia)
+ *   4. First production with a poster (hotlinkPosterUrl or posterImage storage)
  */
 export async function resolveShowImageUrls(
   ctx: Pick<QueryCtx, "db" | "storage">,
-  show: { _id: Id<"shows">; images: Id<"_storage">[] }
+  show: {
+    _id: Id<"shows">;
+    images: Id<"_storage">[];
+    hotlinkImageUrl?: string;
+  }
 ): Promise<string[]> {
   if (show.images.length > 0) {
     return resolveImageUrls(ctx, show.images);
   }
-  // Find the first production for this show that has a posterImage.
+  if (show.hotlinkImageUrl) {
+    return [show.hotlinkImageUrl];
+  }
+  // Fall back to the first production that has any image.
   const productions = await ctx.db
     .query("productions")
     .withIndex("by_show", (q) => q.eq("showId", show._id))
     .collect();
-  const withPoster = productions.find((p) => p.posterImage);
-  if (withPoster?.posterImage) {
-    const url = await ctx.storage.getUrl(withPoster.posterImage);
-    return url ? [url] : [];
+  for (const p of productions) {
+    if (p.hotlinkPosterUrl) return [p.hotlinkPosterUrl];
+    if (p.posterImage) {
+      const url = await ctx.storage.getUrl(p.posterImage);
+      if (url) return [url];
+    }
   }
   return [];
+}
+
+/**
+ * Resolve the best poster URL for a single production.
+ * Hierarchy: hotlinkPosterUrl → posterImage (storage).
+ */
+export async function resolveProductionPosterUrl(
+  ctx: Pick<QueryCtx, "storage">,
+  production: {
+    posterImage?: Id<"_storage">;
+    hotlinkPosterUrl?: string;
+  }
+): Promise<string | null> {
+  if (production.hotlinkPosterUrl) return production.hotlinkPosterUrl;
+  if (production.posterImage) {
+    return await ctx.storage.getUrl(production.posterImage);
+  }
+  return null;
 }

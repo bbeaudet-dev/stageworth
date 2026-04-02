@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
-import { requireConvexUserId } from "./auth";
+import type { Doc, Id } from "../_generated/dataModel";
+import { mutation, query } from "../_generated/server";
+import { requireConvexUserId } from "../auth";
 
 const PRESENCE_TTL_MS = 60_000;
 
