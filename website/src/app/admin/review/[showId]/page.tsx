@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
+import { useSession, signIn } from "@/lib/auth-client";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -37,13 +38,15 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 export default function ShowReviewDetail() {
+  const { data: session, isPending } = useSession();
   const params = useParams();
   const router = useRouter();
   const showId = params.showId as string;
 
+  const authenticated = !!session?.user;
   const detail = useQuery(
     api.reviewQueue.getShowReviewDetail,
-    showId ? { showId: showId as Id<"shows"> } : "skip"
+    authenticated && showId ? { showId: showId as Id<"shows"> } : "skip"
   );
   const submitReview = useMutation(api.reviewQueue.submitShowReview);
 
@@ -119,7 +122,20 @@ export default function ShowReviewDetail() {
     }
   };
 
-  if (!detail) {
+  if (isPending || !detail) {
+    if (!isPending && !authenticated) {
+      return (
+        <div className="mx-auto max-w-4xl px-4 py-16 text-center">
+          <h1 className="text-2xl font-bold mb-4">Sign in required</h1>
+          <button
+            onClick={() => signIn.social({ provider: "google", callbackURL: `/admin/review/${showId}` })}
+            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+          >
+            Sign in with Google
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="text-gray-500 text-sm">Loading...</div>
