@@ -12,9 +12,6 @@ const path = require("path");
 
 const websiteRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(websiteRoot, "..");
-const vendorDir = path.join(repoRoot, ".convex-vendor");
-const pkg = require(path.join(websiteRoot, "package.json"));
-const convexVer = pkg.dependencies.convex;
 
 execSync("npm install", { cwd: websiteRoot, stdio: "inherit" });
 
@@ -38,18 +35,8 @@ function symlinkIntoRootNodeModules(relativePath) {
   console.log("[vercel-install] linked", dst, "->", src);
 }
 
-fs.mkdirSync(vendorDir, { recursive: true });
-execSync(`npm install --prefix ${JSON.stringify(vendorDir)} convex@${convexVer}`, {
-  stdio: "inherit",
-});
-
-const convexTarget = path.join(vendorDir, "node_modules", "convex");
-const convexLink = path.join(repoRoot, "node_modules", "convex");
-fs.mkdirSync(path.dirname(convexLink), { recursive: true });
-if (fs.existsSync(convexLink)) fs.rmSync(convexLink, { recursive: true, force: true });
-fs.symlinkSync(path.relative(path.dirname(convexLink), convexTarget), convexLink);
-console.log("[vercel-install] linked", convexLink, "->", convexTarget);
-
-for (const name of ["@convex-dev", "@better-auth", "better-auth"]) {
+// Symlink convex from website (not a second install under .convex-vendor): two
+// physical copies of convex produce incompatible GenericCtx types in tsc.
+for (const name of ["convex", "@convex-dev", "@better-auth", "better-auth"]) {
   symlinkIntoRootNodeModules(name);
 }
