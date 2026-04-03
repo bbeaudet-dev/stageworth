@@ -64,6 +64,7 @@ export default function AdminDashboard() {
   const [addShowError, setAddShowError] = useState<string | null>(null);
   const [addShowSuccessId, setAddShowSuccessId] = useState<string | null>(null);
   const [imageInputKey, setImageInputKey] = useState(0);
+  const [addShowModalOpen, setAddShowModalOpen] = useState(false);
 
   const generateUploadUrl = useMutation(
     api.reviewQueue.generateShowImageUploadUrl
@@ -98,6 +99,20 @@ export default function AdminDashboard() {
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [statusFilter, scheduleFilter, search]);
+
+  useEffect(() => {
+    if (!addShowModalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAddShowModalOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [addShowModalOpen]);
 
   const loading = listResult === undefined;
   const hasMore = visibleCount < filteredRows.length;
@@ -151,93 +166,25 @@ export default function AdminDashboard() {
     }
   }
 
+  function openAddShowModal() {
+    setAddShowModalOpen(true);
+    setAddShowError(null);
+    setAddShowSuccessId(null);
+  }
+
+  function closeAddShowModal() {
+    if (addShowBusy) return;
+    setAddShowModalOpen(false);
+    setAddShowError(null);
+    setAddShowSuccessId(null);
+  }
+
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold mb-6">Review Dashboard</h1>
+    <>
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <h1 className="text-2xl font-bold mb-6">Review Dashboard</h1>
 
-      <section className="mb-8 rounded-lg border border-gray-200 bg-gray-50/50 p-4 sm:p-5">
-        <h2 className="text-sm font-semibold text-gray-900 mb-1">
-          Add a missing show
-        </h2>
-        <p className="text-xs text-gray-500 mb-4">
-          Creates an unpublished show and pending review entries for the name and
-          type. Optional image is stored as key art (review the show to approve
-          fields).
-        </p>
-        <form
-          onSubmit={handleAddMissingShow}
-          className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
-        >
-          <div className="flex flex-col gap-1 min-w-[200px] flex-1">
-            <label className="text-xs font-medium text-gray-600">Show name</label>
-            <input
-              type="text"
-              value={newShowName}
-              onChange={(e) => setNewShowName(e.target.value)}
-              placeholder="e.g. Example Musical"
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
-              disabled={addShowBusy}
-            />
-          </div>
-          <div className="flex flex-col gap-1 w-full sm:w-40">
-            <label className="text-xs font-medium text-gray-600">Type</label>
-            <select
-              value={newShowType}
-              onChange={(e) =>
-                setNewShowType(e.target.value as ShowFormType)
-              }
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
-              disabled={addShowBusy}
-            >
-              {SHOW_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t.replace("_", " ")}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1 min-w-[200px] flex-1">
-            <label className="text-xs font-medium text-gray-600">
-              Image (optional)
-            </label>
-            <input
-              key={imageInputKey}
-              type="file"
-              accept="image/*"
-              onChange={(e) =>
-                setNewShowImage(e.target.files?.[0] ?? null)
-              }
-              className="text-sm text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-gray-200 file:px-2 file:py-1 file:text-xs"
-              disabled={addShowBusy}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={addShowBusy}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-          >
-            {addShowBusy ? "Submitting…" : "Submit"}
-          </button>
-        </form>
-        {addShowError && (
-          <p className="mt-3 text-sm text-red-600" role="alert">
-            {addShowError}
-          </p>
-        )}
-        {addShowSuccessId && (
-          <p className="mt-3 text-sm text-green-700">
-            Show created.{" "}
-            <Link
-              href={`/admin/review/${addShowSuccessId}`}
-              className="font-medium underline underline-offset-2"
-            >
-              Open review
-            </Link>
-          </p>
-        )}
-      </section>
-
-      {stats && (
+        {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           <StatCard
             label="Unpublished"
@@ -299,22 +246,36 @@ export default function AdminDashboard() {
               className="rounded-md border border-gray-300 px-3 py-1.5 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 min-w-[260px]"
             >
               <option value="all">All</option>
-              <option value="current_upcoming">
-                Current &amp; upcoming (at least one active or future run)
-              </option>
-              <option value="historical">
-                Historical &amp; other (all runs ended, or no schedule data)
-              </option>
+              <option value="current_upcoming">Current &amp; upcoming</option>
+              <option value="historical">Historical &amp; other</option>
             </select>
           </div>
         </div>
-        <input
-          type="text"
-          placeholder="Search shows..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 max-w-md"
-        />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
+          <div className="flex flex-col gap-1 flex-1 min-w-0 max-w-md">
+            <label
+              htmlFor="admin-show-search"
+              className="text-xs font-medium text-gray-500 uppercase tracking-wide"
+            >
+              Search
+            </label>
+            <input
+              id="admin-show-search"
+              type="text"
+              placeholder="Search shows…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={openAddShowModal}
+            className="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 hover:bg-gray-50"
+          >
+            Add missing show
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -416,7 +377,146 @@ export default function AdminDashboard() {
           )}
         </>
       )}
-    </div>
+      </div>
+
+      {addShowModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-show-modal-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            aria-label="Close dialog"
+            onClick={closeAddShowModal}
+            disabled={addShowBusy}
+          />
+          <div className="relative z-10 w-full max-w-lg rounded-lg border border-gray-200 bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <h2
+                id="add-show-modal-title"
+                className="text-lg font-semibold text-gray-900"
+              >
+                Add missing show
+              </h2>
+              <button
+                type="button"
+                onClick={closeAddShowModal}
+                disabled={addShowBusy}
+                className="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50"
+                aria-label="Close"
+              >
+                <span aria-hidden className="text-xl leading-none">
+                  ×
+                </span>
+              </button>
+            </div>
+
+            {addShowSuccessId ? (
+              <div className="space-y-4">
+                <p className="text-sm text-green-800">
+                  Show created. You can open it in the review queue now.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/admin/review/${addShowSuccessId}`}
+                    className="inline-flex rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                  >
+                    Open review
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={closeAddShowModal}
+                    className="inline-flex rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500 mb-4">
+                  Creates an unpublished show with pending review entries. Name and
+                  type are always queued; an uploaded image is queued too.
+                </p>
+                <form onSubmit={handleAddMissingShow} className="space-y-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-gray-600">
+                      Show name
+                    </label>
+                    <input
+                      type="text"
+                      value={newShowName}
+                      onChange={(e) => setNewShowName(e.target.value)}
+                      placeholder="e.g. Example Musical"
+                      className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                      disabled={addShowBusy}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-gray-600">Type</label>
+                    <select
+                      value={newShowType}
+                      onChange={(e) =>
+                        setNewShowType(e.target.value as ShowFormType)
+                      }
+                      className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                      disabled={addShowBusy}
+                    >
+                      {SHOW_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t.replace("_", " ")}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-gray-600">
+                      Image — optional
+                    </label>
+                    <input
+                      key={imageInputKey}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) =>
+                        setNewShowImage(e.target.files?.[0] ?? null)
+                      }
+                      className="text-sm text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-gray-200 file:px-2 file:py-1 file:text-xs"
+                      disabled={addShowBusy}
+                    />
+                  </div>
+                  {addShowError && (
+                    <p className="text-sm text-red-600" role="alert">
+                      {addShowError}
+                    </p>
+                  )}
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={closeAddShowModal}
+                      disabled={addShowBusy}
+                      className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={addShowBusy}
+                      className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                    >
+                      {addShowBusy ? "Submitting…" : "Submit"}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

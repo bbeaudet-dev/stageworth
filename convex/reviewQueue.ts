@@ -330,7 +330,7 @@ export const generateShowImageUploadUrl = mutation({
   },
 });
 
-/** Create a new unpublished show, optional key art on `images[]`, and pending queue rows for name + type. */
+/** Create a new unpublished show, optional key art on `images[]`, and pending queue rows for name, type, and image URL when uploaded. */
 export const createShowFromAdminForm = mutation({
   args: {
     name: v.string(),
@@ -381,6 +381,21 @@ export const createShowFromAdminForm = mutation({
         status: "pending",
         createdAt: now,
       });
+    }
+
+    if (args.imageStorageId) {
+      const imageUrl = await ctx.storage.getUrl(args.imageStorageId);
+      if (imageUrl) {
+        await ctx.db.insert("reviewQueue", {
+          entityType: "show",
+          entityId,
+          field: "hotlinkImageUrl",
+          currentValue: imageUrl,
+          source: "manual",
+          status: "pending",
+          createdAt: now,
+        });
+      }
     }
 
     return showId;
