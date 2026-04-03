@@ -181,11 +181,9 @@ export default function AdminDashboard() {
 
   return (
     <>
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="text-2xl font-bold mb-6">Review Dashboard</h1>
-
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
         {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-5">
           <StatCard
             label="Unpublished"
             value={stats.shows.needsReview}
@@ -209,47 +207,42 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div className="flex flex-col gap-4 mb-6">
-        <div className="flex flex-col lg:flex-row lg:items-end gap-4 lg:justify-between">
-          <div className="space-y-2">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-              Data status
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {([undefined, "needs_review", "partial", "complete"] as const).map(
-                (status) => (
-                  <button
-                    key={status ?? "all"}
-                    type="button"
-                    onClick={() => setStatusFilter(status)}
-                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                      statusFilter === status
-                        ? "bg-gray-900 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    {status ? STATUS_LABELS[status].label : "All"}
-                  </button>
-                )
-              )}
-            </div>
+      <div className="flex flex-col gap-3 mb-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div
+            className="flex gap-2 flex-wrap"
+            role="group"
+            aria-label="Filter by publication status"
+          >
+            {([undefined, "needs_review", "partial", "complete"] as const).map(
+              (status) => (
+                <button
+                  key={status ?? "all"}
+                  type="button"
+                  onClick={() => setStatusFilter(status)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    statusFilter === status
+                      ? "bg-gray-900 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  {status ? STATUS_LABELS[status].label : "All"}
+                </button>
+              )
+            )}
           </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block">
-              Schedule
-            </label>
-            <select
-              value={scheduleFilter}
-              onChange={(e) =>
-                setScheduleFilter(e.target.value as ScheduleFilter)
-              }
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 min-w-[260px]"
-            >
-              <option value="all">All</option>
-              <option value="current_upcoming">Current &amp; upcoming</option>
-              <option value="historical">Historical &amp; other</option>
-            </select>
-          </div>
+          <select
+            value={scheduleFilter}
+            onChange={(e) =>
+              setScheduleFilter(e.target.value as ScheduleFilter)
+            }
+            aria-label="Filter by schedule"
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 w-full min-w-0 lg:w-auto lg:min-w-[220px]"
+          >
+            <option value="all">All schedules</option>
+            <option value="current_upcoming">Current &amp; upcoming</option>
+            <option value="historical">Historical &amp; other</option>
+          </select>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
           <div className="flex flex-col gap-1 flex-1 min-w-0 max-w-md">
@@ -530,9 +523,11 @@ function StatCard({
   className: string;
 }) {
   return (
-    <div className={`rounded-lg border p-4 ${className}`}>
-      <div className="text-2xl font-bold">{value}</div>
-      <div className="text-sm text-gray-600">{label}</div>
+    <div className={`rounded-md border px-2.5 py-2 sm:px-3 sm:py-2.5 ${className}`}>
+      <div className="text-lg font-bold tabular-nums leading-tight">{value}</div>
+      <div className="text-[11px] sm:text-xs text-gray-600 leading-snug mt-0.5">
+        {label}
+      </div>
     </div>
   );
 }

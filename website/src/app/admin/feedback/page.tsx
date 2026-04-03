@@ -8,10 +8,9 @@ export default function AdminUserFeedbackPage() {
   const rows = useQuery(api.catalogUserFeedback.listForAdmin, { limit: 200 });
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold mb-2">User feedback</h1>
-      <p className="text-sm text-gray-500 mb-8">
-        Notes submitted from the app about incorrect or missing catalog data.
+    <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+      <p className="text-sm text-gray-500 mb-5">
+        Notes from the app about incorrect or missing catalog data.
       </p>
 
       {rows === undefined ? (
