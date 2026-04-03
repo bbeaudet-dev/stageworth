@@ -23,6 +23,12 @@ interface DirectEdit {
   newValue?: string;
 }
 
+const editKey = (
+  entityType: "show" | "production",
+  entityId: string,
+  field: string
+) => `${entityType}:${entityId}:${field}`;
+
 interface FieldDef {
   field: string;
   label: string;
@@ -123,7 +129,20 @@ const PRODUCTION_FIELDS: FieldDef[] = [
 
 // ─── Auto-detect helpers ──────────────────────────────────────────────────────
 
-type ShowDoc = { hotlinkImageUrl?: string; images: string[] };
+type ShowDetail = {
+  _id: string;
+  hotlinkImageUrl?: string;
+  /** Resolved image URLs from the server (hotlink, storage, or production fallback). */
+  images?: string[];
+};
+
+type ShowQueueEntry = {
+  _id: string;
+  field: string;
+  currentValue?: string;
+  status: string;
+};
+
 type ProdDoc = {
   theatre?: string;
   city?: string;
@@ -131,9 +150,74 @@ type ProdDoc = {
   closingDate?: string;
 };
 
-function computeShowStatus(show: ShowDoc): DataStatus {
-  const hasImage = !!(show.hotlinkImageUrl || show.images.length > 0);
+/** Apply pending queue decisions so auto-detect sees values that are not on the doc yet. */
+function applyPendingDecisionsToShowImage(
+  show: ShowDetail,
+  entries: ShowQueueEntry[],
+  decisions: Map<string, EntryDecision>
+): { hotlinkImageUrl?: string; images?: string[] } {
+  let hotlink = show.hotlinkImageUrl;
+  const images = show.images ? [...show.images] : [];
+  for (const e of entries) {
+    if (e.status !== "pending" || e.field !== "hotlinkImageUrl") continue;
+    const d = decisions.get(e._id);
+    if (d?.decision === "approved" && e.currentValue)
+      hotlink = hotlink || e.currentValue;
+    if (d?.decision === "edited") {
+      hotlink = d.reviewedValue ?? e.currentValue ?? hotlink;
+    }
+  }
+  return { hotlinkImageUrl: hotlink, images };
+}
+
+function computeShowDataStatus(
+  show: ShowDetail,
+  entries: ShowQueueEntry[],
+  decisions: Map<string, EntryDecision>,
+  directEdits: Map<string, DirectEdit>
+): DataStatus {
+  const applied = applyPendingDecisionsToShowImage(show, entries, decisions);
+  let hotlink = applied.hotlinkImageUrl;
+  const imgArr = applied.images;
+  const de = directEdits.get(editKey("show", show._id, "hotlinkImageUrl"));
+  if (de !== undefined) hotlink = de.newValue;
+  const hasImage = !!(
+    hotlink ||
+    (Array.isArray(imgArr) && imgArr.length > 0)
+  );
   return hasImage ? "complete" : "partial";
+}
+
+function mergeProductionFromDecisions(
+  prod: Record<string, unknown>,
+  reviewEntries: Array<{
+    _id: string;
+    field: string;
+    currentValue?: string;
+    status: string;
+  }>,
+  decisions: Map<string, EntryDecision>,
+  directEdits: Map<string, DirectEdit>,
+  prodId: string
+): ProdDoc {
+  const out: Record<string, unknown> = { ...prod };
+  for (const e of reviewEntries) {
+    if (e.status !== "pending") continue;
+    const d = decisions.get(e._id);
+    if (d?.decision === "approved" && e.currentValue !== undefined && e.currentValue !== "")
+      out[e.field] = e.currentValue;
+    if (d?.decision === "edited") {
+      const v = d.reviewedValue ?? e.currentValue;
+      if (v !== undefined) out[e.field] = v;
+    }
+  }
+  for (const edit of directEdits.values()) {
+    if (edit.entityType === "production" && edit.entityId === prodId) {
+      if (edit.newValue === undefined) delete out[edit.field];
+      else out[edit.field] = edit.newValue;
+    }
+  }
+  return out as ProdDoc;
 }
 
 function computeProductionStatus(prod: ProdDoc): DataStatus {
@@ -141,6 +225,29 @@ function computeProductionStatus(prod: ProdDoc): DataStatus {
   const hasCity = !!prod.city;
   const hasDate = !!(prod.openingDate || prod.closingDate);
   return hasTheatre && hasCity && hasDate ? "complete" : "partial";
+}
+
+function computeProductionDataStatus(
+  prod: Record<string, unknown>,
+  reviewEntries: Array<{
+    _id: string;
+    field: string;
+    currentValue?: string;
+    status: string;
+  }>,
+  decisions: Map<string, EntryDecision>,
+  directEdits: Map<string, DirectEdit>,
+  prodId: string
+): DataStatus {
+  return computeProductionStatus(
+    mergeProductionFromDecisions(
+      prod,
+      reviewEntries,
+      decisions,
+      directEdits,
+      prodId
+    )
+  );
 }
 
 // ─── Field value normalisation ────────────────────────────────────────────────
@@ -160,13 +267,6 @@ function getFieldValue(
   if (raw === null || raw === undefined) return undefined;
   return String(raw);
 }
-
-// Stable key for tracking direct edits in a Map
-const editKey = (
-  entityType: "show" | "production",
-  entityId: string,
-  field: string
-) => `${entityType}:${entityId}:${field}`;
 
 export default function ShowReviewDetail() {
   const params = useParams();
@@ -244,31 +344,55 @@ export default function ShowReviewDetail() {
     const pending = detail.showReviewEntries.filter(
       (e) => e.status === "pending"
     );
-    setDecisions((prev) => {
-      const next = new Map(prev);
+    const next = new Map(decisions);
+    for (const e of pending) {
+      next.set(e._id, { entryId: e._id, decision: "approved" });
+    }
+    setDecisions(next);
+    setShowDataStatus(
+      computeShowDataStatus(
+        detail.show,
+        detail.showReviewEntries,
+        next,
+        directEdits
+      )
+    );
+  }, [detail, decisions, directEdits]);
+
+  const inferShowDataStatus = useCallback(() => {
+    if (!detail) return;
+    setShowDataStatus(
+      computeShowDataStatus(
+        detail.show,
+        detail.showReviewEntries,
+        decisions,
+        directEdits
+      )
+    );
+  }, [detail, decisions, directEdits]);
+
+  const approveAllForProduction = useCallback(
+    (prodId: string, prod: Record<string, unknown> & { reviewEntries: Array<{ _id: string; status: string; field: string; currentValue?: string }> }) => {
+      const pending = prod.reviewEntries.filter((e) => e.status === "pending");
+      const next = new Map(decisions);
       for (const e of pending) {
         next.set(e._id, { entryId: e._id, decision: "approved" });
       }
-      return next;
-    });
-    setShowDataStatus(computeShowStatus(detail.show));
-  }, [detail]);
-
-  const approveAllForProduction = useCallback(
-    (prodId: string, prod: ProdDoc & { reviewEntries: { _id: string; status: string }[] }) => {
-      const pending = prod.reviewEntries.filter((e) => e.status === "pending");
-      setDecisions((prev) => {
-        const next = new Map(prev);
-        for (const e of pending) {
-          next.set(e._id, { entryId: e._id, decision: "approved" });
-        }
-        return next;
-      });
+      setDecisions(next);
       setProductionStatuses((prev) =>
-        new Map(prev).set(prodId, computeProductionStatus(prod))
+        new Map(prev).set(
+          prodId,
+          computeProductionDataStatus(
+            prod,
+            prod.reviewEntries,
+            next,
+            directEdits,
+            prodId
+          )
+        )
       );
     },
-    []
+    [decisions, directEdits]
   );
 
   const handleSubmit = async () => {
@@ -355,24 +479,14 @@ export default function ShowReviewDetail() {
 
       {/* Show fields */}
       <section className="mb-10">
-        <div className="flex items-center justify-between mb-3 border-b pb-2">
-          <h2 className="text-lg font-semibold">
-            Show Data
-            {pendingShowCount > 0 && (
-              <span className="ml-2 text-sm font-normal text-amber-600">
-                ({pendingShowCount} pending)
-              </span>
-            )}
-          </h2>
+        <h2 className="text-lg font-semibold mb-3 border-b pb-2">
+          Show Data
           {pendingShowCount > 0 && (
-            <button
-              onClick={approveAllShow}
-              className="rounded-md bg-green-50 border border-green-200 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
-            >
-              Approve All
-            </button>
+            <span className="ml-2 text-sm font-normal text-amber-600">
+              ({pendingShowCount} pending)
+            </span>
           )}
-        </div>
+        </h2>
         <div className="space-y-2">
           {SHOW_FIELDS.map(
             ({ field, label, isImage, alwaysPresent, inputType, options }) => {
@@ -422,6 +536,46 @@ export default function ShowReviewDetail() {
               );
             }
           )}
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 mt-4 border-t border-gray-200">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span className="text-sm font-medium text-gray-700 shrink-0">
+              Show status:
+            </span>
+            {STATUS_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className="flex items-center gap-1.5 text-sm"
+              >
+                <input
+                  type="radio"
+                  name="show-data-status"
+                  checked={showDataStatus === opt.value}
+                  onChange={() => setShowDataStatus(opt.value)}
+                  className="accent-gray-900"
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={inferShowDataStatus}
+              className="rounded-md bg-gray-50 border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              Auto-detect from data
+            </button>
+            {pendingShowCount > 0 && (
+              <button
+                type="button"
+                onClick={approveAllShow}
+                className="rounded-md bg-green-50 border border-green-200 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
+              >
+                Approve All
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
@@ -500,44 +654,6 @@ export default function ShowReviewDetail() {
 
                   {isExpanded && (
                     <div className="px-4 py-4 space-y-2">
-                      {/* Production status selector + Approve All */}
-                      <div className="flex items-center justify-between gap-3 pb-3 mb-1 border-b border-gray-100">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium text-gray-700">
-                            Status:
-                          </span>
-                          {STATUS_OPTIONS.map((opt) => (
-                            <label
-                              key={opt.value}
-                              className="flex items-center gap-1.5 text-sm"
-                            >
-                              <input
-                                type="radio"
-                                name={`prod-status-${prod._id}`}
-                                checked={
-                                  productionStatuses.get(prod._id) === opt.value
-                                }
-                                onChange={() =>
-                                  setProductionStatuses((prev) =>
-                                    new Map(prev).set(prod._id, opt.value)
-                                  )
-                                }
-                                className="accent-gray-900"
-                              />
-                              {opt.label}
-                            </label>
-                          ))}
-                        </div>
-                        {pendingCount > 0 && (
-                          <button
-                            onClick={() => approveAllForProduction(prod._id, prod)}
-                            className="rounded-md bg-green-50 border border-green-200 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors shrink-0"
-                          >
-                            Approve All
-                          </button>
-                        )}
-                      </div>
-
                       {PRODUCTION_FIELDS.map(
                         ({
                           field,
@@ -622,6 +738,46 @@ export default function ShowReviewDetail() {
                           );
                         }
                       )}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 mt-3 border-t border-gray-200">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                          <span className="text-sm font-medium text-gray-700 shrink-0">
+                            Status:
+                          </span>
+                          {STATUS_OPTIONS.map((opt) => (
+                            <label
+                              key={opt.value}
+                              className="flex items-center gap-1.5 text-sm"
+                            >
+                              <input
+                                type="radio"
+                                name={`prod-status-${prod._id}`}
+                                checked={
+                                  productionStatuses.get(prod._id) ===
+                                  opt.value
+                                }
+                                onChange={() =>
+                                  setProductionStatuses((prev) =>
+                                    new Map(prev).set(prod._id, opt.value)
+                                  )
+                                }
+                                className="accent-gray-900"
+                              />
+                              {opt.label}
+                            </label>
+                          ))}
+                        </div>
+                        {pendingCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              approveAllForProduction(prod._id, prod)
+                            }
+                            className="rounded-md bg-green-50 border border-green-200 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors shrink-0"
+                          >
+                            Approve All
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -633,28 +789,9 @@ export default function ShowReviewDetail() {
 
       {/* Sticky submit bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
-        <div className="mx-auto max-w-4xl px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-700">
-              Show status:
-            </span>
-            {STATUS_OPTIONS.map((opt) => (
-              <label
-                key={opt.value}
-                className="flex items-center gap-1.5 text-sm"
-              >
-                <input
-                  type="radio"
-                  name="show-data-status"
-                  checked={showDataStatus === opt.value}
-                  onChange={() => setShowDataStatus(opt.value)}
-                  className="accent-gray-900"
-                />
-                {opt.label}
-              </label>
-            ))}
-          </div>
+        <div className="mx-auto max-w-4xl px-4 py-4 flex items-center justify-end gap-4">
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={submitting}
             className="rounded-md bg-gray-900 px-6 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"

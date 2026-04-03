@@ -7,6 +7,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 type StatusFilter = "needs_review" | "partial" | "complete" | undefined;
 
+type ScheduleFilter = "all" | "current_upcoming" | "historical";
+type ScheduleSort = "none" | "current_first" | "historical_first";
+
 const PAGE_SIZE = 50;
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
@@ -26,6 +29,10 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
 
 export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("needs_review");
+  const [scheduleFilter, setScheduleFilter] =
+    useState<ScheduleFilter>("all");
+  const [scheduleSort, setScheduleSort] =
+    useState<ScheduleSort>("none");
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
   const [rows, setRows] = useState<
@@ -51,12 +58,14 @@ export default function AdminDashboard() {
     search: search || undefined,
     limit: PAGE_SIZE,
     offset,
+    scheduleFilter,
+    scheduleSort,
   });
 
   useEffect(() => {
     setOffset(0);
     setRows([]);
-  }, [statusFilter, search]);
+  }, [statusFilter, scheduleFilter, scheduleSort, search]);
 
   useEffect(() => {
     if (!listResult) return;
@@ -145,31 +154,74 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="flex gap-2 flex-wrap">
-          {([undefined, "needs_review", "partial", "complete"] as const).map(
-            (status) => (
-              <button
-                key={status ?? "all"}
-                type="button"
-                onClick={() => setStatusFilter(status)}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  statusFilter === status
-                    ? "bg-gray-900 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-end gap-4 lg:justify-between">
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Data status
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {([undefined, "needs_review", "partial", "complete"] as const).map(
+                (status) => (
+                  <button
+                    key={status ?? "all"}
+                    type="button"
+                    onClick={() => setStatusFilter(status)}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      statusFilter === status
+                        ? "bg-gray-900 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {status ? STATUS_LABELS[status].label : "All"}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block">
+                Productions schedule
+              </label>
+              <select
+                value={scheduleFilter}
+                onChange={(e) =>
+                  setScheduleFilter(e.target.value as ScheduleFilter)
+                }
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 min-w-[200px]"
               >
-                {status ? STATUS_LABELS[status].label : "All"}
-              </button>
-            )
-          )}
+                <option value="all">All shows</option>
+                <option value="current_upcoming">
+                  Running or upcoming (future preview or opening)
+                </option>
+                <option value="historical">Historical only (every run closed)</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block">
+                Sort by schedule
+              </label>
+              <select
+                value={scheduleSort}
+                onChange={(e) =>
+                  setScheduleSort(e.target.value as ScheduleSort)
+                }
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 min-w-[200px]"
+              >
+                <option value="none">Default (status, then name)</option>
+                <option value="current_first">Active / no runs first</option>
+                <option value="historical_first">Historical first</option>
+              </select>
+            </div>
+          </div>
         </div>
         <input
           type="text"
           placeholder="Search shows..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 max-w-md"
         />
       </div>
 

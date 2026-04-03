@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { resolveShowImageUrls, resolveProductionPosterUrl } from "./helpers";
+import { getProductionStatus } from "../src/utils/productions";
 
 // Fields we track in the review queue for each entity type.
 export const SHOW_REVIEWABLE_FIELDS = [
@@ -72,16 +73,81 @@ export const stats = query({
   },
 });
 
+/**
+ * Classify a show's productions for the admin list filter.
+ * - current_upcoming: at least one production is running or has a future
+ *   preview/opening (getProductionStatus !== "closed").
+ * - historical: at least one production and every run is closed.
+ * - empty: no productions (incomplete data — not treated as active).
+ */
+function scheduleBucketForShow(
+  prods: Array<{
+    previewDate?: string;
+    openingDate?: string;
+    closingDate?: string;
+    isOpenRun?: boolean | null;
+  }>
+): "current_upcoming" | "historical" | "empty" {
+  if (prods.length === 0) return "empty";
+  const anyActive = prods.some((p) => getProductionStatus(p) !== "closed");
+  return anyActive ? "current_upcoming" : "historical";
+}
+
+function scheduleRankCurrentFirst(
+  bucket: "current_upcoming" | "historical" | "empty"
+) {
+  if (bucket === "current_upcoming") return 0;
+  if (bucket === "empty") return 1;
+  return 2;
+}
+
+function scheduleRankHistoricalFirst(
+  bucket: "current_upcoming" | "historical" | "empty"
+) {
+  if (bucket === "historical") return 0;
+  if (bucket === "empty") return 1;
+  return 2;
+}
+
 export const listShowsForReview = query({
   args: {
     statusFilter: v.optional(dataStatusValidator),
     search: v.optional(v.string()),
     limit: v.optional(v.number()),
     offset: v.optional(v.number()),
+    scheduleFilter: v.optional(
+      v.union(
+        v.literal("all"),
+        v.literal("current_upcoming"),
+        v.literal("historical")
+      )
+    ),
+    scheduleSort: v.optional(
+      v.union(
+        v.literal("none"),
+        v.literal("current_first"),
+        v.literal("historical_first")
+      )
+    ),
   },
   handler: async (ctx, args) => {
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
     const offset = Math.max(args.offset ?? 0, 0);
+
+    const allProductions = await ctx.db.query("productions").collect();
+    const productionIdsByShow = new Map<Id<"shows">, Id<"productions">[]>();
+    const prodsByShowId = new Map<
+      Id<"shows">,
+      (typeof allProductions)[number][]
+    >();
+    for (const p of allProductions) {
+      const list = productionIdsByShow.get(p.showId) ?? [];
+      list.push(p._id);
+      productionIdsByShow.set(p.showId, list);
+      const arr = prodsByShowId.get(p.showId) ?? [];
+      arr.push(p);
+      prodsByShowId.set(p.showId, arr);
+    }
 
     let shows = await ctx.db.query("shows").collect();
 
@@ -99,8 +165,33 @@ export const listShowsForReview = query({
       }
     }
 
+    const scheduleFilter = args.scheduleFilter ?? "all";
+    if (scheduleFilter !== "all") {
+      shows = shows.filter((s) => {
+        const bucket = scheduleBucketForShow(prodsByShowId.get(s._id) ?? []);
+        if (scheduleFilter === "current_upcoming") {
+          return bucket === "current_upcoming";
+        }
+        return bucket === "historical";
+      });
+    }
+
     const statusOrder = { needs_review: 0, partial: 1, complete: 2 };
+    const scheduleSort = args.scheduleSort ?? "none";
     shows.sort((a, b) => {
+      if (scheduleSort !== "none") {
+        const ba = scheduleBucketForShow(prodsByShowId.get(a._id) ?? []);
+        const bb = scheduleBucketForShow(prodsByShowId.get(b._id) ?? []);
+        const ra =
+          scheduleSort === "current_first"
+            ? scheduleRankCurrentFirst(ba)
+            : scheduleRankHistoricalFirst(ba);
+        const rb =
+          scheduleSort === "current_first"
+            ? scheduleRankCurrentFirst(bb)
+            : scheduleRankHistoricalFirst(bb);
+        if (ra !== rb) return ra - rb;
+      }
       const aOrder = statusOrder[a.dataStatus ?? "needs_review"];
       const bOrder = statusOrder[b.dataStatus ?? "needs_review"];
       if (aOrder !== bOrder) return aOrder - bOrder;
@@ -119,14 +210,6 @@ export const listShowsForReview = query({
     for (const entry of pendingEntries) {
       const key = `${entry.entityType}:${entry.entityId}`;
       pendingCountByEntity.set(key, (pendingCountByEntity.get(key) || 0) + 1);
-    }
-
-    const allProductions = await ctx.db.query("productions").collect();
-    const productionIdsByShow = new Map<Id<"shows">, Id<"productions">[]>();
-    for (const p of allProductions) {
-      const list = productionIdsByShow.get(p.showId) ?? [];
-      list.push(p._id);
-      productionIdsByShow.set(p.showId, list);
     }
 
     const page = await Promise.all(
