@@ -54,9 +54,8 @@ module.exports = {
     package: "com.theatrediary.app",
     googleServicesFile: "./google-services.json",
     adaptiveIcon: {
-      backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/images/android-icon-foreground.png",
-      backgroundImage: "./assets/images/android-icon-background.png",
+      backgroundColor: "#536DFE",
       monochromeImage: "./assets/images/android-icon-monochrome.png",
     },
     edgeToEdgeEnabled: true,
@@ -89,9 +88,9 @@ module.exports = {
         image: "./assets/images/splash-icon.png",
         imageWidth: 200,
         resizeMode: "contain",
-        backgroundColor: "#ffffff",
+        backgroundColor: "#536DFE",
         dark: {
-          backgroundColor: "#000000",
+          backgroundColor: "#1a0d2e",
         },
       },
     ],
