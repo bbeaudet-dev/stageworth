@@ -462,13 +462,38 @@ export const submitShowReview = mutation({
         decision.decision === "edited" &&
         decision.reviewedValue !== undefined
       ) {
-        await applyFieldChange(
-          ctx,
-          entry.entityType,
-          entry.entityId,
-          entry.field,
-          decision.reviewedValue
-        );
+        const rv = decision.reviewedValue;
+        if (
+          entry.field === "hotlinkImageUrl" &&
+          isLikelyConvexStorageId(rv)
+        ) {
+          await applyFieldChange(
+            ctx,
+            "show",
+            entry.entityId,
+            "images",
+            rv
+          );
+        } else if (
+          entry.field === "hotlinkPosterUrl" &&
+          isLikelyConvexStorageId(rv)
+        ) {
+          await applyFieldChange(
+            ctx,
+            "production",
+            entry.entityId,
+            "posterImage",
+            rv
+          );
+        } else {
+          await applyFieldChange(
+            ctx,
+            entry.entityType,
+            entry.entityId,
+            entry.field,
+            rv
+          );
+        }
       }
     }
 
@@ -501,6 +526,14 @@ export const submitShowReview = mutation({
  * Internal mutation for bot/enrichment/backfill to create queue entries.
  * Idempotent: skips if a pending entry already exists for the same entity + field.
  */
+/** Resolve a Convex file URL for admin image preview after upload. */
+export const storagePreviewUrl = query({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    return (await ctx.storage.getUrl(args.storageId)) ?? null;
+  },
+});
+
 export const createEntry = internalMutation({
   args: {
     entityType: v.union(v.literal("show"), v.literal("production")),
@@ -551,6 +584,13 @@ function normalizeForVenueMatch(name: string): string {
 // Fields stored as booleans — string values "true"/"false" must be converted.
 const BOOLEAN_FIELDS = new Set(["isOpenRun"]);
 
+/** Heuristic: uploaded admin image edits pass a storage id, not a http(s) URL. */
+function isLikelyConvexStorageId(s: string): boolean {
+  if (s.length < 20 || s.length > 64) return false;
+  if (s.includes("://") || s.includes("/") || s.includes(" ")) return false;
+  return /^[a-z0-9_-]+$/i.test(s);
+}
+
 async function applyFieldChange(
   ctx: any,
   entityType: string,
@@ -562,16 +602,36 @@ async function applyFieldChange(
   if (!doc) return;
 
   if (value === undefined) {
-    // Clear the field (reject or explicit clear).
-    // Clearing hotlinkImageUrl should also clear its source.
     if (field === "hotlinkImageUrl") {
       await ctx.db.patch(entityId as any, {
         hotlinkImageUrl: undefined,
         hotlinkImageSource: undefined,
       });
+    } else if (field === "images") {
+      await ctx.db.patch(entityId as any, {
+        images: [],
+        hotlinkImageUrl: undefined,
+        hotlinkImageSource: undefined,
+      });
+    } else if (field === "posterImage") {
+      await ctx.db.patch(entityId as any, {
+        posterImage: undefined,
+        hotlinkPosterUrl: undefined,
+      });
     } else {
       await ctx.db.patch(entityId as any, { [field]: undefined });
     }
+  } else if (field === "images") {
+    await ctx.db.patch(entityId as any, {
+      images: [value],
+      hotlinkImageUrl: undefined,
+      hotlinkImageSource: undefined,
+    });
+  } else if (field === "posterImage") {
+    await ctx.db.patch(entityId as any, {
+      posterImage: value,
+      hotlinkPosterUrl: undefined,
+    });
   } else if (BOOLEAN_FIELDS.has(field)) {
     const boolValue =
       value === "true" ? true : value === "false" ? false : undefined;

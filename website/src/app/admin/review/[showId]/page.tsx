@@ -29,10 +29,97 @@ const editKey = (
   field: string
 ) => `${entityType}:${entityId}:${field}`;
 
+/** Convex storage file id from admin upload — not an http(s) URL. */
+function looksLikeStorageId(s: string | undefined): boolean {
+  if (!s) return false;
+  if (s.length < 20 || s.length > 64) return false;
+  if (s.includes("://") || s.includes("/") || s.includes(" ")) return false;
+  return /^[a-z0-9_-]+$/i.test(s);
+}
+
+function ImageUploadControl({
+  disabled,
+  onUploaded,
+}: {
+  disabled?: boolean;
+  onUploaded: (storageId: string) => void;
+}) {
+  const generateUrl = useMutation(api.reviewQueue.generateShowImageUploadUrl);
+  const [busy, setBusy] = useState(false);
+  const [inputKey, setInputKey] = useState(0);
+
+  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || disabled || busy) return;
+    setBusy(true);
+    try {
+      const postUrl = await generateUrl();
+      const res = await fetch(postUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+        },
+        body: file,
+      });
+      if (!res.ok) throw new Error("upload failed");
+      const data = (await res.json()) as { storageId?: string };
+      if (!data.storageId) throw new Error("no storage id");
+      onUploaded(data.storageId);
+      setInputKey((k) => k + 1);
+    } catch {
+      window.alert("Image upload failed. Try a smaller file or another format.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <input
+        key={inputKey}
+        type="file"
+        accept="image/*"
+        disabled={disabled || busy}
+        onChange={onFileChange}
+        className="block w-full text-sm text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-gray-200 file:px-2 file:py-1 file:text-xs"
+      />
+      {busy ? (
+        <span className="text-xs text-gray-500">Uploading…</span>
+      ) : null}
+    </div>
+  );
+}
+
+function ResolvedImagePreview({
+  value,
+  label,
+  className,
+}: {
+  value: string;
+  label: string;
+  className: string;
+}) {
+  const isId = looksLikeStorageId(value);
+  const fromStorage = useQuery(
+    api.reviewQueue.storagePreviewUrl,
+    isId ? { storageId: value as Id<"_storage"> } : "skip"
+  );
+  const src = isId ? (fromStorage ?? undefined) : value;
+  if (!src) {
+    return isId ? (
+      <span className="text-xs text-gray-400">Loading preview…</span>
+    ) : null;
+  }
+  return <img src={src} alt={label} className={className} />;
+}
+
 interface FieldDef {
   field: string;
   label: string;
   isImage?: boolean;
+  /** Use Convex file upload instead of a URL field (show / production key art). */
+  imageUpload?: boolean;
   /** Required fields — never show a Missing badge or a Clear button */
   alwaysPresent?: boolean;
   inputType?: "text" | "select" | "date" | "url" | "textarea" | "boolean";
@@ -61,7 +148,13 @@ const SHOW_FIELDS: FieldDef[] = [
     options: ["musical", "play", "opera", "dance", "other"],
   },
   { field: "subtype", label: "Sub-type", inputType: "text" },
-  { field: "hotlinkImageUrl", label: "Image", isImage: true, inputType: "url" },
+  {
+    field: "hotlinkImageUrl",
+    label: "Image",
+    isImage: true,
+    imageUpload: true,
+    inputType: "text",
+  },
   {
     field: "hotlinkImageSource",
     label: "Image Source",
@@ -117,7 +210,8 @@ const PRODUCTION_FIELDS: FieldDef[] = [
     field: "hotlinkPosterUrl",
     label: "Poster Image",
     isImage: true,
-    inputType: "url",
+    imageUpload: true,
+    inputType: "text",
   },
   {
     field: "ticketmasterEventUrl",
@@ -181,9 +275,11 @@ function computeShowDataStatus(
   const imgArr = applied.images;
   const de = directEdits.get(editKey("show", show._id, "hotlinkImageUrl"));
   if (de !== undefined) hotlink = de.newValue;
+  const deImages = directEdits.get(editKey("show", show._id, "images"));
   const hasImage = !!(
     hotlink ||
-    (Array.isArray(imgArr) && imgArr.length > 0)
+    (Array.isArray(imgArr) && imgArr.length > 0) ||
+    deImages?.newValue
   );
   return hasImage ? "complete" : "partial";
 }
@@ -489,7 +585,15 @@ export default function ShowReviewDetail() {
         </h2>
         <div className="space-y-2">
           {SHOW_FIELDS.map(
-            ({ field, label, isImage, alwaysPresent, inputType, options }) => {
+            ({
+              field,
+              label,
+              isImage,
+              imageUpload,
+              alwaysPresent,
+              inputType,
+              options,
+            }) => {
               const raw = getFieldValue(show as Record<string, unknown>, field);
               const value =
                 field === "hotlinkImageUrl"
@@ -499,15 +603,18 @@ export default function ShowReviewDetail() {
                       : undefined)
                   : raw;
               const entry = showReviewEntries.find((e) => e.field === field);
-              const stagedEdit = directEdits.get(
-                editKey("show", show._id, field)
-              );
+              const stagedEdit =
+                field === "hotlinkImageUrl"
+                  ? directEdits.get(editKey("show", show._id, "images")) ??
+                    directEdits.get(editKey("show", show._id, field))
+                  : directEdits.get(editKey("show", show._id, field));
               return (
                 <FieldRow
                   key={field}
                   label={label}
                   value={value}
                   isImage={isImage}
+                  imageUpload={imageUpload}
                   alwaysPresent={alwaysPresent}
                   inputType={inputType}
                   options={options}
@@ -532,13 +639,19 @@ export default function ShowReviewDetail() {
                     stageDirectEdit({
                       entityType: "show",
                       entityId: show._id,
-                      field,
+                      field:
+                        field === "hotlinkImageUrl" ? "images" : field,
                       newValue,
                     })
                   }
-                  onUnstageEdit={() =>
-                    unstageDirectEdit("show", show._id, field)
-                  }
+                  onUnstageEdit={() => {
+                    if (field === "hotlinkImageUrl") {
+                      unstageDirectEdit("show", show._id, "images");
+                      unstageDirectEdit("show", show._id, "hotlinkImageUrl");
+                    } else {
+                      unstageDirectEdit("show", show._id, field);
+                    }
+                  }}
                 />
               );
             }
@@ -666,20 +779,36 @@ export default function ShowReviewDetail() {
                           field,
                           label,
                           isImage,
+                          imageUpload,
                           alwaysPresent,
                           inputType,
                           options,
                         }) => {
-                          const value = getFieldValue(
+                          const raw = getFieldValue(
                             prod as Record<string, unknown>,
                             field
                           );
+                          const value =
+                            field === "hotlinkPosterUrl"
+                              ? raw ??
+                                (typeof prod.posterUrl === "string"
+                                  ? prod.posterUrl
+                                  : undefined)
+                              : raw;
                           const entry = prod.reviewEntries.find(
                             (e) => e.field === field
                           );
-                          const stagedEdit = directEdits.get(
-                            editKey("production", prod._id, field)
-                          );
+                          const stagedEdit =
+                            field === "hotlinkPosterUrl"
+                              ? directEdits.get(
+                                  editKey("production", prod._id, "posterImage")
+                                ) ??
+                                directEdits.get(
+                                  editKey("production", prod._id, field)
+                                )
+                              : directEdits.get(
+                                  editKey("production", prod._id, field)
+                                );
 
                           // Venue match badge on the Theatre field
                           const extraBadge =
@@ -701,6 +830,7 @@ export default function ShowReviewDetail() {
                               label={label}
                               value={value}
                               isImage={isImage}
+                              imageUpload={imageUpload}
                               alwaysPresent={alwaysPresent}
                               inputType={inputType}
                               options={options}
@@ -730,17 +860,33 @@ export default function ShowReviewDetail() {
                                 stageDirectEdit({
                                   entityType: "production",
                                   entityId: prod._id,
-                                  field,
+                                  field:
+                                    field === "hotlinkPosterUrl"
+                                      ? "posterImage"
+                                      : field,
                                   newValue,
                                 })
                               }
-                              onUnstageEdit={() =>
-                                unstageDirectEdit(
-                                  "production",
-                                  prod._id,
-                                  field
-                                )
-                              }
+                              onUnstageEdit={() => {
+                                if (field === "hotlinkPosterUrl") {
+                                  unstageDirectEdit(
+                                    "production",
+                                    prod._id,
+                                    "posterImage"
+                                  );
+                                  unstageDirectEdit(
+                                    "production",
+                                    prod._id,
+                                    "hotlinkPosterUrl"
+                                  );
+                                } else {
+                                  unstageDirectEdit(
+                                    "production",
+                                    prod._id,
+                                    field
+                                  );
+                                }
+                              }}
                             />
                           );
                         }
@@ -825,6 +971,7 @@ function FieldRow({
   label,
   value,
   isImage,
+  imageUpload,
   alwaysPresent,
   inputType = "text",
   options,
@@ -841,6 +988,7 @@ function FieldRow({
   label: string;
   value: string | undefined;
   isImage?: boolean;
+  imageUpload?: boolean;
   alwaysPresent?: boolean;
   inputType?: "text" | "select" | "date" | "url" | "textarea" | "boolean";
   options?: string[];
@@ -870,6 +1018,13 @@ function FieldRow({
     onStageEdit(inlineValue === "" ? undefined : inlineValue);
     setIsInlineEditing(false);
   };
+
+  const imgPendingClass =
+    "max-h-48 rounded border border-gray-200 bg-gray-50 object-contain";
+  const imgCompactClass =
+    "max-h-24 rounded border border-gray-200 object-contain";
+  const imgPreviewClass =
+    "mt-2 max-h-32 rounded border border-gray-200 object-contain";
 
   // ── Pending queue entry: full Approve / Edit / Reject card ────────────────
   if (entry && entry.status === "pending") {
@@ -919,11 +1074,7 @@ function FieldRow({
         </div>
 
         {isImage && value ? (
-          <img
-            src={value}
-            alt={label}
-            className="max-h-48 rounded border border-gray-200 bg-gray-50 object-contain"
-          />
+          <ResolvedImagePreview value={value} label={label} className={imgPendingClass} />
         ) : (
           <div className="text-sm text-gray-700 bg-gray-50 rounded px-3 py-2 break-all">
             {value ?? <span className="text-gray-400 italic">Empty</span>}
@@ -933,24 +1084,37 @@ function FieldRow({
         {isEditing && (
           <div className="mt-3">
             <label className="text-xs font-medium text-gray-600 block mb-1">
-              {isImage ? "New image URL" : "New value"}
+              {isImage && imageUpload
+                ? "Upload replacement image"
+                : isImage
+                  ? "New image URL"
+                  : "New value"}
             </label>
-            <FieldInput
-              inputType={inputType}
-              options={options}
-              value={editValue ?? value ?? ""}
-              onChange={(v) => {
-                onEditValueChange?.(v);
-                onDecision?.("edited", v);
-              }}
-            />
-            {isImage && editValue && (
-              <img
-                src={editValue}
-                alt="preview"
-                className="mt-2 max-h-32 rounded border border-gray-200 object-contain"
+            {isImage && imageUpload ? (
+              <ImageUploadControl
+                onUploaded={(id) => {
+                  onEditValueChange?.(id);
+                  onDecision?.("edited", id);
+                }}
+              />
+            ) : (
+              <FieldInput
+                inputType={inputType}
+                options={options}
+                value={editValue ?? value ?? ""}
+                onChange={(v) => {
+                  onEditValueChange?.(v);
+                  onDecision?.("edited", v);
+                }}
               />
             )}
+            {isImage && editValue ? (
+              <ResolvedImagePreview
+                value={editValue}
+                label="Preview"
+                className={imgPreviewClass}
+              />
+            ) : null}
           </div>
         )}
       </div>
@@ -959,7 +1123,6 @@ function FieldRow({
 
   // ── Compact row for reviewed / unqueued fields ────────────────────────────
 
-  // Determine what to display as the "live" value
   const hasStagedEdit = stagedEdit !== undefined;
   const displayValue = hasStagedEdit ? stagedEdit?.newValue : value;
   const displayIsEmpty =
@@ -985,18 +1148,44 @@ function FieldRow({
   ) : null;
 
   if (isInlineEditing) {
+    if (imageUpload && isImage) {
+      return (
+        <div className="rounded-lg border border-blue-200 bg-blue-50/30 p-3">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-sm font-medium text-gray-700">{label}</span>
+            <button
+              type="button"
+              onClick={() => setIsInlineEditing(false)}
+              className="rounded-md bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+          <p className="text-xs text-gray-600 mb-2">Choose a file to stage as the new image.</p>
+          <ImageUploadControl
+            onUploaded={(id) => {
+              onStageEdit(id);
+              setIsInlineEditing(false);
+            }}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-lg border border-blue-200 bg-blue-50/30 p-3">
         <div className="flex items-center justify-between gap-2 mb-2">
           <span className="text-sm font-medium text-gray-700">{label}</span>
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={saveInlineEdit}
               className="rounded-md bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-gray-700"
             >
               Save
             </button>
             <button
+              type="button"
               onClick={() => setIsInlineEditing(false)}
               className="rounded-md bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
             >
@@ -1011,13 +1200,13 @@ function FieldRow({
           onChange={setInlineValue}
           autoFocus
         />
-        {isImage && inlineValue && (
-          <img
-            src={inlineValue}
-            alt="preview"
-            className="mt-2 max-h-32 rounded border border-gray-200 object-contain"
+        {isImage && inlineValue ? (
+          <ResolvedImagePreview
+            value={inlineValue}
+            label="Preview"
+            className={imgPreviewClass}
           />
-        )}
+        ) : null}
       </div>
     );
   }
@@ -1033,10 +1222,10 @@ function FieldRow({
       </span>
       <div className="flex-1 min-w-0">
         {isImage && displayValue ? (
-          <img
-            src={displayValue}
-            alt={label}
-            className="max-h-24 rounded border border-gray-200 object-contain"
+          <ResolvedImagePreview
+            value={displayValue}
+            label={label}
+            className={imgCompactClass}
           />
         ) : (
           <span
@@ -1055,9 +1244,9 @@ function FieldRow({
       <div className="shrink-0 flex items-center gap-1.5 flex-wrap justify-end">
         {extraBadge}
         {statusBadge}
-        {/* Edit / Clear / Undo controls */}
         {hasStagedEdit ? (
           <button
+            type="button"
             onClick={onUnstageEdit}
             className="opacity-0 group-hover:opacity-100 rounded px-2 py-0.5 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-200 transition-all"
           >
@@ -1066,6 +1255,7 @@ function FieldRow({
         ) : (
           <>
             <button
+              type="button"
               onClick={startInlineEdit}
               className="opacity-0 group-hover:opacity-100 rounded px-2 py-0.5 text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-200 transition-all"
             >
@@ -1073,6 +1263,7 @@ function FieldRow({
             </button>
             {!displayIsEmpty && !alwaysPresent && (
               <button
+                type="button"
                 onClick={() => onStageEdit(undefined)}
                 className="opacity-0 group-hover:opacity-100 rounded px-2 py-0.5 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 transition-all"
               >
