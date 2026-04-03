@@ -487,46 +487,6 @@ export default function ShowReviewDetail() {
             </span>
           )}
         </h2>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 mb-3 border-b border-gray-100">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <span className="text-sm font-medium text-gray-700 shrink-0">
-              Status:
-            </span>
-            {STATUS_OPTIONS.map((opt) => (
-              <label
-                key={opt.value}
-                className="flex items-center gap-1.5 text-sm"
-              >
-                <input
-                  type="radio"
-                  name="show-data-status"
-                  checked={showDataStatus === opt.value}
-                  onChange={() => setShowDataStatus(opt.value)}
-                  className="accent-gray-900"
-                />
-                {opt.label}
-              </label>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={inferShowDataStatus}
-              className="rounded-md bg-gray-50 border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 transition-colors"
-            >
-              Auto-detect from data
-            </button>
-            {pendingShowCount > 0 && (
-              <button
-                type="button"
-                onClick={approveAllShow}
-                className="rounded-md bg-green-50 border border-green-200 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
-              >
-                Approve All
-              </button>
-            )}
-          </div>
-        </div>
         <div className="space-y-2">
           {SHOW_FIELDS.map(
             ({ field, label, isImage, alwaysPresent, inputType, options }) => {
@@ -576,6 +536,46 @@ export default function ShowReviewDetail() {
               );
             }
           )}
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 mt-4 border-t border-gray-200">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span className="text-sm font-medium text-gray-700 shrink-0">
+              Show status:
+            </span>
+            {STATUS_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className="flex items-center gap-1.5 text-sm"
+              >
+                <input
+                  type="radio"
+                  name="show-data-status"
+                  checked={showDataStatus === opt.value}
+                  onChange={() => setShowDataStatus(opt.value)}
+                  className="accent-gray-900"
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={inferShowDataStatus}
+              className="rounded-md bg-gray-50 border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              Auto-detect from data
+            </button>
+            {pendingShowCount > 0 && (
+              <button
+                type="button"
+                onClick={approveAllShow}
+                className="rounded-md bg-green-50 border border-green-200 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
+              >
+                Approve All
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
@@ -654,44 +654,6 @@ export default function ShowReviewDetail() {
 
                   {isExpanded && (
                     <div className="px-4 py-4 space-y-2">
-                      {/* Production status selector + Approve All */}
-                      <div className="flex items-center justify-between gap-3 pb-3 mb-1 border-b border-gray-100">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium text-gray-700">
-                            Status:
-                          </span>
-                          {STATUS_OPTIONS.map((opt) => (
-                            <label
-                              key={opt.value}
-                              className="flex items-center gap-1.5 text-sm"
-                            >
-                              <input
-                                type="radio"
-                                name={`prod-status-${prod._id}`}
-                                checked={
-                                  productionStatuses.get(prod._id) === opt.value
-                                }
-                                onChange={() =>
-                                  setProductionStatuses((prev) =>
-                                    new Map(prev).set(prod._id, opt.value)
-                                  )
-                                }
-                                className="accent-gray-900"
-                              />
-                              {opt.label}
-                            </label>
-                          ))}
-                        </div>
-                        {pendingCount > 0 && (
-                          <button
-                            onClick={() => approveAllForProduction(prod._id, prod)}
-                            className="rounded-md bg-green-50 border border-green-200 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors shrink-0"
-                          >
-                            Approve All
-                          </button>
-                        )}
-                      </div>
-
                       {PRODUCTION_FIELDS.map(
                         ({
                           field,
@@ -776,6 +738,46 @@ export default function ShowReviewDetail() {
                           );
                         }
                       )}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 mt-3 border-t border-gray-200">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                          <span className="text-sm font-medium text-gray-700 shrink-0">
+                            Status:
+                          </span>
+                          {STATUS_OPTIONS.map((opt) => (
+                            <label
+                              key={opt.value}
+                              className="flex items-center gap-1.5 text-sm"
+                            >
+                              <input
+                                type="radio"
+                                name={`prod-status-${prod._id}`}
+                                checked={
+                                  productionStatuses.get(prod._id) ===
+                                  opt.value
+                                }
+                                onChange={() =>
+                                  setProductionStatuses((prev) =>
+                                    new Map(prev).set(prod._id, opt.value)
+                                  )
+                                }
+                                className="accent-gray-900"
+                              />
+                              {opt.label}
+                            </label>
+                          ))}
+                        </div>
+                        {pendingCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              approveAllForProduction(prod._id, prod)
+                            }
+                            className="rounded-md bg-green-50 border border-green-200 px-3 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors shrink-0"
+                          >
+                            Approve All
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
