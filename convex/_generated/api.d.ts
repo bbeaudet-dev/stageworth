@@ -16,6 +16,7 @@ import type * as admin_wikiApi from "../admin/wikiApi.js";
 import type * as auth from "../auth.js";
 import type * as authFactory from "../authFactory.js";
 import type * as botIngestion from "../botIngestion.js";
+import type * as catalogUserFeedback from "../catalogUserFeedback.js";
 import type * as challenges from "../challenges.js";
 import type * as crons from "../crons.js";
 import type * as helpers from "../helpers.js";
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authFactory: typeof authFactory;
   botIngestion: typeof botIngestion;
+  catalogUserFeedback: typeof catalogUserFeedback;
   challenges: typeof challenges;
   crons: typeof crons;
   helpers: typeof helpers;

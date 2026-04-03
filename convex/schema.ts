@@ -417,6 +417,22 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_createdAt", ["createdAt"]),
 
+  // Free-form user reports about show/production catalog data (mobile app).
+  // Kept separate from reviewQueue, which is field-level ingest/admin workflow.
+  catalogUserFeedback: defineTable({
+    userId: v.id("users"),
+    showId: v.id("shows"),
+    /** Denormalized at submit time for admin list if the show is renamed. */
+    showNameSnapshot: v.string(),
+    productionId: v.optional(v.id("productions")),
+    /** e.g. theatre · city, for admin context when production exists. */
+    productionLabelSnapshot: v.optional(v.string()),
+    note: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_show", ["showId"])
+    .index("by_user", ["userId"]),
+
   // Per-field review decisions for shows and productions.
   reviewQueue: defineTable({
     entityType: v.union(v.literal("show"), v.literal("production")),
