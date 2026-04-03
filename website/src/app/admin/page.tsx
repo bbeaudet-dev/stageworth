@@ -53,13 +53,16 @@ export default function AdminDashboard() {
   const loadMoreInFlightRef = useRef(false);
 
   const stats = useQuery(api.reviewQueue.stats);
+  // Only send schedule args when non-default. Convex rejects unknown/extra
+  // argument keys — if the deployed functions predate scheduleFilter/sort,
+  // sending scheduleFilter: "all" still breaks until `npx convex deploy`.
   const listResult = useQuery(api.reviewQueue.listShowsForReview, {
-    statusFilter: statusFilter,
+    statusFilter,
     search: search || undefined,
     limit: PAGE_SIZE,
     offset,
-    scheduleFilter,
-    scheduleSort,
+    ...(scheduleFilter !== "all" ? { scheduleFilter } : {}),
+    ...(scheduleSort !== "none" ? { scheduleSort } : {}),
   });
 
   useEffect(() => {
