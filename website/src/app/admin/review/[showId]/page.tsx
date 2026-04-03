@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 
 type Decision = "approved" | "rejected" | "edited";
@@ -28,6 +28,11 @@ const editKey = (
   entityId: string,
   field: string
 ) => `${entityType}:${entityId}:${field}`;
+
+function normFieldStr(v: string | undefined | null): string {
+  if (v === undefined || v === null) return "";
+  return String(v);
+}
 
 /** Convex storage file id from admin upload — not an http(s) URL. */
 function looksLikeStorageId(s: string | undefined): boolean {
@@ -314,6 +319,80 @@ function mergeProductionFromDecisions(
     }
   }
   return out as ProdDoc;
+}
+
+/**
+ * Effective production fields for admin preview (venue match, etc.): includes
+ * pending queue values before submit, and respects Approve / Edit / Reject choices.
+ */
+function mergeProductionForVenuePreview(
+  prod: Record<string, unknown>,
+  reviewEntries: Array<{
+    _id: string;
+    field: string;
+    currentValue?: string;
+    status: string;
+  }>,
+  decisions: Map<string, EntryDecision>,
+  directEdits: Map<string, DirectEdit>,
+  prodId: string
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...prod };
+  for (const e of reviewEntries) {
+    if (e.status !== "pending") continue;
+    const d = decisions.get(e._id);
+    if (d?.decision === "rejected") continue;
+
+    if (d?.decision === "approved") {
+      if (e.currentValue !== undefined && e.currentValue !== "") {
+        out[e.field] = e.currentValue;
+      }
+    } else if (d?.decision === "edited") {
+      const v = d.reviewedValue ?? e.currentValue;
+      if (v !== undefined) {
+        if (v === "") delete out[e.field];
+        else out[e.field] = v;
+      }
+    } else if (e.currentValue !== undefined) {
+      if (e.currentValue === "") delete out[e.field];
+      else out[e.field] = e.currentValue;
+    }
+  }
+  for (const edit of directEdits.values()) {
+    if (edit.entityType === "production" && edit.entityId === prodId) {
+      if (edit.newValue === undefined) delete out[edit.field];
+      else out[edit.field] = edit.newValue;
+    }
+  }
+  return out;
+}
+
+function VenueMatchBadge({ theatreName }: { theatreName: string }) {
+  const trimmed = theatreName.trim();
+  const match = useQuery(
+    api.reviewQueue.findVenueMatchPreview,
+    trimmed ? { theatreName: trimmed } : "skip"
+  );
+  if (!trimmed) return null;
+  if (match === undefined) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-gray-50 border border-gray-200 px-2 py-0.5 text-xs text-gray-400 shrink-0">
+        Checking venue…
+      </span>
+    );
+  }
+  if (match) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-xs text-teal-700 shrink-0">
+        ✓ {match.name}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-xs text-gray-500 shrink-0">
+      No venue match
+    </span>
+  );
 }
 
 function computeProductionStatus(prod: ProdDoc): DataStatus {
@@ -717,6 +796,16 @@ export default function ShowReviewDetail() {
               const prodStagedCount = Array.from(directEdits.keys()).filter(
                 (k) => k.startsWith(`production:${prod._id}:`)
               ).length;
+              const previewProd = mergeProductionForVenuePreview(
+                prod as Record<string, unknown>,
+                prod.reviewEntries,
+                decisions,
+                directEdits,
+                prod._id
+              );
+              const venuePreviewTheatre = String(
+                previewProd.theatre ?? ""
+              ).trim();
 
               return (
                 <div
@@ -810,18 +899,11 @@ export default function ShowReviewDetail() {
                                   editKey("production", prod._id, field)
                                 );
 
-                          // Venue match badge on the Theatre field
                           const extraBadge =
                             field === "theatre" ? (
-                              prod.venueMatch ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-xs text-teal-700 shrink-0">
-                                  ✓ {prod.venueMatch.name}
-                                </span>
-                              ) : value ? (
-                                <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-xs text-gray-500 shrink-0">
-                                  No venue match
-                                </span>
-                              ) : undefined
+                              <VenueMatchBadge
+                                theatreName={venuePreviewTheatre}
+                              />
                             ) : undefined;
 
                           return (
@@ -1003,20 +1085,35 @@ function FieldRow({
   onUnstageEdit: () => void;
 }) {
   const [isInlineEditing, setIsInlineEditing] = useState(false);
-  const [inlineValue, setInlineValue] = useState("");
+  /** Snapshot of displayed value when opening direct (non-queue) inline edit — for Cancel. */
+  const inlineEditBaselineRef = useRef<string | null>(null);
+  const hasStagedEdit = stagedEdit !== undefined;
 
-  const isEmpty = value === undefined || value === null || value === "";
   const currentDecision = decision?.decision;
   const isEditing = currentDecision === "edited";
 
   const startInlineEdit = () => {
-    setInlineValue(value ?? "");
+    const dv = hasStagedEdit ? stagedEdit?.newValue : value;
+    inlineEditBaselineRef.current = normFieldStr(dv);
     setIsInlineEditing(true);
   };
 
-  const saveInlineEdit = () => {
-    onStageEdit(inlineValue === "" ? undefined : inlineValue);
+  const doneInlineEdit = () => {
+    inlineEditBaselineRef.current = null;
     setIsInlineEditing(false);
+  };
+
+  const cancelInlineEdit = () => {
+    const baseline = inlineEditBaselineRef.current;
+    inlineEditBaselineRef.current = null;
+    setIsInlineEditing(false);
+    if (baseline === null) return;
+    const dbNorm = normFieldStr(value);
+    if (baseline === dbNorm) {
+      onUnstageEdit();
+    } else {
+      onStageEdit(baseline === "" ? undefined : baseline);
+    }
   };
 
   const imgPendingClass =
@@ -1123,7 +1220,6 @@ function FieldRow({
 
   // ── Compact row for reviewed / unqueued fields ────────────────────────────
 
-  const hasStagedEdit = stagedEdit !== undefined;
   const displayValue = hasStagedEdit ? stagedEdit?.newValue : value;
   const displayIsEmpty =
     displayValue === undefined || displayValue === null || displayValue === "";
@@ -1155,7 +1251,7 @@ function FieldRow({
             <span className="text-sm font-medium text-gray-700">{label}</span>
             <button
               type="button"
-              onClick={() => setIsInlineEditing(false)}
+              onClick={cancelInlineEdit}
               className="rounded-md bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
             >
               Cancel
@@ -1165,12 +1261,16 @@ function FieldRow({
           <ImageUploadControl
             onUploaded={(id) => {
               onStageEdit(id);
-              setIsInlineEditing(false);
+              doneInlineEdit();
             }}
           />
         </div>
       );
     }
+
+    const liveDirectValue = hasStagedEdit
+      ? normFieldStr(stagedEdit?.newValue)
+      : normFieldStr(value);
 
     return (
       <div className="rounded-lg border border-blue-200 bg-blue-50/30 p-3">
@@ -1179,14 +1279,14 @@ function FieldRow({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={saveInlineEdit}
+              onClick={doneInlineEdit}
               className="rounded-md bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-gray-700"
             >
-              Save
+              Done
             </button>
             <button
               type="button"
-              onClick={() => setIsInlineEditing(false)}
+              onClick={cancelInlineEdit}
               className="rounded-md bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
             >
               Cancel
@@ -1196,13 +1296,13 @@ function FieldRow({
         <FieldInput
           inputType={inputType}
           options={options}
-          value={inlineValue}
-          onChange={setInlineValue}
+          value={liveDirectValue}
+          onChange={(v) => onStageEdit(v === "" ? undefined : v)}
           autoFocus
         />
-        {isImage && inlineValue ? (
+        {isImage && liveDirectValue ? (
           <ResolvedImagePreview
-            value={inlineValue}
+            value={liveDirectValue}
             label="Preview"
             className={imgPreviewClass}
           />

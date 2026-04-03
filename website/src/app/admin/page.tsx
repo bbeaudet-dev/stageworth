@@ -246,18 +246,13 @@ export default function AdminDashboard() {
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
           <div className="flex flex-col gap-1 flex-1 min-w-0 max-w-md">
-            <label
-              htmlFor="admin-show-search"
-              className="text-xs font-medium text-gray-500 uppercase tracking-wide"
-            >
-              Search
-            </label>
             <input
               id="admin-show-search"
-              type="text"
+              type="search"
               placeholder="Search shows…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search shows"
               className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
             />
           </div>

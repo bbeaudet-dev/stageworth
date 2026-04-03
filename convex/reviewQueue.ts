@@ -235,11 +235,19 @@ export const getShowReviewDetail = query({
           )
           .collect();
 
-        // Try to find a matching venue by normalized theatre name.
+        // Match venues using queued theatre value when pending (doc may be stale).
+        const pendingTheatre = entries.find(
+          (e) => e.field === "theatre" && e.status === "pending"
+        );
+        const theatreForMatch =
+          pendingTheatre?.currentValue !== undefined
+            ? pendingTheatre.currentValue.trim()
+            : (p.theatre?.trim() ?? "");
+
         let venueMatch: { _id: string; name: string; city: string } | null =
           null;
-        if (p.theatre) {
-          const normalizedName = normalizeForVenueMatch(p.theatre);
+        if (theatreForMatch.length > 0) {
+          const normalizedName = normalizeForVenueMatch(theatreForMatch);
           const venue = await ctx.db
             .query("venues")
             .withIndex("by_normalized_name", (q) =>
@@ -531,6 +539,28 @@ export const storagePreviewUrl = query({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => {
     return (await ctx.storage.getUrl(args.storageId)) ?? null;
+  },
+});
+
+/** Live admin preview: match a theatre string to the venues catalog (normalized name). */
+export const findVenueMatchPreview = query({
+  args: { theatreName: v.string() },
+  handler: async (ctx, args) => {
+    const trimmed = args.theatreName.trim();
+    if (!trimmed) return null;
+    const normalizedName = normalizeForVenueMatch(trimmed);
+    const venue = await ctx.db
+      .query("venues")
+      .withIndex("by_normalized_name", (q) =>
+        q.eq("normalizedName", normalizedName)
+      )
+      .first();
+    if (!venue) return null;
+    return {
+      _id: venue._id,
+      name: venue.name,
+      city: venue.city,
+    };
   },
 });
 
