@@ -3,14 +3,26 @@
 import { useQuery } from "convex/react";
 import { api } from "@/lib/api";
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type StatusFilter = "needs_review" | "partial" | "complete" | undefined;
 
 type ScheduleFilter = "all" | "current_upcoming" | "historical";
-type ScheduleSort = "none" | "current_first" | "historical_first";
 
 const PAGE_SIZE = 50;
+/** Fetch enough rows for client-side schedule filtering without extra Convex args. */
+const FETCH_LIMIT = 5000;
+
+type ListRow = {
+  _id: string;
+  name: string;
+  type: string;
+  dataStatus: string;
+  imageUrl: string | null;
+  pendingCount: number;
+  productionCount: number;
+  scheduleBucket: "current_upcoming" | "historical" | "empty";
+};
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   needs_review: {
@@ -31,102 +43,42 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("needs_review");
   const [scheduleFilter, setScheduleFilter] =
     useState<ScheduleFilter>("all");
-  const [scheduleSort, setScheduleSort] =
-    useState<ScheduleSort>("none");
   const [search, setSearch] = useState("");
-  const [offset, setOffset] = useState(0);
-  const [rows, setRows] = useState<
-    Array<{
-      _id: string;
-      name: string;
-      type: string;
-      dataStatus: string;
-      imageUrl: string | null;
-      pendingCount: number;
-      productionCount: number;
-    }>
-  >([]);
-  const [totalCount, setTotalCount] = useState(0);
-
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const pendingScrollRef = useRef<number | null>(null);
-  const loadMoreInFlightRef = useRef(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const stats = useQuery(api.reviewQueue.stats);
-  // Only send schedule args when non-default. Convex rejects unknown/extra
-  // argument keys — if the deployed functions predate scheduleFilter/sort,
-  // sending scheduleFilter: "all" still breaks until `npx convex deploy`.
   const listResult = useQuery(api.reviewQueue.listShowsForReview, {
     statusFilter,
     search: search || undefined,
-    limit: PAGE_SIZE,
-    offset,
-    ...(scheduleFilter !== "all" ? { scheduleFilter } : {}),
-    ...(scheduleSort !== "none" ? { scheduleSort } : {}),
+    limit: FETCH_LIMIT,
+    offset: 0,
   });
 
-  useEffect(() => {
-    setOffset(0);
-    setRows([]);
-  }, [statusFilter, scheduleFilter, scheduleSort, search]);
-
-  useEffect(() => {
-    if (!listResult) return;
-    setTotalCount(listResult.total);
-    if (offset === 0) {
-      setRows(listResult.page);
-    } else {
-      setRows((prev) => {
-        const incomingIds = new Set(
-          listResult.page.map((s) => String(s._id))
-        );
-        if (prev.some((r) => incomingIds.has(String(r._id)))) return prev;
-        return [...prev, ...listResult.page];
-      });
+  const filteredRows = useMemo(() => {
+    const page = listResult?.page as ListRow[] | undefined;
+    if (!page) return [];
+    if (scheduleFilter === "all") return page;
+    if (scheduleFilter === "current_upcoming") {
+      return page.filter((r) => r.scheduleBucket === "current_upcoming");
     }
-    loadMoreInFlightRef.current = false;
-  }, [listResult, offset]);
+    return page.filter((r) => r.scheduleBucket === "historical");
+  }, [listResult?.page, scheduleFilter]);
 
-  useLayoutEffect(() => {
-    if (pendingScrollRef.current === null) return;
-    const y = pendingScrollRef.current;
-    pendingScrollRef.current = null;
-    window.scrollTo(0, y);
-  }, [rows]);
-
-  const syncingFirstPage =
-    listResult !== undefined &&
-    offset === 0 &&
-    rows.length === 0 &&
-    listResult.total > 0;
-
-  const showInitialSpinner =
-    offset === 0 && (listResult === undefined || syncingFirstPage);
-
-  const loadingMore = offset > 0 && listResult === undefined;
+  const rows = useMemo(
+    () => filteredRows.slice(0, visibleCount),
+    [filteredRows, visibleCount]
+  );
 
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
+    setVisibleCount(PAGE_SIZE);
+  }, [statusFilter, scheduleFilter, search]);
 
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        if (!entry?.isIntersecting) return;
-        if (loadMoreInFlightRef.current) return;
-        if (!listResult?.hasMore) return;
-        if (listResult === undefined) return;
-
-        loadMoreInFlightRef.current = true;
-        pendingScrollRef.current = window.scrollY;
-        setOffset((o) => o + PAGE_SIZE);
-      },
-      { root: null, rootMargin: "320px", threshold: 0 }
-    );
-
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [listResult?.hasMore, listResult, rows.length]);
+  const loading = listResult === undefined;
+  const hasMore = visibleCount < filteredRows.length;
+  const totalFiltered = filteredRows.length;
+  const pageLen = listResult?.page?.length ?? 0;
+  const truncated =
+    pageLen >= FETCH_LIMIT && (listResult?.total ?? 0) > pageLen;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -182,41 +134,23 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block">
-                Productions schedule
-              </label>
-              <select
-                value={scheduleFilter}
-                onChange={(e) =>
-                  setScheduleFilter(e.target.value as ScheduleFilter)
-                }
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 min-w-[200px]"
-              >
-                <option value="all">All shows</option>
-                <option value="current_upcoming">
-                  Running or upcoming (future preview or opening)
-                </option>
-                <option value="historical">Historical only (every run closed)</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block">
-                Sort by schedule
-              </label>
-              <select
-                value={scheduleSort}
-                onChange={(e) =>
-                  setScheduleSort(e.target.value as ScheduleSort)
-                }
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 min-w-[200px]"
-              >
-                <option value="none">Default (status, then name)</option>
-                <option value="current_first">Active / no runs first</option>
-                <option value="historical_first">Historical first</option>
-              </select>
-            </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block">
+              Productions schedule
+            </label>
+            <select
+              value={scheduleFilter}
+              onChange={(e) =>
+                setScheduleFilter(e.target.value as ScheduleFilter)
+              }
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 min-w-[240px]"
+            >
+              <option value="all">All shows</option>
+              <option value="current_upcoming">
+                Running or upcoming (future preview or opening)
+              </option>
+              <option value="historical">Historical only (every run closed)</option>
+            </select>
           </div>
         </div>
         <input
@@ -228,7 +162,7 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {showInitialSpinner ? (
+      {loading ? (
         <div className="text-gray-500 text-sm">Loading...</div>
       ) : rows.length === 0 ? (
         <div className="text-gray-500 text-sm">
@@ -237,7 +171,14 @@ export default function AdminDashboard() {
       ) : (
         <>
           <p className="text-sm text-gray-500 mb-3">
-            Showing {rows.length} of {totalCount || rows.length} shows
+            Showing {rows.length} of {totalFiltered} shows
+            {truncated && (
+              <span className="text-amber-600">
+                {" "}
+                (first {FETCH_LIMIT} matches loaded; narrow data status or search
+                if you need the rest)
+              </span>
+            )}
           </p>
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200">
@@ -307,20 +248,17 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
-          {rows.length > 0 &&
-            (loadingMore || (listResult && listResult.hasMore)) && (
-              <div
-                ref={sentinelRef}
-                className="flex min-h-12 items-center justify-center py-4"
-                aria-hidden
+          {hasMore && (
+            <div className="flex justify-center py-4">
+              <button
+                type="button"
+                onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                {loadingMore ? (
-                  <span className="text-sm text-gray-500">Loading more…</span>
-                ) : (
-                  <span className="text-xs text-gray-400">Scroll for more</span>
-                )}
-              </div>
-            )}
+                Load more
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

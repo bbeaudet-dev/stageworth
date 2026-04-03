@@ -93,45 +93,16 @@ function scheduleBucketForShow(
   return anyActive ? "current_upcoming" : "historical";
 }
 
-function scheduleRankCurrentFirst(
-  bucket: "current_upcoming" | "historical" | "empty"
-) {
-  if (bucket === "current_upcoming") return 0;
-  if (bucket === "empty") return 1;
-  return 2;
-}
-
-function scheduleRankHistoricalFirst(
-  bucket: "current_upcoming" | "historical" | "empty"
-) {
-  if (bucket === "historical") return 0;
-  if (bucket === "empty") return 1;
-  return 2;
-}
-
 export const listShowsForReview = query({
   args: {
     statusFilter: v.optional(dataStatusValidator),
     search: v.optional(v.string()),
     limit: v.optional(v.number()),
     offset: v.optional(v.number()),
-    scheduleFilter: v.optional(
-      v.union(
-        v.literal("all"),
-        v.literal("current_upcoming"),
-        v.literal("historical")
-      )
-    ),
-    scheduleSort: v.optional(
-      v.union(
-        v.literal("none"),
-        v.literal("current_first"),
-        v.literal("historical_first")
-      )
-    ),
   },
   handler: async (ctx, args) => {
-    const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
+    /** Admin list loads a large page once; client filters by schedule without extra args. */
+    const limit = Math.min(Math.max(args.limit ?? 50, 1), 5000);
     const offset = Math.max(args.offset ?? 0, 0);
 
     const allProductions = await ctx.db.query("productions").collect();
@@ -165,33 +136,8 @@ export const listShowsForReview = query({
       }
     }
 
-    const scheduleFilter = args.scheduleFilter ?? "all";
-    if (scheduleFilter !== "all") {
-      shows = shows.filter((s) => {
-        const bucket = scheduleBucketForShow(prodsByShowId.get(s._id) ?? []);
-        if (scheduleFilter === "current_upcoming") {
-          return bucket === "current_upcoming";
-        }
-        return bucket === "historical";
-      });
-    }
-
     const statusOrder = { needs_review: 0, partial: 1, complete: 2 };
-    const scheduleSort = args.scheduleSort ?? "none";
     shows.sort((a, b) => {
-      if (scheduleSort !== "none") {
-        const ba = scheduleBucketForShow(prodsByShowId.get(a._id) ?? []);
-        const bb = scheduleBucketForShow(prodsByShowId.get(b._id) ?? []);
-        const ra =
-          scheduleSort === "current_first"
-            ? scheduleRankCurrentFirst(ba)
-            : scheduleRankHistoricalFirst(ba);
-        const rb =
-          scheduleSort === "current_first"
-            ? scheduleRankCurrentFirst(bb)
-            : scheduleRankHistoricalFirst(bb);
-        if (ra !== rb) return ra - rb;
-      }
       const aOrder = statusOrder[a.dataStatus ?? "needs_review"];
       const bOrder = statusOrder[b.dataStatus ?? "needs_review"];
       if (aOrder !== bOrder) return aOrder - bOrder;
@@ -223,6 +169,7 @@ export const listShowsForReview = query({
             pendingCountByEntity.get(`production:${pid}`) ?? 0;
         }
 
+        const prods = prodsByShowId.get(show._id) ?? [];
         return {
           _id: show._id,
           name: show.name,
@@ -231,6 +178,7 @@ export const listShowsForReview = query({
           imageUrl: images[0] ?? null,
           pendingCount: showPending + productionPending,
           productionCount: prodIds.length,
+          scheduleBucket: scheduleBucketForShow(prods),
         };
       })
     );
