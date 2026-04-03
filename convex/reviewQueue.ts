@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { resolveShowImageUrls, resolveProductionPosterUrl } from "./helpers";
+import { normalizeShowName } from "./showNormalization";
 import { getProductionStatus } from "../src/utils/productions";
 
 // Fields we track in the review queue for each entity type.
@@ -42,6 +43,14 @@ const sourceValidator = v.union(
   v.literal("seed"),
   v.literal("manual"),
   v.literal("wikidata")
+);
+
+const showTypeValidator = v.union(
+  v.literal("musical"),
+  v.literal("play"),
+  v.literal("opera"),
+  v.literal("dance"),
+  v.literal("other")
 );
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
@@ -312,6 +321,71 @@ export const listPartialShows = query({
 });
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
+
+/** One-shot upload URL for the admin “missing show” form (image → Convex storage). */
+export const generateShowImageUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/** Create a new unpublished show, optional key art on `images[]`, and pending queue rows for name + type. */
+export const createShowFromAdminForm = mutation({
+  args: {
+    name: v.string(),
+    type: showTypeValidator,
+    imageStorageId: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    const name = args.name.trim();
+    const normalizedName = normalizeShowName(name);
+    if (!normalizedName) {
+      throw new Error("Show name is required");
+    }
+
+    const existingByNormalizedName = await ctx.db
+      .query("shows")
+      .withIndex("by_normalized_name", (q) =>
+        q.eq("normalizedName", normalizedName)
+      )
+      .first();
+    if (existingByNormalizedName) {
+      throw new Error("A show with this name already exists");
+    }
+
+    const images = args.imageStorageId ? [args.imageStorageId] : [];
+
+    const showId = await ctx.db.insert("shows", {
+      name,
+      normalizedName,
+      type: args.type,
+      images,
+      isUserCreated: false,
+      dataStatus: "needs_review",
+    });
+
+    const entityId = showId as string;
+    const now = Date.now();
+
+    for (const [field, currentValue] of [
+      ["name", name],
+      ["type", args.type],
+    ] as const) {
+      await ctx.db.insert("reviewQueue", {
+        entityType: "show",
+        entityId,
+        field,
+        currentValue,
+        source: "manual",
+        status: "pending",
+        createdAt: now,
+      });
+    }
+
+    return showId;
+  },
+});
 
 export const submitShowReview = mutation({
   args: {

@@ -1,9 +1,9 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import { api } from "@/lib/api";
+import { useMutation, useQuery } from "convex/react";
+import { api, type Id } from "@/lib/api";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 type StatusFilter = "needs_review" | "partial" | "complete" | undefined;
 
@@ -23,6 +23,16 @@ type ListRow = {
   productionCount: number;
   scheduleBucket: "current_upcoming" | "historical";
 };
+
+const SHOW_TYPES = [
+  "musical",
+  "play",
+  "opera",
+  "dance",
+  "other",
+] as const;
+
+type ShowFormType = (typeof SHOW_TYPES)[number];
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   needs_review: {
@@ -46,6 +56,21 @@ export default function AdminDashboard() {
     useState<ScheduleFilter>("all");
   const [search, setSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  const [newShowName, setNewShowName] = useState("");
+  const [newShowType, setNewShowType] = useState<ShowFormType>("musical");
+  const [newShowImage, setNewShowImage] = useState<File | null>(null);
+  const [addShowBusy, setAddShowBusy] = useState(false);
+  const [addShowError, setAddShowError] = useState<string | null>(null);
+  const [addShowSuccessId, setAddShowSuccessId] = useState<string | null>(null);
+  const [imageInputKey, setImageInputKey] = useState(0);
+
+  const generateUploadUrl = useMutation(
+    api.reviewQueue.generateShowImageUploadUrl
+  );
+  const createShowFromForm = useMutation(
+    api.reviewQueue.createShowFromAdminForm
+  );
 
   const stats = useQuery(api.reviewQueue.stats);
   const listResult = useQuery(api.reviewQueue.listShowsForReview, {
@@ -81,9 +106,136 @@ export default function AdminDashboard() {
   const truncated =
     pageLen >= FETCH_LIMIT && (listResult?.total ?? 0) > pageLen;
 
+  async function handleAddMissingShow(e: FormEvent) {
+    e.preventDefault();
+    setAddShowError(null);
+    setAddShowSuccessId(null);
+    const name = newShowName.trim();
+    if (!name) {
+      setAddShowError("Enter a show name.");
+      return;
+    }
+    setAddShowBusy(true);
+    try {
+      let imageStorageId: Id<"_storage"> | undefined;
+      if (newShowImage) {
+        const postUrl = await generateUploadUrl();
+        const res = await fetch(postUrl, {
+          method: "POST",
+          headers: { "Content-Type": newShowImage.type || "application/octet-stream" },
+          body: newShowImage,
+        });
+        if (!res.ok) {
+          throw new Error("Image upload failed. Try a smaller file or different format.");
+        }
+        const data = (await res.json()) as { storageId: Id<"_storage"> };
+        if (!data.storageId) throw new Error("Upload did not return a storage id.");
+        imageStorageId = data.storageId;
+      }
+      const showId = await createShowFromForm({
+        name,
+        type: newShowType,
+        imageStorageId,
+      });
+      setAddShowSuccessId(showId);
+      setNewShowName("");
+      setNewShowType("musical");
+      setNewShowImage(null);
+      setImageInputKey((k) => k + 1);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Something went wrong.";
+      setAddShowError(message);
+    } finally {
+      setAddShowBusy(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <h1 className="text-2xl font-bold mb-6">Review Dashboard</h1>
+
+      <section className="mb-8 rounded-lg border border-gray-200 bg-gray-50/50 p-4 sm:p-5">
+        <h2 className="text-sm font-semibold text-gray-900 mb-1">
+          Add a missing show
+        </h2>
+        <p className="text-xs text-gray-500 mb-4">
+          Creates an unpublished show and pending review entries for the name and
+          type. Optional image is stored as key art (review the show to approve
+          fields).
+        </p>
+        <form
+          onSubmit={handleAddMissingShow}
+          className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+        >
+          <div className="flex flex-col gap-1 min-w-[200px] flex-1">
+            <label className="text-xs font-medium text-gray-600">Show name</label>
+            <input
+              type="text"
+              value={newShowName}
+              onChange={(e) => setNewShowName(e.target.value)}
+              placeholder="e.g. Example Musical"
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              disabled={addShowBusy}
+            />
+          </div>
+          <div className="flex flex-col gap-1 w-full sm:w-40">
+            <label className="text-xs font-medium text-gray-600">Type</label>
+            <select
+              value={newShowType}
+              onChange={(e) =>
+                setNewShowType(e.target.value as ShowFormType)
+              }
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              disabled={addShowBusy}
+            >
+              {SHOW_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t.replace("_", " ")}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1 min-w-[200px] flex-1">
+            <label className="text-xs font-medium text-gray-600">
+              Image (optional)
+            </label>
+            <input
+              key={imageInputKey}
+              type="file"
+              accept="image/*"
+              onChange={(e) =>
+                setNewShowImage(e.target.files?.[0] ?? null)
+              }
+              className="text-sm text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-gray-200 file:px-2 file:py-1 file:text-xs"
+              disabled={addShowBusy}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={addShowBusy}
+            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          >
+            {addShowBusy ? "Submitting…" : "Submit"}
+          </button>
+        </form>
+        {addShowError && (
+          <p className="mt-3 text-sm text-red-600" role="alert">
+            {addShowError}
+          </p>
+        )}
+        {addShowSuccessId && (
+          <p className="mt-3 text-sm text-green-700">
+            Show created.{" "}
+            <Link
+              href={`/admin/review/${addShowSuccessId}`}
+              className="font-medium underline underline-offset-2"
+            >
+              Open review
+            </Link>
+          </p>
+        )}
+      </section>
 
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">

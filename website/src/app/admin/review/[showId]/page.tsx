@@ -490,7 +490,14 @@ export default function ShowReviewDetail() {
         <div className="space-y-2">
           {SHOW_FIELDS.map(
             ({ field, label, isImage, alwaysPresent, inputType, options }) => {
-              const value = getFieldValue(show as Record<string, unknown>, field);
+              const raw = getFieldValue(show as Record<string, unknown>, field);
+              const value =
+                field === "hotlinkImageUrl"
+                  ? raw ??
+                    (Array.isArray(show.images) && show.images[0]
+                      ? String(show.images[0])
+                      : undefined)
+                  : raw;
               const entry = showReviewEntries.find((e) => e.field === field);
               const stagedEdit = directEdits.get(
                 editKey("show", show._id, field)
