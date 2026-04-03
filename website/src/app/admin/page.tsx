@@ -193,9 +193,9 @@ export default function AdminDashboard() {
               >
                 <option value="all">All shows</option>
                 <option value="current_upcoming">
-                  Current / upcoming (or no productions)
+                  Running or upcoming (future preview or opening)
                 </option>
-                <option value="historical">Historical (all runs closed)</option>
+                <option value="historical">Historical only (every run closed)</option>
               </select>
             </div>
             <div className="space-y-1">

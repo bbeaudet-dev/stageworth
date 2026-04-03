@@ -73,6 +73,13 @@ export const stats = query({
   },
 });
 
+/**
+ * Classify a show's productions for the admin list filter.
+ * - current_upcoming: at least one production is running or has a future
+ *   preview/opening (getProductionStatus !== "closed").
+ * - historical: at least one production and every run is closed.
+ * - empty: no productions (incomplete data — not treated as active).
+ */
 function scheduleBucketForShow(
   prods: Array<{
     previewDate?: string;
@@ -84,6 +91,22 @@ function scheduleBucketForShow(
   if (prods.length === 0) return "empty";
   const anyActive = prods.some((p) => getProductionStatus(p) !== "closed");
   return anyActive ? "current_upcoming" : "historical";
+}
+
+function scheduleRankCurrentFirst(
+  bucket: "current_upcoming" | "historical" | "empty"
+) {
+  if (bucket === "current_upcoming") return 0;
+  if (bucket === "empty") return 1;
+  return 2;
+}
+
+function scheduleRankHistoricalFirst(
+  bucket: "current_upcoming" | "historical" | "empty"
+) {
+  if (bucket === "historical") return 0;
+  if (bucket === "empty") return 1;
+  return 2;
 }
 
 export const listShowsForReview = query({
@@ -147,7 +170,7 @@ export const listShowsForReview = query({
       shows = shows.filter((s) => {
         const bucket = scheduleBucketForShow(prodsByShowId.get(s._id) ?? []);
         if (scheduleFilter === "current_upcoming") {
-          return bucket === "current_upcoming" || bucket === "empty";
+          return bucket === "current_upcoming";
         }
         return bucket === "historical";
       });
@@ -159,10 +182,14 @@ export const listShowsForReview = query({
       if (scheduleSort !== "none") {
         const ba = scheduleBucketForShow(prodsByShowId.get(a._id) ?? []);
         const bb = scheduleBucketForShow(prodsByShowId.get(b._id) ?? []);
-        const rank = (bucket: (typeof ba)) =>
-          bucket === "historical" ? 1 : 0;
-        const ra = scheduleSort === "current_first" ? rank(ba) : 1 - rank(ba);
-        const rb = scheduleSort === "current_first" ? rank(bb) : 1 - rank(bb);
+        const ra =
+          scheduleSort === "current_first"
+            ? scheduleRankCurrentFirst(ba)
+            : scheduleRankHistoricalFirst(ba);
+        const rb =
+          scheduleSort === "current_first"
+            ? scheduleRankCurrentFirst(bb)
+            : scheduleRankHistoricalFirst(bb);
         if (ra !== rb) return ra - rb;
       }
       const aOrder = statusOrder[a.dataStatus ?? "needs_review"];
