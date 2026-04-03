@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { resolveShowImageUrls, resolveProductionPosterUrl } from "./helpers";
-import { isProductionBrowseVisible } from "../src/utils/productions";
+import { getProductionStatus } from "../src/utils/productions";
 
 // Fields we track in the review queue for each entity type.
 export const SHOW_REVIEWABLE_FIELDS = [
@@ -74,11 +74,10 @@ export const stats = query({
 });
 
 /**
- * Classify a show for the admin schedule filter using the same rule as Browse:
- * {@link isProductionBrowseVisible} (non-closed status + theatre or city).
- * - current_upcoming: at least one production would appear in Browse.
- * - historical: has productions but none are Browse-visible (e.g. all closed).
- * - empty: no productions yet.
+ * Admin schedule filter only (data status is a separate control).
+ * Uses production dates vs `asOf` (UTC calendar day, same as `getProductionStatus` default).
+ * - current_upcoming: at least one run is not `closed` (previews, open, announced future, open run, etc.).
+ * - historical: all runs closed, no productions, or dates missing so status resolves to `closed`.
  */
 function scheduleBucketForShow(
   prods: Array<{
@@ -86,14 +85,14 @@ function scheduleBucketForShow(
     openingDate?: string;
     closingDate?: string;
     isOpenRun?: boolean | null;
-    theatre?: string;
-    city?: string;
   }>,
   asOf: string
-): "current_upcoming" | "historical" | "empty" {
-  if (prods.length === 0) return "empty";
-  const anyVisible = prods.some((p) => isProductionBrowseVisible(p, asOf));
-  return anyVisible ? "current_upcoming" : "historical";
+): "current_upcoming" | "historical" {
+  if (prods.length === 0) return "historical";
+  const anyLiveOrUpcoming = prods.some(
+    (p) => getProductionStatus(p, asOf) !== "closed"
+  );
+  return anyLiveOrUpcoming ? "current_upcoming" : "historical";
 }
 
 export const listShowsForReview = query({

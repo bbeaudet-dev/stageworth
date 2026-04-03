@@ -21,7 +21,7 @@ type ListRow = {
   imageUrl: string | null;
   pendingCount: number;
   productionCount: number;
-  scheduleBucket: "current_upcoming" | "historical" | "empty";
+  scheduleBucket: "current_upcoming" | "historical";
 };
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
@@ -40,7 +40,8 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
 };
 
 export default function AdminDashboard() {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("needs_review");
+  /** Schedule filter applies across data statuses; default All so Current & upcoming is not empty when drafts lack dated runs. */
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(undefined);
   const [scheduleFilter, setScheduleFilter] =
     useState<ScheduleFilter>("all");
   const [search, setSearch] = useState("");
@@ -58,12 +59,8 @@ export default function AdminDashboard() {
     const page = listResult?.page as ListRow[] | undefined;
     if (!page) return [];
     if (scheduleFilter === "all") return page;
-    // Match Browse "current" set, plus empty (no productions) so needs_review rows still appear.
     if (scheduleFilter === "current_upcoming") {
-      return page.filter(
-        (r) =>
-          r.scheduleBucket === "current_upcoming" || r.scheduleBucket === "empty"
-      );
+      return page.filter((r) => r.scheduleBucket === "current_upcoming");
     }
     return page.filter((r) => r.scheduleBucket === "historical");
   }, [listResult?.page, scheduleFilter]);
@@ -140,20 +137,22 @@ export default function AdminDashboard() {
           </div>
           <div className="space-y-1">
             <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block">
-              Productions schedule
+              Schedule
             </label>
             <select
               value={scheduleFilter}
               onChange={(e) =>
                 setScheduleFilter(e.target.value as ScheduleFilter)
               }
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 min-w-[240px]"
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 min-w-[260px]"
             >
-              <option value="all">All shows</option>
+              <option value="all">All</option>
               <option value="current_upcoming">
-                Same as Browse (active runs + no productions yet)
+                Current &amp; upcoming (at least one active or future run)
               </option>
-              <option value="historical">Historical only (every run closed)</option>
+              <option value="historical">
+                Historical &amp; other (all runs ended, or no schedule data)
+              </option>
             </select>
           </div>
         </div>
