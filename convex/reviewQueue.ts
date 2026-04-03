@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { resolveShowImageUrls, resolveProductionPosterUrl } from "./helpers";
-import { getProductionStatus } from "../src/utils/productions";
+import { isProductionBrowseVisible } from "../src/utils/productions";
 
 // Fields we track in the review queue for each entity type.
 export const SHOW_REVIEWABLE_FIELDS = [
@@ -74,11 +74,11 @@ export const stats = query({
 });
 
 /**
- * Classify a show's productions for the admin list filter.
- * - current_upcoming: at least one production is running or has a future
- *   preview/opening (getProductionStatus !== "closed").
- * - historical: at least one production and every run is closed.
- * - empty: no productions (incomplete data — not treated as active).
+ * Classify a show for the admin schedule filter using the same rule as Browse:
+ * {@link isProductionBrowseVisible} (non-closed status + theatre or city).
+ * - current_upcoming: at least one production would appear in Browse.
+ * - historical: has productions but none are Browse-visible (e.g. all closed).
+ * - empty: no productions yet.
  */
 function scheduleBucketForShow(
   prods: Array<{
@@ -86,11 +86,14 @@ function scheduleBucketForShow(
     openingDate?: string;
     closingDate?: string;
     isOpenRun?: boolean | null;
-  }>
+    theatre?: string;
+    city?: string;
+  }>,
+  asOf: string
 ): "current_upcoming" | "historical" | "empty" {
   if (prods.length === 0) return "empty";
-  const anyActive = prods.some((p) => getProductionStatus(p) !== "closed");
-  return anyActive ? "current_upcoming" : "historical";
+  const anyVisible = prods.some((p) => isProductionBrowseVisible(p, asOf));
+  return anyVisible ? "current_upcoming" : "historical";
 }
 
 export const listShowsForReview = query({
@@ -104,6 +107,7 @@ export const listShowsForReview = query({
     /** Admin list loads a large page once; client filters by schedule without extra args. */
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 5000);
     const offset = Math.max(args.offset ?? 0, 0);
+    const asOf = new Date().toISOString().split("T")[0];
 
     const allProductions = await ctx.db.query("productions").collect();
     const productionIdsByShow = new Map<Id<"shows">, Id<"productions">[]>();
@@ -178,7 +182,7 @@ export const listShowsForReview = query({
           imageUrl: images[0] ?? null,
           pendingCount: showPending + productionPending,
           productionCount: prodIds.length,
-          scheduleBucket: scheduleBucketForShow(prods),
+          scheduleBucket: scheduleBucketForShow(prods, asOf),
         };
       })
     );

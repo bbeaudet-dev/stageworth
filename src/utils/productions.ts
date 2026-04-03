@@ -86,3 +86,22 @@ export function getProductionStatus(
   // Fallback – should be unreachable given guards above.
   return "closed";
 }
+
+/**
+ * Whether this production appears in Browse production sections (Now Running / Previews / Announced).
+ * Matches {@link getProductionStatus} with the app's venue/location gate.
+ */
+export function isProductionBrowseVisible(
+  production: {
+    previewDate?: string;
+    openingDate?: string;
+    closingDate?: string;
+    isOpenRun?: boolean | null;
+    theatre?: string;
+    city?: string;
+  },
+  asOf: string = todayString()
+): boolean {
+  if (getProductionStatus(production, asOf) === "closed") return false;
+  return Boolean(production.theatre?.trim() || production.city?.trim());
+}

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "convex/react";
 
 import { api } from "@/convex/_generated/api";
-import { getProductionStatus } from "@/utils/productions";
+import { getProductionStatus, isProductionBrowseVisible } from "@/utils/productions";
 import type { BrowseSection, ProductionWithShow } from "@/features/browse/types";
 
 export function useBrowseData(search: string) {
@@ -10,15 +10,9 @@ export function useBrowseData(search: string) {
   const allShows = useQuery(api.shows.list);
   const today = new Date().toISOString().split("T")[0];
 
-  const hasTheatreOrLocation = (p: ProductionWithShow) =>
-    Boolean(p.theatre?.trim() || p.city?.trim());
-
   const visibleProductions = useMemo(() => {
     return ((allProductions ?? []) as ProductionWithShow[]).filter((p) => {
-      const status = getProductionStatus(p, today);
-      if (status === "closed") return false;
-      // Only show as current/upcoming if we have a theatre and/or location (otherwise treat as not current).
-      if (!hasTheatreOrLocation(p)) return false;
+      if (!isProductionBrowseVisible(p, today)) return false;
       if (!search.trim()) return true;
       const q = search.toLowerCase();
       return p.show?.name?.toLowerCase().includes(q) || p.theatre?.toLowerCase().includes(q);

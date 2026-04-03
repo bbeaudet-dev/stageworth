@@ -58,8 +58,12 @@ export default function AdminDashboard() {
     const page = listResult?.page as ListRow[] | undefined;
     if (!page) return [];
     if (scheduleFilter === "all") return page;
+    // Match Browse "current" set, plus empty (no productions) so needs_review rows still appear.
     if (scheduleFilter === "current_upcoming") {
-      return page.filter((r) => r.scheduleBucket === "current_upcoming");
+      return page.filter(
+        (r) =>
+          r.scheduleBucket === "current_upcoming" || r.scheduleBucket === "empty"
+      );
     }
     return page.filter((r) => r.scheduleBucket === "historical");
   }, [listResult?.page, scheduleFilter]);
@@ -147,7 +151,7 @@ export default function AdminDashboard() {
             >
               <option value="all">All shows</option>
               <option value="current_upcoming">
-                Running or upcoming (future preview or opening)
+                Same as Browse (active runs + no productions yet)
               </option>
               <option value="historical">Historical only (every run closed)</option>
             </select>
