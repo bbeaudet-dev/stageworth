@@ -3,7 +3,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -20,6 +20,7 @@ import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useTabNav } from "@/hooks/use-tab-nav";
+import { railBadgeForProduction } from "@/features/browse/components/ProductionCard";
 
 const GRID_GAP = 8;
 const GRID_COLUMNS = 4;
@@ -69,6 +70,9 @@ export default function SearchBrowseScreen() {
   const currentShows = useQuery(api.productions.listCurrent, {});
   const upcomingShows = useQuery(api.productions.listUpcoming, { days: 90 });
   const closingSoon = useQuery(api.productions.listClosingSoon, { days: 30 });
+
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const isDark = theme === "dark";
 
   const cardWidth = Math.floor(
     (screenWidth - SECTION_PADDING * 2 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS,
@@ -241,7 +245,12 @@ export default function SearchBrowseScreen() {
             {closingSoon && closingSoon.length > 0 && (
               <BrowseRail
                 title="Closing Soon"
-                items={closingSoon}
+                items={closingSoon.map((p) => ({
+                  _id: p._id,
+                  show: p.show,
+                  posterUrl: p.posterUrl,
+                  badge: railBadgeForProduction(p, "closing-soon", isDark, todayStr),
+                }))}
                 cardWidth={cardWidth}
                 surfaceColor={surface}
                 posterBg={posterBg}
@@ -256,7 +265,12 @@ export default function SearchBrowseScreen() {
             {upcomingShows && upcomingShows.length > 0 && (
               <BrowseRail
                 title="Coming Soon"
-                items={upcomingShows}
+                items={upcomingShows.map((p) => ({
+                  _id: p._id,
+                  show: p.show,
+                  posterUrl: p.posterUrl,
+                  badge: railBadgeForProduction(p, "coming-soon", isDark, todayStr),
+                }))}
                 cardWidth={cardWidth}
                 surfaceColor={surface}
                 posterBg={posterBg}
@@ -334,6 +348,7 @@ type BrowseItem = {
   _id: string;
   show: { _id: string; name: string; images: string[] };
   posterUrl?: string | null;
+  badge?: { label: string; bg: string; text: string } | null;
 };
 
 function BrowseRail({
@@ -405,6 +420,13 @@ function BrowseRail({
                   </Text>
                 </View>
               )}
+              {prod.badge ? (
+                <View style={[styles.railBadgeStrip, { backgroundColor: prod.badge.bg }]}>
+                  <Text style={[styles.railBadgeText, { color: prod.badge.text }]}>
+                    {prod.badge.label}
+                  </Text>
+                </View>
+              ) : null}
             </Pressable>
           );
         })}
@@ -522,6 +544,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 6,
+  },
+  railBadgeStrip: {
+    width: "100%",
+    paddingVertical: 4,
+    alignItems: "center",
+  },
+  railBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
   },
   playbillFbText: {
     fontSize: 13,

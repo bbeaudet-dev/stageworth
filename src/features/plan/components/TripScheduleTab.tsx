@@ -16,7 +16,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
-import { closingCountdownLabel } from "@/features/browse/components/ProductionCard";
+import { closingCountdownLabel } from "@/features/browse/logic/date";
 import { AddDayNoteSheet } from "@/features/plan/components/AddDayNoteSheet";
 import { TripShowLabelSheet } from "@/features/plan/components/TripShowLabelSheet";
 import { useTripData } from "@/features/plan/hooks/useTripData";

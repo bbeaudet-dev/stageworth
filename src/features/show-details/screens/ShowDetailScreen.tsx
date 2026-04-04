@@ -21,7 +21,13 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useSession } from "@/lib/auth-client";
-import { getProductionStatus } from "@/utils/productions";
+import {
+  closingCountdownLabel,
+  daysUntil,
+  earliestFutureRunDate,
+  formatDate,
+} from "@/features/browse/logic/date";
+import { getProductionStatus, type ProductionStatus } from "@/utils/productions";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -76,6 +82,58 @@ function prodTypeLabel(t: string): string {
 }
 
 const today = () => new Date().toISOString().split("T")[0];
+
+function productionStatusLine(
+  p: {
+    previewDate?: string;
+    openingDate?: string;
+    closingDate?: string;
+    isOpenRun?: boolean | null;
+  },
+  status: ProductionStatus,
+  todayStr: string
+): string {
+  if (status === "closed") {
+    const c = formatDate(p.closingDate);
+    return c ? `Closed ${c}` : "Closed";
+  }
+
+  if (p.closingDate) {
+    const c = formatDate(p.closingDate);
+    if (c) {
+      const d = daysUntil(p.closingDate);
+      if (d > 0 && d <= 30) {
+        return `Closes ${c} · ${closingCountdownLabel(d)}`;
+      }
+      return `Closes ${c}`;
+    }
+  }
+
+  switch (status) {
+    case "announced": {
+      const m = earliestFutureRunDate(p.previewDate, p.openingDate, todayStr);
+      if (!m) return "Announced";
+      const formatted = formatDate(m);
+      if (!formatted) return "Announced";
+      if (p.previewDate === m) return `Previews ${formatted}`;
+      return `Opens ${formatted}`;
+    }
+    case "in_previews": {
+      const parts: string[] = ["In previews"];
+      if (p.openingDate && p.openingDate >= todayStr) {
+        const o = formatDate(p.openingDate);
+        if (o) parts.push(`opens ${o}`);
+      }
+      return parts.join(" · ");
+    }
+    case "open_run":
+      return "Open run";
+    case "open":
+      return "Running";
+    default:
+      return "";
+  }
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -260,6 +318,9 @@ export default function ShowDetailScreen() {
             {productions.map((p, i) => {
               const status = getProductionStatus(p, todayStr);
               const isActive = status !== "closed";
+              const statusLine = productionStatusLine(p, status, todayStr);
+              const warmClosing =
+                isActive && Boolean(p.closingDate) && statusLine.startsWith("Closes");
               return (
                 <View
                   key={p._id}
@@ -280,15 +341,15 @@ export default function ShowDetailScreen() {
                     <Text style={[styles.prodMeta, { color: c.mutedText }]} numberOfLines={1}>
                       {districtLabel(p.district)} · {prodTypeLabel(p.productionType)}
                     </Text>
-                    {p.closingDate ? (
-                      <Text style={[styles.prodMeta, { color: isActive ? "#E65100" : c.mutedText }]}>
-                        {isActive ? `Closes ${p.closingDate}` : `Closed ${p.closingDate}`}
-                      </Text>
-                    ) : (
-                      <Text style={[styles.prodMeta, { color: c.mutedText }]}>
-                        {isActive ? "Running" : "Closed"}
-                      </Text>
-                    )}
+                    <Text
+                      style={[
+                        styles.prodMeta,
+                        { color: warmClosing ? "#E65100" : c.mutedText },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {statusLine}
+                    </Text>
                   </View>
                 </View>
               );
@@ -306,7 +367,9 @@ export default function ShowDetailScreen() {
                 style={[styles.row, { borderTopColor: c.border }]}
                 onPress={() => router.push({ pathname: "/visit/[visitId]", params: { visitId: String(visit._id) } })}
               >
-                <Text style={[styles.rowText, { color: c.text }]}>{visit.date}</Text>
+                <Text style={[styles.rowText, { color: c.text }]}>
+                  {formatDate(visit.date) ?? visit.date}
+                </Text>
                 <Text style={[styles.rowChevron, { color: c.mutedText }]}>›</Text>
               </Pressable>
             ))}
@@ -394,7 +457,10 @@ export default function ShowDetailScreen() {
               >
                 <View>
                   <Text style={[styles.sheetRowText, { color: c.text }]}>{trip.name}</Text>
-                  <Text style={[styles.sheetRowMeta, { color: c.mutedText }]}>{trip.startDate} – {trip.endDate}</Text>
+                  <Text style={[styles.sheetRowMeta, { color: c.mutedText }]}>
+                    {formatDate(trip.startDate) ?? trip.startDate} –{" "}
+                    {formatDate(trip.endDate) ?? trip.endDate}
+                  </Text>
                 </View>
                 {addingToTrip === trip._id ? (
                   <ActivityIndicator size="small" color={c.mutedText} />

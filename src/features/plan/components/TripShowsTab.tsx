@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
-import { closingCountdownLabel } from "@/features/browse/components/ProductionCard";
+import { closingCountdownLabel } from "@/features/browse/logic/date";
 import { AddFromListsSheet } from "@/features/plan/components/AddFromListsSheet";
 import { AddShowToTripSheet } from "@/features/plan/components/AddShowToTripSheet";
 import { TripShowLabelSheet } from "@/features/plan/components/TripShowLabelSheet";
