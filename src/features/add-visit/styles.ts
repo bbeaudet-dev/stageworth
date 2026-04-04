@@ -58,8 +58,27 @@ export const styles = StyleSheet.create({
     borderColor: "#d3d3d3",
     borderRadius: 10,
     padding: 12,
-    gap: 4,
     backgroundColor: "#f8f8ff",
+  },
+  selectedShowRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  selectedShowThumbWrap: {
+    width: 54,
+    height: 81,
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  selectedShowThumbImage: {
+    width: "100%",
+    height: "100%",
+  },
+  selectedShowTextCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
   },
   selectedShowName: {
     fontSize: 17,
@@ -67,10 +86,10 @@ export const styles = StyleSheet.create({
     color: "#111",
   },
   changeShowText: {
-    marginTop: 4,
     fontSize: 14,
     color: "#007AFF",
     fontWeight: "500",
+    alignSelf: "flex-start",
   },
   resultsCard: {
     marginTop: 6,

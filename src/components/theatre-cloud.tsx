@@ -165,7 +165,7 @@ function PlaybillImage({
         y={y}
         width={width}
         height={height}
-        fit="cover"
+        fit="contain"
       />
     </Group>
   );

@@ -388,7 +388,19 @@ export default function ShowDetailScreen() {
         {/* ── Action buttons ────────────────────────────────────────────────── */}
         <Pressable
           style={[styles.primaryBtn, { backgroundColor: Colors.light.accent }]}
-          onPress={() => router.push("/add-visit")}
+          onPress={() => {
+            if (!showId) {
+              router.push("/add-visit");
+              return;
+            }
+            router.push({
+              pathname: "/add-visit",
+              params: {
+                showId: String(showId),
+                showName: show?.name ?? params.name ?? "",
+              },
+            });
+          }}
         >
           <Text style={styles.primaryBtnText}>Add a Visit</Text>
         </Pressable>

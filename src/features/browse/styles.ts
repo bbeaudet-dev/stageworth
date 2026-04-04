@@ -1,6 +1,6 @@
 import { StyleSheet } from "react-native";
 
-/** Letterbox/pillarbox fill behind playbill images when using contentFit "contain". */
+/** Neutral fill visible when letterboxing/pillarboxing show or production artwork (any aspect ratio) with contentFit "contain". */
 export function playbillMatBackground(theme: "light" | "dark"): string {
   return theme === "dark" ? "#1a1a2e" : "#f0f0f4";
 }
