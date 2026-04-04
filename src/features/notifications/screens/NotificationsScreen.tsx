@@ -71,6 +71,7 @@ export default function NotificationsScreen() {
   const respondToTripInvitation = useMutation(api.trips.trips.respondToTripInvitation);
   const [inviteResponding, setInviteResponding] = useState<string | null>(null);
   const guard = useNavGuard();
+  const onAccent = Colors[theme].onAccent;
 
   const bg = Colors[theme].background;
   const text = Colors[theme].text;
@@ -225,8 +226,8 @@ export default function NotificationsScreen() {
                         onPress={(e) => { e.stopPropagation?.(); handleInviteRespond(notif, true); }}
                       >
                         {inviteResponding === acceptKey
-                          ? <ActivityIndicator size="small" color="#fff" />
-                          : <Text style={styles.inviteBtnText}>Accept</Text>}
+                          ? <ActivityIndicator size="small" color={onAccent} />
+                          : <Text style={[styles.inviteBtnText, { color: onAccent }]}>Accept</Text>}
                       </Pressable>
                       <Pressable
                         style={[styles.inviteBtn, styles.inviteBtnOutline, { borderColor: cardBorder, opacity: isRespondingToThis ? 0.5 : 1 }]}
@@ -350,6 +351,6 @@ const styles = StyleSheet.create({
   inviteActions: { flexDirection: "row", gap: 8, marginTop: 2 },
   inviteBtn: { flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: "center" },
   inviteBtnOutline: { borderWidth: StyleSheet.hairlineWidth },
-  inviteBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  inviteBtnText: { fontSize: 13, fontWeight: "700" },
   inviteRespondedLabel: { fontSize: 13, fontWeight: "600", marginTop: 2 },
 });

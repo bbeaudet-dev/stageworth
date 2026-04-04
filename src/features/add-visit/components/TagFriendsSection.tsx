@@ -39,6 +39,7 @@ export function TagFriendsSection({ following, taggedUserIds, onToggle }: Props)
   const text = Colors[theme].text;
   const mutedText = theme === "dark" ? "#a0a4aa" : "#666";
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
   const chipBg = theme === "dark" ? "#27272f" : "#f2f2f7";
   const chipBgSelected = accentColor;
   const chipBorder = theme === "dark" ? "#3a3a44" : "#e0e0e0";
@@ -98,7 +99,7 @@ export function TagFriendsSection({ following, taggedUserIds, onToggle }: Props)
                     <Text
                       style={[
                         styles.avatarFallbackText,
-                        { color: isSelected ? "#fff" : accentColor },
+                        { color: isSelected ? onAccent : accentColor },
                       ]}
                     >
                       {getInitials(user.name, user.username)}
@@ -108,14 +109,14 @@ export function TagFriendsSection({ following, taggedUserIds, onToggle }: Props)
                 <Text
                   style={[
                     styles.chipName,
-                    { color: isSelected ? "#fff" : text },
+                    { color: isSelected ? onAccent : text },
                   ]}
                   numberOfLines={1}
                 >
                   {getDisplayName(user.name, user.username)}
                 </Text>
                 {isSelected && (
-                  <Text style={styles.checkmark}>✓</Text>
+                  <Text style={[styles.checkmark, { color: onAccent }]}>✓</Text>
                 )}
               </View>
             </Pressable>

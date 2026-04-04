@@ -96,6 +96,7 @@ export default function TripDetailScreen() {
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
 
   const [activeTab, setActiveTab] = useState<Tab>("shows");
   const [showEditTrip, setShowEditTrip] = useState(false);
@@ -289,9 +290,9 @@ export default function TripDetailScreen() {
               onPress={() => handleInviteRespond(true)}
             >
               {inviteResponding === "accept" ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={onAccent} />
               ) : (
-                <Text style={styles.inviteBannerBtnText}>Accept</Text>
+                <Text style={[styles.inviteBannerBtnText, { color: onAccent }]}>Accept</Text>
               )}
             </Pressable>
             <Pressable
@@ -492,7 +493,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   inviteBannerBtnOutline: { borderWidth: StyleSheet.hairlineWidth },
-  inviteBannerBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  inviteBannerBtnText: { fontSize: 13, fontWeight: "700" },
   tabBar: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth },
   tabItem: {
     flex: 1,

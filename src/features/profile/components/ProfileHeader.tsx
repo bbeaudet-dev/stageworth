@@ -77,6 +77,7 @@ export function ProfileHeader({
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
 
   const displayName =
     profile.name?.trim() ||
@@ -159,13 +160,13 @@ export function ProfileHeader({
                   {followPending ? (
                     <ActivityIndicator
                       size="small"
-                      color={profile.viewerFollows ? mutedTextColor : "#fff"}
+                      color={profile.viewerFollows ? mutedTextColor : onAccent}
                     />
                   ) : (
                     <Text
                       style={[
                         styles.followBtnText,
-                        { color: profile.viewerFollows ? primaryTextColor : "#fff" },
+                        { color: profile.viewerFollows ? primaryTextColor : onAccent },
                       ]}
                     >
                       {profile.viewerFollows ? "Following" : "Follow"}

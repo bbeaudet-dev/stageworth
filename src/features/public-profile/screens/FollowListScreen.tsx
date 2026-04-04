@@ -86,6 +86,7 @@ export default function FollowListScreen() {
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
 
   const isLoading =
     profile === undefined ||
@@ -144,13 +145,13 @@ export default function FollowListScreen() {
               {busy ? (
                 <ActivityIndicator
                   size="small"
-                  color={item.viewerFollows ? mutedTextColor : "#fff"}
+                  color={item.viewerFollows ? mutedTextColor : onAccent}
                 />
               ) : (
                 <Text
                   style={[
                     styles.followBtnText,
-                    { color: item.viewerFollows ? primaryTextColor : "#fff" },
+                    { color: item.viewerFollows ? primaryTextColor : onAccent },
                   ]}
                 >
                   {item.viewerFollows ? "Following" : "Follow"}

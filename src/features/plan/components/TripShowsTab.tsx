@@ -59,6 +59,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
   const chipBg = Colors[theme].surface;
 
   const [labelSheetItem, setLabelSheetItem] = useState<any | null>(null);
@@ -284,7 +285,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                         ) : null}
                         {isOnTrip
                           ? <View style={[styles.onTripBadge, { backgroundColor: accentColor + "18" }]}><Text style={[styles.onTripText, { color: accentColor }]}>On trip ✓</Text></View>
-                          : <Pressable style={[styles.closingAddBtn, { backgroundColor: accentColor }]} onPress={() => handleAddShow(show._id)}><Text style={styles.closingAddText}>+ Add</Text></Pressable>}
+                          : <Pressable style={[styles.closingAddBtn, { backgroundColor: accentColor }]} onPress={() => handleAddShow(show._id)}><Text style={[styles.closingAddText, { color: onAccent }]}>+ Add</Text></Pressable>}
                       </View>
                     );
                   })}
@@ -382,7 +383,7 @@ const styles = StyleSheet.create({
   onTripBadge: { borderRadius: 6, paddingVertical: 4, alignItems: "center" },
   onTripText: { fontSize: 10, fontWeight: "700" },
   closingAddBtn: { borderRadius: 6, paddingVertical: 5, alignItems: "center" },
-  closingAddText: { color: "#fff", fontSize: 10, fontWeight: "700" },
+  closingAddText: { fontSize: 10, fontWeight: "700" },
   grid: { gap: 8 },
   gridRow: { flexDirection: "row", gap: 8 },
   playbillCard: { borderRadius: 10, overflow: "hidden" },

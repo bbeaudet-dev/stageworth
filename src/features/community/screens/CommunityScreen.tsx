@@ -195,6 +195,7 @@ export default function CommunityScreen() {
 
   const bellColor = theme === "dark" ? "#d1d5f9" : "#333";
   const badgeBg = Colors[theme].accent;
+  const badgeText = Colors[theme].onAccent;
 
   return (
     <SafeAreaView
@@ -231,7 +232,7 @@ export default function CommunityScreen() {
               <IconSymbol name="bell.fill" size={22} color={bellColor} />
               {unreadCount > 0 && (
                 <View style={[styles.badge, { backgroundColor: badgeBg }]}>
-                  <Text style={styles.badgeText}>
+                  <Text style={[styles.badgeText, { color: badgeText }]}>
                     {unreadCount > 99 ? "99+" : String(unreadCount)}
                   </Text>
                 </View>

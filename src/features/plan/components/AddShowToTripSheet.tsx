@@ -36,6 +36,7 @@ export function AddShowToTripSheet({ visible, onClose, alreadyOnTripShowIds, onA
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
   const chipBg = Colors[theme].surface;
 
   const [query, setQuery] = useState("");
@@ -149,9 +150,9 @@ export function AddShowToTripSheet({ visible, onClose, alreadyOnTripShowIds, onA
                         disabled={isAdding}
                       >
                         {isAdding ? (
-                          <ActivityIndicator size="small" color="#fff" />
+                          <ActivityIndicator size="small" color={onAccent} />
                         ) : (
-                          <Text style={styles.addBtnText}>+ Add</Text>
+                          <Text style={[styles.addBtnText, { color: onAccent }]}>+ Add</Text>
                         )}
                       </Pressable>
                     )}
@@ -238,6 +239,6 @@ const styles = StyleSheet.create({
     minWidth: 54,
     alignItems: "center",
   },
-  addBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  addBtnText: { fontSize: 13, fontWeight: "700" },
   disabled: { opacity: 0.5 },
 });

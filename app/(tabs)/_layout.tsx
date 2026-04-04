@@ -104,9 +104,9 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   plusButton: {
-    width: 44,
-    height: 28,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 22,
     lineHeight: 24,
-    fontWeight: "400",
+    fontWeight: "300",
     marginTop: -1,
   },
 });

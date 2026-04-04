@@ -387,7 +387,7 @@ export default function ShowDetailScreen() {
 
         {/* ── Action buttons ────────────────────────────────────────────────── */}
         <Pressable
-          style={[styles.primaryBtn, { backgroundColor: Colors.light.accent }]}
+          style={[styles.primaryBtn, { backgroundColor: c.accent }]}
           onPress={() => {
             if (!showId) {
               router.push("/add-visit");
@@ -402,21 +402,21 @@ export default function ShowDetailScreen() {
             });
           }}
         >
-          <Text style={styles.primaryBtnText}>Add a Visit</Text>
+          <Text style={[styles.primaryBtnText, { color: c.onAccent }]}>Add a Visit</Text>
         </Pressable>
 
         <View style={styles.secondaryBtnRow}>
           <Pressable
-            style={[styles.secondaryBtn, { backgroundColor: Colors.light.accent + "18", borderColor: Colors.light.accent + "40" }]}
+            style={[styles.secondaryBtn, { backgroundColor: c.accent + "18", borderColor: c.accent + "40" }]}
             onPress={() => setListSheetOpen(true)}
           >
-            <Text style={[styles.secondaryBtnText, { color: Colors.light.accent }]}>+ Add to List</Text>
+            <Text style={[styles.secondaryBtnText, { color: c.accent }]}>+ Add to List</Text>
           </Pressable>
           <Pressable
-            style={[styles.secondaryBtn, { backgroundColor: Colors.light.accent + "18", borderColor: Colors.light.accent + "40" }]}
+            style={[styles.secondaryBtn, { backgroundColor: c.accent + "18", borderColor: c.accent + "40" }]}
             onPress={() => setTripSheetOpen(true)}
           >
-            <Text style={[styles.secondaryBtnText, { color: Colors.light.accent }]}>+ Add to Trip</Text>
+            <Text style={[styles.secondaryBtnText, { color: c.accent }]}>+ Add to Trip</Text>
           </Pressable>
         </View>
 
@@ -531,10 +531,10 @@ export default function ShowDetailScreen() {
                 styles.feedbackChip,
                 {
                   borderColor:
-                    feedbackProductionId === null ? Colors.light.accent : c.border,
+                    feedbackProductionId === null ? c.accent : c.border,
                   backgroundColor:
                     feedbackProductionId === null
-                      ? Colors.light.accent + "22"
+                      ? c.accent + "22"
                       : c.surfaceElevated,
                 },
               ]}
@@ -543,7 +543,7 @@ export default function ShowDetailScreen() {
                 style={{
                   fontSize: 13,
                   fontWeight: "600",
-                  color: feedbackProductionId === null ? Colors.light.accent : c.text,
+                  color: feedbackProductionId === null ? c.accent : c.text,
                 }}
               >
                 Whole show
@@ -560,9 +560,9 @@ export default function ShowDetailScreen() {
                   style={[
                     styles.feedbackChip,
                     {
-                      borderColor: selected ? Colors.light.accent : c.border,
+                      borderColor: selected ? c.accent : c.border,
                       backgroundColor: selected
-                        ? Colors.light.accent + "22"
+                        ? c.accent + "22"
                         : c.surfaceElevated,
                       maxWidth: 200,
                     },
@@ -572,7 +572,7 @@ export default function ShowDetailScreen() {
                     style={{
                       fontSize: 13,
                       fontWeight: "600",
-                      color: selected ? Colors.light.accent : c.text,
+                      color: selected ? c.accent : c.text,
                     }}
                     numberOfLines={2}
                   >
@@ -615,16 +615,16 @@ export default function ShowDetailScreen() {
               style={[
                 styles.feedbackSendBtn,
                 {
-                  backgroundColor: Colors.light.accent,
+                  backgroundColor: c.accent,
                   opacity:
                     feedbackSubmitting || feedbackNote.trim().length < 3 ? 0.45 : 1,
                 },
               ]}
             >
               {feedbackSubmitting ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={c.onAccent} />
               ) : (
-                <Text style={styles.feedbackSendBtnText}>Send</Text>
+                <Text style={[styles.feedbackSendBtnText, { color: c.onAccent }]}>Send</Text>
               )}
             </Pressable>
           </View>
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
 
   // Buttons
   primaryBtn: { borderRadius: 10, alignItems: "center", justifyContent: "center", paddingVertical: 13 },
-  primaryBtnText: { fontWeight: "700", fontSize: 15, color: "#fff" },
+  primaryBtnText: { fontWeight: "700", fontSize: 15 },
   secondaryBtnRow: { flexDirection: "row", gap: 10 },
   secondaryBtn: { flex: 1, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingVertical: 11 },
   secondaryBtnText: { fontWeight: "600", fontSize: 14 },
@@ -730,5 +730,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  feedbackSendBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  feedbackSendBtnText: { fontWeight: "700", fontSize: 15 },
 });

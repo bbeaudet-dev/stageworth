@@ -46,6 +46,7 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
   const progressBg = theme === "dark" ? "#1e1e24" : "#f0f0f2";
 
   if (!isSelf && !challenge) return null;
@@ -139,7 +140,7 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
               setIsSetup(false);
             }}
           >
-            <Text style={styles.startBtnText}>Start</Text>
+            <Text style={[styles.startBtnText, { color: onAccent }]}>Start</Text>
           </Pressable>
           <Pressable
             style={[styles.cancelBtn, { borderColor }]}
@@ -237,7 +238,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   startBtnText: {
-    color: "#fff",
     fontSize: 14,
     fontWeight: "700",
   },

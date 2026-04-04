@@ -28,6 +28,7 @@ export function UserProfilePanel({ visible, onClose, userId }: UserProfilePanelP
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
 
   const profile = useQuery(
     api.social.profiles.getPublicProfileByUserId,
@@ -140,7 +141,7 @@ export function UserProfilePanel({ visible, onClose, userId }: UserProfilePanelP
                 ]}
                 onPress={handleFollowToggle}
               >
-                <Text style={[styles.followBtnText, { color: profile.viewerFollows ? primaryTextColor : "#fff" }]}>
+                <Text style={[styles.followBtnText, { color: profile.viewerFollows ? primaryTextColor : onAccent }]}>
                   {profile.viewerFollows ? "Following" : "Follow"}
                 </Text>
               </Pressable>

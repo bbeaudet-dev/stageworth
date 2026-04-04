@@ -202,7 +202,7 @@ export default function ListDetailScreen() {
                   onPress={saveDescription}
                   disabled={isSavingDescription}
                 >
-                  <Text style={[styles.saveDescriptionText, { color: "#fff" }]}>
+                  <Text style={[styles.saveDescriptionText, { color: c.onAccent }]}>
                     {isSavingDescription ? "Saving..." : "Save"}
                   </Text>
                 </Pressable>

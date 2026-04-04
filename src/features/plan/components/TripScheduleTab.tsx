@@ -55,6 +55,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
   const chipBg = Colors[theme].surface;
 
   const [labelSheetItem, setLabelSheetItem] = useState<any | null>(null);
@@ -179,7 +180,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
                       onPress={() => setAssignForDay(day.date)}
                       hitSlop={8}
                     >
-                      <Text style={styles.dayAddBtnText}>+</Text>
+                      <Text style={[styles.dayAddBtnText, { color: onAccent }]}>+</Text>
                     </Pressable>
                   ) : null}
                 </View>
@@ -405,7 +406,7 @@ const styles = StyleSheet.create({
   dayBtnRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   dayIconBtn: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   dayAddBtn: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  dayAddBtnText: { color: "#fff", fontSize: 20, lineHeight: 22, fontWeight: "300" },
+  dayAddBtnText: { fontSize: 20, lineHeight: 22, fontWeight: "300" },
   noteCard: {
     flexDirection: "row",
     alignItems: "center",
