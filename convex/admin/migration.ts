@@ -624,3 +624,285 @@ export const importReviewQueue = internalAction({
     };
   },
 });
+
+// ─── Image migration (storage files from dev → prod) ───────────────────────
+
+export const exportShowImages = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const shows: Array<{
+      normalizedName: string;
+      imageUrls: string[];
+    }> = [];
+
+    const allShows = await ctx.runQuery(
+      internal.admin.migration._showsWithImages
+    );
+
+    for (const show of allShows) {
+      const urls: string[] = [];
+      for (const storageId of show.imageIds) {
+        const url = await ctx.storage.getUrl(storageId);
+        if (url) urls.push(url);
+      }
+      if (urls.length > 0) {
+        shows.push({ normalizedName: show.normalizedName, imageUrls: urls });
+      }
+    }
+
+    return { total: shows.length, shows };
+  },
+});
+
+export const _showsWithImages = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("shows").collect();
+    return all
+      .filter((s) => s.images.length > 0)
+      .map((s) => ({
+        normalizedName: s.normalizedName,
+        imageIds: s.images as string[],
+      }));
+  },
+});
+
+export const _importShowImageChunk = internalMutation({
+  args: {
+    rows: v.array(
+      v.object({
+        normalizedName: v.string(),
+        storageId: v.id("_storage"),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    let updated = 0;
+    let missing = 0;
+
+    for (const row of args.rows) {
+      const show = await ctx.db
+        .query("shows")
+        .withIndex("by_normalized_name", (q) =>
+          q.eq("normalizedName", row.normalizedName)
+        )
+        .first();
+      if (!show) {
+        missing++;
+        continue;
+      }
+
+      const alreadyHas = show.images.some((id) => id === row.storageId);
+      if (alreadyHas) continue;
+
+      await ctx.db.patch(show._id, {
+        images: [...show.images, row.storageId],
+      });
+      updated++;
+    }
+
+    return { updated, missing };
+  },
+});
+
+export const importShowImages = internalAction({
+  args: {
+    rows: v.array(
+      v.object({
+        normalizedName: v.string(),
+        imageUrls: v.array(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    let uploaded = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (const row of args.rows) {
+      for (const url of row.imageUrls) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            errors.push(`${row.normalizedName}: HTTP ${response.status}`);
+            failed++;
+            continue;
+          }
+          const blob = await response.blob();
+          const storageId = await ctx.storage.store(blob);
+
+          await ctx.runMutation(
+            internal.admin.migration._importShowImageChunk,
+            {
+              rows: [{ normalizedName: row.normalizedName, storageId }],
+            }
+          );
+          uploaded++;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          errors.push(`${row.normalizedName}: ${msg}`);
+          failed++;
+        }
+      }
+      console.log(
+        `[importShowImages] ${row.normalizedName}: ${row.imageUrls.length} image(s)`
+      );
+    }
+
+    return { uploaded, failed, errors: errors.slice(0, 50) };
+  },
+});
+
+// ─── Production poster image migration ─────────────────────────────────────
+
+export const exportProductionImages = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const prods = await ctx.runQuery(
+      internal.admin.migration._productionsWithPoster
+    );
+
+    const results: Array<{
+      showNormalizedName: string;
+      theatre: string | undefined;
+      posterUrl: string;
+    }> = [];
+
+    for (const p of prods) {
+      const url = await ctx.storage.getUrl(p.posterImageId);
+      if (url) {
+        results.push({
+          showNormalizedName: p.showNormalizedName,
+          theatre: p.theatre,
+          posterUrl: url,
+        });
+      }
+    }
+
+    return { total: results.length, productions: results };
+  },
+});
+
+export const _productionsWithPoster = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("productions").collect();
+    const results = [];
+
+    for (const p of all) {
+      if (!p.posterImage) continue;
+      const show = await ctx.db.get(p.showId);
+      if (!show) continue;
+      results.push({
+        showNormalizedName: show.normalizedName,
+        theatre: p.theatre,
+        posterImageId: p.posterImage as string,
+      });
+    }
+
+    return results;
+  },
+});
+
+export const _importProductionImageChunk = internalMutation({
+  args: {
+    rows: v.array(
+      v.object({
+        showNormalizedName: v.string(),
+        theatre: v.optional(v.string()),
+        storageId: v.id("_storage"),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    let updated = 0;
+    let missing = 0;
+
+    for (const row of args.rows) {
+      const show = await ctx.db
+        .query("shows")
+        .withIndex("by_normalized_name", (q) =>
+          q.eq("normalizedName", row.showNormalizedName)
+        )
+        .first();
+      if (!show) {
+        missing++;
+        continue;
+      }
+
+      const prods = await ctx.db
+        .query("productions")
+        .withIndex("by_show", (q) => q.eq("showId", show._id))
+        .collect();
+
+      const match = row.theatre
+        ? prods.find((p) => p.theatre === row.theatre)
+        : prods[0];
+
+      if (!match) {
+        missing++;
+        continue;
+      }
+
+      if (match.posterImage) continue;
+
+      await ctx.db.patch(match._id, { posterImage: row.storageId });
+      updated++;
+    }
+
+    return { updated, missing };
+  },
+});
+
+export const importProductionImages = internalAction({
+  args: {
+    rows: v.array(
+      v.object({
+        showNormalizedName: v.string(),
+        theatre: v.optional(v.string()),
+        posterUrl: v.string(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    let uploaded = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (const row of args.rows) {
+      try {
+        const response = await fetch(row.posterUrl);
+        if (!response.ok) {
+          errors.push(`${row.showNormalizedName}: HTTP ${response.status}`);
+          failed++;
+          continue;
+        }
+        const blob = await response.blob();
+        const storageId = await ctx.storage.store(blob);
+
+        await ctx.runMutation(
+          internal.admin.migration._importProductionImageChunk,
+          {
+            rows: [
+              {
+                showNormalizedName: row.showNormalizedName,
+                theatre: row.theatre,
+                storageId,
+              },
+            ],
+          }
+        );
+        uploaded++;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        errors.push(`${row.showNormalizedName}: ${msg}`);
+        failed++;
+      }
+      console.log(
+        `[importProductionImages] ${row.showNormalizedName} @ ${row.theatre ?? "(no theatre)"}`
+      );
+    }
+
+    return { uploaded, failed, errors: errors.slice(0, 50) };
+  },
+});
