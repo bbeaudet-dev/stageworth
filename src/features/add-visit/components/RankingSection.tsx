@@ -179,6 +179,7 @@ export function RankingSection({
                     <Image
                       source={{ uri: comparisonTarget.images[0] }}
                       style={[styles.playbillImage, { backgroundColor: c.surface }]}
+                      resizeMode="contain"
                     />
                   ) : (
                     <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>

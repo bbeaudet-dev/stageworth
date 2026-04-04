@@ -7,7 +7,7 @@ import {
   earliestFutureRunDate,
   openingCountdownLabel,
 } from "@/features/browse/logic/date";
-import { styles } from "@/features/browse/styles";
+import { playbillMatBackground, styles } from "@/features/browse/styles";
 import type { ProductionWithShow } from "@/features/browse/types";
 import { getProductionStatus } from "@/utils/productions";
 import { Colors } from "@/constants/theme";
@@ -130,13 +130,9 @@ export function ProductionCard({
           source={{ uri: image }}
           style={[
             styles.playbillImage,
-            production.posterUrl && !show?.images?.[0]
-              ? { backgroundColor: isDark ? "#1a1a2e" : "#f0f0f4" }
-              : undefined,
+            { backgroundColor: playbillMatBackground(isDark ? "dark" : "light") },
           ]}
-          contentFit={
-            production.posterUrl && !show?.images?.[0] ? "contain" : "cover"
-          }
+          contentFit="contain"
         />
       ) : (
         <ShowPlaceholder name={show?.name ?? ""} type={show?.type} />

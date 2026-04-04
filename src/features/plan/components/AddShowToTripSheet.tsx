@@ -127,7 +127,7 @@ export function AddShowToTripSheet({ visible, onClose, alreadyOnTripShowIds, onA
                 return (
                   <View key={sid} style={[styles.row, { borderBottomColor: borderColor }]}>
                     {image ? (
-                      <Image source={{ uri: image }} style={styles.thumb} contentFit="cover" />
+                      <Image source={{ uri: image }} style={[styles.thumb, { backgroundColor: chipBg }]} contentFit="contain" />
                     ) : (
                       <View style={[styles.thumb, styles.thumbFallback, { backgroundColor: chipBg }]}>
                         <Text style={[styles.thumbFallbackText, { color: mutedTextColor }]} numberOfLines={2}>

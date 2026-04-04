@@ -27,6 +27,7 @@ import {
   earliestFutureRunDate,
   formatDate,
 } from "@/features/browse/logic/date";
+import { playbillMatBackground } from "@/features/browse/styles";
 import { getProductionStatus, type ProductionStatus } from "@/utils/productions";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -284,7 +285,11 @@ export default function ShowDetailScreen() {
         <View style={styles.heroRow}>
           <View style={[styles.playbillWrap, { width: playbillSize, height: playbillSize * 1.4 }]}>
             {posterUrl ? (
-              <Image source={{ uri: posterUrl }} style={styles.playbillImg} contentFit="cover" />
+              <Image
+                source={{ uri: posterUrl }}
+                style={[styles.playbillImg, { backgroundColor: playbillMatBackground(theme) }]}
+                contentFit="contain"
+              />
             ) : (
               <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
                 <Text
@@ -330,7 +335,11 @@ export default function ShowDetailScreen() {
                   ]}
                 >
                   {p.posterUrl ? (
-                    <Image source={{ uri: p.posterUrl }} style={styles.prodThumb} contentFit="cover" />
+                    <Image
+                      source={{ uri: p.posterUrl }}
+                      style={[styles.prodThumb, { backgroundColor: playbillMatBackground(theme) }]}
+                      contentFit="contain"
+                    />
                   ) : (
                     <View style={[styles.prodThumbFallback, { backgroundColor: c.border }]} />
                   )}

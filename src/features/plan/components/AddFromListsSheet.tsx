@@ -254,7 +254,7 @@ function ExpandedList({
             style={[styles.showRow, { borderTopColor: borderColor }]}
           >
             {image ? (
-              <Image source={{ uri: image }} style={styles.showThumb} contentFit="cover" />
+              <Image source={{ uri: image }} style={[styles.showThumb, { backgroundColor: chipBg }]} contentFit="contain" />
             ) : (
               <View style={[styles.showThumbFallback, { backgroundColor: chipBg }]} />
             )}

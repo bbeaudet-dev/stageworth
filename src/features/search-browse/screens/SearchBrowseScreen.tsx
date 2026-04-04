@@ -153,8 +153,8 @@ export default function SearchBrowseScreen() {
                           {show.images[0] ? (
                             <Image
                               source={{ uri: show.images[0] }}
-                              style={styles.playbillImg}
-                              contentFit="cover"
+                              style={[styles.playbillImg, { backgroundColor: posterBg }]}
+                              contentFit="contain"
                             />
                           ) : (
                             <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: posterBg }]}>
@@ -405,7 +405,11 @@ function BrowseRail({
               onPress={() => onPress(prod.show._id, prod.show.name)}
             >
               {image ? (
-                <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                <Image
+                  source={{ uri: image }}
+                  style={[styles.playbillImg, { backgroundColor: posterBg }]}
+                  contentFit="contain"
+                />
               ) : (
                 <View
                   style={[styles.playbillImg, styles.playbillFb, { backgroundColor: posterBg }]}

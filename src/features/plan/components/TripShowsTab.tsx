@@ -184,7 +184,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                       <Pressable onPress={() => setLabelSheetItem(item)}>
                         <View style={styles.playbillTapArea}>
                           {image
-                            ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                            ? <Image source={{ uri: image }} style={[styles.playbillImg, { backgroundColor: chipBg }]} contentFit="contain" />
                             : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}><Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.6}>{item.show?.name}</Text></View>}
                           {labelMeta ? (
                             <View style={[styles.myLabelBadge, { backgroundColor: labelMeta.color + "EE", borderColor: surfaceColor }]}>
@@ -249,7 +249,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                       <View key={sid} style={[styles.playbillCard, { width: cardWidthInClosingCard, backgroundColor: surfaceColor }]}>
                         <Pressable onPress={() => router.push({ pathname: "/show/[showId]", params: { showId: sid, name: show.name } })}>
                           {image
-                            ? <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                            ? <Image source={{ uri: image }} style={[styles.playbillImg, { backgroundColor: chipBg }]} contentFit="contain" />
                             : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}>
                                 <Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.6}>{show.name}</Text>
                               </View>}

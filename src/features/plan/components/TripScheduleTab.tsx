@@ -232,7 +232,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
                             <Pressable onPress={() => setLabelSheetItem(item)}>
                               <View style={styles.playbillTapArea}>
                                 {image ? (
-                                  <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                                  <Image source={{ uri: image }} style={[styles.playbillImg, { backgroundColor: chipBg }]} contentFit="contain" />
                                 ) : (
                                   <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}>
                                     <Text
@@ -294,7 +294,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
                   onPress={() => assignForDay && handleAssignToDay(item.showId, assignForDay)}
                 >
                   {item.show?.images?.[0] ? (
-                    <Image source={{ uri: item.show.images[0] }} style={styles.assignThumb} contentFit="cover" />
+                    <Image source={{ uri: item.show.images[0] }} style={[styles.assignThumb, { backgroundColor: chipBg }]} contentFit="contain" />
                   ) : (
                     <View style={[styles.assignThumb, { backgroundColor: chipBg, borderRadius: 4 }]} />
                   )}

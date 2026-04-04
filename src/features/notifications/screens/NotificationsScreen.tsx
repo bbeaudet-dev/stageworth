@@ -9,6 +9,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { playbillMatBackground } from "@/features/browse/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 type NotificationListItem = {
@@ -237,7 +238,11 @@ export default function NotificationsScreen() {
                   ) : null}
                 </View>
                 {notif.type === "visit_tag" && notif.show?.images[0] && (
-                  <Image source={{ uri: notif.show.images[0] }} style={styles.showThumb} contentFit="cover" />
+                  <Image
+                    source={{ uri: notif.show.images[0] }}
+                    style={[styles.showThumb, { backgroundColor: playbillMatBackground(theme) }]}
+                    contentFit="contain"
+                  />
                 )}
               </View>
             </Pressable>
