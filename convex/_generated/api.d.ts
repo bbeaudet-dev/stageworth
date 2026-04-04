@@ -10,6 +10,7 @@
 
 import type * as admin_legacyWikidata from "../admin/legacyWikidata.js";
 import type * as admin_maintenance from "../admin/maintenance.js";
+import type * as admin_migration from "../admin/migration.js";
 import type * as admin_reviewBackfill from "../admin/reviewBackfill.js";
 import type * as admin_seed from "../admin/seed.js";
 import type * as admin_wikiApi from "../admin/wikiApi.js";
@@ -55,6 +56,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "admin/legacyWikidata": typeof admin_legacyWikidata;
   "admin/maintenance": typeof admin_maintenance;
+  "admin/migration": typeof admin_migration;
   "admin/reviewBackfill": typeof admin_reviewBackfill;
   "admin/seed": typeof admin_seed;
   "admin/wikiApi": typeof admin_wikiApi;
