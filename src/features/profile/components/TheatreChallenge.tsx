@@ -207,7 +207,6 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     borderRadius: 5,
-    minWidth: 4,
   },
   daysLeft: {
     fontSize: 12,

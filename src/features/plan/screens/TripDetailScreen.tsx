@@ -123,7 +123,7 @@ export default function TripDetailScreen() {
     setInviteResponding(accept ? "accept" : "decline");
     try {
       await respondToTripInvitation({ tripId: typedTripId, accept });
-      if (!accept) router.back();
+      if (!accept) router.navigate("/(tabs)/plan");
     } catch {
       Alert.alert("Error", "Could not respond to invitation. Try again.");
     } finally {
@@ -168,7 +168,7 @@ export default function TripDetailScreen() {
         style: "destructive",
         onPress: async () => {
           await deleteTrip({ tripId: typedTripId });
-          router.back();
+          router.navigate("/(tabs)/plan");
         },
       },
     ]);
@@ -234,7 +234,7 @@ export default function TripDetailScreen() {
       {/* Header */}
       <View style={[styles.pageHeader, { borderBottomColor: borderColor }]}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => router.navigate("/(tabs)/plan")}
           style={styles.headerSide}
           hitSlop={12}
         >

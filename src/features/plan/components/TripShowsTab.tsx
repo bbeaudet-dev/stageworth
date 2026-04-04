@@ -67,6 +67,8 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   const [showAddShow, setShowAddShow] = useState(false);
   const [showClosingInfo, setShowClosingInfo] = useState(false);
   const [isAddingAll, setIsAddingAll] = useState(false);
+  // Track optimistic "added" state for Closing Soon items: showId -> true
+  const [optimisticAdded, setOptimisticAdded] = useState<Record<string, boolean>>({});
 
   const {
     addShowToTrip,
@@ -78,16 +80,21 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
 
   const canEditTrip = Boolean(trip.canEdit ?? trip.isOwner);
 
+  // All shows on this trip (assigned + unassigned), sorted by creation order.
+  const allTripShows: any[] = [
+    ...(trip.unassigned ?? []),
+    ...(trip.days ?? []).flatMap((d: any) => d.shows),
+  ].sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+
   const labelSheetItemLive = useMemo(() => {
     if (!labelSheetItem) return null;
     const id = String(labelSheetItem._id);
-    const pool = trip.unassigned ?? [];
-    const base = pool.find((s: any) => String(s._id) === id) ?? labelSheetItem;
+    const base = allTripShows.find((s: any) => String(s._id) === id) ?? labelSheetItem;
     if (id in optimisticLabels) {
       return { ...base, myLabel: optimisticLabels[id] };
     }
     return base;
-  }, [labelSheetItem, trip.unassigned, optimisticLabels]);
+  }, [labelSheetItem, allTripShows, optimisticLabels]);
 
   // Returns the effective label for a card (optimistic takes priority over server).
   const effectiveLabel = (item: any): TripShowLabel | null => {
@@ -106,7 +113,12 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   ]);
 
   const handleAddShow = async (showId: Id<"shows">) => {
-    await addShowToTrip({ tripId, showId });
+    setOptimisticAdded((prev) => ({ ...prev, [String(showId)]: true }));
+    try {
+      await addShowToTrip({ tripId, showId });
+    } catch {
+      setOptimisticAdded((prev) => { const n = { ...prev }; delete n[String(showId)]; return n; });
+    }
   };
 
   const handleAddAll = async () => {
@@ -121,6 +133,12 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
     } finally {
       setIsAddingAll(false);
     }
+  };
+
+  const dayBadgeLabel = (dayDate: string | null | undefined): string | null => {
+    if (!dayDate) return null;
+    const d = new Date(dayDate + "T00:00:00Z");
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   };
 
   const closingBadge = (
@@ -167,11 +185,11 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
           </View>
         </View>
 
-        {trip.unassigned.length === 0 ? (
+        {allTripShows.length === 0 ? (
           <Text style={[styles.emptyHint, { color: mutedTextColor }]}>No shows added</Text>
         ) : (
           <View style={styles.grid}>
-            {chunkRows(trip.unassigned, COLS).map((row: any[], ri: number) => (
+            {chunkRows(allTripShows, COLS).map((row: any[], ri: number) => (
               <View key={ri} style={styles.gridRow}>
                 {row.map((item: any) => {
                   const key = String(item.showId);
@@ -179,6 +197,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                   const badge = closingBadge(item.closingDate);
                   const myLabel = effectiveLabel(item);
                   const labelMeta = myLabel ? tripShowLabelMeta(myLabel) : null;
+                  const assignedDay = dayBadgeLabel(item.dayDate);
                   return (
                     <View key={key} style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}>
                       <Pressable onPress={() => setLabelSheetItem(item)}>
@@ -193,7 +212,11 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                           ) : null}
                         </View>
                       </Pressable>
-                      {badge ? (
+                      {assignedDay ? (
+                        <View style={[styles.closingBadgeBelow, { backgroundColor: accentColor + "22" }]}>
+                          <Text style={[styles.closingBadgeText, { color: accentColor }]}>{assignedDay}</Text>
+                        </View>
+                      ) : badge ? (
                         <View style={[styles.closingBadgeBelow, { backgroundColor: badge.bg }]}>
                           <Text style={[styles.closingBadgeText, { color: badge.textCol }]}>{badge.label}</Text>
                         </View>
@@ -243,7 +266,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                     const show = item.show;
                     const image = item.production?.posterUrl ?? show?.images?.[0] ?? null;
                     const sid = String(show._id);
-                    const isOnTrip = alreadyOnTripShowIds.has(sid);
+                    const isOnTrip = alreadyOnTripShowIds.has(sid) || optimisticAdded[sid];
                     const badge = closingBadge(item.closingDate);
                     return (
                       <View key={sid} style={[styles.playbillCard, { width: cardWidthInClosingCard, backgroundColor: surfaceColor }]}>

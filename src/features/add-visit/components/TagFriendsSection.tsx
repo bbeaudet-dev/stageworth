@@ -2,6 +2,7 @@ import { Image } from "expo-image";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Colors } from "@/constants/theme";
+import { styles as sharedStyles } from "@/features/add-visit/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -37,7 +38,6 @@ export function TagFriendsSection({ following, taggedUserIds, onToggle }: Props)
   const theme = useColorScheme() ?? "light";
   const text = Colors[theme].text;
   const mutedText = theme === "dark" ? "#a0a4aa" : "#666";
-  const sectionLabel = theme === "dark" ? "#a0a4aa" : "#666";
   const accentColor = Colors[theme].accent;
   const chipBg = theme === "dark" ? "#27272f" : "#f2f2f7";
   const chipBgSelected = accentColor;
@@ -47,7 +47,7 @@ export function TagFriendsSection({ following, taggedUserIds, onToggle }: Props)
   if (following.length === 0) {
     return (
       <View style={styles.section}>
-        <Text style={[styles.label, { color: sectionLabel }]}>Tag friends</Text>
+        <Text style={[sharedStyles.sectionTitle, { color: text }]}>Tag friends</Text>
         <Text style={[styles.emptyText, { color: mutedText }]}>
           Follow people to tag them in your visits.
         </Text>
@@ -57,7 +57,7 @@ export function TagFriendsSection({ following, taggedUserIds, onToggle }: Props)
 
   return (
     <View style={styles.section}>
-      <Text style={[styles.label, { color: sectionLabel }]}>Tag friends</Text>
+      <Text style={[sharedStyles.sectionTitle, { color: text }]}>Tag friends</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -130,13 +130,6 @@ const styles = StyleSheet.create({
   section: {
     gap: 10,
     paddingTop: 4,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    color: "#666",
   },
   emptyText: {
     fontSize: 14,

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -74,11 +76,17 @@ export function BottomSheet({ visible, onClose, children }: BottomSheetProps) {
         </Animated.View>
 
         {/* Sliding sheet — pointerEvents box-none lets touches through to the backdrop above the sheet */}
-        <Animated.View
-          style={[styles.sheetWrapper, { transform: [{ translateY: slideAnim }], pointerEvents: "box-none" }]}
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoider}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          pointerEvents="box-none"
         >
-          {children}
-        </Animated.View>
+          <Animated.View
+            style={[styles.sheetWrapper, { transform: [{ translateY: slideAnim }], pointerEvents: "box-none" }]}
+          >
+            {children}
+          </Animated.View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -92,8 +100,11 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.42)",
   },
-  sheetWrapper: {
+  keyboardAvoider: {
     flex: 1,
+    justifyContent: "flex-end",
+  },
+  sheetWrapper: {
     justifyContent: "flex-end",
   },
 });

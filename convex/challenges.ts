@@ -29,11 +29,23 @@ export const create = mutation({
       return existing._id;
     }
 
+    // Count unique shows visited in the target year (retroactive backfill).
+    const allVisits = await ctx.db
+      .query("visits")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const uniqueShowsThisYear = new Set(
+      allVisits
+        .filter((v) => new Date(v.date + "T00:00:00Z").getUTCFullYear() === args.year)
+        .map((v) => String(v.showId))
+    );
+    const retroactiveCount = uniqueShowsThisYear.size;
+
     return ctx.db.insert("theatreChallenges", {
       userId,
       year: args.year,
       targetCount: args.targetCount,
-      currentCount: 0,
+      currentCount: retroactiveCount,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });

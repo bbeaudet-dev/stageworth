@@ -127,6 +127,17 @@ export const listForCurrentUser = query({
           if (tripDoc) trip = { _id: tripDoc._id, name: tripDoc.name };
         }
 
+        let myTripMembershipStatus: string | null = null;
+        if (notif.type === "trip_invite" && notif.tripId) {
+          const membership = await ctx.db
+            .query("tripMembers")
+            .withIndex("by_trip_user", (q: any) =>
+              q.eq("tripId", notif.tripId).eq("userId", userId)
+            )
+            .first();
+          myTripMembershipStatus = membership?.status ?? null;
+        }
+
         return {
           _id: notif._id,
           type: notif.type,
@@ -135,6 +146,7 @@ export const listForCurrentUser = query({
           visitId: notif.visitId,
           productionId: notif.productionId ?? null,
           tripId: notif.tripId ?? null,
+          myTripMembershipStatus,
           actor,
           show,
           trip,
