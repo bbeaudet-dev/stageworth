@@ -45,6 +45,7 @@ export function ListsSection({
   const borderColor = Colors[theme].border;
   const chipBackground = Colors[theme].surface;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
 
   return (
     <View style={[styles.section, { backgroundColor: surfaceColor, borderColor }]}>
@@ -84,7 +85,7 @@ export function ListsSection({
             ]}
             disabled={isCreatingList || !newListName.trim()}
           >
-            <IconSymbol size={16} name="checkmark" color="#fff" />
+            <IconSymbol size={16} name="checkmark" color={onAccent} />
           </Pressable>
         </View>
       )}

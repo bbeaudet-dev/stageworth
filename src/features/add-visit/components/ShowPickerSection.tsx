@@ -1,7 +1,10 @@
+import { Image } from "expo-image";
 import { Pressable, Text, TextInput, View } from "react-native";
 
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
+import { playbillMatBackground } from "@/features/browse/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { TYPE_LABELS } from "@/features/add-visit/hooks/useAddVisitData";
 import { styles } from "@/features/add-visit/styles";
@@ -16,6 +19,7 @@ type SearchShow = {
 export function ShowPickerSection({
   hasSelectedShow,
   showNameForHeader,
+  selectedShowArt,
   clearSelection,
   query,
   setQuery,
@@ -30,6 +34,8 @@ export function ShowPickerSection({
 }: {
   hasSelectedShow: boolean;
   showNameForHeader: string;
+  /** Resolved show image URL (if any) + type for placeholder; omit imageUrl for custom shows. */
+  selectedShowArt: { imageUrl: string | null; type?: ShowType } | null;
   clearSelection: () => void;
   query: string;
   setQuery: (value: string) => void;
@@ -44,14 +50,42 @@ export function ShowPickerSection({
 }) {
   const theme = useColorScheme() ?? "light";
   const c = Colors[theme];
+  const mat = playbillMatBackground(theme);
   return (
     <View style={styles.section}>
       {hasSelectedShow ? (
         <View style={[styles.selectedShowCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.selectedShowName, { color: c.text }]}>{showNameForHeader}</Text>
-          <Pressable onPress={clearSelection}>
-            <Text style={[styles.changeShowText, { color: c.accent }]}>Change</Text>
-          </Pressable>
+          <View style={styles.selectedShowRow}>
+            <View style={[styles.selectedShowThumbWrap, { backgroundColor: mat }]}>
+              {selectedShowArt?.imageUrl ? (
+                <Image
+                  source={{ uri: selectedShowArt.imageUrl }}
+                  style={styles.selectedShowThumbImage}
+                  contentFit="contain"
+                />
+              ) : (
+                <ShowPlaceholder
+                  name={showNameForHeader}
+                  type={selectedShowArt?.type ?? "other"}
+                  style={{
+                    width: 54,
+                    height: 81,
+                    aspectRatio: undefined,
+                    paddingHorizontal: 4,
+                    gap: 2,
+                  }}
+                />
+              )}
+            </View>
+            <View style={styles.selectedShowTextCol}>
+              <Text style={[styles.selectedShowName, { color: c.text }]} numberOfLines={3}>
+                {showNameForHeader}
+              </Text>
+              <Pressable onPress={clearSelection} hitSlop={8}>
+                <Text style={[styles.changeShowText, { color: c.accent }]}>Change</Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
       ) : (
         <>

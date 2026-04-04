@@ -3,12 +3,14 @@ import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useNavGuard } from "@/hooks/use-nav-guard";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { playbillMatBackground } from "@/features/browse/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 type NotificationListItem = {
@@ -20,6 +22,7 @@ type NotificationListItem = {
   showId?: string | null;
   productionId?: string | null;
   tripId?: Id<"trips"> | null;
+  myTripMembershipStatus?: string | null;
   actor: { _id: Id<"users">; username: string; name?: string | null; avatarUrl: string | null } | null;
   show: { _id: Id<"shows">; name: string; images: string[] } | null;
   trip: { _id: Id<"trips">; name: string } | null;
@@ -67,6 +70,8 @@ export default function NotificationsScreen() {
   const markAsRead = useMutation(api.notifications.markAsRead);
   const respondToTripInvitation = useMutation(api.trips.trips.respondToTripInvitation);
   const [inviteResponding, setInviteResponding] = useState<string | null>(null);
+  const guard = useNavGuard();
+  const onAccent = Colors[theme].onAccent;
 
   const bg = Colors[theme].background;
   const text = Colors[theme].text;
@@ -80,7 +85,7 @@ export default function NotificationsScreen() {
 
   const hasUnread = (notifications ?? []).some((n) => !n.isRead);
 
-  const handleNotificationPress = async (notif: NotificationListItem) => {
+  const handleNotificationPress = guard(async (notif: NotificationListItem) => {
     if (!notif.isRead) {
       await markAsRead({ notificationId: notif._id });
     }
@@ -99,7 +104,7 @@ export default function NotificationsScreen() {
     ) {
       router.push({ pathname: "/show/[showId]", params: { showId: notif.show._id } });
     }
-  };
+  });
 
   const handleInviteRespond = async (notif: NotificationListItem, accept: boolean) => {
     if (!notif.tripId) return;
@@ -213,7 +218,7 @@ export default function NotificationsScreen() {
                   <Text style={[styles.timeText, { color: mutedText }]}>{timeStr}</Text>
 
                   {/* Accept / Decline buttons inline under the text */}
-                  {isTripInvite && notif.tripId ? (
+                  {isTripInvite && notif.tripId && notif.myTripMembershipStatus === "pending" ? (
                     <View style={styles.inviteActions}>
                       <Pressable
                         style={[styles.inviteBtn, { backgroundColor: accent, opacity: isRespondingToThis ? 0.5 : 1 }]}
@@ -221,8 +226,8 @@ export default function NotificationsScreen() {
                         onPress={(e) => { e.stopPropagation?.(); handleInviteRespond(notif, true); }}
                       >
                         {inviteResponding === acceptKey
-                          ? <ActivityIndicator size="small" color="#fff" />
-                          : <Text style={styles.inviteBtnText}>Accept</Text>}
+                          ? <ActivityIndicator size="small" color={onAccent} />
+                          : <Text style={[styles.inviteBtnText, { color: onAccent }]}>Accept</Text>}
                       </Pressable>
                       <Pressable
                         style={[styles.inviteBtn, styles.inviteBtnOutline, { borderColor: cardBorder, opacity: isRespondingToThis ? 0.5 : 1 }]}
@@ -234,10 +239,18 @@ export default function NotificationsScreen() {
                           : <Text style={[styles.inviteBtnText, { color: mutedText }]}>Decline</Text>}
                       </Pressable>
                     </View>
+                  ) : isTripInvite && notif.tripId && notif.myTripMembershipStatus ? (
+                    <Text style={[styles.inviteRespondedLabel, { color: mutedText }]}>
+                      {notif.myTripMembershipStatus === "accepted" ? "✓ Joined" : "Declined"}
+                    </Text>
                   ) : null}
                 </View>
                 {notif.type === "visit_tag" && notif.show?.images[0] && (
-                  <Image source={{ uri: notif.show.images[0] }} style={styles.showThumb} contentFit="cover" />
+                  <Image
+                    source={{ uri: notif.show.images[0] }}
+                    style={[styles.showThumb, { backgroundColor: playbillMatBackground(theme) }]}
+                    contentFit="contain"
+                  />
                 )}
               </View>
             </Pressable>
@@ -338,5 +351,6 @@ const styles = StyleSheet.create({
   inviteActions: { flexDirection: "row", gap: 8, marginTop: 2 },
   inviteBtn: { flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: "center" },
   inviteBtnOutline: { borderWidth: StyleSheet.hairlineWidth },
-  inviteBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  inviteBtnText: { fontSize: 13, fontWeight: "700" },
+  inviteRespondedLabel: { fontSize: 13, fontWeight: "600", marginTop: 2 },
 });

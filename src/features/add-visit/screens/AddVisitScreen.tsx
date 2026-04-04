@@ -1,5 +1,5 @@
-import { useNavigation, useRouter } from "expo-router";
 import { usePreventRemove } from "@react-navigation/native";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef } from "react";
 import {
   Alert,
@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Colors } from "@/constants/theme";
+import type { Id } from "@/convex/_generated/dataModel";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getBottomInsertionIndexForTier } from "@/features/add-visit/logic/ranking";
 import { getTodayIsoDate } from "@/features/add-visit/logic/form";
@@ -28,8 +29,16 @@ import { NotesSection } from "@/features/add-visit/components/NotesSection";
 import { SaveVisitButton } from "@/features/add-visit/components/SaveVisitButton";
 import { TagFriendsSection } from "@/features/add-visit/components/TagFriendsSection";
 
+function routeParamString(v: string | string[] | undefined): string | undefined {
+  if (v === undefined) return undefined;
+  const s = Array.isArray(v) ? v[0] : v;
+  return typeof s === "string" && s.length > 0 ? s : undefined;
+}
+
 export default function AddVisitScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ showId?: string; showName?: string }>();
+  const paramShowName = routeParamString(params.showName);
   const navigation = useNavigation();
   const allowRemoveRef = useRef(false);
   const {
@@ -54,6 +63,15 @@ export default function AddVisitScreen() {
     clearSelection,
     toggleTaggedUser,
   } = useAddVisitFormState();
+
+  const selectExistingShowRef = useRef(selectExistingShow);
+  selectExistingShowRef.current = selectExistingShow;
+
+  useEffect(() => {
+    const sid = routeParamString(params.showId);
+    if (!sid) return;
+    selectExistingShowRef.current(sid as Id<"shows">);
+  }, [params.showId]);
 
   const {
     allShows,
@@ -94,7 +112,22 @@ export default function AddVisitScreen() {
   });
 
   const hasSelectedShow = state.selectedShowId !== null || state.customShowName !== null;
-  const showNameForHeader = selectedShow?.name ?? state.customShowName ?? "";
+  const showNameForHeader =
+    selectedShow?.name ?? state.customShowName ?? paramShowName ?? "";
+
+  const selectedShowArt = useMemo(() => {
+    if (!hasSelectedShow) return null;
+    if (state.customShowName) {
+      return { imageUrl: null as string | null, type: "other" as const };
+    }
+    if (state.selectedShowId) {
+      return {
+        imageUrl: selectedShow?.images?.[0] ?? null,
+        type: selectedShow?.type,
+      };
+    }
+    return null;
+  }, [hasSelectedShow, state.customShowName, state.selectedShowId, selectedShow]);
   const shouldShowRankingSection = hasSelectedShow && !(showContext?.hasRanking && state.keepCurrentRanking);
 
   useEffect(() => {
@@ -228,6 +261,7 @@ export default function AddVisitScreen() {
           <ShowPickerSection
             hasSelectedShow={hasSelectedShow}
             showNameForHeader={showNameForHeader}
+            selectedShowArt={selectedShowArt}
             clearSelection={clearSelection}
             query={state.query}
             setQuery={setQuery}

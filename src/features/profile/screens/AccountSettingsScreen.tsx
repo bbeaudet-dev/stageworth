@@ -63,7 +63,7 @@ export default function AccountSettingsScreen() {
   const inputBackground = Colors[theme].surface;
   const inputBorder = Colors[theme].border;
   const primaryButtonBg = Colors[theme].accent;
-  const primaryButtonText = "#fff";
+  const primaryButtonText = Colors[theme].onAccent;
 
   if (!isPending && !session) {
     return <Redirect href="/sign-in" />;

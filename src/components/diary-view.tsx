@@ -57,7 +57,7 @@ function DiaryCard({
   return (
     <Pressable style={cardStyles.card} onPress={onPress}>
       {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={cardStyles.image} />
+        <Image source={{ uri: imageUrl }} style={cardStyles.image} resizeMode="contain" />
       ) : (
         <View style={[cardStyles.image, cardStyles.imagePlaceholder]}>
           <Text style={cardStyles.placeholderEmoji}>🎭</Text>

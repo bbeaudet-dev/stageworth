@@ -17,6 +17,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
+import { playbillMatBackground } from "@/features/browse/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 type ShowType = "musical" | "play" | "opera" | "dance" | "other";
@@ -311,6 +312,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
   const borderColor = Colors[theme].border;
   const listThumbUri = item.images?.[0]?.trim() ?? "";
   const hasListThumbImage = Boolean(listThumbUri);
+  const listThumbMat = playbillMatBackground(theme);
 
   if (isRemoving) {
     return (
@@ -391,12 +393,20 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
           <Text style={[accordionStyles.rank, { color: mutedTextColor }]}>
             {rankLabel ?? `#${index + 1}`}
           </Text>
-          <View style={[accordionStyles.listThumbFrame, { borderColor }]}>
+          <View
+            style={[
+              accordionStyles.listThumbFrame,
+              {
+                borderColor,
+                backgroundColor: hasListThumbImage ? listThumbMat : "transparent",
+              },
+            ]}
+          >
             {hasListThumbImage ? (
               <Image
                 source={{ uri: listThumbUri }}
                 style={accordionStyles.listThumbImage}
-                contentFit="cover"
+                contentFit="contain"
               />
             ) : (
               <View

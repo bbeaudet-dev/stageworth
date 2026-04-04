@@ -3,8 +3,10 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,7 +21,9 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useNavGuard } from "@/hooks/use-nav-guard";
 import { useTabNav } from "@/hooks/use-tab-nav";
+import { railBadgeForProduction } from "@/features/browse/components/ProductionCard";
 
 const GRID_GAP = 8;
 const GRID_COLUMNS = 4;
@@ -44,6 +48,7 @@ export default function SearchBrowseScreen() {
   const posterBg = theme === "dark" ? "#27272f" : "#efefef";
 
   const inputRef = useRef<TextInput>(null);
+  const guard = useNavGuard();
 
   const [query, setQuery] = useState("");
   const [inputFocused, setInputFocused] = useState(false);
@@ -70,6 +75,9 @@ export default function SearchBrowseScreen() {
   const upcomingShows = useQuery(api.productions.listUpcoming, { days: 90 });
   const closingSoon = useQuery(api.productions.listClosingSoon, { days: 30 });
 
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const isDark = theme === "dark";
+
   const cardWidth = Math.floor(
     (screenWidth - SECTION_PADDING * 2 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS,
   );
@@ -77,21 +85,22 @@ export default function SearchBrowseScreen() {
   const handleCancel = () => {
     setQuery("");
     setInputFocused(false);
+    inputRef.current?.blur();
   };
 
-  const navigateToShow = (showId: string, showName?: string) => {
+  const navigateToShow = guard((showId: string, showName?: string) => {
     router.push({
       pathname: "/(tabs)/search/show/[showId]",
       params: { showId, name: showName, _ts: Date.now().toString() },
     });
-  };
+  });
 
-  const navigateToCategory = (category: string) => {
+  const navigateToCategory = guard((category: string) => {
     router.push({
       pathname: "/(tabs)/search/shows/[category]",
       params: { category },
     });
-  };
+  });
 
   const hasShowResults = showResults && showResults.length > 0;
   const hasUserResults = userResults && userResults.length > 0;
@@ -99,6 +108,11 @@ export default function SearchBrowseScreen() {
     && !hasShowResults && !hasUserResults;
 
   return (
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={0}
+    >
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]} edges={["top"]}>
       {/* Search header */}
       <View style={styles.headerRow}>
@@ -149,8 +163,8 @@ export default function SearchBrowseScreen() {
                           {show.images[0] ? (
                             <Image
                               source={{ uri: show.images[0] }}
-                              style={styles.playbillImg}
-                              contentFit="cover"
+                              style={[styles.playbillImg, { backgroundColor: posterBg }]}
+                              contentFit="contain"
                             />
                           ) : (
                             <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: posterBg }]}>
@@ -241,7 +255,12 @@ export default function SearchBrowseScreen() {
             {closingSoon && closingSoon.length > 0 && (
               <BrowseRail
                 title="Closing Soon"
-                items={closingSoon}
+                items={closingSoon.map((p) => ({
+                  _id: p._id,
+                  show: p.show,
+                  posterUrl: p.posterUrl,
+                  badge: railBadgeForProduction(p, "closing-soon", isDark, todayStr),
+                }))}
                 cardWidth={cardWidth}
                 surfaceColor={surface}
                 posterBg={posterBg}
@@ -256,7 +275,12 @@ export default function SearchBrowseScreen() {
             {upcomingShows && upcomingShows.length > 0 && (
               <BrowseRail
                 title="Coming Soon"
-                items={upcomingShows}
+                items={upcomingShows.map((p) => ({
+                  _id: p._id,
+                  show: p.show,
+                  posterUrl: p.posterUrl,
+                  badge: railBadgeForProduction(p, "coming-soon", isDark, todayStr),
+                }))}
                 cardWidth={cardWidth}
                 surfaceColor={surface}
                 posterBg={posterBg}
@@ -308,6 +332,7 @@ export default function SearchBrowseScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -334,6 +359,7 @@ type BrowseItem = {
   _id: string;
   show: { _id: string; name: string; images: string[] };
   posterUrl?: string | null;
+  badge?: { label: string; bg: string; text: string } | null;
 };
 
 function BrowseRail({
@@ -390,7 +416,11 @@ function BrowseRail({
               onPress={() => onPress(prod.show._id, prod.show.name)}
             >
               {image ? (
-                <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                <Image
+                  source={{ uri: image }}
+                  style={[styles.playbillImg, { backgroundColor: posterBg }]}
+                  contentFit="contain"
+                />
               ) : (
                 <View
                   style={[styles.playbillImg, styles.playbillFb, { backgroundColor: posterBg }]}
@@ -405,6 +435,13 @@ function BrowseRail({
                   </Text>
                 </View>
               )}
+              {prod.badge ? (
+                <View style={[styles.railBadgeStrip, { backgroundColor: prod.badge.bg }]}>
+                  <Text style={[styles.railBadgeText, { color: prod.badge.text }]}>
+                    {prod.badge.label}
+                  </Text>
+                </View>
+              ) : null}
             </Pressable>
           );
         })}
@@ -416,6 +453,7 @@ function BrowseRail({
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   container: { flex: 1 },
   headerRow: {
     flexDirection: "row",
@@ -522,6 +560,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 6,
+  },
+  railBadgeStrip: {
+    width: "100%",
+    paddingVertical: 4,
+    alignItems: "center",
+  },
+  railBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
   },
   playbillFbText: {
     fontSize: 13,

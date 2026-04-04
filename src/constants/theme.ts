@@ -17,6 +17,8 @@ export const Colors = {
     border: '#e0e0e0',
     mutedText: '#6b6b6b',
     accent: tintColorLight,
+    /** Text/icon color to use ON a filled accent-colored background (always legible). */
+    onAccent: '#ffffff',
     danger: '#ff3b30',
     tint: tintColorLight,
     icon: '#687076',
@@ -31,6 +33,8 @@ export const Colors = {
     border: '#2a2a33',
     mutedText: '#9CA3AF',
     accent: tintColorDark,
+    /** Text/icon color to use ON a filled accent-colored background (always legible). */
+    onAccent: '#0a0a14',
     danger: '#ff453a',
     tint: tintColorDark,
     icon: '#9BA1A6',

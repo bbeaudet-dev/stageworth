@@ -45,6 +45,7 @@ export function AddFromListsSheet({
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
   const chipBg = Colors[theme].surface;
 
   const profileLists = useQuery(
@@ -254,7 +255,7 @@ function ExpandedList({
             style={[styles.showRow, { borderTopColor: borderColor }]}
           >
             {image ? (
-              <Image source={{ uri: image }} style={styles.showThumb} contentFit="cover" />
+              <Image source={{ uri: image }} style={[styles.showThumb, { backgroundColor: chipBg }]} contentFit="contain" />
             ) : (
               <View style={[styles.showThumbFallback, { backgroundColor: chipBg }]} />
             )}
@@ -279,9 +280,9 @@ function ExpandedList({
                 disabled={isPending}
               >
                 {isPending ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={onAccent} />
                 ) : (
-                  <Text style={styles.addButtonText}>+</Text>
+                  <Text style={[styles.addButtonText, { color: onAccent }]}>+</Text>
                 )}
               </Pressable>
             )}
@@ -417,7 +418,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   addButtonText: {
-    color: "#fff",
     fontSize: 18,
     fontWeight: "700",
     lineHeight: 20,

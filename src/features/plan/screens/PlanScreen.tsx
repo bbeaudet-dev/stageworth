@@ -56,6 +56,7 @@ export default function PlanScreen() {
   const surfaceColor = Colors[theme].surfaceElevated;
   const borderColor = Colors[theme].border;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
   const chipBg = Colors[theme].surface;
 
   const [showCreateTrip, setShowCreateTrip] = useState(false);
@@ -229,8 +230,8 @@ export default function PlanScreen() {
                     onPress={(e) => { e.stopPropagation?.(); handleRespond(String(inv._id), true); }}
                   >
                     {respondingId === acceptKey
-                      ? <ActivityIndicator size="small" color="#fff" />
-                      : <Text style={styles.inviteBtnText}>Accept</Text>}
+                      ? <ActivityIndicator size="small" color={onAccent} />
+                      : <Text style={[styles.inviteBtnText, { color: onAccent }]}>Accept</Text>}
                   </Pressable>
                   <Pressable
                     style={[styles.inviteBtn, styles.inviteBtnOutline, { borderColor, opacity: isResponding ? 0.5 : 1 }]}
@@ -255,7 +256,7 @@ export default function PlanScreen() {
                 Create a trip to plan which shows you want to see and track shows closing around your travel dates.
               </Text>
               <Pressable style={[styles.emptyButton, { backgroundColor: accentColor }]} onPress={() => setShowCreateTrip(true)}>
-                <Text style={styles.emptyButtonText}>Create a Trip</Text>
+                <Text style={[styles.emptyButtonText, { color: onAccent }]}>Create a Trip</Text>
               </Pressable>
             </View>
           ) : (
@@ -356,7 +357,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: "700" },
   emptySubtitle: { fontSize: 13, lineHeight: 19, textAlign: "center", paddingHorizontal: 8 },
   emptyButton: { borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20, marginTop: 4 },
-  emptyButtonText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  emptyButtonText: { fontSize: 14, fontWeight: "700" },
   emptyText: { fontSize: 14, paddingVertical: 8 },
   showMoreBtn: { alignItems: "center", paddingVertical: 6 },
   showMoreText: { fontSize: 13, fontWeight: "600" },
@@ -377,5 +378,5 @@ const styles = StyleSheet.create({
   inviteActions: { flexDirection: "row", gap: 8 },
   inviteBtn: { flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: "center" },
   inviteBtnOutline: { borderWidth: StyleSheet.hairlineWidth },
-  inviteBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  inviteBtnText: { fontSize: 14, fontWeight: "700" },
 });

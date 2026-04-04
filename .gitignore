@@ -56,6 +56,9 @@ app-example
 # local data / import artifacts
 data/
 
+# Large one-off Convex export JSON pasted for manual import (do not commit)
+docs/migration/
+
 # news bot runtime artifacts
 bot/node_modules/
 bot/seen.db

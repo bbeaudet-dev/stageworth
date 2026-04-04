@@ -44,7 +44,7 @@ export function useBrowseData(search: string) {
           data: visibleProductions.filter((p) => getProductionStatus(p, today) === "in_previews"),
         },
         {
-          title: "Announced",
+          title: "Coming Soon",
           data: visibleProductions.filter((p) => getProductionStatus(p, today) === "announced"),
         },
       ].filter((s) => s.data.length > 0),

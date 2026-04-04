@@ -1,5 +1,10 @@
 import { StyleSheet } from "react-native";
 
+/** Neutral fill visible when letterboxing/pillarboxing show or production artwork (any aspect ratio) with contentFit "contain". */
+export function playbillMatBackground(theme: "light" | "dark"): string {
+  return theme === "dark" ? "#1a1a2e" : "#f0f0f4";
+}
+
 export const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {

@@ -73,6 +73,7 @@ export function CreateTripSheet({
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
   const inputBg = Colors[theme].surface;
 
   const isEditing = Boolean(initialValues);
@@ -254,7 +255,7 @@ export function CreateTripSheet({
               onPress={handleCreate}
               disabled={!canSubmit || isSubmitting}
             >
-              <Text style={styles.saveButtonText}>
+              <Text style={[styles.saveButtonText, { color: onAccent }]}>
                 {isSubmitting
                   ? isEditing ? "Saving…" : "Creating…"
                   : isEditing ? "Save Changes" : "Create Trip"}
@@ -350,7 +351,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveButtonText: {
-    color: "#fff",
     fontSize: 16,
     fontWeight: "700",
   },

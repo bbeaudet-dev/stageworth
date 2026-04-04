@@ -9,10 +9,21 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ShowCard } from "@/features/browse/components/ShowCard";
+import { railBadgeForProduction } from "@/features/browse/components/ProductionCard";
 import { styles as browseStyles } from "@/features/browse/styles";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+
+type ShowGridItem = {
+  _id: Id<"shows">;
+  showId: Id<"shows">;
+  name: string;
+  type?: "musical" | "play" | "opera" | "dance" | "other";
+  images: string[];
+  badge?: { label: string; bg: string; text: string };
+};
 
 const GRID_COLUMNS = 4;
 const PAGE_SIZE = 100;
@@ -84,7 +95,10 @@ export default function ShowGridScreen() {
     setTimeout(() => { isNavigatingRef.current = false; }, 800);
   };
 
-  const items = useMemo(() => {
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const isDark = theme === "dark";
+
+  const items = useMemo((): ShowGridItem[] | null => {
     if (config.query === "all" && allShows) {
       return allShows
         .slice()
@@ -106,21 +120,28 @@ export default function ShowGridScreen() {
     if (!productions) return null;
 
     const seen = new Set<string>();
-    const result: { _id: string; showId: string; name: string; type?: string; images: string[] }[] = [];
+    const result: ShowGridItem[] = [];
     for (const p of productions) {
       if (seen.has(p.show._id)) continue;
       seen.add(p.show._id);
       const resolvedImage = p.posterUrl ?? p.show.images[0] ?? null;
+      const badge =
+        config.query === "closing-soon"
+          ? railBadgeForProduction(p, "closing-soon", isDark, todayStr) ?? undefined
+          : config.query === "coming-soon"
+            ? railBadgeForProduction(p, "coming-soon", isDark, todayStr) ?? undefined
+            : undefined;
       result.push({
-        _id: p._id,
+        _id: p.show._id,
         showId: p.show._id,
         name: p.show.name,
         type: p.show.type,
         images: resolvedImage ? [resolvedImage] : [],
+        badge,
       });
     }
     return result;
-  }, [config.query, allShows, currentShows, closingSoon, upcomingShows]);
+  }, [config.query, allShows, currentShows, closingSoon, upcomingShows, isDark, todayStr]);
 
   const isLoading = items === null;
   const visible = items ? items.slice(0, limit) : [];
@@ -156,6 +177,7 @@ export default function ShowGridScreen() {
                   <ShowCard
                     key={item._id}
                     show={{ name: item.name, type: item.type, images: item.images }}
+                    badge={item.badge}
                     onPress={() => navigateToShow(item.showId, item.name)}
                   />
                 ))}

@@ -22,6 +22,7 @@ export function TripChatTab() {
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
   const chipBg = Colors[theme].surface;
 
   return (
@@ -36,7 +37,7 @@ export function TripChatTab() {
             ) : null}
             <View style={[styles.bubble, msg.fromMe ? { backgroundColor: accentColor } : { backgroundColor: surfaceColor, borderWidth: StyleSheet.hairlineWidth, borderColor }]}>
               {!msg.fromMe && msg.name ? <Text style={[styles.bubbleSender, { color: accentColor }]}>{msg.name}</Text> : null}
-              <Text style={[styles.bubbleText, { color: msg.fromMe ? "#fff" : primaryTextColor }]}>{msg.text}</Text>
+              <Text style={[styles.bubbleText, { color: msg.fromMe ? onAccent : primaryTextColor }]}>{msg.text}</Text>
             </View>
           </View>
         ))}

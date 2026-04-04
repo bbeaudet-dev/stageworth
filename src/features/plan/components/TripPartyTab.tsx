@@ -55,6 +55,7 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
   const chipBg = Colors[theme].surface;
   const dangerColor = Colors[theme].danger;
 
@@ -184,13 +185,13 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
                     style={[styles.roleButton, m.role === "edit" ? { backgroundColor: accentColor, borderColor: accentColor } : { backgroundColor: chipBg, borderColor }]}
                     onPress={() => { if (m.role !== "edit") updateTripMemberRole({ tripId, memberId: m._id, role: "edit" }); }}
                   >
-                    <Text style={[styles.roleButtonText, { color: m.role === "edit" ? "#fff" : mutedTextColor }]}>Can Edit</Text>
+                    <Text style={[styles.roleButtonText, { color: m.role === "edit" ? onAccent : mutedTextColor }]}>Can Edit</Text>
                   </Pressable>
                   <Pressable
                     style={[styles.roleButton, m.role === "view" ? { backgroundColor: accentColor, borderColor: accentColor } : { backgroundColor: chipBg, borderColor }]}
                     onPress={() => { if (m.role !== "view") updateTripMemberRole({ tripId, memberId: m._id, role: "view" }); }}
                   >
-                    <Text style={[styles.roleButtonText, { color: m.role === "view" ? "#fff" : mutedTextColor }]}>View Only</Text>
+                    <Text style={[styles.roleButtonText, { color: m.role === "view" ? onAccent : mutedTextColor }]}>View Only</Text>
                   </Pressable>
                   <Pressable
                     style={[styles.roleButton, { borderColor: dangerColor + "55", marginLeft: "auto" }]}
@@ -230,8 +231,8 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
                       >
                         {user.avatarUrl
                           ? <Image source={{ uri: user.avatarUrl }} style={styles.friendChipAvatar} contentFit="cover" />
-                          : <View style={[styles.friendChipAvatar, styles.friendChipAvatarFb, { backgroundColor: isPending ? "rgba(255,255,255,0.25)" : accentColor + "30" }]}><Text style={[styles.friendChipInitials, { color: isPending ? "#fff" : accentColor }]}>{getInitials(user.name, user.username)}</Text></View>}
-                        <Text style={[styles.friendChipName, { color: isPending ? "#fff" : primaryTextColor }]} numberOfLines={1}>
+                          : <View style={[styles.friendChipAvatar, styles.friendChipAvatarFb, { backgroundColor: isPending ? accentColor + "40" : accentColor + "30" }]}><Text style={[styles.friendChipInitials, { color: isPending ? onAccent : accentColor }]}>{getInitials(user.name, user.username)}</Text></View>}
+                        <Text style={[styles.friendChipName, { color: isPending ? onAccent : primaryTextColor }]} numberOfLines={1}>
                           {getDisplayName(user.name, user.username)}
                         </Text>
                       </Pressable>
@@ -427,7 +428,7 @@ const styles = StyleSheet.create({
   searchAlready: { fontSize: 12, fontStyle: "italic" },
   searchRoleBtns: { flexDirection: "row", gap: 6 },
   searchRoleBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, minWidth: 40, alignItems: "center" },
-  searchRoleBtnText: { fontSize: 12, fontWeight: "700", color: "#fff" },
+  searchRoleBtnText: { fontSize: 12, fontWeight: "700" },
   inviteBtn: {
     flexDirection: "row",
     alignItems: "center",

@@ -16,7 +16,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
-import { closingCountdownLabel } from "@/features/browse/components/ProductionCard";
+import { closingCountdownLabel } from "@/features/browse/logic/date";
 import { AddDayNoteSheet } from "@/features/plan/components/AddDayNoteSheet";
 import { TripShowLabelSheet } from "@/features/plan/components/TripShowLabelSheet";
 import { useTripData } from "@/features/plan/hooks/useTripData";
@@ -55,6 +55,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
   const chipBg = Colors[theme].surface;
 
   const [labelSheetItem, setLabelSheetItem] = useState<any | null>(null);
@@ -179,7 +180,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
                       onPress={() => setAssignForDay(day.date)}
                       hitSlop={8}
                     >
-                      <Text style={styles.dayAddBtnText}>+</Text>
+                      <Text style={[styles.dayAddBtnText, { color: onAccent }]}>+</Text>
                     </Pressable>
                   ) : null}
                 </View>
@@ -232,7 +233,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
                             <Pressable onPress={() => setLabelSheetItem(item)}>
                               <View style={styles.playbillTapArea}>
                                 {image ? (
-                                  <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                                  <Image source={{ uri: image }} style={[styles.playbillImg, { backgroundColor: chipBg }]} contentFit="contain" />
                                 ) : (
                                   <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}>
                                     <Text
@@ -294,7 +295,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
                   onPress={() => assignForDay && handleAssignToDay(item.showId, assignForDay)}
                 >
                   {item.show?.images?.[0] ? (
-                    <Image source={{ uri: item.show.images[0] }} style={styles.assignThumb} contentFit="cover" />
+                    <Image source={{ uri: item.show.images[0] }} style={[styles.assignThumb, { backgroundColor: chipBg }]} contentFit="contain" />
                   ) : (
                     <View style={[styles.assignThumb, { backgroundColor: chipBg, borderRadius: 4 }]} />
                   )}
@@ -405,7 +406,7 @@ const styles = StyleSheet.create({
   dayBtnRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   dayIconBtn: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   dayAddBtn: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  dayAddBtnText: { color: "#fff", fontSize: 20, lineHeight: 22, fontWeight: "300" },
+  dayAddBtnText: { fontSize: 20, lineHeight: 22, fontWeight: "300" },
   noteCard: {
     flexDirection: "row",
     alignItems: "center",

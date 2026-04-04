@@ -50,6 +50,7 @@ export default function UserSearchScreen() {
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
   const chipBg = Colors[theme].surface;
 
   const [input, setInput] = useState("");
@@ -178,7 +179,7 @@ export default function UserSearchScreen() {
               {busy ? (
                 <ActivityIndicator
                   size="small"
-                  color={item.viewerFollows ? mutedTextColor : "#fff"}
+                  color={item.viewerFollows ? mutedTextColor : onAccent}
                 />
               ) : (
                 <Text
@@ -186,7 +187,7 @@ export default function UserSearchScreen() {
                     styles.followBtnText,
                     item.viewerFollows
                       ? { color: primaryTextColor }
-                      : { color: "#fff" },
+                      : { color: onAccent },
                   ]}
                 >
                   {item.viewerFollows ? "Following" : "Follow"}

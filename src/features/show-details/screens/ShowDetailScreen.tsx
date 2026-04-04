@@ -21,7 +21,14 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useSession } from "@/lib/auth-client";
-import { getProductionStatus } from "@/utils/productions";
+import {
+  closingCountdownLabel,
+  daysUntil,
+  earliestFutureRunDate,
+  formatDate,
+} from "@/features/browse/logic/date";
+import { playbillMatBackground } from "@/features/browse/styles";
+import { getProductionStatus, type ProductionStatus } from "@/utils/productions";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -76,6 +83,58 @@ function prodTypeLabel(t: string): string {
 }
 
 const today = () => new Date().toISOString().split("T")[0];
+
+function productionStatusLine(
+  p: {
+    previewDate?: string;
+    openingDate?: string;
+    closingDate?: string;
+    isOpenRun?: boolean | null;
+  },
+  status: ProductionStatus,
+  todayStr: string
+): string {
+  if (status === "closed") {
+    const c = formatDate(p.closingDate);
+    return c ? `Closed ${c}` : "Closed";
+  }
+
+  if (p.closingDate) {
+    const c = formatDate(p.closingDate);
+    if (c) {
+      const d = daysUntil(p.closingDate);
+      if (d > 0 && d <= 30) {
+        return `Closes ${c} · ${closingCountdownLabel(d)}`;
+      }
+      return `Closes ${c}`;
+    }
+  }
+
+  switch (status) {
+    case "announced": {
+      const m = earliestFutureRunDate(p.previewDate, p.openingDate, todayStr);
+      if (!m) return "Announced";
+      const formatted = formatDate(m);
+      if (!formatted) return "Announced";
+      if (p.previewDate === m) return `Previews ${formatted}`;
+      return `Opens ${formatted}`;
+    }
+    case "in_previews": {
+      const parts: string[] = ["In previews"];
+      if (p.openingDate && p.openingDate >= todayStr) {
+        const o = formatDate(p.openingDate);
+        if (o) parts.push(`opens ${o}`);
+      }
+      return parts.join(" · ");
+    }
+    case "open_run":
+      return "Open run";
+    case "open":
+      return "Running";
+    default:
+      return "";
+  }
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -226,7 +285,11 @@ export default function ShowDetailScreen() {
         <View style={styles.heroRow}>
           <View style={[styles.playbillWrap, { width: playbillSize, height: playbillSize * 1.4 }]}>
             {posterUrl ? (
-              <Image source={{ uri: posterUrl }} style={styles.playbillImg} contentFit="cover" />
+              <Image
+                source={{ uri: posterUrl }}
+                style={[styles.playbillImg, { backgroundColor: playbillMatBackground(theme) }]}
+                contentFit="contain"
+              />
             ) : (
               <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
                 <Text
@@ -260,6 +323,9 @@ export default function ShowDetailScreen() {
             {productions.map((p, i) => {
               const status = getProductionStatus(p, todayStr);
               const isActive = status !== "closed";
+              const statusLine = productionStatusLine(p, status, todayStr);
+              const warmClosing =
+                isActive && Boolean(p.closingDate) && statusLine.startsWith("Closes");
               return (
                 <View
                   key={p._id}
@@ -269,7 +335,11 @@ export default function ShowDetailScreen() {
                   ]}
                 >
                   {p.posterUrl ? (
-                    <Image source={{ uri: p.posterUrl }} style={styles.prodThumb} contentFit="cover" />
+                    <Image
+                      source={{ uri: p.posterUrl }}
+                      style={[styles.prodThumb, { backgroundColor: playbillMatBackground(theme) }]}
+                      contentFit="contain"
+                    />
                   ) : (
                     <View style={[styles.prodThumbFallback, { backgroundColor: c.border }]} />
                   )}
@@ -280,15 +350,15 @@ export default function ShowDetailScreen() {
                     <Text style={[styles.prodMeta, { color: c.mutedText }]} numberOfLines={1}>
                       {districtLabel(p.district)} · {prodTypeLabel(p.productionType)}
                     </Text>
-                    {p.closingDate ? (
-                      <Text style={[styles.prodMeta, { color: isActive ? "#E65100" : c.mutedText }]}>
-                        {isActive ? `Closes ${p.closingDate}` : `Closed ${p.closingDate}`}
-                      </Text>
-                    ) : (
-                      <Text style={[styles.prodMeta, { color: c.mutedText }]}>
-                        {isActive ? "Running" : "Closed"}
-                      </Text>
-                    )}
+                    <Text
+                      style={[
+                        styles.prodMeta,
+                        { color: warmClosing ? "#E65100" : c.mutedText },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {statusLine}
+                    </Text>
                   </View>
                 </View>
               );
@@ -306,7 +376,9 @@ export default function ShowDetailScreen() {
                 style={[styles.row, { borderTopColor: c.border }]}
                 onPress={() => router.push({ pathname: "/visit/[visitId]", params: { visitId: String(visit._id) } })}
               >
-                <Text style={[styles.rowText, { color: c.text }]}>{visit.date}</Text>
+                <Text style={[styles.rowText, { color: c.text }]}>
+                  {formatDate(visit.date) ?? visit.date}
+                </Text>
                 <Text style={[styles.rowChevron, { color: c.mutedText }]}>›</Text>
               </Pressable>
             ))}
@@ -315,24 +387,36 @@ export default function ShowDetailScreen() {
 
         {/* ── Action buttons ────────────────────────────────────────────────── */}
         <Pressable
-          style={[styles.primaryBtn, { backgroundColor: Colors.light.accent }]}
-          onPress={() => router.push("/add-visit")}
+          style={[styles.primaryBtn, { backgroundColor: c.accent }]}
+          onPress={() => {
+            if (!showId) {
+              router.push("/add-visit");
+              return;
+            }
+            router.push({
+              pathname: "/add-visit",
+              params: {
+                showId: String(showId),
+                showName: show?.name ?? params.name ?? "",
+              },
+            });
+          }}
         >
-          <Text style={styles.primaryBtnText}>Add a Visit</Text>
+          <Text style={[styles.primaryBtnText, { color: c.onAccent }]}>Add a Visit</Text>
         </Pressable>
 
         <View style={styles.secondaryBtnRow}>
           <Pressable
-            style={[styles.secondaryBtn, { backgroundColor: Colors.light.accent + "18", borderColor: Colors.light.accent + "40" }]}
+            style={[styles.secondaryBtn, { backgroundColor: c.accent + "18", borderColor: c.accent + "40" }]}
             onPress={() => setListSheetOpen(true)}
           >
-            <Text style={[styles.secondaryBtnText, { color: Colors.light.accent }]}>+ Add to List</Text>
+            <Text style={[styles.secondaryBtnText, { color: c.accent }]}>+ Add to List</Text>
           </Pressable>
           <Pressable
-            style={[styles.secondaryBtn, { backgroundColor: Colors.light.accent + "18", borderColor: Colors.light.accent + "40" }]}
+            style={[styles.secondaryBtn, { backgroundColor: c.accent + "18", borderColor: c.accent + "40" }]}
             onPress={() => setTripSheetOpen(true)}
           >
-            <Text style={[styles.secondaryBtnText, { color: Colors.light.accent }]}>+ Add to Trip</Text>
+            <Text style={[styles.secondaryBtnText, { color: c.accent }]}>+ Add to Trip</Text>
           </Pressable>
         </View>
 
@@ -394,7 +478,10 @@ export default function ShowDetailScreen() {
               >
                 <View>
                   <Text style={[styles.sheetRowText, { color: c.text }]}>{trip.name}</Text>
-                  <Text style={[styles.sheetRowMeta, { color: c.mutedText }]}>{trip.startDate} – {trip.endDate}</Text>
+                  <Text style={[styles.sheetRowMeta, { color: c.mutedText }]}>
+                    {formatDate(trip.startDate) ?? trip.startDate} –{" "}
+                    {formatDate(trip.endDate) ?? trip.endDate}
+                  </Text>
                 </View>
                 {addingToTrip === trip._id ? (
                   <ActivityIndicator size="small" color={c.mutedText} />
@@ -444,10 +531,10 @@ export default function ShowDetailScreen() {
                 styles.feedbackChip,
                 {
                   borderColor:
-                    feedbackProductionId === null ? Colors.light.accent : c.border,
+                    feedbackProductionId === null ? c.accent : c.border,
                   backgroundColor:
                     feedbackProductionId === null
-                      ? Colors.light.accent + "22"
+                      ? c.accent + "22"
                       : c.surfaceElevated,
                 },
               ]}
@@ -456,7 +543,7 @@ export default function ShowDetailScreen() {
                 style={{
                   fontSize: 13,
                   fontWeight: "600",
-                  color: feedbackProductionId === null ? Colors.light.accent : c.text,
+                  color: feedbackProductionId === null ? c.accent : c.text,
                 }}
               >
                 Whole show
@@ -473,9 +560,9 @@ export default function ShowDetailScreen() {
                   style={[
                     styles.feedbackChip,
                     {
-                      borderColor: selected ? Colors.light.accent : c.border,
+                      borderColor: selected ? c.accent : c.border,
                       backgroundColor: selected
-                        ? Colors.light.accent + "22"
+                        ? c.accent + "22"
                         : c.surfaceElevated,
                       maxWidth: 200,
                     },
@@ -485,7 +572,7 @@ export default function ShowDetailScreen() {
                     style={{
                       fontSize: 13,
                       fontWeight: "600",
-                      color: selected ? Colors.light.accent : c.text,
+                      color: selected ? c.accent : c.text,
                     }}
                     numberOfLines={2}
                   >
@@ -528,16 +615,16 @@ export default function ShowDetailScreen() {
               style={[
                 styles.feedbackSendBtn,
                 {
-                  backgroundColor: Colors.light.accent,
+                  backgroundColor: c.accent,
                   opacity:
                     feedbackSubmitting || feedbackNote.trim().length < 3 ? 0.45 : 1,
                 },
               ]}
             >
               {feedbackSubmitting ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={c.onAccent} />
               ) : (
-                <Text style={styles.feedbackSendBtnText}>Send</Text>
+                <Text style={[styles.feedbackSendBtnText, { color: c.onAccent }]}>Send</Text>
               )}
             </Pressable>
           </View>
@@ -579,7 +666,7 @@ const styles = StyleSheet.create({
 
   // Buttons
   primaryBtn: { borderRadius: 10, alignItems: "center", justifyContent: "center", paddingVertical: 13 },
-  primaryBtnText: { fontWeight: "700", fontSize: 15, color: "#fff" },
+  primaryBtnText: { fontWeight: "700", fontSize: 15 },
   secondaryBtnRow: { flexDirection: "row", gap: 10 },
   secondaryBtn: { flex: 1, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingVertical: 11 },
   secondaryBtnText: { fontWeight: "600", fontSize: 14 },
@@ -643,5 +730,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  feedbackSendBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  feedbackSendBtnText: { fontWeight: "700", fontSize: 15 },
 });

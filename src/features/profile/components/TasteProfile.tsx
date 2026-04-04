@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Colors } from "@/constants/theme";
@@ -63,11 +63,19 @@ export function TasteProfile({ userId }: TasteProfileProps) {
     sortBy,
   });
 
+  // Keep the last successfully loaded stats to avoid collapsing the layout
+  // while new data loads (prevents parent ScrollView from jumping to top).
+  const staleStatsRef = useRef(aggregatedStats);
+  useEffect(() => {
+    if (aggregatedStats !== undefined) staleStatsRef.current = aggregatedStats;
+  }, [aggregatedStats]);
+  const displayStats = aggregatedStats ?? staleStatsRef.current;
+
   if (recentActivity === undefined && aggregatedStats === undefined) return null;
   if (
     recentActivity &&
     recentActivity.visitCount === 0 &&
-    (!aggregatedStats || aggregatedStats.length === 0)
+    (!displayStats || displayStats.length === 0)
   ) {
     return null;
   }
@@ -100,10 +108,10 @@ export function TasteProfile({ userId }: TasteProfileProps) {
       </View>
 
       {/* Sort + count */}
-      {aggregatedStats && aggregatedStats.length > 0 && (
+      {displayStats && displayStats.length > 0 && (
         <View style={styles.sortRow}>
           <Text style={[styles.countLabel, { color: mutedTextColor }]}>
-            {aggregatedStats.length}{" "}
+            {displayStats.length}{" "}
             {CATEGORY_LABELS[category].toLowerCase()}
           </Text>
           <Pressable
@@ -117,7 +125,7 @@ export function TasteProfile({ userId }: TasteProfileProps) {
       )}
 
       {/* Stats list */}
-      {aggregatedStats?.map((item) => (
+      {displayStats?.map((item) => (
         <View key={item.category} style={[styles.statRow, { borderColor }]}>
           <View style={styles.statMain}>
             <Text style={[styles.statCategory, { color: primaryTextColor }]}>

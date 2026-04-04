@@ -19,6 +19,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
+import { playbillMatBackground } from "@/features/browse/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const COLS = 4;
@@ -201,7 +202,7 @@ export default function ListDetailScreen() {
                   onPress={saveDescription}
                   disabled={isSavingDescription}
                 >
-                  <Text style={[styles.saveDescriptionText, { color: "#fff" }]}>
+                  <Text style={[styles.saveDescriptionText, { color: c.onAccent }]}>
                     {isSavingDescription ? "Saving..." : "Save"}
                   </Text>
                 </Pressable>
@@ -298,7 +299,14 @@ export default function ListDetailScreen() {
                     }
                   >
                     {image ? (
-                      <Image source={{ uri: image }} style={styles.playbillImg} contentFit="cover" />
+                      <Image
+                        source={{ uri: image }}
+                        style={[
+                          styles.playbillImg,
+                          { backgroundColor: playbillMatBackground(theme) },
+                        ]}
+                        contentFit="contain"
+                      />
                     ) : (
                       <View style={[styles.playbillFb, { backgroundColor: c.surface }]}>
                         <Text style={[styles.playbillFbText, { color: c.mutedText }]} numberOfLines={4}>

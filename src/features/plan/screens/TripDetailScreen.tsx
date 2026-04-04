@@ -96,6 +96,7 @@ export default function TripDetailScreen() {
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
 
   const [activeTab, setActiveTab] = useState<Tab>("shows");
   const [showEditTrip, setShowEditTrip] = useState(false);
@@ -123,7 +124,7 @@ export default function TripDetailScreen() {
     setInviteResponding(accept ? "accept" : "decline");
     try {
       await respondToTripInvitation({ tripId: typedTripId, accept });
-      if (!accept) router.back();
+      if (!accept) router.navigate("/(tabs)/plan");
     } catch {
       Alert.alert("Error", "Could not respond to invitation. Try again.");
     } finally {
@@ -168,7 +169,7 @@ export default function TripDetailScreen() {
         style: "destructive",
         onPress: async () => {
           await deleteTrip({ tripId: typedTripId });
-          router.back();
+          router.navigate("/(tabs)/plan");
         },
       },
     ]);
@@ -234,7 +235,7 @@ export default function TripDetailScreen() {
       {/* Header */}
       <View style={[styles.pageHeader, { borderBottomColor: borderColor }]}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => router.navigate("/(tabs)/plan")}
           style={styles.headerSide}
           hitSlop={12}
         >
@@ -289,9 +290,9 @@ export default function TripDetailScreen() {
               onPress={() => handleInviteRespond(true)}
             >
               {inviteResponding === "accept" ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={onAccent} />
               ) : (
-                <Text style={styles.inviteBannerBtnText}>Accept</Text>
+                <Text style={[styles.inviteBannerBtnText, { color: onAccent }]}>Accept</Text>
               )}
             </Pressable>
             <Pressable
@@ -492,7 +493,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   inviteBannerBtnOutline: { borderWidth: StyleSheet.hairlineWidth },
-  inviteBannerBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  inviteBannerBtnText: { fontSize: 13, fontWeight: "700" },
   tabBar: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth },
   tabItem: {
     flex: 1,

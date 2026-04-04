@@ -277,6 +277,7 @@ export function MyShowsMapView({
                           <Image
                             source={{ uri: marker.previewImages[0] }}
                             style={styles.playbillImage}
+                            resizeMode="contain"
                           />
                         </View>
                         <View style={styles.playbillPinStem} />
@@ -499,7 +500,7 @@ const styles = StyleSheet.create({
   playbillImage: {
     width: "100%",
     height: "100%",
-    resizeMode: "cover",
+    backgroundColor: "#ececf0",
   },
   playbillPinStem: {
     width: 2,

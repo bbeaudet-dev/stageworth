@@ -75,7 +75,7 @@ export function LocationSection({
                       style={[
                         styles.productionChipText,
                         { color: c.mutedText },
-                        selected && [styles.productionChipTextSelected, { color: "#fff" }],
+                        selected && [styles.productionChipTextSelected, { color: c.onAccent }],
                       ]}
                     >
                       {labelParts.join(" · ")}
@@ -98,7 +98,7 @@ export function LocationSection({
                   style={[
                     styles.productionChipText,
                     { color: c.mutedText },
-                    useOtherProduction && [styles.productionChipTextSelected, { color: "#fff" }],
+                    useOtherProduction && [styles.productionChipTextSelected, { color: c.onAccent }],
                   ]}
                 >
                   Other
