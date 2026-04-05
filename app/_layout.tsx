@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 
+import { ToastProvider } from "@/components/Toast";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { authClient } from "@/lib/auth-client";
 import { convex } from "@/lib/convex";
@@ -28,35 +29,41 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ConvexBetterAuthProvider client={convex} authClient={authClient}>
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="sign-in" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="add-visit"
-              options={{ presentation: "modal", headerShown: false }}
-            />
-            <Stack.Screen
-              name="edit-visit/[visitId]"
-              options={{ presentation: "modal", headerShown: false }}
-            />
-            <Stack.Screen
-              name="account-settings"
-              options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
-            />
-            <Stack.Screen
-              name="notifications"
-              options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
-            />
-            <Stack.Screen
-              name="user-search"
-              options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
-            />
-            <Stack.Screen
-              name="modal"
-              options={{ presentation: "modal", title: "Modal" }}
-            />
-          </Stack>
-          <StatusBar style="auto" />
+          <ToastProvider>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="add-visit"
+                options={{ presentation: "modal", headerShown: false }}
+              />
+              <Stack.Screen
+                name="edit-visit/[visitId]"
+                options={{ presentation: "modal", headerShown: false }}
+              />
+              <Stack.Screen
+                name="account-settings"
+                options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+              />
+              <Stack.Screen
+                name="preferences"
+                options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+              />
+              <Stack.Screen
+                name="notifications"
+                options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+              />
+              <Stack.Screen
+                name="user-search"
+                options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+              />
+              <Stack.Screen
+                name="modal"
+                options={{ presentation: "modal", title: "Modal" }}
+              />
+            </Stack>
+            <StatusBar style="auto" />
+          </ToastProvider>
         </ThemeProvider>
       </ConvexBetterAuthProvider>
     </GestureHandlerRootView>
