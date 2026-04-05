@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Theatre Diary — Problem Strategy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0e0a07;
+    --cream: #f7f2e8;
+    --red: #b5192b;
+    --gold: #c8922a;
+    --gold-light: #e8c76a;
+    --muted: #8a7f72;
+    --paper: #ede8de;
+    --highlight: #fdf6e3;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grain texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.6;
+  }
+
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 32px 80px;
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 56px;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 20px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards;
+  }
+
+  .header-left { flex: 1; }
+
+  .eyebrow {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--red);
+    margin-bottom: 6px;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 900;
+    line-height: 1.05;
+    color: var(--ink);
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--red);
+  }
+
+  .header-right {
+    text-align: right;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.6;
+    padding-top: 4px;
+  }
+
+  /* ── Matrix container ── */
+  .matrix-wrap {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    grid-template-rows: 1fr 32px;
+    gap: 0;
+    height: 480px;
+    margin-bottom: 48px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease 0.15s forwards;
+  }
+
+  .y-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .y-label::before, .y-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--muted);
+    opacity: 0.4;
+  }
+
+  .x-label {
+    grid-column: 2;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .x-label::before, .x-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--muted);
+    opacity: 0.4;
+  }
+
+  /* ── The actual matrix plot ── */
+  .matrix {
+    grid-column: 2;
+    grid-row: 1;
+    background: var(--paper);
+    border: 1.5px solid var(--ink);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Quadrant dividers */
+  .matrix::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 0; right: 0;
+    height: 1px;
+    background: var(--muted);
+    opacity: 0.3;
+  }
+  .matrix::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 0; bottom: 0;
+    width: 1px;
+    background: var(--muted);
+    opacity: 0.3;
+  }
+
+  /* Highlight zone — top-right */
+  .sweet-spot {
+    position: absolute;
+    top: 0; right: 0;
+    width: 50%; height: 50%;
+    background: linear-gradient(225deg, rgba(200,146,42,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .sweet-spot-label {
+    position: absolute;
+    top: 16px; right: 16px;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 500;
+  }
+
+  /* Axis corner labels */
+  .corner {
+    position: absolute;
+    font-size: 9px;
+    color: var(--muted);
+    font-weight: 300;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
+  }
+  .corner.tl { top: 10px; left: 10px; }
+  .corner.tr { top: 10px; right: 10px; text-align: right; }
+  .corner.bl { bottom: 10px; left: 10px; }
+  .corner.br { bottom: 10px; right: 10px; text-align: right; }
+
+  /* ── Problem bubbles ── */
+  .bubble {
+    position: absolute;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    transform: scale(0);
+    animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  }
+
+  .bubble:hover {
+    transform: scale(1.12) !important;
+    z-index: 10;
+  }
+
+  .bubble.active {
+    transform: scale(1.12) !important;
+    z-index: 10;
+  }
+
+  .bubble-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+
+  /* Individual bubbles */
+  #b-tracking {
+    width: 110px; height: 110px;
+    left: 62%; top: 8%;
+    animation-delay: 0.4s;
+  }
+  #b-tracking .bubble-inner { background: var(--red); }
+
+  #b-fomo {
+    width: 96px; height: 96px;
+    left: 72%; top: 38%;
+    animation-delay: 0.55s;
+  }
+  #b-fomo .bubble-inner { background: #8b1020; }
+
+  #b-social {
+    width: 78px; height: 78px;
+    left: 52%; top: 55%;
+    animation-delay: 0.7s;
+  }
+  #b-social .bubble-inner { background: var(--gold); }
+
+  #b-discovery {
+    width: 70px; height: 70px;
+    left: 16%; top: 48%;
+    animation-delay: 0.85s;
+  }
+  #b-discovery .bubble-inner { background: var(--muted); opacity: 0.9; }
+
+  .bubble-label {
+    position: absolute;
+    bottom: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink);
+    text-align: center;
+    pointer-events: none;
+  }
+
+  /* ── Detail panel ── */
+  .detail-panel {
+    opacity: 0;
+    animation: fadeUp 0.6s ease 0.3s forwards;
+    margin-bottom: 48px;
+  }
+
+  .detail-panel h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .detail-panel h2::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--ink);
+    opacity: 0.15;
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .card {
+    background: white;
+    border: 1.5px solid transparent;
+    border-radius: 4px;
+    padding: 20px;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+
+  .card:hover, .card.active {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    transform: translateY(-2px);
+  }
+
+  .card[data-problem="tracking"] { border-color: #b5192b33; }
+  .card[data-problem="tracking"]::before { background: var(--red); }
+  .card[data-problem="tracking"]:hover, .card[data-problem="tracking"].active { border-color: var(--red); }
+
+  .card[data-problem="fomo"] { border-color: #8b102033; }
+  .card[data-problem="fomo"]::before { background: #8b1020; }
+  .card[data-problem="fomo"]:hover, .card[data-problem="fomo"].active { border-color: #8b1020; }
+
+  .card[data-problem="social"] { border-color: #c8922a33; }
+  .card[data-problem="social"]::before { background: var(--gold); }
+  .card[data-problem="social"]:hover, .card[data-problem="social"].active { border-color: var(--gold); }
+
+  .card[data-problem="discovery"] { border-color: #8a7f7233; }
+  .card[data-problem="discovery"]::before { background: var(--muted); }
+  .card[data-problem="discovery"]:hover, .card[data-problem="discovery"].active { border-color: var(--muted); }
+
+  .card-tag {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+
+  .card[data-problem="tracking"] .card-tag { color: var(--red); }
+  .card[data-problem="fomo"] .card-tag { color: #8b1020; }
+  .card[data-problem="social"] .card-tag { color: var(--gold); }
+  .card[data-problem="discovery"] .card-tag { color: var(--muted); }
+
+  .card h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 10px;
+    line-height: 1.3;
+  }
+
+  .card p {
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: #4a4035;
+    font-weight: 300;
+  }
+
+  .card .verdict {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #f0ece4;
+    font-size: 11px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .verdict-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+
+  .badge-primary { background: #fdf0f0; color: var(--red); }
+  .badge-secondary { background: #fdf8f0; color: var(--gold); }
+  .badge-skip { background: #f4f4f4; color: var(--muted); }
+
+  /* ── Recommendation block ── */
+  .recommendation {
+    background: var(--ink);
+    color: var(--cream);
+    padding: 40px 48px;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    animation: fadeUp 0.6s ease 0.45s forwards;
+  }
+
+  .recommendation::before {
+    content: '★';
+    position: absolute;
+    right: 32px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 140px;
+    color: white;
+    opacity: 0.03;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .rec-eyebrow {
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold-light);
+    margin-bottom: 12px;
+    font-weight: 500;
+  }
+
+  .recommendation h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(20px, 3vw, 30px);
+    font-weight: 900;
+    color: var(--cream);
+    line-height: 1.15;
+    margin-bottom: 20px;
+  }
+
+  .recommendation h2 em {
+    font-style: italic;
+    color: var(--gold-light);
+  }
+
+  .rec-body {
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: rgba(247,242,232,0.75);
+    font-weight: 300;
+    max-width: 640px;
+  }
+
+  .rec-body strong {
+    color: var(--cream);
+    font-weight: 500;
+  }
+
+  .rec-analogy {
+    margin-top: 20px;
+    padding: 14px 20px;
+    border-left: 2px solid var(--gold);
+    font-size: 12.5px;
+    color: rgba(247,242,232,0.65);
+    line-height: 1.6;
+    font-style: italic;
+  }
+
+  .rec-analogy strong {
+    color: var(--gold-light);
+    font-style: normal;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes popIn {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 12px;
+    padding: 0 0 0 32px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease 0.2s forwards;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="eyebrow">Theatre Diary · Product Strategy</div>
+      <h1>Which problem<br>deserves the <em>spotlight?</em></h1>
+    </div>
+    <div class="header-right">
+      Pain Severity<br>× White Space Analysis<br>
+      <span style="color:var(--gold)">Apr 2026</span>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <span style="font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-right:4px;">Bubble size = market urgency</span>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div> Primary focus</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--gold)"></div> Growth lever</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--muted)"></div> Defer</div>
+  </div>
+
+  <!-- Matrix -->
+  <div class="matrix-wrap">
+    <div class="y-label">Competitive White Space ↑</div>
+    <div class="matrix" id="matrix">
+      <div class="sweet-spot"></div>
+      <div class="sweet-spot-label">SWEET SPOT</div>
+
+      <div class="corner tl">Niche opportunity</div>
+      <div class="corner tr">Build here first</div>
+      <div class="corner bl">Skip for now</div>
+      <div class="corner br">Crowded market</div>
+
+      <!-- Bubbles -->
+      <div class="bubble" id="b-tracking" data-problem="tracking">
+        <div class="bubble-inner">📖</div>
+        <span class="bubble-label">Tracking</span>
+      </div>
+
+      <div class="bubble" id="b-fomo" data-problem="fomo">
+        <div class="bubble-inner">⏰</div>
+        <span class="bubble-label">FOMO / Planning</span>
+      </div>
+
+      <div class="bubble" id="b-social" data-problem="social">
+        <div class="bubble-inner">👥</div>
+        <span class="bubble-label">Social / Status</span>
+      </div>
+
+      <div class="bubble" id="b-discovery" data-problem="discovery">
+        <div class="bubble-inner">🔍</div>
+        <span class="bubble-label">Discovery</span>
+      </div>
+    </div>
+    <div class="x-label">Pain Severity →</div>
+  </div>
+
+  <!-- Cards -->
+  <div class="detail-panel">
+    <h2>The four problems, assessed</h2>
+    <div class="cards">
+
+      <div class="card" data-problem="tracking" id="card-tracking">
+        <div class="card-tag">Problem 3 · High priority</div>
+        <h3>"I want to track what I've seen and what I love"</h3>
+        <p>Theatre fans are <em>passionate cataloguers</em> — right now they use Notes apps, spreadsheets, and Instagram. There is no Letterboxd for theatre. This is a solved problem in film and books, but a total gap for live performance.</p>
+        <div class="verdict">
+          <span class="verdict-badge badge-primary">★ Build this first</span>
+          <span style="color:var(--muted);font-weight:300">Validated model, clear pain, no competitor</span>
+        </div>
+      </div>
+
+      <div class="card" data-problem="fomo" id="card-fomo">
+        <div class="card-tag">Problem 4 · High priority</div>
+        <h3>"I can't miss a show — runs are limited and seats sell out"</h3>
+        <p>Theatre has a <em>unique urgency</em> movies and books lack. A limited run closes. A sold-out show is gone forever. The pain of missing something you wanted to see is real and immediate. No app solves this well with watchlists + alerts.</p>
+        <div class="verdict">
+          <span class="verdict-badge badge-primary">★ Build this first</span>
+          <span style="color:var(--muted);font-weight:300">Uniquely acute pain, creates daily habit</span>
+        </div>
+      </div>
+
+      <div class="card" data-problem="social" id="card-social">
+        <div class="card-tag">Problem 2 · Growth lever</div>
+        <h3>"I want to share my opinions and connect with others"</h3>
+        <p>Theatre fans have strong identities. But Instagram already fills most of this — the social angle works best as a <em>growth multiplier</em> on top of tracking, not as a standalone reason to use the app.</p>
+        <div class="verdict">
+          <span class="verdict-badge badge-secondary">◎ Layer in second</span>
+          <span style="color:var(--muted);font-weight:300">Drives retention and word-of-mouth</span>
+        </div>
+      </div>
+
+      <div class="card" data-problem="discovery" id="card-discovery">
+        <div class="card-tag">Problem 1 · Defer</div>
+        <h3>"I want to find shows I'll love"</h3>
+        <p>Discovery requires data at scale, content licensing, and editorial curation. TodayTix, Google, and word-of-mouth already do this adequately. It's a <em>later feature</em>, earned after you've built a taste profile from tracking data.</p>
+        <div class="verdict">
+          <span class="verdict-badge badge-skip">○ Earn it later</span>
+          <span style="color:var(--muted);font-weight:300">Needs data you'll build from #3 first</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Recommendation -->
+  <div class="recommendation">
+    <div class="rec-eyebrow">Strategic recommendation</div>
+    <h2>Solve the <em>"nothing else does this for theatre"</em> problem</h2>
+    <p class="rec-body">
+      The sharpest opportunity is the overlap of <strong>tracking + FOMO</strong>: building the definitive log of what theatre fans have seen, love, and want to see — paired with alerts so they never miss a limited run. This is a real, daily pain point with no incumbent solving it. It's also the foundation everything else is built on. <strong>Social status and discovery are emergent features</strong>, not the reason to open the app.
+    </p>
+    <div class="rec-analogy">
+      <strong>The Letterboxd model:</strong> Letterboxd didn't start as a social network. It started as a place to log films. The social layer emerged from the data people were already creating. Their tracking became discovery, which became community. Theatre Diary can follow the same arc — but theatre fans have even stronger emotional attachment to live performance than casual moviegoers.
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Sync bubble + card hover states
+  const bubbles = document.querySelectorAll('.bubble');
+  const cards = document.querySelectorAll('.card');
+
+  function activate(problem) {
+    bubbles.forEach(b => b.classList.toggle('active', b.dataset.problem === problem));
+    cards.forEach(c => c.classList.toggle('active', c.dataset.problem === problem));
+  }
+
+  function deactivate() {
+    bubbles.forEach(b => b.classList.remove('active'));
+    cards.forEach(c => c.classList.remove('active'));
+  }
+
+  [...bubbles, ...cards].forEach(el => {
+    el.addEventListener('mouseenter', () => activate(el.dataset.problem));
+    el.addEventListener('mouseleave', deactivate);
+  });
+</script>
+</body>
+</html>

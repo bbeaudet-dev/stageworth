@@ -22,6 +22,11 @@ export default defineSchema({
     ),
     wikipediaTitle: v.optional(v.string()),
     ticketmasterAttractionId: v.optional(v.string()),
+    // ShowScore audience rating (0–100 scale)
+    showScoreRating: v.optional(v.number()),
+    showScoreCount: v.optional(v.string()),
+    showScoreSlug: v.optional(v.string()),
+    showScoreUpdatedAt: v.optional(v.number()),
     isUserCreated: v.boolean(),
     externalSource: v.optional(v.string()),
     externalId: v.optional(v.string()),
@@ -432,6 +437,15 @@ export default defineSchema({
   })
     .index("by_show", ["showId"])
     .index("by_user", ["userId"]),
+
+  // User theatre element preferences (importance ratings 1–5 Likert scale).
+  userPreferences: defineTable({
+    userId: v.id("users"),
+    elementRatings: v.array(
+      v.object({ element: v.string(), rating: v.number() })
+    ),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
 
   // Per-field review decisions for shows and productions.
   reviewQueue: defineTable({
