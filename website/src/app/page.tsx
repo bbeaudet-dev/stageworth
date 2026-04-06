@@ -2,28 +2,32 @@ import Image from "next/image";
 import { BRAND_BLUE, BRAND_PURPLE, BRAND_GRADIENT_STYLE } from "@/lib/brand-colors";
 import { TESTFLIGHT_PUBLIC_URL } from "@/lib/testflight";
 
+/** Display size for Next/Image; assets are 718×1428 (device screenshots). */
+const SHOT_WIDTH = 359;
+const SHOT_HEIGHT = 714;
+
 const FEATURES = [
   {
-    title: "Track Every Show",
-    description:
-      "Log every show you see with details like date, seat, cast, and more. Build your personal theatre history.",
+    title: "Browse what’s on",
+    imageSrc: "/screenshots/theatrediary2.jpg",
+    imageAlt: "Show detail screen in Theatre Diary",
   },
   {
-    title: "Rank Your Favorites",
-    description:
-      "Drag and drop your shows into a ranked list. See how your taste compares with friends.",
+    title: "Log & rank every show",
+    imageSrc: "/screenshots/theatrediary4.jpg",
+    imageAlt: "Logging and tracking shows you have seen in Theatre Diary",
   },
   {
-    title: "Plan Theatre Trips",
-    description:
-      "Organize upcoming trips with friends — pick shows, schedule days, and vote on what to see.",
+    title: "Follow friends & share",
+    imageSrc: "/screenshots/theatrediary1.jpg",
+    imageAlt: "Theatre Diary community feed with posts from friends",
   },
   {
-    title: "Discover What's On",
-    description:
-      "Browse currently running, upcoming, and closing-soon productions across Broadway, Off-Broadway, West End, and more.",
+    title: "Plan theatre trips",
+    imageSrc: "/screenshots/theatrediary5.jpg",
+    imageAlt: "Trip planning in Theatre Diary",
   },
-];
+] as const;
 
 export default function HomePage() {
   return (
@@ -74,30 +78,36 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Features */}
+      {/* Features + screenshots */}
       <section className="py-20 sm:py-28">
         <div className="mx-auto max-w-5xl px-4">
-          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-16 bg-linear-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-4 bg-linear-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
             Everything a theatregoer needs
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 lg:gap-12">
-            {FEATURES.map((feature) => (
-              <div key={feature.title} className="flex gap-4">
-                <div
-                  className="shrink-0 h-10 w-10 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm"
-                  style={{
-                    background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, ${BRAND_PURPLE} 100%)`,
-                  }}
-                >
-                  {feature.title[0]}
+          <div className="flex flex-col gap-16 sm:gap-20 mt-16">
+            {FEATURES.map((feature, i) => (
+              <div
+                key={feature.title}
+                className={`flex flex-col gap-8 lg:flex-row lg:items-center lg:gap-12 ${
+                  i % 2 === 1 ? "lg:flex-row-reverse" : ""
+                }`}
+              >
+                <div className="flex justify-center lg:w-[min(100%,380px)] lg:shrink-0">
+                  <div className="relative w-full max-w-[280px] rounded-4xl overflow-hidden shadow-xl shadow-gray-900/15 ring-1 ring-black/6 bg-gray-900/5">
+                    <Image
+                      src={feature.imageSrc}
+                      alt={feature.imageAlt}
+                      width={SHOT_WIDTH}
+                      height={SHOT_HEIGHT}
+                      sizes="(max-width: 1024px) 280px, 320px"
+                      className="w-full h-auto object-cover object-top"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-1">
+                <div className="flex-1 min-w-0 text-center lg:text-left">
+                  <h3 className="text-xl sm:text-2xl font-semibold text-gray-900">
                     {feature.title}
                   </h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    {feature.description}
-                  </p>
                 </div>
               </div>
             ))}
