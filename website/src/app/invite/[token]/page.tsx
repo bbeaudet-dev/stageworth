@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { BRAND_BLUE, BRAND_GRADIENT_STYLE, BRAND_PURPLE } from "@/lib/brand-colors";
+import { BRAND_BLUE, BRAND_GRADIENT_STYLE } from "@/lib/brand-colors";
 import { TESTFLIGHT_PUBLIC_URL } from "@/lib/testflight";
 
 export default function InvitePage() {
@@ -21,7 +21,6 @@ export default function InvitePage() {
     window.location.href = deepLink;
 
     timerRef.current = setTimeout(() => {
-      // If we're still here, the app wasn't installed
       setStatus("fallback");
     }, 1500);
   }
@@ -35,20 +34,11 @@ export default function InvitePage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16">
-      {/* Hero card */}
       <div
         className="w-full max-w-md rounded-3xl text-white p-8 text-center shadow-2xl"
         style={BRAND_GRADIENT_STYLE}
       >
-        <div
-          className="pointer-events-none absolute inset-0 rounded-3xl opacity-30"
-          style={{
-            background: `radial-gradient(ellipse 80% 60% at 20% 10%, rgba(255,255,255,0.15), transparent 55%)`,
-          }}
-          aria-hidden
-        />
-
-        <div className="relative flex justify-center mb-6">
+        <div className="flex justify-center mb-6">
           <Image
             src="/icons/icon-192.png"
             alt="Theatre Diary"
@@ -58,16 +48,16 @@ export default function InvitePage() {
           />
         </div>
 
-        <h1 className="relative text-3xl font-bold tracking-tight mb-2">
+        <h1 className="text-3xl font-bold tracking-tight mb-2">
           Theatre Diary
         </h1>
-        <p className="relative text-white/80 text-base mb-8">
+        <p className="text-white/80 text-base mb-8">
           You&apos;ve been invited to join Theatre Diary — the app for tracking
           every show you see, ranking your favourites, and sharing with friends.
         </p>
 
         {status === "fallback" ? (
-          <div className="relative space-y-3">
+          <div className="space-y-3">
             <p className="text-sm text-white/70 mb-4">
               Looks like the app isn&apos;t installed yet. Get it on TestFlight:
             </p>
@@ -82,7 +72,7 @@ export default function InvitePage() {
             </a>
           </div>
         ) : (
-          <div className="relative space-y-3">
+          <div className="space-y-3">
             <button
               onClick={handleOpen}
               disabled={status === "opening"}
@@ -106,24 +96,6 @@ export default function InvitePage() {
         )}
       </div>
 
-      {/* Feature blurbs */}
-      <div className="mt-12 max-w-md w-full grid grid-cols-2 gap-4">
-        {[
-          { emoji: "🎭", title: "Log every show", desc: "Build a personal diary of every performance you attend." },
-          { emoji: "⭐", title: "Rank your faves", desc: "Create your all-time ranking and share it with friends." },
-          { emoji: "📅", title: "Plan trips", desc: "Organise theatre trips with friends and never miss a show." },
-          { emoji: "🏆", title: "Compete", desc: "Climb the leaderboard and see how you compare globally." },
-        ].map((f) => (
-          <div
-            key={f.title}
-            className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
-          >
-            <div className="text-2xl mb-2">{f.emoji}</div>
-            <h3 className="font-semibold text-gray-900 text-sm mb-1">{f.title}</h3>
-            <p className="text-xs text-gray-500 leading-snug">{f.desc}</p>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
