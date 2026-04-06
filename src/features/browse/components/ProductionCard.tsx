@@ -2,9 +2,13 @@ import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
+  closingStripBadge,
+  openingSoonPlaybillColors,
+} from "@/features/browse/logic/closingStrip";
+import {
   daysUntil,
   earliestFutureRunDate,
-  openingCountdownLabel,
+  openingMilestoneLabel,
 } from "@/features/browse/logic/date";
 import { playbillMatBackground, styles } from "@/features/browse/styles";
 import type { ProductionWithShow } from "@/features/browse/types";
@@ -37,14 +41,12 @@ function getStatusBadge(
     if (milestone) {
       const d = daysUntil(milestone);
       if (d >= 0) {
-        return isDark
-          ? { label: openingCountdownLabel(d), bg: "rgba(234,179,8,0.15)", text: "#FACC15" }
-          : { label: openingCountdownLabel(d), bg: "#FEFCE8", text: "#CA8A04" };
+        const { bg, text } = openingSoonPlaybillColors(isDark);
+        return { label: openingMilestoneLabel(milestone), bg, text };
       }
     }
-    return isDark
-      ? { label: "Announced", bg: "rgba(234,179,8,0.15)", text: "#FACC15" }
-      : { label: "Announced", bg: "#FEFCE8", text: "#CA8A04" };
+    const { bg, text } = openingSoonPlaybillColors(isDark);
+    return { label: "Announced", bg, text };
   }
 
   if (status === "open_run") {
@@ -58,14 +60,13 @@ function getStatusBadge(
       : { label: "Running", bg: "#F0FDF4", text: "#22C55E" };
   }
   if (status === "in_previews") {
-    return isDark
-      ? { label: "Previews", bg: "rgba(59,130,246,0.15)", text: "#60A5FA" }
-      : { label: "Previews", bg: "#EFF6FF", text: "#3B82F6" };
+    const { bg, text } = openingSoonPlaybillColors(isDark);
+    return { label: "Previews", bg, text };
   }
   return null;
 }
 
-/** Opening countdown badge for the Search "Coming Soon" rail/grid only (not closing dates). */
+/** Opening / preview badge for the Search "Coming Soon" rail and grid. */
 export function railBadgeForProduction(
   production: {
     previewDate?: string;
@@ -83,12 +84,21 @@ export function railBadgeForProduction(
   if (milestone) {
     const d = daysUntil(milestone);
     if (d >= 0) {
-      return isDark
-        ? { label: openingCountdownLabel(d), bg: "rgba(234,179,8,0.15)", text: "#FACC15" }
-        : { label: openingCountdownLabel(d), bg: "#FEFCE8", text: "#CA8A04" };
+      const { bg, text } = openingSoonPlaybillColors(isDark);
+      return { label: openingMilestoneLabel(milestone), bg, text };
     }
   }
   return null;
+}
+
+/** Closing badge for the Search "Closing Soon" rail and grid (matches trip playbill strip copy). */
+export function railBadgeForClosingSoon(
+  production: { closingDate?: string | null | undefined },
+  isDark: boolean,
+  todayStr: string
+): BadgeConfig | null {
+  const b = closingStripBadge(production.closingDate, todayStr, isDark);
+  return b ? { label: b.label, bg: b.bg, text: b.text } : null;
 }
 
 export function ProductionCard({

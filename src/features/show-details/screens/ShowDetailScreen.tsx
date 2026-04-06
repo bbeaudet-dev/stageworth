@@ -24,7 +24,6 @@ import { useToast } from "@/components/Toast";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useSession } from "@/lib/auth-client";
 import {
-  closingCountdownLabel,
   daysUntil,
   earliestFutureRunDate,
   formatDate,
@@ -114,9 +113,8 @@ function productionStatusLine(
     const c = formatDate(p.closingDate);
     if (c) {
       const d = daysUntil(p.closingDate);
-      if (d > 0 && d <= 30) {
-        return `Closes ${c} · ${closingCountdownLabel(d)}`;
-      }
+      if (d === 0) return "Closes today";
+      if (d === 1) return "Closes tomorrow";
       return `Closes ${c}`;
     }
   }

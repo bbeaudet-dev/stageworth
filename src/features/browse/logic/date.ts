@@ -1,27 +1,16 @@
+import { daysUntil, formatDateShort } from "@/utils/dates";
+
 export { formatDate, daysUntil } from "@/utils/dates";
 
-/** Human-readable label for a closing countdown (e.g. cards, rails). */
-export function closingCountdownLabel(diffDays: number): string {
-  if (diffDays === 0) return "Closes today";
-  if (diffDays === 1) return "Tomorrow";
-  if (diffDays < 7) return `${diffDays} days`;
-  if (diffDays < 28) {
-    const w = Math.floor(diffDays / 7);
-    return `${w} week${w === 1 ? "" : "s"}`;
-  }
-  return "1 month";
-}
-
-/** Human-readable label for first preview / opening (coming soon). */
-export function openingCountdownLabel(diffDays: number): string {
-  if (diffDays === 0) return "Starts today";
-  if (diffDays === 1) return "Tomorrow";
-  if (diffDays < 7) return `${diffDays} days`;
-  if (diffDays < 28) {
-    const w = Math.floor(diffDays / 7);
-    return `${w} week${w === 1 ? "" : "s"}`;
-  }
-  return "1 month";
+/**
+ * Opening / preview milestone for rails and playbills: only "today" and "tomorrow"
+ * are relative; otherwise show the actual calendar date (short form).
+ */
+export function openingMilestoneLabel(milestoneISODate: string): string {
+  const d = daysUntil(milestoneISODate);
+  if (d === 0) return "Starts today";
+  if (d === 1) return "Tomorrow";
+  return formatDateShort(milestoneISODate);
 }
 
 /** Earliest preview or opening date on or after `todayStr` (YYYY-MM-DD). */

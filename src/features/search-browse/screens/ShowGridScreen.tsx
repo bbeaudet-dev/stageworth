@@ -9,7 +9,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ShowCard } from "@/features/browse/components/ShowCard";
-import { railBadgeForProduction } from "@/features/browse/components/ProductionCard";
+import {
+  railBadgeForClosingSoon,
+  railBadgeForProduction,
+} from "@/features/browse/components/ProductionCard";
 import { styles as browseStyles } from "@/features/browse/styles";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
@@ -123,7 +126,9 @@ export default function ShowGridScreen() {
       const badge =
         config.query === "coming-soon"
           ? railBadgeForProduction(p, isDark, todayStr) ?? undefined
-          : undefined;
+          : config.query === "closing-soon"
+            ? railBadgeForClosingSoon(p, isDark, todayStr) ?? undefined
+            : undefined;
       result.push({
         _id: p.show._id,
         showId: p.show._id,

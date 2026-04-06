@@ -24,7 +24,10 @@ import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useNavGuard } from "@/hooks/use-nav-guard";
 import { useTabNav } from "@/hooks/use-tab-nav";
-import { railBadgeForProduction } from "@/features/browse/components/ProductionCard";
+import {
+  railBadgeForClosingSoon,
+  railBadgeForProduction,
+} from "@/features/browse/components/ProductionCard";
 import { chunkRows } from "@/utils/arrays";
 import { getInitials } from "@/utils/user";
 
@@ -260,6 +263,7 @@ export default function SearchBrowseScreen() {
                   _id: p._id,
                   show: p.show,
                   posterUrl: p.posterUrl,
+                  badge: railBadgeForClosingSoon(p, isDark, todayStr),
                 }))}
                 cardWidth={cardWidth}
                 surfaceColor={surface}
