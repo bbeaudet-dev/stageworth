@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { Redirect, Stack } from "expo-router";
+import { Redirect, Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,6 +12,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { authClient, useSession } from "@/lib/auth-client";
 
 export default function AccountSettingsScreen() {
+  const router = useRouter();
   const { data: session, isPending } = useSession();
   const myProfile = useQuery(api.social.profiles.getMyProfile);
   const updateMyProfile = useMutation(api.social.profiles.updateMyProfile);
@@ -128,6 +129,20 @@ export default function AccountSettingsScreen() {
             </Text>
           </Pressable>
         </View>
+        <Pressable
+          style={[styles.section, { backgroundColor: surfaceColor, borderColor: inputBorder }]}
+          onPress={() => router.push("/preferences")}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Theatre Preferences</Text>
+              <Text style={{ fontSize: 13, color: Colors[theme].mutedText }}>
+                Tell us what matters most to you in a show
+              </Text>
+            </View>
+            <Text style={{ fontSize: 18, color: Colors[theme].mutedText, fontWeight: "300" }}>›</Text>
+          </View>
+        </Pressable>
         <AccountSection
           email={session?.user?.email ?? "Unknown"}
           username={myProfile?.username}

@@ -2,7 +2,10 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
+import { isCatalogPublished } from "../catalogVisibility";
 import { requireConvexUserId } from "../auth";
+import type { ProductionStatus } from "../../src/utils/productions";
+import { getProductionStatus } from "../../src/utils/productions";
 import { resolveShowImageUrls } from "../helpers";
 import {
   deleteTripShowLabelsForTripShow,
@@ -96,6 +99,56 @@ function enumerateDays(startDate: string, endDate: string): string[] {
     current.setUTCDate(current.getUTCDate() + 1);
   }
   return days;
+}
+
+const TRIP_PRODUCTION_PRIORITY: Record<ProductionStatus, number> = {
+  open_run: 0,
+  open: 1,
+  in_previews: 2,
+  announced: 3,
+  closed: 99,
+};
+
+/**
+ * Pick one “current” production for trip UI (closing label, open run, etc.).
+ * Uses all runs for the show (not catalog visibility) so trips reflect admin data
+ * even when a run is still `needs_review`. Never falls back to a closed run.
+ */
+function pickTripProductionDisplay(
+  productions: Array<{
+    previewDate?: string;
+    openingDate?: string;
+    closingDate?: string;
+    isOpenRun?: boolean | null;
+  }>,
+  today: string
+): {
+  closingDate: string | null;
+  isOpenRun: boolean | null;
+  tripProductionStatus: ProductionStatus | null;
+} {
+  if (productions.length === 0) {
+    return { closingDate: null, isOpenRun: null, tripProductionStatus: null };
+  }
+  const active = productions.filter((p) => getProductionStatus(p, today) !== "closed");
+  if (active.length === 0) {
+    return { closingDate: null, isOpenRun: null, tripProductionStatus: null };
+  }
+  const sorted = [...active].sort((a, b) => {
+    const sta = getProductionStatus(a, today);
+    const stb = getProductionStatus(b, today);
+    const pa = TRIP_PRODUCTION_PRIORITY[sta];
+    const pb = TRIP_PRODUCTION_PRIORITY[stb];
+    if (pa !== pb) return pa - pb;
+    return (b.openingDate ?? "").localeCompare(a.openingDate ?? "");
+  });
+  const best = sorted[0];
+  const tripProductionStatus = getProductionStatus(best, today);
+  return {
+    closingDate: best.closingDate ?? null,
+    isOpenRun: best.isOpenRun ?? null,
+    tripProductionStatus,
+  };
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -205,12 +258,12 @@ export const getTripById = query({
           .query("productions")
           .withIndex("by_show", (q: any) => q.eq("showId", row.showId))
           .collect();
-        const currentProd = productions.find((p: any) => !p.closingDate || p.closingDate >= today)
-          ?? productions[productions.length - 1];
+        const pick = pickTripProductionDisplay(productions, today);
         return {
           ...row,
-          closingDate: currentProd?.closingDate ?? null,
-          isOpenRun: currentProd?.isOpenRun ?? null,
+          closingDate: pick.closingDate,
+          isOpenRun: pick.isOpenRun,
+          tripProductionStatus: pick.tripProductionStatus,
           show: {
             ...show,
             images: await resolveShowImageUrls(ctx, show),
@@ -333,6 +386,7 @@ export const getClosingSoonForTrip = query({
     const allProductions = await ctx.db.query("productions").collect();
     const closingSoon = allProductions.filter(
       (p) =>
+        isCatalogPublished(p.dataStatus) &&
         p.closingDate !== undefined &&
         p.closingDate >= t &&
         p.closingDate <= windowEnd
@@ -346,7 +400,7 @@ export const getClosingSoonForTrip = query({
         if (alreadyOnTripShowIds.has(showId)) return null;
 
         const show = await ctx.db.get(showId);
-        if (!show) return null;
+        if (!show || !isCatalogPublished(show.dataStatus)) return null;
 
         return {
           production,

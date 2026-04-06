@@ -62,8 +62,8 @@ async function resolveShowsByIds(ctx: any, showIds: string[]) {
 }
 
 export const getProfileLists = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { showId: v.optional(v.id("shows")) },
+  handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
 
     const allLists = await ctx.db
@@ -85,6 +85,7 @@ export const getProfileLists = query({
         systemKey: list.systemKey,
         isPublic: list.isPublic,
         showCount: list.showIds.length,
+        containsShow: args.showId !== undefined ? list.showIds.includes(args.showId) : false,
       }));
 
     const customLists = allLists
@@ -96,6 +97,7 @@ export const getProfileLists = query({
         description: list.description,
         isPublic: list.isPublic,
         showCount: list.showIds.length,
+        containsShow: args.showId !== undefined ? list.showIds.includes(args.showId) : false,
       }));
 
     const visits = await ctx.db

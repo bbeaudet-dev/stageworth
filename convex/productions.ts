@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { isCatalogPublished } from "./catalogVisibility";
 import { requireConvexUserId } from "./auth";
 import { resolveProductionPosterUrl, resolveShowImageUrls } from "./helpers";
 import { getProductionStatus } from "../src/utils/productions";
@@ -9,13 +10,10 @@ export { getProductionStatus } from "../src/utils/productions";
 
 const today = () => new Date().toISOString().split("T")[0];
 
-function isShowVisible(show: { dataStatus?: string }) {
-  return show.dataStatus === "partial" || show.dataStatus === "complete";
-}
-
 async function withShow(ctx: any, production: any) {
+  if (!isCatalogPublished(production.dataStatus)) return null;
   const show = await ctx.db.get(production.showId);
-  if (!show || !isShowVisible(show)) return null;
+  if (!show || !isCatalogPublished(show.dataStatus)) return null;
   const posterUrl = await resolveProductionPosterUrl(ctx, production);
   const showImages = await resolveShowImageUrls(ctx, show);
   return {
@@ -105,7 +103,7 @@ export const listByShow = query({
       .query("productions")
       .withIndex("by_show", (q) => q.eq("showId", args.showId))
       .collect();
-    return productions;
+    return productions.filter((p) => isCatalogPublished(p.dataStatus));
   },
 });
 
@@ -117,8 +115,9 @@ export const listByShowWithImages = query({
       .query("productions")
       .withIndex("by_show", (q) => q.eq("showId", args.showId))
       .collect();
+    const visible = productions.filter((p) => isCatalogPublished(p.dataStatus));
     return Promise.all(
-      productions.map(async (p) => ({
+      visible.map(async (p) => ({
         ...p,
         posterUrl: await resolveProductionPosterUrl(ctx, p),
       }))

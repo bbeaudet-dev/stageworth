@@ -1,10 +1,11 @@
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -19,6 +20,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
+import { useToast } from "@/components/Toast";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useSession } from "@/lib/auth-client";
 import {
@@ -80,6 +82,15 @@ function prodTypeLabel(t: string): string {
     other: "Other",
   };
   return map[t] ?? t;
+}
+
+function deriveShowScoreSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/['']/g, "")
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -150,7 +161,7 @@ export default function ShowDetailScreen() {
 
   const myLists = useQuery(
     api.lists.getProfileLists,
-    !isPending && session ? {} : "skip"
+    !isPending && session ? { showId } : "skip"
   );
   const myTrips = useQuery(
     api.trips.trips.getMyTrips,
@@ -159,18 +170,22 @@ export default function ShowDetailScreen() {
   const addShowToList = useMutation(api.lists.addShowToList);
   const addShowToTrip = useMutation(api.trips.trips.addShowToTrip);
   const submitCatalogFeedback = useMutation(api.catalogUserFeedback.submit);
+  const enrichShowScore = useAction(api.showScore.enrichShowWithShowScore);
+  const getRecommendation = useAction(api.recommendations.getShowRecommendation);
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const c = Colors[theme];
   const isDark = theme === "dark";
+  const { showToast } = useToast();
 
   const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
   // "Add to List" sheet state
   const [listSheetOpen, setListSheetOpen] = useState(false);
-  const [addingToList, setAddingToList] = useState<Id<"userLists"> | null>(null);
+  const [addingToList, setAddingToList] = useState(false);
+  const [optimisticallyInLists, setOptimisticallyInLists] = useState<Set<string>>(new Set());
 
   // "Add to Trip" sheet state
   const [tripSheetOpen, setTripSheetOpen] = useState(false);
@@ -184,6 +199,38 @@ export default function ShowDetailScreen() {
     Id<"productions"> | null
   >(null);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+
+  // AI recommendation state
+  const [recLoading, setRecLoading] = useState(false);
+  const [recResult, setRecResult] = useState<{
+    score: number;
+    headline: string;
+    reasoning: string;
+    matchedElements: string[];
+    mismatchedElements: string[];
+  } | null>(null);
+  const [recError, setRecError] = useState(false);
+
+  async function handleGetRecommendation() {
+    if (!showId || recLoading) return;
+    if (!session) {
+      Alert.alert("Sign in required", "Sign in to get personalized recommendations.", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Sign in", onPress: () => router.push("/sign-in") },
+      ]);
+      return;
+    }
+    setRecLoading(true);
+    setRecError(false);
+    try {
+      const result = await getRecommendation({ showId });
+      setRecResult(result);
+    } catch {
+      setRecError(true);
+    } finally {
+      setRecLoading(false);
+    }
+  }
 
   const playbillSize = Math.floor((screenWidth - 32 - 12) / 3);
 
@@ -203,14 +250,37 @@ export default function ShowDetailScreen() {
 
   const hasVisits = (visits?.length ?? 0) > 0;
 
-  async function handleAddToList(listId: Id<"userLists">) {
+  // Lazily enrich ShowScore data when stale or missing
+  const enrichAttempted = useRef(false);
+  useEffect(() => {
+    if (!showId || !show || enrichAttempted.current) return;
+    const staleMs = 7 * 24 * 60 * 60 * 1000;
+    const isFresh = show.showScoreUpdatedAt && Date.now() - show.showScoreUpdatedAt < staleMs;
+    if (isFresh) return;
+    enrichAttempted.current = true;
+    enrichShowScore({ showId }).catch(() => {});
+  }, [showId, show]);
+
+  async function handleAddToList(listId: Id<"userLists">, listName: string) {
     if (!showId || addingToList) return;
-    setAddingToList(listId);
+
+    // Optimistic update: immediately close sheet, mark list as containing show, show toast
+    setOptimisticallyInLists((prev) => new Set([...prev, listId]));
+    setListSheetOpen(false);
+    showToast({ message: `Added "${show?.name ?? "show"}" to ${listName}` });
+
+    setAddingToList(true);
     try {
       await addShowToList({ listId, showId });
+    } catch {
+      // Rollback optimistic update on failure
+      setOptimisticallyInLists((prev) => {
+        const next = new Set(prev);
+        next.delete(listId);
+        return next;
+      });
     } finally {
-      setAddingToList(null);
-      setListSheetOpen(false);
+      setAddingToList(false);
     }
   }
 
@@ -313,6 +383,25 @@ export default function ShowDetailScreen() {
                 {TYPE_LABEL[showType] ?? "Other"}
               </Text>
             </View>
+            {show?.showScoreRating != null && (
+              <Pressable
+                onPress={() => {
+                  const slug = show.showScoreSlug ?? deriveShowScoreSlug(show.name);
+                  Linking.openURL(`https://www.show-score.com/broadway-shows/${slug}`);
+                }}
+                style={({ pressed }) => [
+                  styles.showScoreBadge,
+                  { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#F5F5F5", opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Text style={[styles.showScoreValue, { color: c.text }]}>
+                  {show.showScoreRating}%
+                </Text>
+                <Text style={[styles.showScoreLabel, { color: c.mutedText }]}>
+                  ShowScore{show.showScoreCount ? ` · ${show.showScoreCount} reviews` : ""}
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
 
@@ -420,6 +509,101 @@ export default function ShowDetailScreen() {
           </Pressable>
         </View>
 
+        {/* ── Would I Like This? ───────────────────────────────────────────── */}
+        {!recResult ? (
+          <Pressable
+            onPress={handleGetRecommendation}
+            disabled={recLoading || !show}
+            style={[
+              styles.recButton,
+              {
+                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "#F8F4FF",
+                borderColor: isDark ? "rgba(255,255,255,0.12)" : "#E8E0F0",
+                opacity: recLoading || !show ? 0.6 : 1,
+              },
+            ]}
+          >
+            {recLoading ? (
+              <View style={styles.recLoadingRow}>
+                <ActivityIndicator size="small" color={c.mutedText} />
+                <Text style={[styles.recLoadingText, { color: c.mutedText }]}>
+                  Analyzing your taste…
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text style={[styles.recButtonTitle, { color: c.text }]}>
+                  Would I like this?
+                </Text>
+                <Text style={[styles.recButtonSub, { color: c.mutedText }]}>
+                  Get a personalized recommendation based on your preferences
+                </Text>
+              </>
+            )}
+            {recError && (
+              <Text style={[styles.recErrorText, { color: c.danger }]}>
+                Something went wrong. Tap to try again.
+              </Text>
+            )}
+          </Pressable>
+        ) : (
+          <View
+            style={[
+              styles.recResultCard,
+              {
+                backgroundColor: c.surfaceElevated,
+                borderColor: c.border,
+              },
+            ]}
+          >
+            <View style={styles.recResultHeader}>
+              <Text style={[styles.recScoreBubble, { color: c.text }]}>
+                {recResult.score}/5
+              </Text>
+              <Text style={[styles.recHeadline, { color: c.text }]}>
+                {recResult.headline}
+              </Text>
+            </View>
+            <Text style={[styles.recReasoning, { color: c.mutedText }]}>
+              {recResult.reasoning}
+            </Text>
+            {recResult.matchedElements.length > 0 && (
+              <View style={styles.recChipRow}>
+                {recResult.matchedElements.map((el) => (
+                  <View
+                    key={el}
+                    style={[styles.recChip, { backgroundColor: isDark ? "rgba(16,185,129,0.15)" : "#ECFDF5", borderColor: isDark ? "rgba(16,185,129,0.3)" : "#A7F3D0" }]}
+                  >
+                    <Text style={[styles.recChipText, { color: isDark ? "#6EE7B7" : "#065F46" }]}>
+                      {el}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            {recResult.mismatchedElements.length > 0 && (
+              <View style={styles.recChipRow}>
+                {recResult.mismatchedElements.map((el) => (
+                  <View
+                    key={el}
+                    style={[styles.recChip, { backgroundColor: isDark ? "rgba(239,68,68,0.12)" : "#FEF2F2", borderColor: isDark ? "rgba(239,68,68,0.25)" : "#FECACA" }]}
+                  >
+                    <Text style={[styles.recChipText, { color: isDark ? "#FCA5A5" : "#991B1B" }]}>
+                      {el}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            <Pressable
+              onPress={() => { setRecResult(null); setRecError(false); }}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, alignSelf: "flex-start", marginTop: 4 })}
+            >
+              <Text style={[styles.recRetryText, { color: c.accent }]}>Ask again</Text>
+            </Pressable>
+          </View>
+        )}
+
         <Pressable
           onPress={openFeedbackSheet}
           disabled={!show}
@@ -443,20 +627,29 @@ export default function ShowDetailScreen() {
           <ScrollView>
             {allLists.length === 0 ? (
               <Text style={[styles.sheetEmpty, { color: c.mutedText }]}>No lists found.</Text>
-            ) : allLists.map((list) => (
-              <Pressable
-                key={list._id}
-                style={[styles.sheetRow, { borderBottomColor: c.border }]}
-                onPress={() => handleAddToList(list._id as Id<"userLists">)}
-              >
-                <Text style={[styles.sheetRowText, { color: c.text }]}>{list.name}</Text>
-                {addingToList === list._id ? (
-                  <ActivityIndicator size="small" color={c.mutedText} />
-                ) : (
-                  <Text style={[styles.sheetRowCount, { color: c.mutedText }]}>{list.showCount}</Text>
-                )}
-              </Pressable>
-            ))}
+            ) : allLists.map((list) => {
+              const alreadyIn = (list.containsShow ?? false) || optimisticallyInLists.has(list._id);
+              return (
+                <Pressable
+                  key={list._id}
+                  style={({ pressed }) => [
+                    styles.sheetRow,
+                    { borderBottomColor: c.border, opacity: pressed && !alreadyIn ? 0.7 : 1 },
+                  ]}
+                  onPress={() => !alreadyIn && handleAddToList(list._id as Id<"userLists">, list.name)}
+                  disabled={addingToList}
+                >
+                  <Text style={[styles.sheetRowText, { color: alreadyIn ? c.mutedText : c.text }]}>
+                    {list.name}
+                  </Text>
+                  {alreadyIn ? (
+                    <Text style={[styles.sheetRowCheck, { color: c.accent }]}>✓</Text>
+                  ) : (
+                    <Text style={[styles.sheetRowCount, { color: c.mutedText }]}>{list.showCount}</Text>
+                  )}
+                </Pressable>
+              );
+            })}
           </ScrollView>
         </View>
       </Modal>
@@ -648,6 +841,9 @@ const styles = StyleSheet.create({
   showName: { fontSize: 22, fontWeight: "800", lineHeight: 26 },
   typeBadge: { alignSelf: "flex-start", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
   typeBadgeText: { fontSize: 12, fontWeight: "700", letterSpacing: 0.3 },
+  showScoreBadge: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginTop: 2 },
+  showScoreValue: { fontSize: 15, fontWeight: "800" },
+  showScoreLabel: { fontSize: 12, fontWeight: "500" },
 
   // Sections
   section: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, overflow: "hidden" },
@@ -680,10 +876,11 @@ const styles = StyleSheet.create({
   sheetHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 12 },
   sheetTitle: { fontSize: 17, fontWeight: "700", paddingHorizontal: 18, marginBottom: 8 },
   sheetEmpty: { textAlign: "center", paddingVertical: 24, fontSize: 14 },
-  sheetRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  sheetRowText: { fontSize: 15, fontWeight: "600" },
+  sheetRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 18, borderBottomWidth: StyleSheet.hairlineWidth },
+  sheetRowText: { fontSize: 16, fontWeight: "600" },
   sheetRowMeta: { fontSize: 12, marginTop: 2 },
-  sheetRowCount: { fontSize: 13 },
+  sheetRowCount: { fontSize: 14, fontWeight: "500" },
+  sheetRowCheck: { fontSize: 19, fontWeight: "700" },
   sheetRowChevron: { fontSize: 18, fontWeight: "300" },
 
   feedbackSheet: { maxHeight: "85%" },
@@ -731,4 +928,36 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   feedbackSendBtnText: { fontWeight: "700", fontSize: 15 },
+
+  // Recommendation card
+  recButton: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 16,
+    gap: 4,
+  },
+  recButtonTitle: { fontSize: 16, fontWeight: "700" },
+  recButtonSub: { fontSize: 13, lineHeight: 18 },
+  recLoadingRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 },
+  recLoadingText: { fontSize: 14, fontWeight: "500" },
+  recErrorText: { fontSize: 13, marginTop: 6 },
+  recResultCard: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 16,
+    gap: 10,
+  },
+  recResultHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  recScoreBubble: { fontSize: 20, fontWeight: "800" },
+  recHeadline: { fontSize: 16, fontWeight: "700", flex: 1 },
+  recReasoning: { fontSize: 14, lineHeight: 20 },
+  recChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  recChip: {
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  recChipText: { fontSize: 12, fontWeight: "600" },
+  recRetryText: { fontSize: 13, fontWeight: "600" },
 });

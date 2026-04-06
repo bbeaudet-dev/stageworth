@@ -86,10 +86,14 @@ const SocialButtons = memo(function SocialButtons({
 });
 
 export default function SignInScreen() {
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
   const { googleLoading, appleLoading, signInWithGoogle, signInWithApple } =
     useSocialAuth();
 
+  // Wait for session state to resolve before rendering anything.
+  // Without this guard the sign-in buttons appear briefly while a stored session
+  // is still being validated, causing auth errors when the user taps them.
+  if (isPending) return null;
   if (session) return <Redirect href="/" />;
 
   return (

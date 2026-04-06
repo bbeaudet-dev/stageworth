@@ -35,11 +35,11 @@ interface Placement {
   height: number;
   showId: Id<"shows">;
   showName: string;
+  showType: ShowType;
   imageUrl: string | undefined;
 }
 
 const PLAYBILL_RATIO = 1.5;
-const MIN_WIDTH = 42;
 const ITEM_GAP = 3;
 
 // Width range (px) per tier. First-ranked show in each tier gets the max width,
@@ -52,6 +52,22 @@ const TIER_WIDTH_RANGE: Record<string, readonly [number, number]> = {
   unranked: [42,  50],
 };
 const CORNER_RADIUS_RATIO = 0.05;
+
+const TYPE_LABELS: Record<string, string> = {
+  musical: "Musical",
+  play: "Play",
+  opera: "Opera",
+  dance: "Dance",
+  other: "Show",
+};
+
+const TYPE_ACCENT: Record<string, { light: string; dark: string }> = {
+  musical: { light: "#E65100", dark: "#FFB74D" },
+  play:    { light: "#1B5E20", dark: "#81C784" },
+  opera:   { light: "#4A148C", dark: "#CE93D8" },
+  dance:   { light: "#880E4F", dark: "#F48FB1" },
+  other:   { light: "#37474F", dark: "#B0BEC5" },
+};
 
 function overlaps(
   placed: Placement[],
@@ -126,8 +142,11 @@ function computeLayout(shows: CloudShow[]): Placement[] {
       }
     }
 
-    placed.push({ x: bestX, y: bestY, width: w, height: h,
-      showId: show._id, showName: show.name, imageUrl: show.images[0] });
+    placed.push({
+      x: bestX, y: bestY, width: w, height: h,
+      showId: show._id, showName: show.name, showType: show.type,
+      imageUrl: show.images[0],
+    });
   }
 
   return placed;
@@ -140,6 +159,8 @@ function PlaybillImage({
   width,
   height,
   r,
+  showId,
+  onLoad,
 }: {
   url: string;
   x: number;
@@ -147,8 +168,15 @@ function PlaybillImage({
   width: number;
   height: number;
   r: number;
+  showId: Id<"shows">;
+  onLoad: (showId: Id<"shows">) => void;
 }) {
   const image = useImage(url);
+
+  useEffect(() => {
+    if (image) onLoad(showId);
+  }, [image, showId, onLoad]);
+
   if (!image) return null;
 
   return (
@@ -171,15 +199,30 @@ function PlaybillImage({
   );
 }
 
-function PlaybillItem({ placement }: { placement: Placement }) {
-  const { x, y, width, height, imageUrl } = placement;
+function PlaybillItem({
+  placement,
+  onImageLoaded,
+}: {
+  placement: Placement;
+  onImageLoaded: (showId: Id<"shows">) => void;
+}) {
+  const { x, y, width, height, imageUrl, showId } = placement;
   const r = Math.max(2, width * CORNER_RADIUS_RATIO);
 
   return (
     <Group>
       <RoundedRect x={x} y={y} width={width} height={height} r={r} color="#e0e0e0" />
       {imageUrl && (
-        <PlaybillImage url={imageUrl} x={x} y={y} width={width} height={height} r={r} />
+        <PlaybillImage
+          url={imageUrl}
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          r={r}
+          showId={showId}
+          onLoad={onImageLoaded}
+        />
       )}
     </Group>
   );
@@ -211,6 +254,19 @@ export function TheatreCloud({
     setPlacements(shows.length ? computeLayout(shows) : []);
   }, [shows]);
 
+  // Track which shows have had their poster image successfully loaded by Skia.
+  // Any placement not in this set will show the text fallback label.
+  const [loadedShowIds, setLoadedShowIds] = useState<Set<string>>(new Set());
+
+  const handleImageLoaded = useCallback((showId: Id<"shows">) => {
+    setLoadedShowIds((prev) => {
+      if (prev.has(showId)) return prev;
+      const next = new Set(prev);
+      next.add(showId);
+      return next;
+    });
+  }, []);
+
   // Progressive reveal: add one playbill every 20ms so they spiral in visually.
   // Reset whenever the layout is recomputed.
   const [visibleCount, setVisibleCount] = useState(0);
@@ -225,7 +281,10 @@ export function TheatreCloud({
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
+  const isDark = theme === "dark";
   const backgroundColor = Colors[theme].background;
+  const surfaceColor = Colors[theme].surface;
+  const mutedTextColor = Colors[theme].mutedText;
   const emptyTextColor = Colors[theme].text;
 
   const initialOffset = useMemo(() => {
@@ -296,11 +355,14 @@ export function TheatreCloud({
 
   const gesture = useMemo(() => Gesture.Simultaneous(tap, pan), [tap, pan]);
 
-  // Placements that need a text label (no poster image). Rebuilt on each
-  // reveal tick, but the filter is O(N) so the overhead is negligible.
+  // Show text label for any placement whose image hasn't loaded yet —
+  // covers both shows with no image URL and shows whose URL failed to load.
   const labelPlacements = useMemo(
-    () => placements.slice(0, visibleCount).filter((p) => !p.imageUrl),
-    [placements, visibleCount],
+    () =>
+      placements
+        .slice(0, visibleCount)
+        .filter((p) => !p.imageUrl || !loadedShowIds.has(p.showId)),
+    [placements, visibleCount, loadedShowIds],
   );
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
@@ -345,17 +407,23 @@ export function TheatreCloud({
                 transform={[{ translateX: offset.x }, { translateY: offset.y }]}
               >
                 {placements.slice(0, visibleCount).map((p) => (
-                  <PlaybillItem key={p.showId} placement={p} />
+                  <PlaybillItem
+                    key={p.showId}
+                    placement={p}
+                    onImageLoaded={handleImageLoaded}
+                  />
                 ))}
               </Group>
             </Canvas>
           </GestureDetector>
 
-          {/* RN text labels for shows without a poster image.
-              pointerEvents="none" lets gestures fall through to the canvas. */}
+          {/* RN text labels for shows without a successfully loaded poster.
+              Sits above the canvas; pointerEvents="none" lets gestures fall through. */}
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
             {labelPlacements.map((p) => {
               const r = Math.max(2, p.width * CORNER_RADIUS_RATIO);
+              const accent = TYPE_ACCENT[p.showType] ?? TYPE_ACCENT.other;
+              const accentColor = isDark ? accent.dark : accent.light;
               return (
                 <View
                   key={p.showId}
@@ -367,10 +435,22 @@ export function TheatreCloud({
                       width: p.width,
                       height: p.height,
                       borderRadius: r,
+                      backgroundColor: surfaceColor,
                     },
                   ]}
                 >
-                  <Text style={styles.labelText} numberOfLines={4}>
+                  <Text
+                    style={[styles.labelTypeText, { color: accentColor }]}
+                    numberOfLines={1}
+                  >
+                    {TYPE_LABELS[p.showType] ?? "Show"}
+                  </Text>
+                  <Text
+                    style={[styles.labelNameText, { color: mutedTextColor }]}
+                    numberOfLines={4}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.6}
+                  >
                     {p.showName}
                   </Text>
                 </View>
@@ -399,13 +479,22 @@ const styles = StyleSheet.create({
   labelContainer: {
     position: "absolute",
     overflow: "hidden",
-    padding: 4,
+    padding: 5,
+    alignItems: "center",
     justifyContent: "center",
+    gap: 3,
   },
-  labelText: {
-    fontSize: 9,
-    fontWeight: "500",
-    color: "#555",
+  labelTypeText: {
+    fontSize: 8,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    textAlign: "center",
+  },
+  labelNameText: {
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
     lineHeight: 12,
   },
 });

@@ -53,6 +53,26 @@ const showTypeValidator = v.union(
   v.literal("other")
 );
 
+const productionDistrictValidator = v.union(
+  v.literal("broadway"),
+  v.literal("off_broadway"),
+  v.literal("off_off_broadway"),
+  v.literal("west_end"),
+  v.literal("touring"),
+  v.literal("regional"),
+  v.literal("other")
+);
+
+const productionTypeFormValidator = v.union(
+  v.literal("original"),
+  v.literal("revival"),
+  v.literal("transfer"),
+  v.literal("touring"),
+  v.literal("concert"),
+  v.literal("workshop"),
+  v.literal("other")
+);
+
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
 export const stats = query({
@@ -407,6 +427,108 @@ export const createShowFromAdminForm = mutation({
     }
 
     return showId;
+  },
+});
+
+/**
+ * Create a new production for an existing show (admin). `dataStatus` starts as
+ * `needs_review`; pending review-queue rows are added for filled fields.
+ */
+export const createProductionFromAdminForm = mutation({
+  args: {
+    showId: v.id("shows"),
+    theatre: v.string(),
+    city: v.optional(v.string()),
+    district: productionDistrictValidator,
+    previewDate: v.optional(v.string()),
+    openingDate: v.optional(v.string()),
+    closingDate: v.optional(v.string()),
+    isOpenRun: v.optional(v.boolean()),
+    productionType: productionTypeFormValidator,
+    notes: v.optional(v.string()),
+    ticketmasterEventUrl: v.optional(v.string()),
+    posterStorageId: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    const show = await ctx.db.get(args.showId);
+    if (!show) throw new Error("Show not found");
+
+    const theatre = args.theatre.trim();
+    if (!theatre) throw new Error("Theatre is required");
+
+    const city = args.city?.trim() || undefined;
+    const previewDate = args.previewDate?.trim() || undefined;
+    const openingDate = args.openingDate?.trim() || undefined;
+    const closingDate = args.closingDate?.trim() || undefined;
+    const notes = args.notes?.trim() || undefined;
+    const ticketmasterEventUrl = args.ticketmasterEventUrl?.trim() || undefined;
+
+    const productionId = await ctx.db.insert("productions", {
+      showId: args.showId,
+      theatre,
+      city,
+      district: args.district,
+      previewDate,
+      openingDate,
+      closingDate,
+      isOpenRun: args.isOpenRun,
+      productionType: args.productionType,
+      notes,
+      ticketmasterEventUrl,
+      posterImage: args.posterStorageId,
+      isUserCreated: false,
+      dataStatus: "needs_review",
+    });
+
+    const entityId = productionId as string;
+    const now = Date.now();
+
+    const queuePairs: [string, string][] = [
+      ["theatre", theatre],
+      ["city", city ?? ""],
+      ["district", args.district],
+      ["previewDate", previewDate ?? ""],
+      ["openingDate", openingDate ?? ""],
+      ["closingDate", closingDate ?? ""],
+      ["productionType", args.productionType],
+    ];
+    if (args.isOpenRun !== undefined) {
+      queuePairs.push(["isOpenRun", args.isOpenRun ? "true" : "false"]);
+    }
+    if (notes) queuePairs.push(["notes", notes]);
+    if (ticketmasterEventUrl) {
+      queuePairs.push(["ticketmasterEventUrl", ticketmasterEventUrl]);
+    }
+
+    for (const [field, currentValue] of queuePairs) {
+      if (currentValue === "") continue;
+      await ctx.db.insert("reviewQueue", {
+        entityType: "production",
+        entityId,
+        field,
+        currentValue,
+        source: "manual",
+        status: "pending",
+        createdAt: now,
+      });
+    }
+
+    if (args.posterStorageId) {
+      const posterUrl = await ctx.storage.getUrl(args.posterStorageId);
+      if (posterUrl) {
+        await ctx.db.insert("reviewQueue", {
+          entityType: "production",
+          entityId,
+          field: "hotlinkPosterUrl",
+          currentValue: posterUrl,
+          source: "manual",
+          status: "pending",
+          createdAt: now,
+        });
+      }
+    }
+
+    return productionId;
   },
 });
 

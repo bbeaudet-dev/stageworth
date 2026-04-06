@@ -16,7 +16,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
-import { closingCountdownLabel } from "@/features/browse/logic/date";
+import { closingStripBadge, tripPlaybillStripBadge } from "@/features/browse/logic/closingStrip";
 import { AddDayNoteSheet } from "@/features/plan/components/AddDayNoteSheet";
 import { TripShowLabelSheet } from "@/features/plan/components/TripShowLabelSheet";
 import { useTripData } from "@/features/plan/hooks/useTripData";
@@ -57,6 +57,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
   const accentColor = Colors[theme].accent;
   const onAccent = Colors[theme].onAccent;
   const chipBg = Colors[theme].surface;
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
   const [labelSheetItem, setLabelSheetItem] = useState<any | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -94,19 +95,24 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
   const gridWidthFull = screenWidth - TAB_CONTENT_H_PAD * 2;
   const cardWidth = (gridWidthFull - GAP * (COLS - 1)) / COLS;
 
-  const closingBadge = (
-    closingDate: string | null | undefined
-  ): { label: string; bg: string; textCol: string } | null => {
-    if (!closingDate) return null;
-    const todayD = new Date();
-    todayD.setHours(0, 0, 0, 0);
-    const close = new Date(closingDate + "T00:00:00Z");
-    const diff = Math.ceil((close.getTime() - todayD.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff < 0 || diff > 30) return null;
-    const label = closingCountdownLabel(diff);
-    return theme === "dark"
-      ? { label, bg: "rgba(239,68,68,0.18)", textCol: "#F87171" }
-      : { label, bg: "#FEF2F2", textCol: "#E05252" };
+  const closingBadge = (closingDate: string | null | undefined) => {
+    const b = closingStripBadge(closingDate, todayStr, theme === "dark");
+    if (!b) return null;
+    return { label: b.label, bg: b.bg, textCol: b.text };
+  };
+
+  const tripPlaybillBadge = (item: any) => {
+    const b = tripPlaybillStripBadge(
+      {
+        closingDate: item.closingDate,
+        isOpenRun: item.isOpenRun,
+        tripProductionStatus: item.tripProductionStatus,
+      },
+      todayStr,
+      theme === "dark",
+    );
+    if (!b) return null;
+    return { label: b.label, bg: b.bg, textCol: b.text };
   };
 
   const handleAssignToDay = async (showId: Id<"shows">, dayDate: string) => {
@@ -225,7 +231,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
                       {row.map((item: any) => {
                         const key = `${day.date}:${item.showId}`;
                         const image = item.show?.images?.[0] ?? null;
-                        const badge = closingBadge(item.closingDate);
+                        const badge = tripPlaybillBadge(item);
                         const myLabel = effectiveLabel(item);
                         const labelMeta = myLabel ? tripShowLabelMeta(myLabel) : null;
                         return (

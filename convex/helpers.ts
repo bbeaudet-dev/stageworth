@@ -1,5 +1,6 @@
 import type { QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { isCatalogPublished } from "./catalogVisibility";
 
 /**
  * Resolve an array of storage IDs to their serving URLs.
@@ -43,6 +44,7 @@ export async function resolveShowImageUrls(
     .withIndex("by_show", (q) => q.eq("showId", show._id))
     .collect();
   for (const p of productions) {
+    if (!isCatalogPublished(p.dataStatus)) continue;
     if (p.hotlinkPosterUrl) return [p.hotlinkPosterUrl];
     if (p.posterImage) {
       const url = await ctx.storage.getUrl(p.posterImage);
