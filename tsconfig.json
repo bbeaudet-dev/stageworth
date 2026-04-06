@@ -16,5 +16,5 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
-  "exclude": ["node_modules", "bot"]
+  "exclude": ["node_modules", "bot", "website"]
 }

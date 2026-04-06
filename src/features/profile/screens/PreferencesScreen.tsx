@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { Stack, useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Pressable,
@@ -110,8 +110,8 @@ export default function PreferencesScreen() {
       />
       <ScrollView contentContainerStyle={s.content}>
         <Text style={[s.intro, { color: c.mutedText }]}>
-          Rate how important each element is to your theatre experience.
-          We'll use this to give you personalized recommendations.
+          Rate how important each element is to your theatre experience. We will use this to give
+          you personalized recommendations.
         </Text>
 
         {THEATRE_ELEMENTS.map((element) => (

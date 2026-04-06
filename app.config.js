@@ -29,7 +29,7 @@ if (process.env.EAS_BUILD === "true" || process.env.EAS_BUILD_PROFILE) {
 module.exports = {
   name: "Theatre Diary",
   slug: "theatre-diary",
-  version: "1.1.0",
+  version: "1.2.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: "theatrediary",
@@ -38,7 +38,7 @@ module.exports = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.theatrediary.app",
-    buildNumber: "2",
+    buildNumber: "3",
     usesAppleSignIn: true,
     appleTeamId: "M8M7T576K8",
     config: {

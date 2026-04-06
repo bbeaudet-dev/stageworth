@@ -163,7 +163,7 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
             selectedShowId={visit.showId}
             productions={productions}
             hasOfficialProductions={hasOfficialProductions}
-            productionOptions={productionOptions as any}
+            productionOptions={productionOptions}
             selectedProductionId={state.selectedProductionId}
             useOtherProduction={state.useOtherProduction}
             setSelectedProductionId={setSelectedProductionId}

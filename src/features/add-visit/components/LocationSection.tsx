@@ -7,7 +7,7 @@ import { styles } from "@/features/add-visit/styles";
 
 type Production = {
   _id: Id<"productions">;
-  theatre: string;
+  theatre?: string;
   city?: string;
 };
 
@@ -56,7 +56,7 @@ export function LocationSection({
             >
               {productionOptions.map((production) => {
                 const selected = selectedProductionId === production._id && !useOtherProduction;
-                const labelParts = [production.theatre];
+                const labelParts = [production.theatre?.trim() || "Venue"];
                 if (production.city) labelParts.push(production.city);
                 return (
                   <Pressable

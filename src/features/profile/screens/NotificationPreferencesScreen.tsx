@@ -141,7 +141,7 @@ export default function NotificationPreferencesScreen() {
       />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.intro, { color: c.mutedText }]}>
-          Choose which notifications you'd like to receive.
+          Choose which notifications you would like to receive.
         </Text>
 
         <View style={styles.section}>

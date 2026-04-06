@@ -1,7 +1,7 @@
 {
   "name": "theatre-diary",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "scripts": {
     "dev": "convex dev & env -u CI expo start --dev-client",
     "dev:convex": "convex dev",
