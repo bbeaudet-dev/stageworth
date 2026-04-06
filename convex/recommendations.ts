@@ -1,7 +1,6 @@
 import { v } from "convex/values";
-import { action, internalQuery } from "./_generated/server";
+import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { getConvexUserId } from "./auth";
 
 const RATING_LABELS: Record<number, string> = {
   1: "Strongly Disagree",
@@ -18,7 +17,7 @@ export const getShowRecommendation = action({
     if (!apiKey) throw new Error("AI recommendations are not configured yet");
 
     const data = await ctx.runQuery(
-      internal.recommendations.gatherRecommendationContext,
+      internal.recommendationsContext.gatherRecommendationContext,
       { showId: args.showId }
     );
 
@@ -27,7 +26,8 @@ export const getShowRecommendation = action({
     let preferencesBlock: string;
     if (data.preferences && data.preferences.length > 0) {
       const lines = data.preferences.map(
-        (p) => `- "${p.element} is important to me": ${RATING_LABELS[p.rating] ?? p.rating} (${p.rating}/5)`
+        (p: { element: string; rating: number }) =>
+          `- "${p.element} is important to me": ${RATING_LABELS[p.rating] ?? p.rating} (${p.rating}/5)`
       );
       preferencesBlock = `The user's theatre element preferences:\n${lines.join("\n")}`;
     } else {
@@ -102,9 +102,15 @@ Respond with ONLY a valid JSON object (no markdown, no code fences) with these f
       throw new Error("Failed to get recommendation");
     }
 
-    const result = await response.json();
+    const result: unknown = await response.json();
     const text =
-      result.content?.[0]?.type === "text" ? result.content[0].text : "";
+      typeof result === "object" &&
+      result !== null &&
+      "content" in result &&
+      Array.isArray((result as { content: unknown }).content) &&
+      (result as { content: { type?: string; text?: string }[] }).content[0]?.type === "text"
+        ? String((result as { content: { text?: string }[] }).content[0].text ?? "")
+        : "";
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("Failed to parse recommendation");
@@ -115,81 +121,6 @@ Respond with ONLY a valid JSON object (no markdown, no code fences) with these f
       reasoning: string;
       matchedElements: string[];
       mismatchedElements: string[];
-    };
-  },
-});
-
-export const gatherRecommendationContext = internalQuery({
-  args: { showId: v.id("shows") },
-  handler: async (ctx, args) => {
-    const show = await ctx.db.get(args.showId);
-    const userId = await getConvexUserId(ctx);
-
-    let preferences: { element: string; rating: number }[] = [];
-    const ranked = {
-      loved: [] as string[],
-      liked: [] as string[],
-      okay: [] as string[],
-      disliked: [] as string[],
-    };
-
-    if (userId) {
-      const prefs = await ctx.db
-        .query("userPreferences")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .first();
-      if (prefs) {
-        preferences = prefs.elementRatings;
-      }
-
-      const userShows = await ctx.db
-        .query("userShows")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect();
-
-      const lovedIds: typeof userShows[number]["showId"][] = [];
-      const likedIds: typeof lovedIds = [];
-      const okayIds: typeof lovedIds = [];
-      const dislikedIds: typeof lovedIds = [];
-
-      for (const row of userShows) {
-        if (row.tier === "unranked") continue;
-        switch (row.tier) {
-          case "loved":
-            lovedIds.push(row.showId);
-            break;
-          case "liked":
-            likedIds.push(row.showId);
-            break;
-          case "okay":
-            okayIds.push(row.showId);
-            break;
-          case "disliked":
-            dislikedIds.push(row.showId);
-            break;
-          default:
-            break;
-        }
-      }
-
-      async function namesFor(ids: typeof lovedIds): Promise<string[]> {
-        const docs = await Promise.all(ids.map((id) => ctx.db.get(id)));
-        return docs
-          .filter((s): s is NonNullable<typeof s> => s !== null)
-          .map((s) => s.name)
-          .sort((a, b) => a.localeCompare(b));
-      }
-
-      ranked.loved = await namesFor(lovedIds);
-      ranked.liked = await namesFor(likedIds);
-      ranked.okay = await namesFor(okayIds);
-      ranked.disliked = await namesFor(dislikedIds);
-    }
-
-    return {
-      show: show ? { name: show.name, type: show.type } : null,
-      preferences,
-      ranked,
     };
   },
 });
