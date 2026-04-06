@@ -453,6 +453,7 @@ export default function ShowReviewDetail() {
     showId ? { showId: showId as Id<"shows"> } : "skip"
   );
   const submitReview = useMutation(api.reviewQueue.submitShowReview);
+  const createProduction = useMutation(api.reviewQueue.createProductionFromAdminForm);
 
   const [decisions, setDecisions] = useState<Map<string, EntryDecision>>(
     new Map()
@@ -471,6 +472,20 @@ export default function ShowReviewDetail() {
   const [expandedProductions, setExpandedProductions] = useState<Set<string>>(
     new Set()
   );
+
+  const [newProductionOpen, setNewProductionOpen] = useState(false);
+  const [newProdBusy, setNewProdBusy] = useState(false);
+  const [newProdTheatre, setNewProdTheatre] = useState("");
+  const [newProdCity, setNewProdCity] = useState("");
+  const [newProdDistrict, setNewProdDistrict] = useState<string>("broadway");
+  const [newProdPreview, setNewProdPreview] = useState("");
+  const [newProdOpening, setNewProdOpening] = useState("");
+  const [newProdClosing, setNewProdClosing] = useState("");
+  const [newProdIsOpenRun, setNewProdIsOpenRun] = useState(false);
+  const [newProdType, setNewProdType] = useState<string>("original");
+  const [newProdNotes, setNewProdNotes] = useState("");
+  const [newProdTmUrl, setNewProdTmUrl] = useState("");
+  const [newProdPosterId, setNewProdPosterId] = useState<string | undefined>();
 
   useEffect(() => {
     if (detail) {
@@ -569,6 +584,65 @@ export default function ShowReviewDetail() {
     },
     [decisions, directEdits]
   );
+
+  const handleCreateProduction = async () => {
+    const theatre = newProdTheatre.trim();
+    if (!theatre) {
+      window.alert("Theatre is required.");
+      return;
+    }
+    setNewProdBusy(true);
+    try {
+      await createProduction({
+        showId: showId as Id<"shows">,
+        theatre,
+        city: newProdCity.trim() || undefined,
+        district: newProdDistrict as
+          | "broadway"
+          | "off_broadway"
+          | "off_off_broadway"
+          | "west_end"
+          | "touring"
+          | "regional"
+          | "other",
+        previewDate: newProdPreview.trim() || undefined,
+        openingDate: newProdOpening.trim() || undefined,
+        closingDate: newProdClosing.trim() || undefined,
+        isOpenRun: newProdIsOpenRun ? true : undefined,
+        productionType: newProdType as
+          | "original"
+          | "revival"
+          | "transfer"
+          | "touring"
+          | "concert"
+          | "workshop"
+          | "other",
+        notes: newProdNotes.trim() || undefined,
+        ticketmasterEventUrl: newProdTmUrl.trim() || undefined,
+        posterStorageId: newProdPosterId
+          ? (newProdPosterId as Id<"_storage">)
+          : undefined,
+      });
+      setNewProductionOpen(false);
+      setNewProdTheatre("");
+      setNewProdCity("");
+      setNewProdDistrict("broadway");
+      setNewProdPreview("");
+      setNewProdOpening("");
+      setNewProdClosing("");
+      setNewProdIsOpenRun(false);
+      setNewProdType("original");
+      setNewProdNotes("");
+      setNewProdTmUrl("");
+      setNewProdPosterId(undefined);
+    } catch (e) {
+      window.alert(
+        e instanceof Error ? e.message : "Failed to create production"
+      );
+    } finally {
+      setNewProdBusy(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!detail) return;
@@ -780,14 +854,199 @@ export default function ShowReviewDetail() {
 
       {/* Productions */}
       <section className="mb-10">
-        <h2 className="text-lg font-semibold mb-3 border-b pb-2">
-          Productions ({productions.length})
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3 border-b pb-2">
+          <h2 className="text-lg font-semibold">
+            Productions ({productions.length})
+          </h2>
+          <button
+            type="button"
+            onClick={() => setNewProductionOpen((o) => !o)}
+            className="rounded-md bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-700 shrink-0"
+          >
+            {newProductionOpen ? "Cancel" : "Add production"}
+          </button>
+        </div>
+
+        {newProductionOpen ? (
+          <div className="border border-gray-200 rounded-lg p-4 mb-4 bg-gray-50 space-y-3">
+            <p className="text-xs text-gray-600">
+              Creates a run with status <strong>needs review</strong>. Use
+              Submit Review when you are ready to approve queue entries and set
+              catalog status.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-medium text-gray-700">
+                  Theatre *
+                </span>
+                <input
+                  type="text"
+                  value={newProdTheatre}
+                  onChange={(e) => setNewProdTheatre(e.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  placeholder="e.g. Lunt-Fontanne Theatre"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-gray-700">City</span>
+                <input
+                  type="text"
+                  value={newProdCity}
+                  onChange={(e) => setNewProdCity(e.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  placeholder="New York"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-gray-700">
+                  District
+                </span>
+                <select
+                  value={newProdDistrict}
+                  onChange={(e) => setNewProdDistrict(e.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm bg-white"
+                >
+                  {(
+                    [
+                      "broadway",
+                      "off_broadway",
+                      "off_off_broadway",
+                      "west_end",
+                      "touring",
+                      "regional",
+                      "other",
+                    ] as const
+                  ).map((d) => (
+                    <option key={d} value={d}>
+                      {d.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-gray-700">
+                  Preview date
+                </span>
+                <input
+                  type="date"
+                  value={newProdPreview}
+                  onChange={(e) => setNewProdPreview(e.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-gray-700">
+                  Opening date
+                </span>
+                <input
+                  type="date"
+                  value={newProdOpening}
+                  onChange={(e) => setNewProdOpening(e.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-gray-700">
+                  Closing date
+                </span>
+                <input
+                  type="date"
+                  value={newProdClosing}
+                  onChange={(e) => setNewProdClosing(e.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                />
+              </label>
+              <label className="flex items-center gap-2 sm:col-span-2 mt-1">
+                <input
+                  type="checkbox"
+                  checked={newProdIsOpenRun}
+                  onChange={(e) => setNewProdIsOpenRun(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <span className="text-sm text-gray-700">Open run</span>
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-medium text-gray-700">
+                  Production type
+                </span>
+                <select
+                  value={newProdType}
+                  onChange={(e) => setNewProdType(e.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm bg-white"
+                >
+                  {(
+                    [
+                      "original",
+                      "revival",
+                      "transfer",
+                      "touring",
+                      "concert",
+                      "workshop",
+                      "other",
+                    ] as const
+                  ).map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-medium text-gray-700">
+                  Ticketmaster URL
+                </span>
+                <input
+                  type="url"
+                  value={newProdTmUrl}
+                  onChange={(e) => setNewProdTmUrl(e.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  placeholder="https://..."
+                />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-medium text-gray-700">Notes</span>
+                <textarea
+                  value={newProdNotes}
+                  onChange={(e) => setNewProdNotes(e.target.value)}
+                  rows={2}
+                  className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                />
+              </label>
+              <div className="block sm:col-span-2">
+                <span className="text-xs font-medium text-gray-700">
+                  Poster (optional)
+                </span>
+                <div className="mt-1">
+                  <ImageUploadControl
+                    disabled={newProdBusy}
+                    onUploaded={(storageId) => setNewProdPosterId(storageId)}
+                  />
+                </div>
+                {newProdPosterId ? (
+                  <p className="text-xs text-green-700 mt-1">Poster uploaded.</p>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleCreateProduction}
+                disabled={newProdBusy || !newProdTheatre.trim()}
+                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {newProdBusy ? "Creating…" : "Create production"}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {productions.length === 0 ? (
-          <p className="text-gray-500 text-sm">No productions for this show.</p>
-        ) : (
-          <div className="space-y-4">
+          <p className="text-gray-500 text-sm mb-2">
+            No productions for this show yet.
+          </p>
+        ) : null}
+
+        <div className="space-y-4">
             {productions.map((prod) => {
               const isExpanded = expandedProductions.has(prod._id);
               const pendingCount = prod.reviewEntries.filter(
@@ -1018,8 +1277,7 @@ export default function ShowReviewDetail() {
                 </div>
               );
             })}
-          </div>
-        )}
+        </div>
       </section>
 
       {/* Sticky submit bar */}
