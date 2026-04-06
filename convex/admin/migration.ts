@@ -612,9 +612,6 @@ export const importReviewQueue = internalAction({
       );
       totalInserted += result.inserted;
       allUnmapped.push(...result.unmapped);
-      console.log(
-        `[importReviewQueue] chunk ${i}–${i + chunk.length}: inserted=${result.inserted}`
-      );
     }
 
     return {
@@ -744,9 +741,6 @@ export const importShowImages = internalAction({
           failed++;
         }
       }
-      console.log(
-        `[importShowImages] ${row.normalizedName}: ${row.imageUrls.length} image(s)`
-      );
     }
 
     return { uploaded, failed, errors: errors.slice(0, 50) };
@@ -898,9 +892,6 @@ export const importProductionImages = internalAction({
         errors.push(`${row.showNormalizedName}: ${msg}`);
         failed++;
       }
-      console.log(
-        `[importProductionImages] ${row.showNormalizedName} @ ${row.theatre ?? "(no theatre)"}`
-      );
     }
 
     return { uploaded, failed, errors: errors.slice(0, 50) };

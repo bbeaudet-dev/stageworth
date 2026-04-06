@@ -33,13 +33,9 @@ async function fetchWithRetry(
       return await fetch(url, init);
     } catch (err) {
       if (attempt === MAX_RETRIES) {
-        console.log(`Fetch failed after ${MAX_RETRIES + 1} attempts: ${url}`);
         return null;
       }
       const backoff = 1000 * 2 ** attempt;
-      console.log(
-        `Fetch error (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying in ${backoff}ms: ${(err as Error).message}`
-      );
       await sleep(backoff);
     }
   }
@@ -146,10 +142,6 @@ export const backfillWikipediaImages = internalAction({
       }
       await sleep(DELAY_MS);
     }
-
-    console.log(
-      `Wikipedia backfill batch: ${enriched} enriched, ${failed} failed, ${batch.shows.length} processed`
-    );
 
     // Schedule next batch if there are more.
     if (batch.hasMore && batch.nextCursor) {
