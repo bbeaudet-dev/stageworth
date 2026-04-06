@@ -10,6 +10,7 @@ import { ToastProvider } from "@/components/Toast";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { authClient } from "@/lib/auth-client";
 import { convex } from "@/lib/convex";
+import { ProfileSettingsDrawerProvider } from "@/features/profile/ProfileSettingsDrawerProvider";
 
 GoogleSignin.configure({
   iosClientId:
@@ -30,39 +31,49 @@ export default function RootLayout() {
       <ConvexBetterAuthProvider client={convex} authClient={authClient}>
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
           <ToastProvider>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="sign-in" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="add-visit"
-                options={{ presentation: "modal", headerShown: false }}
-              />
-              <Stack.Screen
-                name="edit-visit/[visitId]"
-                options={{ presentation: "modal", headerShown: false }}
-              />
-              <Stack.Screen
-                name="account-settings"
-                options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
-              />
-              <Stack.Screen
-                name="preferences"
-                options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
-              />
-              <Stack.Screen
-                name="notifications"
-                options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
-              />
-              <Stack.Screen
-                name="user-search"
-                options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
-              />
-              <Stack.Screen
-                name="modal"
-                options={{ presentation: "modal", title: "Modal" }}
-              />
-            </Stack>
-            <StatusBar style="auto" />
+            <ProfileSettingsDrawerProvider>
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="add-visit"
+                  options={{ presentation: "modal", headerShown: false }}
+                />
+                <Stack.Screen
+                  name="edit-visit/[visitId]"
+                  options={{ presentation: "modal", headerShown: false }}
+                />
+                <Stack.Screen
+                  name="edit-profile"
+                  options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+                />
+                <Stack.Screen
+                  name="preferences"
+                  options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+                />
+                <Stack.Screen
+                  name="notification-preferences"
+                  options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+                />
+                <Stack.Screen
+                  name="notifications"
+                  options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+                />
+                <Stack.Screen
+                  name="account-settings"
+                  options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+                />
+                <Stack.Screen
+                  name="user-search"
+                  options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+                />
+                <Stack.Screen
+                  name="modal"
+                  options={{ presentation: "modal", title: "Modal" }}
+                />
+              </Stack>
+              <StatusBar style="auto" />
+            </ProfileSettingsDrawerProvider>
           </ToastProvider>
         </ThemeProvider>
       </ConvexBetterAuthProvider>

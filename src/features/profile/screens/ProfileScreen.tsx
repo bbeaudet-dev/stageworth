@@ -9,6 +9,7 @@ import { api } from "@/convex/_generated/api";
 import { ProfileHeader } from "@/features/profile/components/ProfileHeader";
 import { ProfileMapSection } from "@/features/profile/components/ProfileMapSection";
 import { PublicShowsGrid } from "@/features/profile/components/PublicShowsGrid";
+import { useProfileSettingsDrawer } from "@/features/profile/ProfileSettingsDrawerProvider";
 import { TasteProfile } from "@/features/profile/components/TasteProfile";
 import { TheatreChallenge } from "@/features/profile/components/TheatreChallenge";
 import { Colors } from "@/constants/theme";
@@ -19,6 +20,7 @@ export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { data: session } = useSession();
+  const { openDrawer } = useProfileSettingsDrawer();
   const myProfile = useQuery(api.social.profiles.getMyProfile);
   const stats = useQuery(api.social.profiles.getProfileStats, {});
   const userStats = useQuery(api.userStats.getUserStats, {});
@@ -50,11 +52,11 @@ export default function ProfileScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: primaryTextColor }]}>Profile</Text>
         <Pressable
-          onPress={() => router.push("/account-settings")}
+          onPress={openDrawer}
           hitSlop={10}
           style={styles.settingsBtn}
         >
-          <IconSymbol name="gearshape.fill" size={22} color={mutedTextColor} />
+          <IconSymbol name="line.3.horizontal" size={24} color={mutedTextColor} />
         </Pressable>
       </View>
 

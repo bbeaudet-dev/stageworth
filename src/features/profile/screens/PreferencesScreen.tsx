@@ -14,6 +14,7 @@ import { api } from "@/convex/_generated/api";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useToast } from "@/components/Toast";
+import { useNotifyProfileDrawerReopenOnUnmount } from "@/features/profile/reopenSettingsDrawer";
 
 const THEATRE_ELEMENTS = [
   "Story & Writing",
@@ -48,6 +49,7 @@ const ELEMENT_DESCRIPTIONS: Record<string, string> = {
 type Ratings = Record<string, number>;
 
 export default function PreferencesScreen() {
+  useNotifyProfileDrawerReopenOnUnmount();
   const prefs = useQuery(api.userPreferences.getUserPreferences, {});
   const updatePrefs = useMutation(api.userPreferences.updateUserPreferences);
   const { showToast } = useToast();
@@ -121,9 +123,6 @@ export default function PreferencesScreen() {
             <Text style={[s.elementDescription, { color: c.mutedText }]}>
               {ELEMENT_DESCRIPTIONS[element]}
             </Text>
-            <Text style={[s.promptText, { color: c.text }]}>
-              "{element} is important to me"
-            </Text>
             <View style={s.ratingRow}>
               {RATING_OPTIONS.map((opt) => {
                 const selected = ratings[element] === opt.value;
@@ -189,7 +188,6 @@ const s = StyleSheet.create({
   },
   elementName: { fontSize: 16, fontWeight: "700" },
   elementDescription: { fontSize: 13, lineHeight: 18 },
-  promptText: { fontSize: 14, fontWeight: "600", fontStyle: "italic", marginTop: 2 },
   ratingRow: { flexDirection: "row", gap: 6, marginTop: 4 },
   ratingOption: {
     flex: 1,

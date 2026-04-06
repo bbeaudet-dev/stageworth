@@ -53,3 +53,39 @@ export const updateUserPreferences = mutation({
     }
   },
 });
+
+export const updateNotificationSettings = mutation({
+  args: {
+    follows: v.boolean(),
+    visitTags: v.boolean(),
+    tripInvites: v.boolean(),
+    closingSoon: v.boolean(),
+    showAnnounced: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+    const existing = await ctx.db
+      .query("userPreferences")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    const notificationSettings = {
+      follows: args.follows,
+      visitTags: args.visitTags,
+      tripInvites: args.tripInvites,
+      closingSoon: args.closingSoon,
+      showAnnounced: args.showAnnounced,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { notificationSettings, updatedAt: Date.now() });
+    } else {
+      await ctx.db.insert("userPreferences", {
+        userId,
+        elementRatings: [],
+        notificationSettings,
+        updatedAt: Date.now(),
+      });
+    }
+  },
+});

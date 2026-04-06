@@ -444,6 +444,13 @@ export default defineSchema({
     elementRatings: v.array(
       v.object({ element: v.string(), rating: v.number() })
     ),
+    notificationSettings: v.optional(v.object({
+      follows: v.boolean(),
+      visitTags: v.boolean(),
+      tripInvites: v.boolean(),
+      closingSoon: v.boolean(),
+      showAnnounced: v.boolean(),
+    })),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
