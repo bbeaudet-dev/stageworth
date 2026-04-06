@@ -16,7 +16,7 @@ GoogleSignin.configure({
   iosClientId:
     "436999476070-l97q7s44m1p9irm4ve8objjm0dt11pgn.apps.googleusercontent.com",
   webClientId:
-    "436999476070-7gcd35jrbfkreu1smj4oo3k16e7n1nkb.apps.googleusercontent.com",
+    "907289279863-vcofhu6sieo2a69t6u01s28167c9q2ve.apps.googleusercontent.com",
 });
 
 export const unstable_settings = {
