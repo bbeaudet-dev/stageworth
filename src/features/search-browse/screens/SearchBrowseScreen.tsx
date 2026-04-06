@@ -23,6 +23,7 @@ import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useNavGuard } from "@/hooks/use-nav-guard";
 import { useTabNav } from "@/hooks/use-tab-nav";
+import { closingStripBadge } from "@/features/browse/logic/closingStrip";
 import { railBadgeForProduction } from "@/features/browse/components/ProductionCard";
 
 const GRID_GAP = 8;
@@ -143,7 +144,7 @@ export default function SearchBrowseScreen() {
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + 24 }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
       >
         {/* ─── Search results (2+ chars) ─── */}
         {isSearchActive && (
@@ -240,7 +241,12 @@ export default function SearchBrowseScreen() {
             {currentShows && currentShows.length > 0 && (
               <BrowseRail
                 title="Now Playing"
-                items={currentShows}
+                items={currentShows.map((p) => ({
+                  _id: p._id,
+                  show: p.show,
+                  posterUrl: p.posterUrl,
+                  badge: closingStripBadge(p.closingDate, todayStr, isDark),
+                }))}
                 cardWidth={cardWidth}
                 surfaceColor={surface}
                 posterBg={posterBg}

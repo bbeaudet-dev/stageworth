@@ -11,10 +11,85 @@ import {
   tripShowLabelMeta,
 } from "@/features/plan/tripShowLabelMeta";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { closingStripLabel } from "@/features/browse/logic/closingStrip";
+import { formatDate } from "@/features/browse/logic/date";
 
 const AVATAR_CAP = 3;
 const SHEET_H_PAD = 16;
 const ROW_GAP = 8;
+
+/** Placeholder weekly grid (BwayRush-style); replace when venue schedules are ingested. */
+function ShowtimesPreviewPrototype({
+  borderColor,
+  surfaceColor,
+  primaryTextColor,
+  mutedTextColor,
+}: {
+  borderColor: string;
+  surfaceColor: string;
+  primaryTextColor: string;
+  mutedTextColor: string;
+}) {
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const slots: (string | null)[][] = [
+    ["—", "7 PM", "—", "7 PM", "8 PM", "2 PM", "—"],
+    [null, "2 PM", null, "2 PM", "2 PM", "8 PM", null],
+  ];
+  return (
+    <View style={[proto.wrap, { borderColor, backgroundColor: surfaceColor }]}>
+      <Text style={[proto.hint, { color: mutedTextColor }]}>
+        Sample week — real curtain times will sync from the venue (rush-board style).
+      </Text>
+      <View style={proto.headerRow}>
+        {days.map((d) => (
+          <Text key={d} style={[proto.dayHead, { color: mutedTextColor }]}>
+            {d}
+          </Text>
+        ))}
+      </View>
+      {slots.map((row, ri) => (
+        <View key={ri} style={proto.slotRow}>
+          {row.map((cell, ci) => (
+            <View key={ci} style={proto.cell}>
+              {cell ? (
+                <View style={[proto.timeChip, { borderColor }]}>
+                  <Text style={[proto.timeChipText, { color: primaryTextColor }]} numberOfLines={1}>
+                    {cell}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[proto.dash, { color: mutedTextColor }]}> </Text>
+              )}
+            </View>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const proto = StyleSheet.create({
+  wrap: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    gap: 10,
+  },
+  hint: { fontSize: 12, lineHeight: 16 },
+  headerRow: { flexDirection: "row" },
+  dayHead: { flex: 1, fontSize: 9, fontWeight: "800", textAlign: "center" },
+  slotRow: { flexDirection: "row", alignItems: "center", minHeight: 28 },
+  cell: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 1 },
+  timeChip: {
+    borderRadius: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+    width: "100%",
+  },
+  timeChipText: { fontSize: 8, fontWeight: "700", textAlign: "center" },
+  dash: { fontSize: 10 },
+});
 
 const LABEL_ROW_1: TripShowLabel[] = ["must_see", "want_see", "dont_want"];
 const LABEL_ROW_2: TripShowLabel[] = ["indifferent", "dont_know"];
@@ -23,6 +98,7 @@ export type TripShowRowForLabel = {
   _id: Id<"tripShows">;
   showId: Id<"shows">;
   dayDate?: string | null;
+  closingDate?: string | null;
   show?: { name?: string; images?: (string | null)[] | null } | null;
   myLabel: TripShowLabel | null;
   labelSummary: {
@@ -78,6 +154,7 @@ export function TripShowLabelSheet({
 
   const showName = item.show?.name ?? "Show";
   const assignedToDay = item.dayDate != null && item.dayDate !== "";
+  const closingCal = item.closingDate ? formatDate(item.closingDate) : null;
 
   const confirmRemove = () => {
     Alert.alert("Remove show?", "It will be removed from this trip.", [
@@ -159,6 +236,30 @@ export function TripShowLabelSheet({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {item.closingDate ? (
+            <>
+              <Text style={[styles.sectionLabel, { color: mutedTextColor }]}>Closing</Text>
+              <View style={[styles.infoCard, { borderColor, backgroundColor: surfaceColor }]}>
+                <Text style={[styles.infoPrimary, { color: primaryTextColor }]}>
+                  {closingStripLabel(item.closingDate)}
+                </Text>
+                {closingCal ? (
+                  <Text style={[styles.infoSecondary, { color: mutedTextColor }]}>{closingCal}</Text>
+                ) : null}
+              </View>
+            </>
+          ) : null}
+
+          <Text style={[styles.sectionLabel, { color: mutedTextColor, marginTop: item.closingDate ? 4 : 0 }]}>
+            Showtimes
+          </Text>
+          <ShowtimesPreviewPrototype
+            borderColor={borderColor}
+            surfaceColor={chipBg}
+            primaryTextColor={primaryTextColor}
+            mutedTextColor={mutedTextColor}
+          />
+
           <Text style={[styles.sectionLabel, { color: mutedTextColor }]}>Your label</Text>
 
           {/* Row 1: 3 chips, flex row */}
@@ -282,6 +383,14 @@ const styles = StyleSheet.create({
   groupAvatarFb: { alignItems: "center", justifyContent: "center" },
   groupAvatarFbText: { fontSize: 8, fontWeight: "700" },
   groupChipMore: { marginLeft: 4, fontSize: 10, fontWeight: "700" },
+  infoCard: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    gap: 4,
+  },
+  infoPrimary: { fontSize: 15, fontWeight: "700" },
+  infoSecondary: { fontSize: 13 },
   actions: { marginTop: 4, paddingTop: 12, gap: 8, borderTopWidth: StyleSheet.hairlineWidth },
   actionBtn: {
     paddingVertical: 11,

@@ -1,8 +1,8 @@
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { closingStripBadge } from "@/features/browse/logic/closingStrip";
 import {
-  closingCountdownLabel,
   daysUntil,
   earliestFutureRunDate,
   openingCountdownLabel,
@@ -23,14 +23,19 @@ function getStatusBadge(
 ): BadgeConfig | null {
   const todayStr = new Date().toISOString().split("T")[0];
 
-  // Closing soon — highest priority
-  if ((status === "open" || status === "open_run" || status === "in_previews") && production.closingDate) {
-    const d = daysUntil(production.closingDate);
-    if (d >= 0 && d <= 30) {
-      return isDark
-        ? { label: closingCountdownLabel(d), bg: "rgba(239,68,68,0.18)", text: "#F87171" }
-        : { label: closingCountdownLabel(d), bg: "#FEF2F2", text: "#E05252" };
-    }
+  if (status === "closed") {
+    return isDark
+      ? { label: "Closed", bg: "rgba(156,163,175,0.12)", text: "#D1D5DB" }
+      : { label: "Closed", bg: "#F3F4F6", text: "#9CA3AF" };
+  }
+
+  // Any announced closing date on a current run (with urgency colors)
+  if (
+    (status === "open" || status === "open_run" || status === "in_previews") &&
+    production.closingDate
+  ) {
+    const strip = closingStripBadge(production.closingDate, todayStr, isDark);
+    if (strip) return strip;
   }
 
   if (status === "announced") {
@@ -52,18 +57,21 @@ function getStatusBadge(
       : { label: "Announced", bg: "#FEFCE8", text: "#CA8A04" };
   }
 
-  if (status === "open_run") return isDark
-    ? { label: "Open Run", bg: "rgba(34,197,94,0.15)", text: "#4ADE80" }
-    : { label: "Open Run", bg: "#F0FDF4", text: "#22C55E" };
-  if (status === "open") return isDark
-    ? { label: "Running", bg: "rgba(34,197,94,0.12)", text: "#4ADE80" }
-    : { label: "Running", bg: "#F0FDF4", text: "#22C55E" };
-  if (status === "in_previews") return isDark
-    ? { label: "Previews", bg: "rgba(59,130,246,0.15)", text: "#60A5FA" }
-    : { label: "Previews", bg: "#EFF6FF", text: "#3B82F6" };
-  if (status === "closed") return isDark
-    ? { label: "Closed", bg: "rgba(156,163,175,0.12)", text: "#D1D5DB" }
-    : { label: "Closed", bg: "#F3F4F6", text: "#9CA3AF" };
+  if (status === "open_run") {
+    return isDark
+      ? { label: "Open Run", bg: "rgba(34,197,94,0.15)", text: "#4ADE80" }
+      : { label: "Open Run", bg: "#F0FDF4", text: "#22C55E" };
+  }
+  if (status === "open") {
+    return isDark
+      ? { label: "Running", bg: "rgba(34,197,94,0.12)", text: "#4ADE80" }
+      : { label: "Running", bg: "#F0FDF4", text: "#22C55E" };
+  }
+  if (status === "in_previews") {
+    return isDark
+      ? { label: "Previews", bg: "rgba(59,130,246,0.15)", text: "#60A5FA" }
+      : { label: "Previews", bg: "#EFF6FF", text: "#3B82F6" };
+  }
   return null;
 }
 
@@ -79,13 +87,7 @@ export function railBadgeForProduction(
   todayStr: string
 ): BadgeConfig | null {
   if (kind === "closing-soon" && production.closingDate) {
-    const d = daysUntil(production.closingDate);
-    if (d >= 0 && d <= 30) {
-      return isDark
-        ? { label: closingCountdownLabel(d), bg: "rgba(239,68,68,0.18)", text: "#F87171" }
-        : { label: closingCountdownLabel(d), bg: "#FEF2F2", text: "#E05252" };
-    }
-    return null;
+    return closingStripBadge(production.closingDate, todayStr, isDark);
   }
   if (kind === "coming-soon") {
     const milestone = earliestFutureRunDate(

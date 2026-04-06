@@ -41,6 +41,7 @@ const MAPPING = {
   'questionmark.circle.fill': 'help',
   'hand.thumbsdown.fill': 'thumb-down',
   'book.fill': 'book',
+  'arrow.up.arrow.down': 'swap-vert',
 } as IconMapping;
 
 /**
