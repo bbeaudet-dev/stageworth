@@ -36,6 +36,7 @@ export function RankingSection({
   rankingPhase,
   comparisonTarget,
   showNameForHeader,
+  showImageForHeader,
   onComparisonAnswer,
   predictedResultIndex,
   rankedShowsForRanking,
@@ -52,6 +53,7 @@ export function RankingSection({
   rankingPhase: "tier" | "comparison" | "result";
   comparisonTarget: RankedShowForRanking | null;
   showNameForHeader: string;
+  showImageForHeader: string | null;
   onComparisonAnswer: (prefersNewShow: boolean) => void;
   predictedResultIndex: number | null;
   rankedShowsForRanking: RankedShowForRanking[];
@@ -156,9 +158,19 @@ export function RankingSection({
                   ]}
                   onPress={() => onComparisonAnswer(true)}
                 >
-                  <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
-                    <Text style={[styles.playbillFallbackText, { color: c.mutedText }]}>{showNameForHeader}</Text>
-                  </View>
+                  {showImageForHeader ? (
+                    <Image
+                      source={{ uri: showImageForHeader }}
+                      style={[styles.playbillImage, { backgroundColor: c.surface }]}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
+                      <Text style={[styles.playbillFallbackText, { color: c.mutedText }]}>
+                        {showNameForHeader}
+                      </Text>
+                    </View>
+                  )}
                   <Text style={[styles.playbillName, { color: c.text }]} numberOfLines={2}>
                     {showNameForHeader}
                   </Text>

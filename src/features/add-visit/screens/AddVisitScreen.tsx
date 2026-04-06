@@ -305,6 +305,7 @@ export default function AddVisitScreen() {
                 rankingPhase={rankingPhase}
                 comparisonTarget={comparisonTarget}
                 showNameForHeader={showNameForHeader}
+                showImageForHeader={selectedShowArt?.imageUrl ?? null}
                 onComparisonAnswer={handleComparisonAnswer}
                 predictedResultIndex={predictedResultIndex}
                 rankedShowsForRanking={rankedShowsForRanking}
