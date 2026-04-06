@@ -1,5 +1,5 @@
 import { useFocusEffect } from "@react-navigation/native";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
@@ -20,15 +20,10 @@ import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useFollowToggle } from "@/hooks/use-follow-toggle";
+import { getInitials } from "@/utils/user";
 
 const MAX_RECENT_SEARCHES = 6;
-
-function getInitials(name?: string | null, username?: string) {
-  const source = name?.trim() || username || "?";
-  const parts = source.split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return source.slice(0, 2).toUpperCase();
-}
 
 type SearchRow = {
   _id: Id<"users">;
@@ -68,11 +63,7 @@ export default function UserSearchScreen() {
   const results = useQuery(api.social.profiles.searchUsers, { q: queryText });
   const currentUserId = useQuery(api.auth.getConvexUserIdQuery);
 
-  const followUser = useMutation(api.social.social.followUser);
-  const unfollowUser = useMutation(api.social.social.unfollowUser);
-  const [pendingFollowUserId, setPendingFollowUserId] = useState<string | null>(
-    null,
-  );
+  const { toggleFollow, isFollowPending } = useFollowToggle();
 
   const openProfile = useCallback(
     (username: string) => {
@@ -94,26 +85,10 @@ export default function UserSearchScreen() {
     [queryText, router],
   );
 
-  const handleToggleFollow = useCallback(
-    async (userId: Id<"users">, viewerFollows: boolean) => {
-      setPendingFollowUserId(String(userId));
-      try {
-        if (viewerFollows) {
-          await unfollowUser({ userId });
-        } else {
-          await followUser({ userId });
-        }
-      } finally {
-        setPendingFollowUserId(null);
-      }
-    },
-    [followUser, unfollowUser],
-  );
-
   const renderItem = useCallback(
     ({ item }: { item: SearchRow }) => {
       const displayName = item.name?.trim() || item.username;
-      const busy = pendingFollowUserId === String(item._id);
+      const busy = isFollowPending(item._id);
       const isSelf = currentUserId !== undefined && item._id === currentUserId;
 
       return (
@@ -163,7 +138,7 @@ export default function UserSearchScreen() {
           ) : (
             <Pressable
               disabled={busy}
-              onPress={() => handleToggleFollow(item._id, item.viewerFollows)}
+              onPress={() => toggleFollow(item._id, item.viewerFollows)}
               style={[
                 styles.followBtn,
                 item.viewerFollows
@@ -202,12 +177,12 @@ export default function UserSearchScreen() {
       accentColor,
       borderColor,
       currentUserId,
-      handleToggleFollow,
+      isFollowPending,
       mutedTextColor,
       openProfile,
-      pendingFollowUserId,
       primaryTextColor,
       surfaceColor,
+      toggleFollow,
     ],
   );
 

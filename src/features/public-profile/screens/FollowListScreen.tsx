@@ -1,7 +1,7 @@
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -16,16 +16,11 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useFollowToggle } from "@/hooks/use-follow-toggle";
 import { useTabNav } from "@/hooks/use-tab-nav";
+import { getInitials } from "@/utils/user";
 
 type FollowKind = "followers" | "following";
-
-function getInitials(name?: string | null, username?: string) {
-  const source = name?.trim() || username || "?";
-  const parts = source.split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return source.slice(0, 2).toUpperCase();
-}
 
 type FollowRow = {
   _id: Id<"users">;
@@ -55,25 +50,7 @@ export default function FollowListScreen() {
     profile && kind === "following" ? { userId: profile._id, limit: 100 } : "skip"
   );
 
-  const followUser = useMutation(api.social.social.followUser);
-  const unfollowUser = useMutation(api.social.social.unfollowUser);
-  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
-
-  const handleToggleFollow = useCallback(
-    async (userId: Id<"users">, viewerFollows: boolean) => {
-      setPendingUserId(String(userId));
-      try {
-        if (viewerFollows) {
-          await unfollowUser({ userId });
-        } else {
-          await followUser({ userId });
-        }
-      } finally {
-        setPendingUserId(null);
-      }
-    },
-    [followUser, unfollowUser]
-  );
+  const { toggleFollow, isFollowPending } = useFollowToggle();
 
   const rows = (kind === "followers" ? (followers ?? []) : (following ?? [])) as FollowRow[];
   const title = kind === "followers" ? "Followers" : "Following";
@@ -95,7 +72,7 @@ export default function FollowListScreen() {
   const renderItem = useCallback(
     ({ item }: { item: FollowRow }) => {
       const displayName = item.name?.trim() || item.username;
-      const busy = pendingUserId === String(item._id);
+      const busy = isFollowPending(item._id);
 
       return (
         <View style={[styles.row, { backgroundColor: surfaceColor, borderColor }]}>
@@ -133,7 +110,7 @@ export default function FollowListScreen() {
           ) : (
             <Pressable
               disabled={busy}
-              onPress={() => handleToggleFollow(item._id, item.viewerFollows)}
+              onPress={() => toggleFollow(item._id, item.viewerFollows)}
               style={[
                 styles.followBtn,
                 item.viewerFollows
@@ -165,12 +142,12 @@ export default function FollowListScreen() {
     [
       accentColor,
       borderColor,
-      handleToggleFollow,
+      isFollowPending,
       mutedTextColor,
-      pendingUserId,
       primaryTextColor,
       pushUserProfile,
       surfaceColor,
+      toggleFollow,
     ]
   );
 

@@ -1,6 +1,5 @@
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -17,6 +16,7 @@ import { PublicShowsGrid } from "@/features/profile/components/PublicShowsGrid";
 import { TasteProfile } from "@/features/profile/components/TasteProfile";
 import { TheatreChallenge } from "@/features/profile/components/TheatreChallenge";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useFollowToggle } from "@/hooks/use-follow-toggle";
 import { useTabNav } from "@/hooks/use-tab-nav";
 
 
@@ -42,23 +42,7 @@ export default function PublicProfileScreen() {
     api.tasteProfile.getRecentActivity,
     profile ? { userId: profile._id } : "skip",
   );
-  const followUser = useMutation(api.social.social.followUser);
-  const unfollowUser = useMutation(api.social.social.unfollowUser);
-  const [followPending, setFollowPending] = useState(false);
-
-  const handleFollow = async () => {
-    if (!profile || profile.viewerIsSelf || followPending) return;
-    setFollowPending(true);
-    try {
-      if (profile.viewerFollows) {
-        await unfollowUser({ userId: profile._id });
-      } else {
-        await followUser({ userId: profile._id });
-      }
-    } finally {
-      setFollowPending(false);
-    }
-  };
+  const { toggleFollow, isFollowPending } = useFollowToggle();
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -98,8 +82,8 @@ export default function PublicProfileScreen() {
           <>
             <ProfileHeader
               profile={profile}
-              onFollowToggle={profile.viewerIsSelf ? undefined : handleFollow}
-              followPending={followPending}
+              onFollowToggle={profile.viewerIsSelf ? undefined : () => toggleFollow(profile._id, profile.viewerFollows)}
+              followPending={isFollowPending(profile._id)}
               stats={stats}
               theatreRank={userStats?.theatreRank}
               streakWeeks={userStats?.currentStreakWeeks}
