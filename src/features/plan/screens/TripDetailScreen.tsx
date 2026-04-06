@@ -30,36 +30,7 @@ import {
     useTripData,
 } from "@/features/plan/hooks/useTripData";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-
-// ─── helpers ──────────────────────────────────────────────────────────────────
-
-function formatDateRange(startDate: string, endDate: string): string {
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  const s = new Date(startDate + "T00:00:00Z");
-  const e = new Date(endDate + "T00:00:00Z");
-  const sm = months[s.getUTCMonth()],
-    em = months[e.getUTCMonth()];
-  const sd = s.getUTCDate(),
-    ed = e.getUTCDate();
-  const sy = s.getUTCFullYear(),
-    ey = e.getUTCFullYear();
-  if (sy === ey && sm === em) return `${sm} ${sd}–${ed}, ${sy}`;
-  if (sy === ey) return `${sm} ${sd} – ${em} ${ed}, ${sy}`;
-  return `${sm} ${sd}, ${sy} – ${em} ${ed}, ${ey}`;
-}
+import { formatDateRange } from "@/utils/dates";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 

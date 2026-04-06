@@ -25,15 +25,11 @@ import { AddShowToTripSheet } from "@/features/plan/components/AddShowToTripShee
 import { TripShowLabelSheet } from "@/features/plan/components/TripShowLabelSheet";
 import { useTripData } from "@/features/plan/hooks/useTripData";
 import { tripShowLabelMeta } from "@/features/plan/tripShowLabelMeta";
+import type { TripDetail, TripShowItem, TripDay, ClosingSoonItem } from "@/features/plan/types";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { chunkRows } from "@/utils/arrays";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-
-function chunkRows<T>(arr: T[], cols: number): T[][] {
-  const rows: T[][] = [];
-  for (let i = 0; i < arr.length; i += cols) rows.push(arr.slice(i, i + cols));
-  return rows;
-}
 
 const COLS = 4;
 const GAP = 8;
@@ -55,9 +51,9 @@ type TripListSort = "closing" | "reaction";
 // ─── component ────────────────────────────────────────────────────────────────
 
 interface TripShowsTabProps {
-  trip: any;
+  trip: TripDetail;
   tripId: Id<"trips">;
-  closingSoon?: any[];
+  closingSoon?: ClosingSoonItem[];
 }
 
 export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
@@ -76,7 +72,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   const onAccent = Colors[theme].onAccent;
   const chipBg = Colors[theme].surface;
 
-  const [labelSheetItem, setLabelSheetItem] = useState<any | null>(null);
+  const [labelSheetItem, setLabelSheetItem] = useState<TripShowItem | null>(null);
   const [optimisticLabels, setOptimisticLabels] = useState<Record<string, TripShowLabel | null>>({});
   const [showAddFromLists, setShowAddFromLists] = useState(false);
   const [showAddShow, setShowAddShow] = useState(false);
@@ -98,9 +94,9 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
   // All shows on this trip (assigned + unassigned), sorted by creation order.
-  const allTripShows: any[] = useMemo(
+  const allTripShows: TripShowItem[] = useMemo(
     () =>
-      [...(trip.unassigned ?? []), ...(trip.days ?? []).flatMap((d: any) => d.shows)].sort(
+      [...(trip.unassigned ?? []), ...(trip.days ?? []).flatMap((d: TripDay) => d.shows)].sort(
         (a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0),
       ),
     [trip.unassigned, trip.days],
@@ -164,7 +160,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   const labelSheetItemLive = useMemo(() => {
     if (!labelSheetItem) return null;
     const id = String(labelSheetItem._id);
-    const base = allTripShows.find((s: any) => String(s._id) === id) ?? labelSheetItem;
+    const base = allTripShows.find((s) => String(s._id) === id) ?? labelSheetItem;
     if (id in optimisticLabels) {
       return { ...base, myLabel: optimisticLabels[id] };
     }
@@ -172,7 +168,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   }, [labelSheetItem, allTripShows, optimisticLabels]);
 
   // Returns the effective label for a card (optimistic takes priority over server).
-  const effectiveLabel = (item: any): TripShowLabel | null => {
+  const effectiveLabel = (item: TripShowItem): TripShowLabel | null => {
     const id = String(item._id);
     return id in optimisticLabels ? optimisticLabels[id] : (item.myLabel ?? null);
   };
@@ -183,8 +179,8 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   const cardWidthInClosingCard = (gridWidthInCard - GAP * (COLS - 1)) / COLS;
 
   const alreadyOnTripShowIds = new Set([
-    ...(trip.unassigned ?? []).map((s: any) => String(s.showId)),
-    ...(trip.days ?? []).flatMap((d: any) => d.shows.map((s: any) => String(s.showId))),
+    ...(trip.unassigned ?? []).map((s: TripShowItem) => String(s.showId)),
+    ...(trip.days ?? []).flatMap((d: TripDay) => d.shows.map((s: TripShowItem) => String(s.showId))),
   ]);
 
   const handleAddShow = async (showId: Id<"shows">) => {
@@ -198,7 +194,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
 
   const handleAddAll = async () => {
     if (!closingSoon || isAddingAll) return;
-    const toAdd = closingSoon.filter((item: any) => !alreadyOnTripShowIds.has(String(item.show._id)));
+    const toAdd = closingSoon.filter((item) => !alreadyOnTripShowIds.has(String(item.show._id)));
     if (toAdd.length === 0) return;
     setIsAddingAll(true);
     try {
@@ -216,7 +212,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
     return { label: b.label, bg: b.bg, textCol: b.text };
   };
 
-  const stripForTripPlaybill = (item: any) => {
+  const stripForTripPlaybill = (item: TripShowItem) => {
     const b = tripPlaybillStripBadge(
       {
         closingDate: item.closingDate,
@@ -258,9 +254,9 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
           <Text style={[styles.emptyHint, { color: mutedTextColor }]}>No shows added</Text>
         ) : (
           <View style={styles.grid}>
-            {chunkRows(sortedTripShows, COLS).map((row: any[], ri: number) => (
+            {chunkRows(sortedTripShows, COLS).map((row, ri) => (
               <View key={ri} style={styles.gridRow}>
-                {row.map((item: any) => {
+                {row.map((item) => {
                   const key = String(item.showId);
                   const image = item.show?.images?.[0] ?? null;
                   const badge = stripForTripPlaybill(item);
@@ -336,9 +332,9 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
 
             {closingSoon && closingSoon.length > 0 ? (
               <View style={[styles.grid, canEditTrip && { marginTop: 4 }]}>
-                {chunkRows(closingSoon, COLS).map((row: any[], ri: number) => (
+                {chunkRows(closingSoon, COLS).map((row, ri) => (
                   <View key={ri} style={styles.gridRow}>
-                    {row.map((item: any) => {
+                    {row.map((item) => {
                       const show = item.show;
                       const image = item.production?.posterUrl ?? show?.images?.[0] ?? null;
                       const sid = String(show._id);

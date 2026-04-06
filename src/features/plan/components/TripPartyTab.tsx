@@ -18,29 +18,14 @@ import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useTripData } from "@/features/plan/hooks/useTripData";
+import type { TripDetail, TripMember, FollowingUser, SearchUser } from "@/features/plan/types";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-
-// ─── helpers ──────────────────────────────────────────────────────────────────
-
-function getDisplayName(name?: string | null, fallback?: string) {
-  const trimmed = name?.trim();
-  if (!trimmed) return fallback ?? "";
-  const parts = trimmed.split(/\s+/);
-  if (parts.length >= 2) return `${parts[0]} ${parts[1][0]}.`;
-  return parts[0] || fallback || "";
-}
-
-function getInitials(name?: string | null, username?: string) {
-  const source = name?.trim() || username || "?";
-  const parts = source.split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return source.slice(0, 2).toUpperCase();
-}
+import { getInitials, getDisplayName } from "@/utils/user";
 
 // ─── component ────────────────────────────────────────────────────────────────
 
 interface TripPartyTabProps {
-  trip: any;
+  trip: TripDetail;
   tripId: Id<"trips">;
   onViewUser: (username: string) => void;
 }
@@ -80,8 +65,8 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
 
   const { addTripMember, removeTripMember, updateTripMemberRole } = useTripData();
 
-  const existingMemberUserIds = new Set((trip?.members ?? []).map((m: any) => String(m.userId)));
-  const friendsNotYetMembers = (myFollowing ?? []).filter((f: any) => !existingMemberUserIds.has(String(f._id)));
+  const existingMemberUserIds = new Set((trip?.members ?? []).map((m: TripMember) => String(m.userId)));
+  const friendsNotYetMembers = (myFollowing ?? []).filter((f: FollowingUser) => !existingMemberUserIds.has(String(f._id)));
 
   const handleAddFriendWithRole = async (userId: Id<"users">, role: "edit" | "view") => {
     setAddingFriendRole(role);
@@ -137,7 +122,7 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
       </Pressable>
 
       {/* Member rows — tapping anywhere on the card expands it */}
-      {trip.members.map((m: any) => {
+      {trip.members.map((m: TripMember) => {
         const isExpanded = expandedMemberId === String(m._id);
         // Status-aware badge
         const { pillBg, pillBorder, pillText, pillLabel } = (() => {
@@ -221,7 +206,7 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
             {friendsNotYetMembers.length > 0 ? (
               <>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendChipRow}>
-                  {friendsNotYetMembers.map((user: any) => {
+                  {friendsNotYetMembers.map((user: FollowingUser) => {
                     const isPending = pendingAdd?._id === user._id;
                     return (
                       <Pressable
@@ -296,7 +281,7 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
               </Text>
             ) : (
                 <View style={[styles.searchResults, { borderColor }]}>
-                  {(tripSearchRows as any[]).map((user) => {
+                  {(tripSearchRows as SearchUser[]).map((user) => {
                     const alreadyMember = existingMemberUserIds.has(String(user._id));
                     const isAddingThisUser = addingSearchRole?.userId === String(user._id);
                     return (

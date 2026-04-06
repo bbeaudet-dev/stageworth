@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { EmptyState } from "@/components/empty-state";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { ListsSection } from "@/features/profile/components/ListsSection";
@@ -21,6 +22,7 @@ import type { VisibleProfileList } from "@/features/profile/types";
 import { TripCard } from "@/features/plan/components/TripCard";
 import { CreateTripSheet } from "@/features/plan/components/CreateTripSheet";
 import { useTripData } from "@/features/plan/hooks/useTripData";
+import type { TripSummary, TripInvitation } from "@/features/plan/types";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -93,8 +95,8 @@ export default function PlanScreen() {
   // ── Sort trips into display buckets ──────────────────────────────────────
   const { mainList, olderPast } = useMemo(() => {
     const today = todayStr();
-    const upcoming = (trips?.upcoming ?? []) as any[];
-    const past = (trips?.past ?? []) as any[];
+    const upcoming = (trips?.upcoming ?? []) as TripSummary[];
+    const past = (trips?.past ?? []) as TripSummary[];
 
     // Active (started and not yet ended)
     const active = upcoming
@@ -204,7 +206,7 @@ export default function PlanScreen() {
           </View>
 
           {/* Pending invitations — shown before the normal trip list */}
-          {pendingInvitations.map((inv: any) => {
+          {pendingInvitations.map((inv: TripInvitation) => {
             const acceptKey = inv._id + ":accept";
             const declineKey = inv._id + ":decline";
             const isResponding = respondingId === acceptKey || respondingId === declineKey;
@@ -250,15 +252,7 @@ export default function PlanScreen() {
           {isTripsLoading ? (
             <Text style={[styles.emptyText, { color: mutedTextColor }]}>Loading…</Text>
           ) : !hasAnyTrips ? (
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptyTitle, { color: primaryTextColor }]}>No trips yet</Text>
-              <Text style={[styles.emptySubtitle, { color: mutedTextColor }]}>
-                Create a trip to plan which shows you want to see and track shows closing around your travel dates.
-              </Text>
-              <Pressable style={[styles.emptyButton, { backgroundColor: accentColor }]} onPress={() => setShowCreateTrip(true)}>
-                <Text style={[styles.emptyButtonText, { color: onAccent }]}>Create a Trip</Text>
-              </Pressable>
-            </View>
+            <EmptyState title="No trips yet" subtitle="Create a trip to plan which shows you want to see and track shows closing around your travel dates." actionLabel="Create a Trip" onAction={() => setShowCreateTrip(true)} />
           ) : (
             <>
               {/* Main trip list (active → recently ended → upcoming) */}
@@ -300,7 +294,7 @@ export default function PlanScreen() {
                       {showPastTrips ? "▲" : "▼"}
                     </Text>
                   </Pressable>
-                  {showPastTrips ? olderPast.map((trip: any) => (
+                  {showPastTrips ? olderPast.map((trip) => (
                     <TripCard
                       key={String(trip._id)}
                       name={trip.name}
@@ -353,11 +347,6 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   sectionTitle: { fontSize: 18, fontWeight: "700" },
   iconButton: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth },
-  emptyState: { alignItems: "center", paddingVertical: 16, gap: 8 },
-  emptyTitle: { fontSize: 16, fontWeight: "700" },
-  emptySubtitle: { fontSize: 13, lineHeight: 19, textAlign: "center", paddingHorizontal: 8 },
-  emptyButton: { borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20, marginTop: 4 },
-  emptyButtonText: { fontSize: 14, fontWeight: "700" },
   emptyText: { fontSize: 14, paddingVertical: 8 },
   showMoreBtn: { alignItems: "center", paddingVertical: 6 },
   showMoreText: { fontSize: 13, fontWeight: "600" },
