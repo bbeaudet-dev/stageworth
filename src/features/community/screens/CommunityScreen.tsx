@@ -148,10 +148,6 @@ export default function CommunityScreen() {
     try {
       const { shareableUrl } = await createInviteLink({});
       await Share.share({
-        // On iOS, `url` is a separate item in the share sheet so the message
-        // stays as plain text and copying the link gives just the URL.
-        // On Android, `url` is ignored — use the bare URL as the message so
-        // copy/paste gives a clean link with no extra text.
         message: Platform.OS === "android" ? shareableUrl : "Join me on Theatre Diary — the app for theatre lovers!",
         url: shareableUrl,
       });

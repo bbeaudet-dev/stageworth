@@ -32,12 +32,10 @@ export default function InviteTokenScreen() {
         return;
       }
 
-      // Already signed in — claim immediately
       await claimMutation({ token: token as string }).catch(() => {});
       router.replace("/(tabs)/community");
     }
 
-    // Wait for session state to resolve before acting
     if (!isPending) {
       handle();
     }
@@ -51,7 +49,6 @@ export default function InviteTokenScreen() {
     );
   }
 
-  // Fallback redirect if effect doesn't fire (e.g. SSR/web)
   return <Redirect href="/sign-in" />;
 }
 

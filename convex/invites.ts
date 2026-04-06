@@ -12,7 +12,6 @@ export const createInviteLink = mutation({
     const userId = await requireConvexUserId(ctx);
     const now = Date.now();
 
-    // Check for a recent, unclaimed link first to avoid spamming
     const existing = await ctx.db
       .query("inviteLinks")
       .withIndex("by_createdByUserId", (q) => q.eq("createdByUserId", userId))
@@ -66,7 +65,6 @@ export const claimInviteLink = mutation({
     if (link.claimedByUserId) return { success: false, reason: "already_claimed" as const };
     if (link.createdByUserId === userId) return { success: false, reason: "self_invite" as const };
 
-    // Check if this user has already been referred via a different link
     const existingClaim = await ctx.db
       .query("inviteLinks")
       .withIndex("by_claimedByUserId", (q) => q.eq("claimedByUserId", userId))

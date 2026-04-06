@@ -10,7 +10,6 @@ export function usePendingInvite() {
   async function claimPendingInvite() {
     const token = await SecureStore.getItemAsync(PENDING_INVITE_KEY);
     if (!token) return;
-    // Swallow errors — token may already be claimed or expired
     await claimMutation({ token }).catch(() => {});
     await SecureStore.deleteItemAsync(PENDING_INVITE_KEY);
   }

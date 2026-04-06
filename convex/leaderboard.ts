@@ -202,7 +202,6 @@ export const getBySignups = query({
       targetUserIds = [viewerUserId, ...followRows.map((r: any) => r.followingUserId)];
     }
 
-    // Only claimed links count as successful signups
     const claimedLinks = await ctx.db
       .query("inviteLinks")
       .collect()
