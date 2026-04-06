@@ -117,11 +117,7 @@ export default function HomePage() {
           <p className="text-gray-600 mb-2 max-w-xl mx-auto">
             Install Apple&apos;s{" "}
             <span className="font-medium text-gray-800">TestFlight</span> app,
-            then tap the button below on your iPhone to accept the beta and
-            install Theatre Diary.
-          </p>
-          <p className="text-sm text-gray-500 mb-8">
-            This is a public invite link—no email signup on this site required.
+            then tap the button below to install Theatre Diary.
           </p>
           <a
             href={TESTFLIGHT_PUBLIC_URL}
