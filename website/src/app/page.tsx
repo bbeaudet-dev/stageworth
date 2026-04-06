@@ -80,31 +80,24 @@ export default function HomePage() {
 
       {/* Features + screenshots */}
       <section className="py-20 sm:py-28">
-        <div className="mx-auto max-w-5xl px-4">
+        <div className="mx-auto max-w-7xl px-4">
           <h2 className="text-2xl sm:text-3xl font-bold text-center mb-4 bg-linear-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
             Everything a theatregoer needs
           </h2>
-          <div className="flex flex-col gap-16 sm:gap-20 mt-16">
-            {FEATURES.map((feature, i) => (
-              <div
-                key={feature.title}
-                className={`flex flex-col gap-8 lg:flex-row lg:items-center lg:gap-12 ${
-                  i % 2 === 1 ? "lg:flex-row-reverse" : ""
-                }`}
-              >
-                <div className="flex justify-center lg:w-[min(100%,380px)] lg:shrink-0">
-                  <div className="relative w-full max-w-[280px] rounded-4xl overflow-hidden shadow-xl shadow-gray-900/15 ring-1 ring-black/6 bg-gray-900/5">
-                    <Image
-                      src={feature.imageSrc}
-                      alt={feature.imageAlt}
-                      width={SHOT_WIDTH}
-                      height={SHOT_HEIGHT}
-                      sizes="(max-width: 1024px) 280px, 320px"
-                      className="w-full h-auto object-cover object-top"
-                    />
-                  </div>
+          <div className="mt-16 grid grid-cols-1 gap-10 sm:grid-cols-2 xl:grid-cols-4">
+            {FEATURES.map((feature) => (
+              <div key={feature.title} className="flex flex-col items-center text-center">
+                <div className="relative w-full max-w-[280px] rounded-4xl overflow-hidden shadow-xl shadow-gray-900/15 ring-1 ring-black/6 bg-gray-900/5">
+                  <Image
+                    src={feature.imageSrc}
+                    alt={feature.imageAlt}
+                    width={SHOT_WIDTH}
+                    height={SHOT_HEIGHT}
+                    sizes="(max-width: 640px) 280px, (max-width: 1280px) 42vw, 22vw"
+                    className="w-full h-auto object-cover object-top"
+                  />
                 </div>
-                <div className="flex-1 min-w-0 text-center lg:text-left">
+                <div className="mt-4">
                   <h3 className="text-xl sm:text-2xl font-semibold text-gray-900">
                     {feature.title}
                   </h3>
