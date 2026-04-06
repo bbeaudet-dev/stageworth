@@ -35,7 +35,7 @@ const LINE_META = {
 export default function MyShowsScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
-  const [viewMode, setViewMode] = useState<ViewMode>("cloud");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [expandedShowId, setExpandedShowId] = useState<Id<"shows"> | null>(null);
   const [selectedShowId, setSelectedShowId] = useState<Id<"shows"> | null>(null);
 

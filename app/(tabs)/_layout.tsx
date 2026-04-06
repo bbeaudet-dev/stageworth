@@ -56,11 +56,6 @@ export default function TabLayout() {
             <IconSymbol size={28} name="map.fill" color={color} />
           ),
         }}
-        listeners={({ navigation }) => ({
-          tabPress: () => {
-            navigation.navigate("plan", { screen: "index" });
-          },
-        })}
       />
       <Tabs.Screen
         name="search"

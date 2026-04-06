@@ -87,7 +87,7 @@ function ParticipantsSheet({
 
 export default function CommunityScreen() {
   const router = useRouter();
-  const [selectedTab, setSelectedTab] = useState<FeedTab>("following");
+  const [selectedTab, setSelectedTab] = useState<FeedTab>("global");
 
   const followingFeed = useQuery(
     api.social.community.getFollowingFeed,
@@ -191,36 +191,6 @@ export default function CommunityScreen() {
                 borderColor: segmentBorder,
                 backgroundColor: segmentBackground,
               },
-              selectedTab === "following" && [
-                styles.segmentButtonActive,
-                {
-                  backgroundColor: segmentBackgroundActive,
-                  borderColor: segmentBackgroundActive,
-                },
-              ],
-            ]}
-            onPress={() => setSelectedTab("following")}
-          >
-            <Text
-              style={[
-                styles.segmentButtonText,
-                { color: segmentTextColor },
-                selectedTab === "following" && [
-                  styles.segmentButtonTextActive,
-                  { color: segmentTextActiveColor },
-                ],
-              ]}
-            >
-              Following
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.segmentButton,
-              {
-                borderColor: segmentBorder,
-                backgroundColor: segmentBackground,
-              },
               selectedTab === "global" && [
                 styles.segmentButtonActive,
                 {
@@ -242,6 +212,36 @@ export default function CommunityScreen() {
               ]}
             >
               Global
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.segmentButton,
+              {
+                borderColor: segmentBorder,
+                backgroundColor: segmentBackground,
+              },
+              selectedTab === "following" && [
+                styles.segmentButtonActive,
+                {
+                  backgroundColor: segmentBackgroundActive,
+                  borderColor: segmentBackgroundActive,
+                },
+              ],
+            ]}
+            onPress={() => setSelectedTab("following")}
+          >
+            <Text
+              style={[
+                styles.segmentButtonText,
+                { color: segmentTextColor },
+                selectedTab === "following" && [
+                  styles.segmentButtonTextActive,
+                  { color: segmentTextActiveColor },
+                ],
+              ]}
+            >
+              Following
             </Text>
           </Pressable>
         </View>
