@@ -11,6 +11,7 @@ export function useSocialAuth() {
   const appleLoading = false;
 
   const signInWithGoogle = async () => {
+    let authSucceeded = false;
     try {
       setGoogleLoading(true);
       await GoogleSignin.hasPlayServices();
@@ -29,6 +30,7 @@ export function useSocialAuth() {
           throw new Error(authResult.error.message || "Google sign-in failed");
         }
 
+        authSucceeded = true;
         return { success: true, email: data.user?.email };
       }
 
@@ -49,7 +51,9 @@ export function useSocialAuth() {
       }
       return null;
     } finally {
-      setGoogleLoading(false);
+      if (!authSucceeded) {
+        setGoogleLoading(false);
+      }
     }
   };
 

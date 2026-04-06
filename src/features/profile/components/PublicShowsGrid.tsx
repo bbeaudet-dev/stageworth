@@ -1,9 +1,8 @@
 import { useQuery } from "convex/react";
-import { Image } from "expo-image";
 import { useMemo } from "react";
-import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { StyleSheet, useWindowDimensions, View } from "react-native";
 
-import { ShowPlaceholder } from "@/components/ShowPlaceholder";
+import { ShowCard } from "@/features/browse/components/ShowCard";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -49,21 +48,12 @@ export function PublicShowsGrid({ userId, onPressShow }: PublicShowsGridProps) {
         {rows.map((row, ri) => (
           <View key={ri} style={styles.gridRow}>
             {row.map((show) => (
-              <Pressable
+              <ShowCard
                 key={String(show._id)}
-                style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}
-                onPress={onPressShow ? () => onPressShow(show._id, show.name) : undefined}
-              >
-                {show.images[0] ? (
-                  <Image
-                    source={{ uri: show.images[0] }}
-                    style={styles.playbillImg}
-                    contentFit="contain"
-                  />
-                ) : (
-                  <ShowPlaceholder name={show.name} type={show.type} />
-                )}
-              </Pressable>
+                show={{ name: show.name, type: show.type, images: show.images }}
+                onPress={() => onPressShow?.(show._id, show.name)}
+                containerStyle={[styles.tileCard, { width: cardWidth }]}
+              />
             ))}
           </View>
         ))}
@@ -85,12 +75,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: GRID_GAP,
   },
-  playbillCard: {
+  /** Overrides browse `playbillCard` flex so fixed width tiles lay out correctly. */
+  tileCard: {
+    flex: 0,
     borderRadius: 10,
-    overflow: "hidden",
-  },
-  playbillImg: {
-    width: "100%",
-    aspectRatio: 2 / 3,
   },
 });

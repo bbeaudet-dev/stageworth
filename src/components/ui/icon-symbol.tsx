@@ -43,6 +43,17 @@ const MAPPING = {
   'book.fill': 'book',
   'arrow.up.arrow.down': 'swap-vert',
   'plus.circle.fill': 'add-circle',
+  'line.3.horizontal': 'menu',
+  /** Missing mappings show as blank on Android / web — keep in sync with IconSymbol usages. */
+  'trophy.fill': 'emoji-events',
+  airplane: 'flight',
+  'info.circle': 'info',
+  'xmark.circle': 'cancel',
+  'plus.circle': 'add-circle-outline',
+  'person.fill.badge.plus': 'person-add',
+  'tag.fill': 'label',
+  'calendar.badge.exclamationmark': 'event-busy',
+  'megaphone.fill': 'campaign',
 } as IconMapping;
 
 /**
@@ -62,5 +73,13 @@ export function IconSymbol({
   style?: StyleProp<TextStyle>;
   weight?: SymbolWeight;
 }) {
-  return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
+  const glyph = MAPPING[name];
+  if (__DEV__ && glyph == null) {
+    console.warn(
+      `[IconSymbol] No MaterialIcons mapping for SF Symbol "${String(name)}". Add it in icon-symbol.tsx (Android/web).`,
+    );
+  }
+  return (
+    <MaterialIcons color={color} size={size} name={glyph ?? "help-outline"} style={style} />
+  );
 }

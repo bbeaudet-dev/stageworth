@@ -1,4 +1,4 @@
-import { Image } from "expo-image";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
@@ -16,6 +16,7 @@ import { getProductionStatus } from "@/utils/productions";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
+import { SmartShowImage } from "@/components/SmartShowImage";
 
 type BadgeConfig = { label: string; bg: string; text: string };
 
@@ -115,20 +116,24 @@ export function ProductionCard({
   const badge = getStatusBadge(production, status, isDark);
   const show = production.show;
   const image = production.posterUrl ?? show?.images?.[0];
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [image]);
 
   return (
     <Pressable
       style={[styles.playbillCard, { backgroundColor: c.surfaceElevated }]}
       onPress={onPress}
     >
-      {image ? (
-        <Image
-          source={{ uri: image }}
-          style={[
-            styles.playbillImage,
-            { backgroundColor: playbillMatBackground(isDark ? "dark" : "light") },
-          ]}
-          contentFit="contain"
+      {image && !imageFailed ? (
+        <SmartShowImage
+          key={image}
+          uri={image}
+          style={styles.playbillImage}
+          matBackground={playbillMatBackground(isDark ? "dark" : "light")}
+          onError={() => setImageFailed(true)}
         />
       ) : (
         <ShowPlaceholder name={show?.name ?? ""} type={show?.type} />

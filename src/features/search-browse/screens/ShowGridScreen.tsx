@@ -2,12 +2,11 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "convex/react";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ShowCard } from "@/features/browse/components/ShowCard";
 import {
   railBadgeForClosingSoon,
@@ -46,14 +45,12 @@ const CATEGORIES: Record<string, CategoryConfig> = {
 
 export default function ShowGridScreen() {
   const { category } = useLocalSearchParams<{ category: string }>();
-  const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
   const [limit, setLimit] = useState(PAGE_SIZE);
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const bg = Colors[theme].background;
-  const text = Colors[theme].text;
   const muted = Colors[theme].mutedText;
   const accent = Colors[theme].accent;
 
@@ -146,14 +143,14 @@ export default function ShowGridScreen() {
   const remaining = items ? items.length - visible.length : 0;
 
   return (
-    <SafeAreaView style={[s.container, { backgroundColor: bg }]} edges={["top"]}>
-      <View style={s.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={s.backButton}>
-          <IconSymbol name="chevron.left" size={22} color={text} />
-        </Pressable>
-        <Text style={[s.title, { color: text }]}>{config.title}</Text>
-        <View style={s.backButton} />
-      </View>
+    <SafeAreaView style={[s.container, { backgroundColor: bg }]} edges={["bottom"]}>
+      <Stack.Screen
+        options={{
+          title: config.title,
+          headerShown: true,
+          headerBackButtonDisplayMode: "minimal",
+        }}
+      />
 
       <ScrollView
         style={browseStyles.list}
@@ -204,21 +201,6 @@ export default function ShowGridScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  backButton: {
-    width: 32,
-    alignItems: "center",
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
   countText: {
     fontSize: 13,
     marginBottom: 4,

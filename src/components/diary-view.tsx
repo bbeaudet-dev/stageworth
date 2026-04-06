@@ -1,12 +1,14 @@
 import { useQuery } from "convex/react";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
-import { useMemo } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { EmptyState } from "@/components/empty-state";
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
+import { SmartShowImage } from "@/components/SmartShowImage";
 
 import { api } from "@/convex/_generated/api";
+import { playbillMatBackground } from "@/features/browse/styles";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { formatDiaryGroupLabel } from "@/utils/dates";
@@ -36,12 +38,25 @@ function DiaryCard({
   visit: VisitWithShow;
   onPress: () => void;
 }) {
+  const theme = useColorScheme() ?? "light";
+  const c = Colors[theme];
   const imageUrl = visit.show.images[0];
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [imageUrl]);
 
   return (
-    <Pressable style={cardStyles.card} onPress={onPress}>
-      {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={cardStyles.image} resizeMode="contain" />
+    <Pressable style={[cardStyles.card, { backgroundColor: c.surfaceElevated }]} onPress={onPress}>
+      {imageUrl && !imageFailed ? (
+        <SmartShowImage
+          key={imageUrl}
+          uri={imageUrl}
+          style={cardStyles.image}
+          matBackground={playbillMatBackground(theme)}
+          onError={() => setImageFailed(true)}
+        />
       ) : (
         <ShowPlaceholder name={visit.show.name} type={visit.show.type} />
       )}
@@ -58,7 +73,7 @@ export function DiaryView() {
   const theme = colorScheme ?? "light";
   const backgroundColor = Colors[theme].background;
   const primaryTextColor = Colors[theme].text;
-  const mutedTextColor = theme === "dark" ? "#A0A4AA" : "#666";
+  const mutedTextColor = Colors[theme].mutedText;
 
   const groups = useMemo(() => {
     if (!visits) return [];
@@ -141,7 +156,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: "#666",
   },
   section: {
     marginTop: 20,
@@ -149,7 +163,6 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#555",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 10,
@@ -168,12 +181,10 @@ const cardStyles = StyleSheet.create({
   card: {
     width: `${(100 - (NUM_COLUMNS - 1) * 2.2) / NUM_COLUMNS}%` as any,
     borderRadius: 8,
-    backgroundColor: "#e0e0e0",
     overflow: "hidden",
   },
   image: {
     width: "100%",
     aspectRatio: 1 / CARD_ASPECT,
-    backgroundColor: "#e0e0e0",
   },
 });

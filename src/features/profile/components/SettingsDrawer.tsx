@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { IconSymbol } from "@/components/ui/icon-symbol";
+import { IconSymbol, type IconSymbolName } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -28,7 +28,7 @@ type SettingsDrawerProps = {
 };
 
 type MenuRowProps = {
-  icon: string;
+  icon: IconSymbolName;
   label: string;
   onPress: () => void;
   textColor: string;
@@ -58,7 +58,7 @@ function MenuRow({
       ]}
     >
       <View style={[styles.menuRowIcon, { backgroundColor: iconColor + "18" }]}>
-        <IconSymbol name={icon as any} size={18} color={iconColor} />
+        <IconSymbol name={icon} size={18} color={iconColor} />
       </View>
       <View style={styles.menuRowText}>
         <Text style={[styles.menuRowLabel, { color: textColor }]}>{label}</Text>

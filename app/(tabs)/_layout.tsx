@@ -1,5 +1,5 @@
 import { Redirect, Tabs } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -12,7 +12,16 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { data: session, isPending } = useSession();
 
-  if (isPending) return null;
+  // Same as sign-in: don't blank the whole tab shell while session exists but the
+  // client is still revalidating (common right after OAuth on Android).
+  if (!session && isPending) {
+    const c = Colors[colorScheme ?? "light"];
+    return (
+      <View style={[styles.authGate, { backgroundColor: c.background }]}>
+        <ActivityIndicator size="large" color={c.accent} />
+      </View>
+    );
+  }
   if (!session) return <Redirect href="/sign-in" />;
 
   return (
@@ -98,6 +107,11 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
+  authGate: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   plusButton: {
     width: 36,
     height: 36,

@@ -56,7 +56,7 @@ export default function ProfileScreen() {
           hitSlop={10}
           style={styles.settingsBtn}
         >
-          <IconSymbol name="line.3.horizontal" size={24} color={mutedTextColor} />
+          <IconSymbol name="line.3.horizontal" size={24} color={primaryTextColor} />
         </Pressable>
       </View>
 

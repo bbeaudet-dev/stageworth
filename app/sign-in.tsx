@@ -11,14 +11,24 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Colors } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useSocialAuth } from "@/hooks/use-social-auth";
 import { useSession } from "@/lib/auth-client";
 
-const Header = memo(function Header() {
+const Header = memo(function Header({
+  textColor,
+  subtitleColor,
+}: {
+  textColor: string;
+  subtitleColor: string;
+}) {
   return (
     <View style={styles.header}>
-      <Text style={styles.title}>Theatre Diary</Text>
-      <Text style={styles.subtitle}>The all-in-one app for theatre nerds</Text>
+      <Text style={[styles.title, { color: textColor }]}>Theatre Diary</Text>
+      <Text style={[styles.subtitle, { color: subtitleColor }]}>
+        The all-in-one app for theatre nerds
+      </Text>
     </View>
   );
 });
@@ -35,7 +45,14 @@ const SocialButtons = memo(function SocialButtons({
   appleLoading,
   onGooglePress,
   onApplePress,
-}: SocialButtonsProps) {
+  googleButtonTextColor,
+  googleBorderColor,
+  googleButtonBackground,
+}: SocialButtonsProps & {
+  googleButtonTextColor: string;
+  googleBorderColor: string;
+  googleButtonBackground: string;
+}) {
   const anyLoading = googleLoading || appleLoading;
 
   return (
@@ -44,6 +61,10 @@ const SocialButtons = memo(function SocialButtons({
         style={({ pressed }) => [
           styles.button,
           styles.googleButton,
+          {
+            borderColor: googleBorderColor,
+            backgroundColor: googleButtonBackground,
+          },
           pressed && !anyLoading && styles.buttonPressed,
           anyLoading && styles.buttonDisabled,
         ]}
@@ -55,7 +76,7 @@ const SocialButtons = memo(function SocialButtons({
         ) : (
           <FontAwesome name="google" size={18} color="#4285F4" />
         )}
-        <Text style={styles.googleButtonText}>
+        <Text style={[styles.googleButtonText, { color: googleButtonTextColor }]}>
           {googleLoading ? "Signing in..." : "Continue with Google"}
         </Text>
       </Pressable>
@@ -86,25 +107,40 @@ const SocialButtons = memo(function SocialButtons({
 });
 
 export default function SignInScreen() {
+  const colorScheme = useColorScheme();
+  const theme = colorScheme ?? "light";
+  const c = Colors[theme];
   const { data: session, isPending } = useSession();
   const { googleLoading, appleLoading, signInWithGoogle, signInWithApple } =
     useSocialAuth();
 
-  // Wait for session state to resolve before rendering anything.
-  // Without this guard the sign-in buttons appear briefly while a stored session
-  // is still being validated, causing auth errors when the user taps them.
-  if (isPending) return null;
+  // Redirect as soon as `session` exists. Only show the initial gate spinner when
+  // we have no session yet and auth is still hydrating — not during background
+  // revalidation (`isPending` can stay true after Google sign-in and was flashing
+  // Android users with a second full-screen spinner after redirect).
   if (session) return <Redirect href="/" />;
+  if (isPending) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
+        <View style={[styles.content, styles.centered]}>
+          <ActivityIndicator size="large" color={c.accent} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
       <View style={styles.content}>
-        <Header />
+        <Header textColor={c.text} subtitleColor={c.mutedText} />
         <SocialButtons
           googleLoading={googleLoading}
           appleLoading={appleLoading}
           onGooglePress={signInWithGoogle}
           onApplePress={signInWithApple}
+          googleButtonTextColor={c.text}
+          googleBorderColor={c.border}
+          googleButtonBackground={c.surfaceElevated}
         />
       </View>
     </SafeAreaView>
@@ -114,12 +150,15 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
   content: {
     flex: 1,
     justifyContent: "center",
     padding: 24,
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     alignItems: "center",
@@ -132,7 +171,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: "#666",
     textAlign: "center",
   },
   buttons: {
@@ -156,14 +194,11 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   googleButton: {
-    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#ddd",
   },
   googleButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
   },
   appleButton: {
     backgroundColor: "#000",

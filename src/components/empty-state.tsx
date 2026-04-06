@@ -25,6 +25,7 @@ export function EmptyState({
   const textColor = Colors[theme].text;
   const mutedColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const onAccent = Colors[theme].onAccent;
 
   return (
     <View style={styles.container}>
@@ -40,7 +41,7 @@ export function EmptyState({
           style={[styles.button, { backgroundColor: accentColor }]}
           onPress={onAction}
         >
-          <Text style={styles.buttonText}>{actionLabel}</Text>
+          <Text style={[styles.buttonText, { color: onAccent }]}>{actionLabel}</Text>
         </Pressable>
       )}
     </View>
@@ -72,6 +73,5 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#fff",
   },
 });

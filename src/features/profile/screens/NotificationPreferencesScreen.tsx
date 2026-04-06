@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { IconSymbol } from "@/components/ui/icon-symbol";
+import { IconSymbol, type IconSymbolName } from "@/components/ui/icon-symbol";
 import { useToast } from "@/components/Toast";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
@@ -36,7 +36,7 @@ const DEFAULT_SETTINGS: NotifSettings = {
 };
 
 type ToggleRowProps = {
-  icon: string;
+  icon: IconSymbolName;
   label: string;
   subtitle: string;
   value: boolean;
@@ -65,7 +65,7 @@ function ToggleRow({
   return (
     <View style={[styles.toggleRow, { backgroundColor: surfaceColor, borderColor }]}>
       <View style={[styles.toggleRowIcon, { backgroundColor: iconBg }]}>
-        <IconSymbol name={icon as any} size={17} color={accentColor} />
+        <IconSymbol name={icon} size={17} color={accentColor} />
       </View>
       <View style={styles.toggleRowText}>
         <Text style={[styles.toggleRowLabel, { color: textColor }]}>{label}</Text>
