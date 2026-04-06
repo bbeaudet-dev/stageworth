@@ -4,30 +4,8 @@ import { Pressable, Text, View } from "react-native";
 import { WheelDatePicker } from "@/components/WheelDatePicker";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { parseISODate, toISODate, formatDateObject } from "@/utils/dates";
 import { styles } from "@/features/add-visit/styles";
-
-function parseISODate(date: string): Date {
-  const parsed = new Date(`${date}T00:00:00`);
-  if (!Number.isNaN(parsed.getTime())) return parsed;
-  const fallback = new Date();
-  fallback.setHours(0, 0, 0, 0);
-  return fallback;
-}
-
-function toISODate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function formatDate(d: Date): string {
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 export function VisitDateSection({
   date,
@@ -54,7 +32,7 @@ export function VisitDateSection({
         >
           <Text style={[styles.datePickerLabel, { color: c.mutedText }]}>Date</Text>
           <Text style={[styles.datePickerValue, { color: c.accent }]}>
-            {formatDate(parsedDate)}
+            {formatDateObject(parsedDate)}
           </Text>
         </Pressable>
         {pickerOpen && (

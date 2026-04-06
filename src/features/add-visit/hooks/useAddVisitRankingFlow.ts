@@ -2,9 +2,9 @@ import { useMemo } from "react";
 
 import {
   getBottomInsertionIndexForTier,
-  normalizeTier,
+  normalizeRankedTier,
 } from "@/features/add-visit/logic/ranking";
-import type { RankedShowForRanking, RankingTier } from "@/features/add-visit/types";
+import type { RankedShowForRanking, RankedTier } from "@/features/add-visit/types";
 import type { Id } from "@/convex/_generated/dataModel";
 
 export function useAddVisitRankingFlow({
@@ -17,7 +17,7 @@ export function useAddVisitRankingFlow({
 }: {
   rankedShows: RankedShowForRanking[] | undefined;
   selectedShowId: Id<"shows"> | null;
-  selectedTier: RankingTier | null;
+  selectedTier: RankedTier | null;
   searchLow: number;
   searchHigh: number;
   rankingResultIndex: number | null;
@@ -34,13 +34,13 @@ export function useAddVisitRankingFlow({
 
   const tierComparisonShows = useMemo(() => {
     if (!selectedTier) return [];
-    return rankedShowsForRanking.filter((show) => normalizeTier(show.tier) === selectedTier);
+    return rankedShowsForRanking.filter((show) => normalizeRankedTier(show.tier) === selectedTier);
   }, [rankedShowsForRanking, selectedTier]);
 
   const tierAbsoluteIndices = useMemo(() => {
     if (!selectedTier) return [];
     return rankedShowsForRanking
-      .map((show, index) => (normalizeTier(show.tier) === selectedTier ? index : -1))
+      .map((show, index) => (normalizeRankedTier(show.tier) === selectedTier ? index : -1))
       .filter((index) => index >= 0);
   }, [rankedShowsForRanking, selectedTier]);
 
@@ -87,7 +87,7 @@ export function useAddVisitRankingFlow({
     return searchLow >= searchHigh ? "result" : "comparison";
   }, [rankingResultIndex, searchHigh, searchLow, selectedTier, tierComparisonShows.length]);
 
-  const getInsertionIndexForRelative = (tier: RankingTier, relativeInsertIndex: number) => {
+  const getInsertionIndexForRelative = (tier: RankedTier, relativeInsertIndex: number) => {
     if (tierAbsoluteIndices.length === 0) {
       return getBottomInsertionIndexForTier(rankedShowsForRanking, tier);
     }

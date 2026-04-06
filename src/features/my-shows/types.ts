@@ -1,9 +1,9 @@
 import type { Id } from "@/convex/_generated/dataModel";
 import type { RankedShow } from "@/components/show-row-accordion";
+import type { RankedTier, RankingTier } from "@/types/ranking";
 
+export type { RankedTier, RankingTier };
 export type ViewMode = "list" | "cloud" | "diary";
-export type RankingTier = "loved" | "liked" | "okay" | "disliked" | "unranked";
-export type RankedTier = Exclude<RankingTier, "unranked">;
 export type SpecialLine = "wouldSeeAgain" | "stayedHome";
 
 export type ListItem =

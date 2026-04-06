@@ -6,12 +6,15 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View
 import { useNavGuard } from "@/hooks/use-nav-guard";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { EmptyState } from "@/components/empty-state";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { playbillMatBackground } from "@/features/browse/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { formatRelativeTime } from "@/utils/dates";
+import { getInitials, getDisplayName } from "@/utils/user";
 
 type NotificationListItem = {
   _id: Id<"notifications">;
@@ -27,36 +30,6 @@ type NotificationListItem = {
   show: { _id: Id<"shows">; name: string; images: string[] } | null;
   trip: { _id: Id<"trips">; name: string } | null;
 };
-
-function getDisplayName(name?: string | null, fallback?: string) {
-  const trimmed = name?.trim();
-  if (!trimmed) return fallback ?? "";
-  const parts = trimmed.split(/\s+/);
-  if (parts.length >= 2) return `${parts[0]} ${parts[1][0]}.`;
-  return parts[0] || fallback || "";
-}
-
-function formatRelativeTime(ts: number): string {
-  const diffMs = Date.now() - ts;
-  const diffMins = Math.floor(diffMs / 60_000);
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return new Date(ts).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function getInitials(name?: string | null, username?: string) {
-  const source = name?.trim() || username || "?";
-  const parts = source.split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return source.slice(0, 2).toUpperCase();
-}
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -143,13 +116,7 @@ export default function NotificationsScreen() {
           <Text style={[styles.emptyText, { color: emptyTextColor }]}>Loading...</Text>
         )}
         {notifications !== undefined && notifications.length === 0 && (
-          <View style={styles.emptyState}>
-            <IconSymbol name="bell.fill" size={40} color={mutedText} />
-            <Text style={[styles.emptyTitle, { color: text }]}>No notifications yet</Text>
-            <Text style={[styles.emptyText, { color: mutedText }]}>
-              You’ll be notified when someone follows you or tags you in a visit.
-            </Text>
-          </View>
+          <EmptyState icon="bell.fill" title="No notifications yet" subtitle="You'll be notified when someone follows you or tags you in a visit." />
         )}
         {(notifications ?? []).map((notif) => {
           const timeStr = formatRelativeTime(notif.createdAt);
@@ -274,16 +241,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 32,
     gap: 8,
-  },
-  emptyState: {
-    alignItems: "center",
-    gap: 12,
-    marginTop: 60,
-    paddingHorizontal: 32,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
   },
   emptyText: {
     fontSize: 14,

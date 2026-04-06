@@ -19,6 +19,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { playbillMatBackground } from "@/features/browse/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { formatVisitDate } from "@/utils/dates";
 
 type ShowType = "musical" | "play" | "opera" | "dance" | "other";
 
@@ -32,16 +33,6 @@ type RankedShow = {
   tier?: "loved" | "liked" | "okay" | "disliked" | "unranked";
   visitCount: number;
 };
-
-function formatVisitDate(iso: string): string {
-  const [year, month, day] = iso.split("-");
-  const date = new Date(Number(year), Number(month) - 1, Number(day));
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 function AddVisitForm({
   showId,

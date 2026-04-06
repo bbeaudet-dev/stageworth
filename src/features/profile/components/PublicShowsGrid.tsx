@@ -1,12 +1,14 @@
 import { useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { chunkRows } from "@/utils/arrays";
 
 const GRID_GAP = 8;
 const COLUMNS = 4;
@@ -24,9 +26,6 @@ export function PublicShowsGrid({ userId, onPressShow }: PublicShowsGridProps) {
 
   const surfaceColor = Colors[theme].surfaceElevated;
   const borderColor = Colors[theme].border;
-  const primaryTextColor = Colors[theme].text;
-  const mutedTextColor = Colors[theme].mutedText;
-  const posterBg = theme === "dark" ? "#27272f" : "#efefef";
 
   const shows = useQuery(api.rankings.getPublicRankedShows, { userId });
 
@@ -38,11 +37,7 @@ export function PublicShowsGrid({ userId, onPressShow }: PublicShowsGridProps) {
 
   const rows = useMemo(() => {
     if (!shows) return [];
-    const result: (typeof shows)[] = [];
-    for (let i = 0; i < shows.length; i += COLUMNS) {
-      result.push(shows.slice(i, i + COLUMNS));
-    }
-    return result;
+    return chunkRows(shows, COLUMNS);
   }, [shows]);
 
   if (shows === undefined) return null;
@@ -62,20 +57,11 @@ export function PublicShowsGrid({ userId, onPressShow }: PublicShowsGridProps) {
                 {show.images[0] ? (
                   <Image
                     source={{ uri: show.images[0] }}
-                    style={[styles.playbillImg, { backgroundColor: posterBg }]}
+                    style={styles.playbillImg}
                     contentFit="contain"
                   />
                 ) : (
-                  <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: posterBg }]}>
-                    <Text
-                      style={[styles.playbillFbText, { color: mutedTextColor }]}
-                      numberOfLines={5}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.6}
-                    >
-                      {show.name}
-                    </Text>
-                  </View>
+                  <ShowPlaceholder name={show.name} type={show.type} />
                 )}
               </Pressable>
             ))}
@@ -106,15 +92,5 @@ const styles = StyleSheet.create({
   playbillImg: {
     width: "100%",
     aspectRatio: 2 / 3,
-  },
-  playbillFb: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 6,
-  },
-  playbillFbText: {
-    fontSize: 14,
-    fontWeight: "600",
-    textAlign: "center",
   },
 });

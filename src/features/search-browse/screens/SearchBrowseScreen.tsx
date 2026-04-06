@@ -17,14 +17,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { EmptyState } from "@/components/empty-state";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useNavGuard } from "@/hooks/use-nav-guard";
 import { useTabNav } from "@/hooks/use-tab-nav";
-import { closingStripBadge } from "@/features/browse/logic/closingStrip";
 import { railBadgeForProduction } from "@/features/browse/components/ProductionCard";
+import { chunkRows } from "@/utils/arrays";
+import { getInitials } from "@/utils/user";
 
 const GRID_GAP = 8;
 const GRID_COLUMNS = 4;
@@ -153,7 +155,7 @@ export default function SearchBrowseScreen() {
               <View style={styles.section}>
                 <Text style={[styles.sectionTitle, { color: text }]}>Shows</Text>
                 <View style={styles.grid}>
-                  {chunk(showResults.slice(0, 8), GRID_COLUMNS).map((row, ri) => (
+                  {chunkRows(showResults.slice(0, 8), GRID_COLUMNS).map((row, ri) => (
                     <View key={ri} style={styles.gridRow}>
                       {row.map((show) => (
                         <Pressable
@@ -224,13 +226,7 @@ export default function SearchBrowseScreen() {
             )}
 
             {noResults && (
-              <View style={styles.emptyState}>
-                <IconSymbol name="magnifyingglass" size={36} color={muted} />
-                <Text style={[styles.emptyTitle, { color: text }]}>No results</Text>
-                <Text style={[styles.emptySubtitle, { color: muted }]}>
-                  Nothing found for "{trimmed}"
-                </Text>
-              </View>
+              <EmptyState icon="magnifyingglass" iconSize={36} title="No results" subtitle={`Nothing found for "${trimmed}"`} />
             )}
           </>
         )}
@@ -245,7 +241,6 @@ export default function SearchBrowseScreen() {
                   _id: p._id,
                   show: p.show,
                   posterUrl: p.posterUrl,
-                  badge: closingStripBadge(p.closingDate, todayStr, isDark),
                 }))}
                 cardWidth={cardWidth}
                 surfaceColor={surface}
@@ -265,7 +260,6 @@ export default function SearchBrowseScreen() {
                   _id: p._id,
                   show: p.show,
                   posterUrl: p.posterUrl,
-                  badge: railBadgeForProduction(p, "closing-soon", isDark, todayStr),
                 }))}
                 cardWidth={cardWidth}
                 surfaceColor={surface}
@@ -285,7 +279,7 @@ export default function SearchBrowseScreen() {
                   _id: p._id,
                   show: p.show,
                   posterUrl: p.posterUrl,
-                  badge: railBadgeForProduction(p, "coming-soon", isDark, todayStr),
+                  badge: railBadgeForProduction(p, isDark, todayStr),
                 }))}
                 cardWidth={cardWidth}
                 surfaceColor={surface}
@@ -343,21 +337,6 @@ export default function SearchBrowseScreen() {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getInitials(name?: string | null, username?: string) {
-  const source = name?.trim() || username || "?";
-  const parts = source.split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return source.slice(0, 2).toUpperCase();
-}
-
-function chunk<T>(arr: T[], size: number): T[][] {
-  const result: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    result.push(arr.slice(i, i + size));
-  }
-  return result;
-}
 
 // ─── BrowseRail ──────────────────────────────────────────────────────────────
 
@@ -622,18 +601,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  // Empty state
-  emptyState: {
-    alignItems: "center",
-    gap: 10,
-    marginTop: 48,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    textAlign: "center",
-  },
 });

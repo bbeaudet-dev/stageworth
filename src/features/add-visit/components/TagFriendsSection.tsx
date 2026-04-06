@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Colors } from "@/constants/theme";
 import { styles as sharedStyles } from "@/features/add-visit/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { getInitials, getDisplayName } from "@/utils/user";
 import type { Id } from "@/convex/_generated/dataModel";
 
 type FollowingUser = {
@@ -18,21 +19,6 @@ type Props = {
   taggedUserIds: Id<"users">[];
   onToggle: (userId: Id<"users">) => void;
 };
-
-function getInitials(name?: string | null, username?: string) {
-  const source = name?.trim() || username || "?";
-  const parts = source.split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return source.slice(0, 2).toUpperCase();
-}
-
-function getDisplayName(name?: string | null, fallback?: string) {
-  const trimmed = name?.trim();
-  if (!trimmed) return fallback ?? "";
-  const parts = trimmed.split(/\s+/);
-  if (parts.length >= 2) return `${parts[0]} ${parts[1][0]}.`;
-  return parts[0] || fallback || "";
-}
 
 export function TagFriendsSection({ following, taggedUserIds, onToggle }: Props) {
   const theme = useColorScheme() ?? "light";

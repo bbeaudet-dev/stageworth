@@ -1,23 +1,7 @@
 import { daysUntil } from "@/features/browse/logic/date";
+import { formatDateShort } from "@/utils/dates";
 
 export type ClosingStripBadge = { label: string; bg: string; text: string };
-
-/** Short date for strip, e.g. "Jan 5" this year or "Jan 5, 2027" otherwise. */
-function formatClosingDateShort(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const y = d.getFullYear();
-  const cy = now.getFullYear();
-  if (y === cy) {
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  }
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 /**
  * Label under playbill: relative copy for today / tomorrow, otherwise "Closes {date}".
@@ -26,7 +10,7 @@ export function closingStripLabel(closingDate: string): string {
   const d = daysUntil(closingDate);
   if (d === 0) return "Closes today";
   if (d === 1) return "Closes tomorrow";
-  const short = formatClosingDateShort(closingDate);
+  const short = formatDateShort(closingDate);
   return short ? `Closes ${short}` : "";
 }
 

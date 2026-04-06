@@ -12,13 +12,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { shouldUseOauthProfileImageUrl } from "@/utils/oauthProfilePhoto";
-
-export function getInitials(name?: string | null, username?: string) {
-  const source = name?.trim() || username || "?";
-  const parts = source.split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return source.slice(0, 2).toUpperCase();
-}
+import { getInitials } from "@/utils/user";
 
 export interface ProfileHeaderData {
   username: string;

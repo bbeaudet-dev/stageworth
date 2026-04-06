@@ -11,59 +11,10 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { formatRelativeVisitDate } from "@/utils/dates";
+import { getDisplayName } from "@/utils/user";
 
 type FeedTab = "following" | "global";
-
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-function ordinal(n: number): string {
-  const v = n % 100;
-  if (v >= 11 && v <= 13) return `${n}th`;
-  switch (v % 10) {
-    case 1:
-      return `${n}st`;
-    case 2:
-      return `${n}nd`;
-    case 3:
-      return `${n}rd`;
-    default:
-      return `${n}th`;
-  }
-}
-
-function formatRelativeVisitDate(dateStr: string) {
-  const today = new Date();
-  const target = new Date(`${dateStr}T00:00:00`);
-  today.setHours(0, 0, 0, 0);
-  target.setHours(0, 0, 0, 0);
-
-  const diffDays = Math.round(
-    (today.getTime() - target.getTime()) / 86_400_000,
-  );
-  if (diffDays === 0) return "today";
-  if (diffDays === 1) return "yesterday";
-  if (diffDays <= 6) return `${diffDays} days ago`;
-  if (diffDays === 7) return "a week ago";
-
-  const month = MONTHS[target.getMonth()];
-  const day = ordinal(target.getDate());
-  // Show year once within ~1 month of the one-year anniversary (≥335 days)
-  if (diffDays >= 335) return `${month} ${day}, ${target.getFullYear()}`;
-  return `${month} ${day}`;
-}
 
 function formatVisitLocation(
   dateStr: string,
@@ -71,14 +22,6 @@ function formatVisitLocation(
   city?: string | null,
 ) {
   return [theatre, city].filter(Boolean).join(", ");
-}
-
-function getDisplayName(name?: string | null, fallback?: string) {
-  const trimmed = name?.trim();
-  if (!trimmed) return fallback ?? "";
-  const parts = trimmed.split(/\s+/);
-  if (parts.length >= 2) return `${parts[0]} ${parts[1][0]}.`;
-  return parts[0] || fallback || "";
 }
 
 type TaggedUser = { _id: string; username: string; name?: string | null };

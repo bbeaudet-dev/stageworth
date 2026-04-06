@@ -1,7 +1,6 @@
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { closingStripBadge } from "@/features/browse/logic/closingStrip";
 import {
   daysUntil,
   earliestFutureRunDate,
@@ -27,15 +26,6 @@ function getStatusBadge(
     return isDark
       ? { label: "Closed", bg: "rgba(156,163,175,0.12)", text: "#D1D5DB" }
       : { label: "Closed", bg: "#F3F4F6", text: "#9CA3AF" };
-  }
-
-  // Any announced closing date on a current run (with urgency colors)
-  if (
-    (status === "open" || status === "open_run" || status === "in_previews") &&
-    production.closingDate
-  ) {
-    const strip = closingStripBadge(production.closingDate, todayStr, isDark);
-    if (strip) return strip;
   }
 
   if (status === "announced") {
@@ -75,33 +65,27 @@ function getStatusBadge(
   return null;
 }
 
-/** Badge for Search home rails (Coming Soon / Closing Soon). */
+/** Opening countdown badge for the Search "Coming Soon" rail/grid only (not closing dates). */
 export function railBadgeForProduction(
   production: {
     previewDate?: string;
     openingDate?: string;
     closingDate?: string;
   },
-  kind: "closing-soon" | "coming-soon",
   isDark: boolean,
   todayStr: string
 ): BadgeConfig | null {
-  if (kind === "closing-soon" && production.closingDate) {
-    return closingStripBadge(production.closingDate, todayStr, isDark);
-  }
-  if (kind === "coming-soon") {
-    const milestone = earliestFutureRunDate(
-      production.previewDate,
-      production.openingDate,
-      todayStr
-    );
-    if (milestone) {
-      const d = daysUntil(milestone);
-      if (d >= 0) {
-        return isDark
-          ? { label: openingCountdownLabel(d), bg: "rgba(234,179,8,0.15)", text: "#FACC15" }
-          : { label: openingCountdownLabel(d), bg: "#FEFCE8", text: "#CA8A04" };
-      }
+  const milestone = earliestFutureRunDate(
+    production.previewDate,
+    production.openingDate,
+    todayStr
+  );
+  if (milestone) {
+    const d = daysUntil(milestone);
+    if (d >= 0) {
+      return isDark
+        ? { label: openingCountdownLabel(d), bg: "rgba(234,179,8,0.15)", text: "#FACC15" }
+        : { label: openingCountdownLabel(d), bg: "#FEFCE8", text: "#CA8A04" };
     }
   }
   return null;

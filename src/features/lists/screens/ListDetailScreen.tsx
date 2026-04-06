@@ -21,16 +21,11 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { playbillMatBackground } from "@/features/browse/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { chunkRows } from "@/utils/arrays";
 
 const COLS = 4;
 const GAP = 8;
 const PAD = 16;
-
-function chunkRows<T>(arr: T[], cols: number): T[][] {
-  const rows: T[][] = [];
-  for (let i = 0; i < arr.length; i += cols) rows.push(arr.slice(i, i + cols));
-  return rows;
-}
 
 const SYSTEM_LIST_INFO: Record<string, string> = {
   seen: "Auto-generated from all of your saved visits.",

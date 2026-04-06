@@ -10,16 +10,9 @@ import { useBrowseData } from "@/features/browse/hooks/useBrowseData";
 import { styles } from "@/features/browse/styles";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { chunkRows } from "@/utils/arrays";
 
 type BrowseMode = "current" | "all";
-
-function chunkIntoRows<T>(arr: T[], size: number): T[][] {
-  const rows: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    rows.push(arr.slice(i, i + size));
-  }
-  return rows;
-}
 
 const ALL_SHOWS_PAGE_SIZE = 100;
 
@@ -153,7 +146,7 @@ export default function BrowseScreen() {
             sections.map((section) => (
               <View key={section.title}>
                 <Text style={[styles.sectionHeader, { color: mutedTextColor }]}>{section.title}</Text>
-                {chunkIntoRows(section.data, 4).map((row, rowIndex) => (
+                {chunkRows(section.data, 4).map((row, rowIndex) => (
                   <View key={rowIndex} style={styles.gridRow}>
                     {row.map((production) => (
                       <ProductionCard
@@ -192,7 +185,7 @@ export default function BrowseScreen() {
           </Text>
         ) : (
           <>
-            {chunkIntoRows(shows.slice(0, allShowsLimit), 4).map((row, rowIndex) => (
+            {chunkRows(shows.slice(0, allShowsLimit), 4).map((row, rowIndex) => (
               <View key={rowIndex} style={styles.gridRow}>
                 {row.map((show) => (
                   <ShowCard
