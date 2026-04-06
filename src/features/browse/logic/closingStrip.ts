@@ -75,3 +75,31 @@ export function closingStripBadge(
   const { bg, text } = closingStripColors(d, isDark);
   return { label, bg, text };
 }
+
+/** Strip when a production is an open-ended run (no closing date to drive {@link closingStripBadge}). */
+export function openRunStripBadge(isDark: boolean): ClosingStripBadge {
+  return isDark
+    ? { label: "Open Run", bg: "rgba(34,197,94,0.15)", text: "#4ADE80" }
+    : { label: "Open Run", bg: "#F0FDF4", text: "#22C55E" };
+}
+
+/**
+ * Bottom strip for trip playbills: closing urgency when dated, otherwise open run
+ * when the server marks the run as open-ended.
+ */
+export function tripPlaybillStripBadge(
+  row: {
+    closingDate?: string | null;
+    isOpenRun?: boolean | null;
+    tripProductionStatus?: string | null;
+  },
+  todayStr: string,
+  isDark: boolean,
+): ClosingStripBadge | null {
+  const closing = closingStripBadge(row.closingDate, todayStr, isDark);
+  if (closing) return closing;
+  if (row.isOpenRun === true || row.tripProductionStatus === "open_run") {
+    return openRunStripBadge(isDark);
+  }
+  return null;
+}

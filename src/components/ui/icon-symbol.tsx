@@ -42,6 +42,7 @@ const MAPPING = {
   'hand.thumbsdown.fill': 'thumb-down',
   'book.fill': 'book',
   'arrow.up.arrow.down': 'swap-vert',
+  'plus.circle.fill': 'add-circle',
 } as IconMapping;
 
 /**

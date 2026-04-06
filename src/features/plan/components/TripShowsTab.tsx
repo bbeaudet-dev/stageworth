@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { TripShowLabel } from "@/features/plan/tripShowLabelMeta";
 import {
   ActionSheetIOS,
+  ActivityIndicator,
   Alert,
   Platform,
   Pressable,
@@ -18,7 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
-import { closingStripBadge } from "@/features/browse/logic/closingStrip";
+import { closingStripBadge, tripPlaybillStripBadge } from "@/features/browse/logic/closingStrip";
 import { AddFromListsSheet } from "@/features/plan/components/AddFromListsSheet";
 import { AddShowToTripSheet } from "@/features/plan/components/AddShowToTripSheet";
 import { TripShowLabelSheet } from "@/features/plan/components/TripShowLabelSheet";
@@ -79,7 +80,6 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   const [optimisticLabels, setOptimisticLabels] = useState<Record<string, TripShowLabel | null>>({});
   const [showAddFromLists, setShowAddFromLists] = useState(false);
   const [showAddShow, setShowAddShow] = useState(false);
-  const [showClosingInfo, setShowClosingInfo] = useState(false);
   const [isAddingAll, setIsAddingAll] = useState(false);
   const [tripListSort, setTripListSort] = useState<TripListSort>("closing");
   // Track optimistic "added" state for Closing Soon items: showId -> true
@@ -210,14 +210,22 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
     }
   };
 
-  const dayBadgeLabel = (dayDate: string | null | undefined): string | null => {
-    if (!dayDate) return null;
-    const d = new Date(dayDate + "T00:00:00Z");
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-  };
-
   const stripForClosing = (closingDate: string | null | undefined) => {
     const b = closingStripBadge(closingDate, todayStr, theme === "dark");
+    if (!b) return null;
+    return { label: b.label, bg: b.bg, textCol: b.text };
+  };
+
+  const stripForTripPlaybill = (item: any) => {
+    const b = tripPlaybillStripBadge(
+      {
+        closingDate: item.closingDate,
+        isOpenRun: item.isOpenRun,
+        tripProductionStatus: item.tripProductionStatus,
+      },
+      todayStr,
+      theme === "dark",
+    );
     if (!b) return null;
     return { label: b.label, bg: b.bg, textCol: b.text };
   };
@@ -234,13 +242,15 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
         <View style={styles.rowBetween}>
           <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Trip List</Text>
           <Pressable
-            style={[styles.pill, { backgroundColor: accentColor + "18", borderColor: accentColor + "40" }]}
+            style={[styles.sortIconBtn, { backgroundColor: accentColor + "18", borderColor: accentColor + "40" }]}
             onPress={openTripListSortSheet}
+            accessibilityLabel={
+              tripListSort === "closing"
+                ? "Sorted by closing date. Tap to change."
+                : "Sorted by reaction. Tap to change."
+            }
           >
-            <IconSymbol size={12} name="arrow.up.arrow.down" color={accentColor} />
-            <Text style={[styles.pillText, { color: accentColor }]}>
-              {tripListSort === "closing" ? "By closing" : "By reaction"}
-            </Text>
+            <IconSymbol size={18} name="arrow.up.arrow.down" color={accentColor} />
           </Pressable>
         </View>
 
@@ -253,10 +263,9 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                 {row.map((item: any) => {
                   const key = String(item.showId);
                   const image = item.show?.images?.[0] ?? null;
-                  const badge = stripForClosing(item.closingDate);
+                  const badge = stripForTripPlaybill(item);
                   const myLabel = effectiveLabel(item);
                   const labelMeta = myLabel ? tripShowLabelMeta(myLabel) : null;
-                  const assignedDay = dayBadgeLabel(item.dayDate);
                   return (
                     <View key={key} style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}>
                       <Pressable onPress={() => setLabelSheetItem(item)}>
@@ -271,11 +280,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                           ) : null}
                         </View>
                       </Pressable>
-                      {assignedDay ? (
-                        <View style={[styles.closingBadgeBelow, { backgroundColor: accentColor + "22" }]}>
-                          <Text style={[styles.closingBadgeText, { color: accentColor }]}>{assignedDay}</Text>
-                        </View>
-                      ) : badge ? (
+                      {badge ? (
                         <View style={[styles.closingBadgeBelow, { backgroundColor: badge.bg }]}>
                           <Text style={[styles.closingBadgeText, { color: badge.textCol }]}>{badge.label}</Text>
                         </View>
@@ -289,70 +294,48 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
           </View>
         )}
 
-        {/* Add to trip — closing-soon picks + list / search */}
+        {/* Add: icon toolbar + optional closing-soon grid */}
         {((closingSoon && closingSoon.length > 0) || canEditTrip) ? (
           <View style={[styles.card, { backgroundColor: surfaceColor, borderColor }]}>
-            <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Add to this trip</Text>
-            <Text style={[styles.addTripSubtitle, { color: mutedTextColor }]}>
-              Closing-soon picks from your lists, plus add by search or any list.
-            </Text>
-
             {canEditTrip ? (
-              <View style={[styles.rowBetween, { flexWrap: "wrap", gap: 8 }]}>
-                <View style={styles.pillRow}>
-                  <Pressable
-                    style={[styles.pill, { backgroundColor: accentColor + "18", borderColor: accentColor + "40" }]}
-                    onPress={() => setShowAddFromLists(true)}
-                  >
-                    <IconSymbol size={12} name="plus" color={accentColor} />
-                    <Text style={[styles.pillText, { color: accentColor }]}>From Lists</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.pill, { backgroundColor: accentColor + "18", borderColor: accentColor + "40" }]}
-                    onPress={() => setShowAddShow(true)}
-                  >
-                    <IconSymbol size={12} name="magnifyingglass" color={accentColor} />
-                    <Text style={[styles.pillText, { color: accentColor }]}>Search Shows</Text>
-                  </Pressable>
-                </View>
+              <View style={styles.addTripIconRow}>
+                <Pressable
+                  style={[styles.addTripIconBtn, { backgroundColor: accentColor + "18", borderColor: accentColor + "40" }]}
+                  onPress={() => setShowAddFromLists(true)}
+                  accessibilityLabel="Add from lists"
+                >
+                  <IconSymbol size={22} name="list.bullet" color={accentColor} />
+                </Pressable>
+                <Pressable
+                  style={[styles.addTripIconBtn, { backgroundColor: accentColor + "18", borderColor: accentColor + "40" }]}
+                  onPress={() => setShowAddShow(true)}
+                  accessibilityLabel="Search shows"
+                >
+                  <IconSymbol size={22} name="magnifyingglass" color={accentColor} />
+                </Pressable>
                 {closingSoon && closingSoon.length > 0 ? (
                   <Pressable
                     style={[
-                      styles.pill,
+                      styles.addTripIconBtn,
                       { backgroundColor: accentColor + "18", borderColor: accentColor + "40" },
                       isAddingAll && { opacity: 0.5 },
                     ]}
                     onPress={handleAddAll}
                     disabled={isAddingAll}
+                    accessibilityLabel="Add all closing soon"
                   >
-                    <Text style={[styles.pillText, { color: accentColor }]}>
-                      {isAddingAll ? "Adding…" : "Add All"}
-                    </Text>
+                    {isAddingAll ? (
+                      <ActivityIndicator size="small" color={accentColor} />
+                    ) : (
+                      <IconSymbol size={22} name="plus.circle.fill" color={accentColor} />
+                    )}
                   </Pressable>
                 ) : null}
               </View>
             ) : null}
 
-            <View style={styles.rowBetween}>
-              <Text style={[styles.subsectionTitle, { color: primaryTextColor }]}>Closing soon on your lists</Text>
-              <Pressable
-                onPress={() => setShowClosingInfo((p) => !p)}
-                hitSlop={8}
-                style={[styles.infoBubble, { backgroundColor: accentColor + "18" }]}
-              >
-                <Text style={[styles.infoBubbleText, { color: accentColor }]}>i</Text>
-              </Pressable>
-            </View>
-            {showClosingInfo ? (
-              <View style={[styles.infoBox, { backgroundColor: accentColor + "12", borderColor: accentColor + "30" }]}>
-                <Text style={[styles.infoBoxText, { color: primaryTextColor }]}>
-                  Shows from your Want to See, Look Into, and Uncategorized lists that are closing within the next 60 days.
-                </Text>
-              </View>
-            ) : null}
-
             {closingSoon && closingSoon.length > 0 ? (
-              <View style={styles.grid}>
+              <View style={[styles.grid, canEditTrip && { marginTop: 4 }]}>
                 {chunkRows(closingSoon, COLS).map((row: any[], ri: number) => (
                   <View key={ri} style={styles.gridRow}>
                     {row.map((item: any) => {
@@ -389,11 +372,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                   </View>
                 ))}
               </View>
-            ) : (
-              <Text style={[styles.emptyHint, { color: mutedTextColor }]}>
-                No productions from your lists are closing in the next 60 days.
-              </Text>
-            )}
+            ) : null}
           </View>
         ) : null}
       </ScrollView>
@@ -456,16 +435,31 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
 
 const styles = StyleSheet.create({
   tabContent: { padding: 16, gap: 16 },
-  card: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 10 },
+  card: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 12, gap: 8 },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sectionTitle: { fontSize: 17, fontWeight: "700" },
-  subsectionTitle: { fontSize: 14, fontWeight: "700" },
-  addTripSubtitle: { fontSize: 13, lineHeight: 18, marginTop: -4 },
-  closingHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
-  infoBubble: { width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center" },
-  infoBubbleText: { fontSize: 11, fontWeight: "700", lineHeight: 14 },
-  infoBox: { borderRadius: 8, borderWidth: 1, padding: 10 },
-  infoBoxText: { fontSize: 13, lineHeight: 18 },
+  sortIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addTripIconRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  addTripIconBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   emptyHint: { fontSize: 13, fontStyle: "italic" },
   pillRow: { flexDirection: "row", gap: 6 },
   pill: {
@@ -478,7 +472,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   pillText: { fontSize: 12, fontWeight: "600" },
-  closingRowHint: { fontSize: 9, fontWeight: "500", paddingHorizontal: 5, paddingBottom: 4, marginTop: -2 },
   onTripBadge: { borderRadius: 6, paddingVertical: 4, alignItems: "center" },
   onTripText: { fontSize: 10, fontWeight: "700" },
   closingAddBtn: { borderRadius: 6, paddingVertical: 5, alignItems: "center" },

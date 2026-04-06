@@ -37,9 +37,6 @@ function ShowtimesPreviewPrototype({
   ];
   return (
     <View style={[proto.wrap, { borderColor, backgroundColor: surfaceColor }]}>
-      <Text style={[proto.hint, { color: mutedTextColor }]}>
-        Sample week — real curtain times will sync from the venue (rush-board style).
-      </Text>
       <View style={proto.headerRow}>
         {days.map((d) => (
           <Text key={d} style={[proto.dayHead, { color: mutedTextColor }]}>
@@ -47,23 +44,25 @@ function ShowtimesPreviewPrototype({
           </Text>
         ))}
       </View>
-      {slots.map((row, ri) => (
-        <View key={ri} style={proto.slotRow}>
-          {row.map((cell, ci) => (
-            <View key={ci} style={proto.cell}>
-              {cell ? (
-                <View style={[proto.timeChip, { borderColor }]}>
-                  <Text style={[proto.timeChipText, { color: primaryTextColor }]} numberOfLines={1}>
-                    {cell}
-                  </Text>
-                </View>
-              ) : (
-                <Text style={[proto.dash, { color: mutedTextColor }]}> </Text>
-              )}
-            </View>
-          ))}
-        </View>
-      ))}
+      <View style={proto.slotsBlock}>
+        {slots.map((row, ri) => (
+          <View key={ri} style={proto.slotRow}>
+            {row.map((cell, ci) => (
+              <View key={ci} style={proto.cell}>
+                {cell ? (
+                  <View style={[proto.timeChip, { borderColor }]}>
+                    <Text style={[proto.timeChipText, { color: primaryTextColor }]} numberOfLines={1}>
+                      {cell}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={[proto.dash, { color: mutedTextColor }]}> </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -72,22 +71,23 @@ const proto = StyleSheet.create({
   wrap: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 12,
-    gap: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 4,
   },
-  hint: { fontSize: 12, lineHeight: 16 },
   headerRow: { flexDirection: "row" },
   dayHead: { flex: 1, fontSize: 9, fontWeight: "800", textAlign: "center" },
-  slotRow: { flexDirection: "row", alignItems: "center", minHeight: 28 },
+  slotsBlock: { gap: 2 },
+  slotRow: { flexDirection: "row", alignItems: "center", minHeight: 20 },
   cell: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 1 },
   timeChip: {
-    borderRadius: 6,
+    borderRadius: 5,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 4,
-    paddingVertical: 3,
+    paddingHorizontal: 3,
+    paddingVertical: 1,
     width: "100%",
   },
-  timeChipText: { fontSize: 8, fontWeight: "700", textAlign: "center" },
+  timeChipText: { fontSize: 8, fontWeight: "700", textAlign: "center", lineHeight: 11 },
   dash: { fontSize: 10 },
 });
 
@@ -99,6 +99,8 @@ export type TripShowRowForLabel = {
   showId: Id<"shows">;
   dayDate?: string | null;
   closingDate?: string | null;
+  isOpenRun?: boolean | null;
+  tripProductionStatus?: string | null;
   show?: { name?: string; images?: (string | null)[] | null } | null;
   myLabel: TripShowLabel | null;
   labelSummary: {
@@ -155,6 +157,10 @@ export function TripShowLabelSheet({
   const showName = item.show?.name ?? "Show";
   const assignedToDay = item.dayDate != null && item.dayDate !== "";
   const closingCal = item.closingDate ? formatDate(item.closingDate) : null;
+  const showRunSection =
+    Boolean(item.closingDate) ||
+    item.isOpenRun === true ||
+    item.tripProductionStatus === "open_run";
 
   const confirmRemove = () => {
     Alert.alert("Remove show?", "It will be removed from this trip.", [
@@ -236,21 +242,27 @@ export function TripShowLabelSheet({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {item.closingDate ? (
+          {showRunSection ? (
             <>
               <Text style={[styles.sectionLabel, { color: mutedTextColor }]}>Closing</Text>
               <View style={[styles.infoCard, { borderColor, backgroundColor: surfaceColor }]}>
-                <Text style={[styles.infoPrimary, { color: primaryTextColor }]}>
-                  {closingStripLabel(item.closingDate)}
-                </Text>
-                {closingCal ? (
-                  <Text style={[styles.infoSecondary, { color: mutedTextColor }]}>{closingCal}</Text>
-                ) : null}
+                {item.closingDate ? (
+                  <>
+                    <Text style={[styles.infoPrimary, { color: primaryTextColor }]}>
+                      {closingStripLabel(item.closingDate)}
+                    </Text>
+                    {closingCal ? (
+                      <Text style={[styles.infoSecondary, { color: mutedTextColor }]}>{closingCal}</Text>
+                    ) : null}
+                  </>
+                ) : (
+                  <Text style={[styles.infoPrimary, { color: primaryTextColor }]}>Open run</Text>
+                )}
               </View>
             </>
           ) : null}
 
-          <Text style={[styles.sectionLabel, { color: mutedTextColor, marginTop: item.closingDate ? 4 : 0 }]}>
+          <Text style={[styles.sectionLabel, { color: mutedTextColor, marginTop: showRunSection ? 4 : 0 }]}>
             Showtimes
           </Text>
           <ShowtimesPreviewPrototype

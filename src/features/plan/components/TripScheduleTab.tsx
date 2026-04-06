@@ -16,7 +16,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
-import { closingStripBadge } from "@/features/browse/logic/closingStrip";
+import { closingStripBadge, tripPlaybillStripBadge } from "@/features/browse/logic/closingStrip";
 import { AddDayNoteSheet } from "@/features/plan/components/AddDayNoteSheet";
 import { TripShowLabelSheet } from "@/features/plan/components/TripShowLabelSheet";
 import { useTripData } from "@/features/plan/hooks/useTripData";
@@ -97,6 +97,20 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
 
   const closingBadge = (closingDate: string | null | undefined) => {
     const b = closingStripBadge(closingDate, todayStr, theme === "dark");
+    if (!b) return null;
+    return { label: b.label, bg: b.bg, textCol: b.text };
+  };
+
+  const tripPlaybillBadge = (item: any) => {
+    const b = tripPlaybillStripBadge(
+      {
+        closingDate: item.closingDate,
+        isOpenRun: item.isOpenRun,
+        tripProductionStatus: item.tripProductionStatus,
+      },
+      todayStr,
+      theme === "dark",
+    );
     if (!b) return null;
     return { label: b.label, bg: b.bg, textCol: b.text };
   };
@@ -217,7 +231,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
                       {row.map((item: any) => {
                         const key = `${day.date}:${item.showId}`;
                         const image = item.show?.images?.[0] ?? null;
-                        const badge = closingBadge(item.closingDate);
+                        const badge = tripPlaybillBadge(item);
                         const myLabel = effectiveLabel(item);
                         const labelMeta = myLabel ? tripShowLabelMeta(myLabel) : null;
                         return (
