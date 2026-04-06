@@ -154,6 +154,19 @@ export default defineSchema({
     .index("by_username", ["username"])
     .index("by_betterAuthUserId", ["betterAuthUserId"]),
 
+  inviteLinks: defineTable({
+    token: v.string(),
+    createdByUserId: v.id("users"),
+    claimedByUserId: v.optional(v.id("users")),
+    claimedAt: v.optional(v.number()),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_createdByUserId", ["createdByUserId"])
+    .index("by_claimedByUserId", ["claimedByUserId"]),
+
   // Ordered array of show IDs — the source of truth for ranking order.
   // One document per user. Rank = array index + 1.
   userRankings: defineTable({

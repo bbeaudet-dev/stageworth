@@ -17,13 +17,14 @@ import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getInitials } from "@/utils/user";
 
-type Category = "shows" | "visits" | "theatres";
+type Category = "shows" | "visits" | "theatres" | "signups";
 type Scope = "all" | "friends";
 
 const CATEGORIES: { key: Category; label: string }[] = [
   { key: "shows", label: "Shows" },
   { key: "visits", label: "Visits" },
   { key: "theatres", label: "Theatres" },
+  { key: "signups", label: "Signups" },
 ];
 
 export default function LeaderboardScreen() {
@@ -58,20 +59,28 @@ export default function LeaderboardScreen() {
     api.leaderboard.getByTheatres,
     category === "theatres" ? { scope } : "skip",
   );
+  const signupsData = useQuery(
+    api.leaderboard.getBySignups,
+    category === "signups" ? { scope } : "skip",
+  );
 
   const data =
     category === "shows"
       ? showsData
       : category === "visits"
         ? visitsData
-        : theatresData;
+        : category === "theatres"
+          ? theatresData
+          : signupsData;
 
   const countLabel =
     category === "shows"
       ? "shows"
       : category === "visits"
         ? "visits"
-        : "theatres";
+        : category === "theatres"
+          ? "theatres"
+          : "signups";
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["top"]}>

@@ -28,6 +28,7 @@ import type * as imageEnrichment_nameMatch from "../imageEnrichment/nameMatch.js
 import type * as imageEnrichment_queries from "../imageEnrichment/queries.js";
 import type * as imageEnrichment_ticketmaster from "../imageEnrichment/ticketmaster.js";
 import type * as imageEnrichment_wikipedia from "../imageEnrichment/wikipedia.js";
+import type * as invites from "../invites.js";
 import type * as leaderboard from "../leaderboard.js";
 import type * as listRules from "../listRules.js";
 import type * as lists from "../lists.js";
@@ -79,6 +80,7 @@ declare const fullApi: ApiFromModules<{
   "imageEnrichment/queries": typeof imageEnrichment_queries;
   "imageEnrichment/ticketmaster": typeof imageEnrichment_ticketmaster;
   "imageEnrichment/wikipedia": typeof imageEnrichment_wikipedia;
+  invites: typeof invites;
   leaderboard: typeof leaderboard;
   listRules: typeof listRules;
   lists: typeof lists;

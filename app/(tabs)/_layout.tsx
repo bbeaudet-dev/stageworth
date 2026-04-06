@@ -1,4 +1,5 @@
 import { Redirect, Tabs } from "expo-router";
+import { useEffect, useRef } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
@@ -6,11 +7,21 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ProfileTabIcon } from "@/components/ui/ProfileTabIcon";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { usePendingInvite } from "@/hooks/use-pending-invite";
 import { useSession } from "@/lib/auth-client";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { data: session, isPending } = useSession();
+  const { claimPendingInvite } = usePendingInvite();
+  const didClaimRef = useRef(false);
+
+  useEffect(() => {
+    if (session && !isPending && !didClaimRef.current) {
+      didClaimRef.current = true;
+      claimPendingInvite();
+    }
+  }, [session, isPending]);
 
   // Same as sign-in: don't blank the whole tab shell while session exists but the
   // client is still revalidating (common right after OAuth on Android).
