@@ -3,11 +3,13 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import { useMemo } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { IconSymbol } from "@/components/ui/icon-symbol";
+import { EmptyState } from "@/components/empty-state";
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 
 import { api } from "@/convex/_generated/api";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { formatDiaryGroupLabel } from "@/utils/dates";
 
 type VisitWithShow = {
   _id: string;
@@ -27,24 +29,6 @@ type VisitGroup = {
   visits: VisitWithShow[];
 };
 
-function getGroupLabel(dateStr: string, now: Date): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const visitDate = new Date(y, m - 1, d);
-
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diffMs = today.getTime() - visitDate.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return "This Week";
-
-  return visitDate.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
-}
-
 function DiaryCard({
   visit,
   onPress,
@@ -59,9 +43,7 @@ function DiaryCard({
       {imageUrl ? (
         <Image source={{ uri: imageUrl }} style={cardStyles.image} resizeMode="contain" />
       ) : (
-        <View style={[cardStyles.image, cardStyles.imagePlaceholder]}>
-          <Text style={cardStyles.placeholderEmoji}>🎭</Text>
-        </View>
+        <ShowPlaceholder name={visit.show.name} type={visit.show.type} />
       )}
     </Pressable>
   );
@@ -85,7 +67,7 @@ export function DiaryView() {
     const groupOrder: string[] = [];
 
     for (const visit of visits as VisitWithShow[]) {
-      const label = getGroupLabel(visit.date, now);
+      const label = formatDiaryGroupLabel(visit.date, now);
       if (!groupMap.has(label)) {
         groupMap.set(label, []);
         groupOrder.push(label);
@@ -109,13 +91,7 @@ export function DiaryView() {
   if (visits.length === 0) {
     return (
       <View style={[styles.centered, { backgroundColor }]}>
-        <IconSymbol name="book.fill" size={48} color={mutedTextColor} style={styles.emptyIcon} />
-        <Text style={[styles.emptyTitle, { color: primaryTextColor }]}>
-          Your diary is empty
-        </Text>
-        <Text style={[styles.emptySubtitle, { color: mutedTextColor }]}>
-          Log visits to your shows to see them here
-        </Text>
+        <EmptyState icon="book.fill" iconSize={48} title="Your diary is empty" subtitle="Log visits to your shows to see them here" />
       </View>
     );
   }
@@ -167,20 +143,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
   },
-  emptyIcon: {
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 4,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: "#999",
-    textAlign: "center",
-  },
   section: {
     marginTop: 20,
   },
@@ -213,12 +175,5 @@ const cardStyles = StyleSheet.create({
     width: "100%",
     aspectRatio: 1 / CARD_ASPECT,
     backgroundColor: "#e0e0e0",
-  },
-  imagePlaceholder: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  placeholderEmoji: {
-    fontSize: 24,
   },
 });

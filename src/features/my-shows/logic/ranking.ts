@@ -1,23 +1,13 @@
 import type { RankedShow } from "@/components/show-row-accordion";
 
-import type { RankedTier, RankingTier } from "@/features/my-shows/types";
+import type { RankedTier } from "@/types/ranking";
+import { normalizeTier } from "@/types/ranking";
 
-export function normalizeTier(value: string | undefined): RankingTier {
-  if (
-    value === "loved" ||
-    value === "liked" ||
-    value === "okay" ||
-    value === "disliked" ||
-    value === "unranked"
-  ) {
-    return value;
-  }
-  return "liked";
-}
+export { normalizeTier };
 
 export function inferTierAtRankPosition(
   rankedShows: RankedShow[],
-  insertAt: number
+  insertAt: number,
 ): RankedTier {
   const prev = insertAt > 0 ? normalizeTier(rankedShows[insertAt - 1]?.tier) : null;
   if (prev && prev !== "unranked") return prev;

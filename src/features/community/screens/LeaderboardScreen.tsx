@@ -15,6 +15,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { getInitials } from "@/utils/user";
 
 type Category = "shows" | "visits" | "theatres";
 type Scope = "all" | "friends";
@@ -24,13 +25,6 @@ const CATEGORIES: { key: Category; label: string }[] = [
   { key: "visits", label: "Visits" },
   { key: "theatres", label: "Theatres" },
 ];
-
-function getInitials(name?: string | null, username?: string) {
-  const source = name?.trim() || username || "?";
-  const parts = source.split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return source.slice(0, 2).toUpperCase();
-}
 
 export default function LeaderboardScreen() {
   const router = useRouter();

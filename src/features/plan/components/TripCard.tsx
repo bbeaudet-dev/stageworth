@@ -2,33 +2,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { formatDateRange } from "@/utils/dates";
 import { getTripCountdown } from "@/utils/tripCountdown";
-
-function formatDateRange(startDate: string, endDate: string): string {
-  const start = new Date(startDate + "T00:00:00Z");
-  const end = new Date(endDate + "T00:00:00Z");
-
-  const monthNames = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ];
-
-  const startMonth = monthNames[start.getUTCMonth()];
-  const startDay = start.getUTCDate();
-  const startYear = start.getUTCFullYear();
-
-  const endMonth = monthNames[end.getUTCMonth()];
-  const endDay = end.getUTCDate();
-  const endYear = end.getUTCFullYear();
-
-  if (startYear === endYear && startMonth === endMonth) {
-    return `${startMonth} ${startDay}–${endDay}, ${startYear}`;
-  }
-  if (startYear === endYear) {
-    return `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${startYear}`;
-  }
-  return `${startMonth} ${startDay}, ${startYear} – ${endMonth} ${endDay}, ${endYear}`;
-}
 
 interface TripCardProps {
   name: string;

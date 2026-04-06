@@ -990,12 +990,8 @@ export const previewWikipediaProductionsForShow = internalAction({
         if (typeof val === "string") {
           wikidataImageFile = val;
         }
-      } catch (err) {
-        console.log(
-          `[wikidata-image-error] id=${wikibaseId} :: ${
-            err instanceof Error ? err.message : String(err)
-          }`
-        );
+      } catch {
+        // Wikidata image fetch failed — non-critical, continue
       }
     }
 

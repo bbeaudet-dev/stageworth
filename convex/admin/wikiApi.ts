@@ -15,9 +15,6 @@ export async function fetchJson(url: string): Promise<any> {
       const trimmed = text.trim();
       if (trimmed.startsWith("You are making too many requests")) {
         const waitMs = 4000 * attempt;
-        console.log(
-          `[wikipedia-rate-limit] attempt=${attempt}/4 waiting=${waitMs}ms`
-        );
         await new Promise((r) => setTimeout(r, waitMs));
         continue;
       }
@@ -32,9 +29,6 @@ export async function fetchJson(url: string): Promise<any> {
       lastErr = err;
       const message = err instanceof Error ? err.message : String(err);
       const waitMs = 2000 * attempt;
-      console.log(
-        `[wikipedia-fetch-retry] attempt=${attempt}/4 waiting=${waitMs}ms :: ${message}`
-      );
       await new Promise((r) => setTimeout(r, waitMs));
     }
   }

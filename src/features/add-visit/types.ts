@@ -1,7 +1,8 @@
 import type { Id } from "@/convex/_generated/dataModel";
+import type { RankedTier } from "@/types/ranking";
 
+export type { RankedTier };
 export type ShowType = "musical" | "play" | "opera" | "dance" | "other";
-export type RankingTier = "loved" | "liked" | "okay" | "disliked";
 
 export type RankedShowForRanking = {
   _id: Id<"shows">;
@@ -30,7 +31,7 @@ export type AddVisitFormState = {
   notes: string;
   isSaving: boolean;
   keepCurrentRanking: boolean;
-  selectedTier: RankingTier | null;
+  selectedTier: RankedTier | null;
   searchLow: number;
   searchHigh: number;
   rankingResultIndex: number | null;

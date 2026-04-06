@@ -1,7 +1,7 @@
 import { useMemo, useReducer } from "react";
 
 import { getInitialAddVisitFormState, hasUnsavedAddVisitChanges } from "@/features/add-visit/logic/form";
-import type { AddVisitFormState, RankingTier } from "@/features/add-visit/types";
+import type { AddVisitFormState, RankedTier } from "@/features/add-visit/types";
 import type { Id } from "@/convex/_generated/dataModel";
 
 type Action =
@@ -16,7 +16,7 @@ type Action =
   | { type: "SET_NOTES"; value: string }
   | { type: "SET_IS_SAVING"; value: boolean }
   | { type: "SET_KEEP_CURRENT_RANKING"; value: boolean }
-  | { type: "SET_SELECTED_TIER"; value: RankingTier | null }
+  | { type: "SET_SELECTED_TIER"; value: RankedTier | null }
   | { type: "SET_SEARCH_LOW"; value: number }
   | { type: "SET_SEARCH_HIGH"; value: number }
   | { type: "SET_RANKING_RESULT_INDEX"; value: number | null }
@@ -141,7 +141,7 @@ export function useAddVisitFormState() {
     setNotes: (value: string) => dispatch({ type: "SET_NOTES", value }),
     setIsSaving: (value: boolean) => dispatch({ type: "SET_IS_SAVING", value }),
     setKeepCurrentRanking: (value: boolean) => dispatch({ type: "SET_KEEP_CURRENT_RANKING", value }),
-    setSelectedTier: (value: RankingTier | null) => dispatch({ type: "SET_SELECTED_TIER", value }),
+    setSelectedTier: (value: RankedTier | null) => dispatch({ type: "SET_SELECTED_TIER", value }),
     setSearchLow: (value: number) => dispatch({ type: "SET_SEARCH_LOW", value }),
     setSearchHigh: (value: number) => dispatch({ type: "SET_SEARCH_HIGH", value }),
     setRankingResultIndex: (value: number | null) => dispatch({ type: "SET_RANKING_RESULT_INDEX", value }),

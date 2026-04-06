@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import { requireConvexUserId } from "../auth";
 
@@ -14,19 +15,19 @@ const activeTabValidator = v.optional(
   )
 );
 
-async function getTripOrThrow(ctx: any, tripId: any) {
+async function getTripOrThrow(ctx: QueryCtx, tripId: Id<"trips">): Promise<Doc<"trips">> {
   const trip = await ctx.db.get(tripId);
   if (!trip) throw new Error("Trip not found");
   return trip;
 }
 
-async function assertCanViewTrip(ctx: any, userId: any, tripId: any) {
+async function assertCanViewTrip(ctx: QueryCtx, userId: Id<"users">, tripId: Id<"trips">): Promise<Doc<"trips">> {
   const trip = await getTripOrThrow(ctx, tripId);
   if (trip.userId === userId) return trip;
 
   const membership = await ctx.db
     .query("tripMembers")
-    .withIndex("by_trip_user", (q: any) =>
+    .withIndex("by_trip_user", (q) =>
       q.eq("tripId", tripId).eq("userId", userId)
     )
     .first();
@@ -43,7 +44,7 @@ export const clearTripPresence = mutation({
     const userId = await requireConvexUserId(ctx);
     const existing = await ctx.db
       .query("tripPresence")
-      .withIndex("by_trip_user", (q: any) =>
+      .withIndex("by_trip_user", (q) =>
         q.eq("tripId", args.tripId).eq("userId", userId)
       )
       .first();
@@ -59,7 +60,7 @@ export const heartbeatTripPresence = mutation({
 
     const existing = await ctx.db
       .query("tripPresence")
-      .withIndex("by_trip_user", (q: any) =>
+      .withIndex("by_trip_user", (q) =>
         q.eq("tripId", args.tripId).eq("userId", userId)
       )
       .first();
@@ -92,15 +93,15 @@ export const getTripPresence = query({
     const now = Date.now();
     const rows = await ctx.db
       .query("tripPresence")
-      .withIndex("by_trip", (q: any) => q.eq("tripId", args.tripId))
+      .withIndex("by_trip", (q) => q.eq("tripId", args.tripId))
       .collect();
 
-    const fresh = rows.filter((r: any) => now - r.lastSeenAt <= PRESENCE_TTL_MS);
+    const fresh = rows.filter((r) => now - r.lastSeenAt <= PRESENCE_TTL_MS);
 
     const result = await Promise.all(
-      fresh.map(async (r: any) => {
+      fresh.map(async (r) => {
         if (r.userId === userId) return null;
-        const user = (await ctx.db.get(r.userId as Id<"users">)) as Doc<"users"> | null;
+        const user = await ctx.db.get(r.userId);
         if (!user) return null;
         const avatarUrl = user.avatarImage
           ? await ctx.storage.getUrl(user.avatarImage)
@@ -110,7 +111,7 @@ export const getTripPresence = query({
           name: user.name,
           username: user.username,
           avatarUrl,
-          activeTab: (r.activeTab ?? "shows") as "shows" | "schedule" | "party" | "chat",
+          activeTab: r.activeTab ?? "shows",
           lastSeenAt: r.lastSeenAt,
         };
       })

@@ -4,9 +4,9 @@ import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { styles } from "@/features/add-visit/styles";
 import { TIER_ORDER } from "@/features/add-visit/logic/ranking";
-import type { RankedShowForRanking, RankingTier } from "@/features/add-visit/types";
+import type { RankedShowForRanking, RankedTier } from "@/features/add-visit/types";
 
-const TIER_LABELS: Record<RankingTier, string> = {
+const TIER_LABELS: Record<RankedTier, string> = {
   loved: "Loved it",
   liked: "Liked it",
   okay: "It was Okay",
@@ -14,7 +14,7 @@ const TIER_LABELS: Record<RankingTier, string> = {
 };
 
 const TIER_BUTTON_STYLES: Record<
-  RankingTier,
+  RankedTier,
   { backgroundColor: string; borderColor: string; textColor: string }
 > = {
   loved: { backgroundColor: "#fbe0ee", borderColor: "#ef5da8", textColor: "#7f2252" },
@@ -45,10 +45,10 @@ export function RankingSection({
   keepCurrentRanking: boolean;
   setKeepCurrentRanking: (value: boolean) => void;
   shouldShowRankingSection: boolean;
-  selectedTier: RankingTier | null;
+  selectedTier: RankedTier | null;
   onChangeTier: () => void;
   isRankingsLoading: boolean;
-  startTierRanking: (tier: RankingTier) => void;
+  startTierRanking: (tier: RankedTier) => void;
   rankingPhase: "tier" | "comparison" | "result";
   comparisonTarget: RankedShowForRanking | null;
   showNameForHeader: string;

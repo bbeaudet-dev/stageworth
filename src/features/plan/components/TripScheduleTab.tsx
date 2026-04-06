@@ -21,25 +21,17 @@ import { AddDayNoteSheet } from "@/features/plan/components/AddDayNoteSheet";
 import { TripShowLabelSheet } from "@/features/plan/components/TripShowLabelSheet";
 import { useTripData } from "@/features/plan/hooks/useTripData";
 import { tripShowLabelMeta } from "@/features/plan/tripShowLabelMeta";
+import type { TripDetail, TripShowItem, TripDay, TripDayNote } from "@/features/plan/types";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-
-function formatDateDisplay(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00Z");
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
-}
-
-function chunkRows<T>(arr: T[], cols: number): T[][] {
-  const rows: T[][] = [];
-  for (let i = 0; i < arr.length; i += cols) rows.push(arr.slice(i, i + cols));
-  return rows;
-}
+import { chunkRows } from "@/utils/arrays";
+import { formatDateDisplayUTC } from "@/utils/dates";
 
 const COLS = 4;
 const GAP = 8;
 const TAB_CONTENT_H_PAD = 16;
 
 interface TripScheduleTabProps {
-  trip: any;
+  trip: TripDetail;
   tripId: Id<"trips">;
 }
 
@@ -59,7 +51,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
   const chipBg = Colors[theme].surface;
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  const [labelSheetItem, setLabelSheetItem] = useState<any | null>(null);
+  const [labelSheetItem, setLabelSheetItem] = useState<TripShowItem | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [optimisticLabels, setOptimisticLabels] = useState<Record<string, TripShowLabel | null>>({});
   const [assignForDay, setAssignForDay] = useState<string | null>(null);
@@ -79,15 +71,15 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
   const labelSheetItemLive = useMemo(() => {
     if (!labelSheetItem) return null;
     const id = String(labelSheetItem._id);
-    const pool = (trip.days ?? []).flatMap((d: any) => d.shows ?? []);
-    const base = pool.find((s: any) => String(s._id) === id) ?? labelSheetItem;
+    const pool = (trip.days ?? []).flatMap((d: TripDay) => d.shows ?? []);
+    const base = pool.find((s) => String(s._id) === id) ?? labelSheetItem;
     if (id in optimisticLabels) {
       return { ...base, myLabel: optimisticLabels[id] };
     }
     return base;
   }, [labelSheetItem, trip.days, optimisticLabels]);
 
-  const effectiveLabel = (item: any): TripShowLabel | null => {
+  const effectiveLabel = (item: TripShowItem): TripShowLabel | null => {
     const id = String(item._id);
     return id in optimisticLabels ? optimisticLabels[id] : (item.myLabel ?? null);
   };
@@ -101,7 +93,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
     return { label: b.label, bg: b.bg, textCol: b.text };
   };
 
-  const tripPlaybillBadge = (item: any) => {
+  const tripPlaybillBadge = (item: TripShowItem) => {
     const b = tripPlaybillStripBadge(
       {
         closingDate: item.closingDate,
@@ -159,13 +151,13 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
         }}
         keyboardShouldPersistTaps="handled"
       >
-        {trip.days.map((day: any) => {
+        {trip.days.map((day: TripDay) => {
           const totalItems = day.shows.length + (day.notes?.length ?? 0);
           return (
             <View key={day.date} style={styles.daySection}>
               <View style={styles.rowBetween}>
                 <View style={styles.dayHeaderLeft}>
-                  <Text style={[styles.dayLabel, { color: primaryTextColor }]}>{formatDateDisplay(day.date)}</Text>
+                  <Text style={[styles.dayLabel, { color: primaryTextColor }]}>{formatDateDisplayUTC(day.date)}</Text>
                   {totalItems > 0 ? (
                     <View style={[styles.dayCountBadge, { backgroundColor: accentColor + "18" }]}>
                       <Text style={[styles.dayCountText, { color: accentColor }]}>{totalItems}</Text>
@@ -192,7 +184,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
                 </View>
               </View>
 
-              {(day.notes ?? []).map((note: any) => {
+              {(day.notes ?? []).map((note: TripDayNote) => {
                 const nid = String(note._id);
                 const isSelected = selectedNoteId === nid;
                 return (
@@ -226,9 +218,9 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
 
               {day.shows.length > 0 ? (
                 <View style={styles.grid}>
-                  {chunkRows(day.shows, COLS).map((row: any[], ri: number) => (
+                  {chunkRows(day.shows, COLS).map((row, ri) => (
                     <View key={ri} style={styles.gridRow}>
-                      {row.map((item: any) => {
+                      {row.map((item) => {
                         const key = `${day.date}:${item.showId}`;
                         const image = item.show?.images?.[0] ?? null;
                         const badge = tripPlaybillBadge(item);
@@ -284,7 +276,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
           <View style={[styles.sheetHandle, { backgroundColor: borderColor }]} />
           <View style={[styles.sheetHeader, { borderBottomColor: borderColor }]}>
             <Text style={[styles.sheetTitle, { color: primaryTextColor }]}>
-              {assignForDay ? `Add to ${formatDateDisplay(assignForDay)}` : ""}
+              {assignForDay ? `Add to ${formatDateDisplayUTC(assignForDay)}` : ""}
             </Text>
             <Pressable onPress={() => setAssignForDay(null)}>
               <Text style={[styles.sheetDone, { color: accentColor }]}>Done</Text>
@@ -294,7 +286,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
             {trip.unassigned.length === 0 ? (
               <Text style={[styles.emptyHint, { color: mutedTextColor }]}>All shows are assigned to days.</Text>
             ) : (
-              trip.unassigned.map((item: any) => (
+              trip.unassigned.map((item) => (
                 <Pressable
                   key={String(item.showId)}
                   style={[styles.assignRow, { borderBottomColor: borderColor }]}
@@ -362,7 +354,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
         visible={noteForDay !== null}
         onClose={() => setNoteForDay(null)}
         onAdd={handleAddNote}
-        dayLabel={noteForDay ? formatDateDisplay(noteForDay) : ""}
+        dayLabel={noteForDay ? formatDateDisplayUTC(noteForDay) : ""}
       />
     </>
   );

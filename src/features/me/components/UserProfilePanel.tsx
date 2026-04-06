@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
@@ -9,6 +9,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useFollowToggle } from "@/hooks/use-follow-toggle";
 
 interface UserProfilePanelProps {
   visible: boolean;
@@ -30,13 +31,12 @@ export function UserProfilePanel({ visible, onClose, userId }: UserProfilePanelP
   const accentColor = Colors[theme].accent;
   const onAccent = Colors[theme].onAccent;
 
+  const { toggleFollow } = useFollowToggle();
+
   const profile = useQuery(
     api.social.profiles.getPublicProfileByUserId,
     userId ? { userId } : "skip"
   );
-
-  const followUser = useMutation(api.social.social.followUser);
-  const unfollowUser = useMutation(api.social.social.unfollowUser);
 
   const initials = (() => {
     const source = profile?.name?.trim() || profile?.username || "?";
@@ -44,15 +44,6 @@ export function UserProfilePanel({ visible, onClose, userId }: UserProfilePanelP
     if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
     return source.slice(0, 2).toUpperCase();
   })();
-
-  const handleFollowToggle = async () => {
-    if (!profile) return;
-    if (profile.viewerFollows) {
-      await unfollowUser({ userId: profile._id });
-    } else {
-      await followUser({ userId: profile._id });
-    }
-  };
 
   const handleViewFullProfile = () => {
     if (!profile?.username) return;
@@ -139,7 +130,7 @@ export function UserProfilePanel({ visible, onClose, userId }: UserProfilePanelP
                     ? { backgroundColor: surfaceColor, borderWidth: StyleSheet.hairlineWidth, borderColor }
                     : { backgroundColor: accentColor },
                 ]}
-                onPress={handleFollowToggle}
+                onPress={() => toggleFollow(profile._id, profile.viewerFollows)}
               >
                 <Text style={[styles.followBtnText, { color: profile.viewerFollows ? primaryTextColor : onAccent }]}>
                   {profile.viewerFollows ? "Following" : "Follow"}

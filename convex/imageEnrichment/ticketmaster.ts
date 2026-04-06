@@ -141,17 +141,10 @@ export const enrichProductionImages = internalAction({
         }
         enriched++;
       } else {
-        console.log(
-          `Ticketmaster: no match for "${item.showName}" (production ${item.productionId})`
-        );
         failed++;
       }
       await sleep(DELAY_MS);
     }
-
-    console.log(
-      `TM enrichment batch: ${enriched} enriched, ${failed} failed, ${batch.productions.length} processed`
-    );
 
     if (batch.hasMore && batch.nextCursor) {
       await ctx.scheduler.runAfter(

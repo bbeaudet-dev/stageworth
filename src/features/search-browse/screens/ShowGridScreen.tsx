@@ -9,13 +9,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ShowCard } from "@/features/browse/components/ShowCard";
-import { closingStripBadge } from "@/features/browse/logic/closingStrip";
-import { railBadgeForProduction } from "@/features/browse/components/ProductionCard";
+import {
+  railBadgeForClosingSoon,
+  railBadgeForProduction,
+} from "@/features/browse/components/ProductionCard";
 import { styles as browseStyles } from "@/features/browse/styles";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { chunkRows } from "@/utils/arrays";
 
 type ShowGridItem = {
   _id: Id<"shows">;
@@ -40,12 +43,6 @@ const CATEGORIES: Record<string, CategoryConfig> = {
   "coming-soon": { title: "Coming Soon", query: "coming-soon" },
   all: { title: "All Shows", query: "all" },
 };
-
-function chunkIntoRows<T>(arr: T[], size: number): T[][] {
-  const rows: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) rows.push(arr.slice(i, i + size));
-  return rows;
-}
 
 export default function ShowGridScreen() {
   const { category } = useLocalSearchParams<{ category: string }>();
@@ -127,13 +124,11 @@ export default function ShowGridScreen() {
       seen.add(p.show._id);
       const resolvedImage = p.posterUrl ?? p.show.images[0] ?? null;
       const badge =
-        config.query === "closing-soon"
-          ? railBadgeForProduction(p, "closing-soon", isDark, todayStr) ?? undefined
-          : config.query === "coming-soon"
-            ? railBadgeForProduction(p, "coming-soon", isDark, todayStr) ?? undefined
-            : config.query === "now-playing"
-              ? closingStripBadge(p.closingDate, todayStr, isDark) ?? undefined
-              : undefined;
+        config.query === "coming-soon"
+          ? railBadgeForProduction(p, isDark, todayStr) ?? undefined
+          : config.query === "closing-soon"
+            ? railBadgeForClosingSoon(p, isDark, todayStr) ?? undefined
+            : undefined;
       result.push({
         _id: p.show._id,
         showId: p.show._id,
@@ -174,7 +169,7 @@ export default function ShowGridScreen() {
             <Text style={[s.countText, { color: muted }]}>
               {items.length} show{items.length !== 1 ? "s" : ""}
             </Text>
-            {chunkIntoRows(visible, GRID_COLUMNS).map((row, ri) => (
+            {chunkRows(visible, GRID_COLUMNS).map((row, ri) => (
               <View key={ri} style={browseStyles.gridRow}>
                 {row.map((item) => (
                   <ShowCard

@@ -1,23 +1,21 @@
 import { daysUntil } from "@/features/browse/logic/date";
+import { formatDateShort } from "@/utils/dates";
 
 export type ClosingStripBadge = { label: string; bg: string; text: string };
 
-/** Short date for strip, e.g. "Jan 5" this year or "Jan 5, 2027" otherwise. */
-function formatClosingDateShort(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const y = d.getFullYear();
-  const cy = now.getFullYear();
-  if (y === cy) {
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  }
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+// ─── Coming soon (previews, announced openings, Search “Coming Soon”) ───────
+
+/**
+ * Playbill strip for anything that is “opening / preview / announced” — always this
+ * cool blue. Closing urgency uses only warm tones in {@link closingStripColors}.
+ */
+export function openingSoonPlaybillColors(isDark: boolean): { bg: string; text: string } {
+  return isDark
+    ? { bg: "rgba(59,130,246,0.15)", text: "#60A5FA" }
+    : { bg: "#EFF6FF", text: "#3B82F6" };
 }
+
+// ─── Closing (end-date urgency — red → orange → amber → yellow, then neutral) ─
 
 /**
  * Label under playbill: relative copy for today / tomorrow, otherwise "Closes {date}".
@@ -26,7 +24,7 @@ export function closingStripLabel(closingDate: string): string {
   const d = daysUntil(closingDate);
   if (d === 0) return "Closes today";
   if (d === 1) return "Closes tomorrow";
-  const short = formatClosingDateShort(closingDate);
+  const short = formatDateShort(closingDate);
   return short ? `Closes ${short}` : "";
 }
 
@@ -51,8 +49,8 @@ export function closingStripColors(days: number, isDark: boolean): { bg: string;
   }
   if (days <= 60) {
     return isDark
-      ? { bg: "rgba(59,130,246,0.16)", text: "#93C5FD" }
-      : { bg: "#EFF6FF", text: "#1D4ED8" };
+      ? { bg: "rgba(234,179,8,0.1)", text: "#FCD34D" }
+      : { bg: "#FEF9C3", text: "#A16207" };
   }
   return isDark
     ? { bg: "rgba(156,163,175,0.14)", text: "#D1D5DB" }
@@ -75,6 +73,8 @@ export function closingStripBadge(
   const { bg, text } = closingStripColors(d, isDark);
   return { label, bg, text };
 }
+
+// ─── Open run & trip playbills ───────────────────────────────────────────────
 
 /** Strip when a production is an open-ended run (no closing date to drive {@link closingStripBadge}). */
 export function openRunStripBadge(isDark: boolean): ClosingStripBadge {
