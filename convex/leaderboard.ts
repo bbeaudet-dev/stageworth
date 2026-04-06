@@ -185,3 +185,46 @@ export const getByTheatres = query({
     ).then((rows) => rows.filter((r): r is NonNullable<typeof r> => r !== null));
   },
 });
+
+export const getBySignups = query({
+  args: {
+    scope: v.union(v.literal("all"), v.literal("friends")),
+  },
+  handler: async (ctx, args) => {
+    const viewerUserId = await getConvexUserId(ctx);
+    let targetUserIds: string[] | null = null;
+
+    if (args.scope === "friends" && viewerUserId) {
+      const followRows = await ctx.db
+        .query("follows")
+        .withIndex("by_follower", (q: any) => q.eq("followerUserId", viewerUserId))
+        .collect();
+      targetUserIds = [viewerUserId, ...followRows.map((r: any) => r.followingUserId)];
+    }
+
+    // Only claimed links count as successful signups
+    const claimedLinks = await ctx.db
+      .query("inviteLinks")
+      .collect()
+      .then((links) => links.filter((l) => !!l.claimedByUserId));
+
+    const countByCreator = new Map<string, number>();
+    for (const link of claimedLinks) {
+      const creatorId = link.createdByUserId as string;
+      if (targetUserIds && !targetUserIds.includes(creatorId)) continue;
+      countByCreator.set(creatorId, (countByCreator.get(creatorId) ?? 0) + 1);
+    }
+
+    const sorted = Array.from(countByCreator.entries())
+      .map(([userId, count]) => ({ userId, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, LEADERBOARD_LIMIT);
+
+    return Promise.all(
+      sorted.map(async (entry, index) => {
+        const user = await enrichUser(ctx, entry.userId);
+        return user ? { rank: index + 1, user, count: entry.count } : null;
+      })
+    ).then((rows) => rows.filter((r): r is NonNullable<typeof r> => r !== null));
+  },
+});
