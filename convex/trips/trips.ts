@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
+import type { QueryCtx, MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import { isCatalogPublished } from "../catalogVisibility";
 import { requireConvexUserId } from "../auth";
@@ -18,23 +19,23 @@ const MAX_TRIP_DESCRIPTION_LENGTH = 500;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function getTripOrThrow(ctx: any, tripId: any) {
+async function getTripOrThrow(ctx: QueryCtx, tripId: Id<"trips">): Promise<Doc<"trips">> {
   const trip = await ctx.db.get(tripId);
   if (!trip) throw new Error("Trip not found");
   return trip;
 }
 
-async function getTripOrNull(ctx: any, tripId: any) {
+async function getTripOrNull(ctx: QueryCtx, tripId: Id<"trips">): Promise<Doc<"trips"> | null> {
   return await ctx.db.get(tripId) ?? null;
 }
 
-async function assertCanEditTrip(ctx: any, userId: any, tripId: any) {
+async function assertCanEditTrip(ctx: QueryCtx, userId: Id<"users">, tripId: Id<"trips">): Promise<Doc<"trips">> {
   const trip = await getTripOrThrow(ctx, tripId);
   if (trip.userId === userId) return trip;
 
   const membership = await ctx.db
     .query("tripMembers")
-    .withIndex("by_trip_user", (q: any) =>
+    .withIndex("by_trip_user", (q) =>
       q.eq("tripId", tripId).eq("userId", userId)
     )
     .first();
@@ -45,13 +46,13 @@ async function assertCanEditTrip(ctx: any, userId: any, tripId: any) {
   return trip;
 }
 
-async function assertCanViewTrip(ctx: any, userId: any, tripId: any) {
+async function assertCanViewTrip(ctx: QueryCtx, userId: Id<"users">, tripId: Id<"trips">): Promise<Doc<"trips">> {
   const trip = await getTripOrThrow(ctx, tripId);
   if (trip.userId === userId) return trip;
 
   const membership = await ctx.db
     .query("tripMembers")
-    .withIndex("by_trip_user", (q: any) =>
+    .withIndex("by_trip_user", (q) =>
       q.eq("tripId", tripId).eq("userId", userId)
     )
     .first();
@@ -73,18 +74,18 @@ function addDaysToDateStr(dateStr: string, days: number): string {
   return d.toISOString().split("T")[0];
 }
 
-async function getInterestListShowIdSet(ctx: any, userId: Id<"users">): Promise<Set<string>> {
+async function getInterestListShowIdSet(ctx: QueryCtx, userId: Id<"users">): Promise<Set<string>> {
   const allUserLists = await ctx.db
     .query("userLists")
-    .withIndex("by_user", (q: any) => q.eq("userId", userId))
+    .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
   const relevantLists = allUserLists.filter(
-    (l: any) =>
+    (l) =>
       l.systemKey === "want_to_see" ||
       l.systemKey === "look_into" ||
       l.systemKey === "uncategorized"
   );
-  return new Set<string>(relevantLists.flatMap((l: any) => l.showIds));
+  return new Set<string>(relevantLists.flatMap((l) => l.showIds));
 }
 
 
@@ -160,41 +161,41 @@ export const getMyTrips = query({
 
     const ownedTrips = await ctx.db
       .query("trips")
-      .withIndex("by_user", (q: any) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
     const memberships = await ctx.db
       .query("tripMembers")
-      .withIndex("by_user", (q: any) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
     const acceptedMemberTripIds = memberships
-      .filter((m: any) => m.status === "accepted")
-      .map((m: any) => m.tripId);
+      .filter((m) => m.status === "accepted")
+      .map((m) => m.tripId);
 
     const pendingMemberships = memberships.filter(
-      (m: any) => m.status === "pending"
+      (m) => m.status === "pending"
     );
 
-    const memberTrips = (await Promise.all(
-      acceptedMemberTripIds.map((id: any) => ctx.db.get(id))
-    )) as any[];
+    const memberTrips = await Promise.all(
+      acceptedMemberTripIds.map((id) => ctx.db.get(id))
+    );
 
-    const allTrips: any[] = [
+    const allTrips: Doc<"trips">[] = [
       ...ownedTrips,
       ...memberTrips.filter(
-        (t: any) => t !== null && !ownedTrips.some((o: any) => o._id === t._id)
+        (t): t is Doc<"trips"> => t !== null && !ownedTrips.some((o) => o._id === t._id)
       ),
-    ].sort((a: any, b: any) => a.startDate.localeCompare(b.startDate));
+    ].sort((a, b) => a.startDate.localeCompare(b.startDate));
 
     const t = todayStr();
-    const upcoming = allTrips.filter((trip: any) => trip.endDate >= t);
-    const past = allTrips.filter((trip: any) => trip.endDate < t);
+    const upcoming = allTrips.filter((trip) => trip.endDate >= t);
+    const past = allTrips.filter((trip) => trip.endDate < t);
 
-    async function withShowCount(trip: any) {
+    async function withShowCount(trip: Doc<"trips">) {
       const tripShows = await ctx.db
         .query("tripShows")
-        .withIndex("by_trip", (q: any) => q.eq("tripId", trip._id))
+        .withIndex("by_trip", (q) => q.eq("tripId", trip._id))
         .collect();
       const isOwner = trip.userId === userId;
       return { ...trip, showCount: tripShows.length, isOwner };
@@ -202,23 +203,23 @@ export const getMyTrips = query({
 
     // Pending invitations: trips where this user has a "pending" membership
     const pendingInvitations = await Promise.all(
-      pendingMemberships.map(async (m: any) => {
-        const trip = (await ctx.db.get(m.tripId)) as any;
+      pendingMemberships.map(async (m) => {
+        const trip = await ctx.db.get(m.tripId);
         if (!trip) return null;
         const tripShows = await ctx.db
           .query("tripShows")
-          .withIndex("by_trip", (q: any) => q.eq("tripId", trip._id))
+          .withIndex("by_trip", (q) => q.eq("tripId", trip._id))
           .collect();
-        const inviter = (await ctx.db.get(m.invitedBy)) as any;
+        const inviter = await ctx.db.get(m.invitedBy);
         return {
-          _id: trip._id as Id<"trips">,
-          name: trip.name as string,
-          startDate: trip.startDate as string,
-          endDate: trip.endDate as string,
+          _id: trip._id,
+          name: trip.name,
+          startDate: trip.startDate,
+          endDate: trip.endDate,
           showCount: tripShows.length,
           membershipId: m._id,
-          inviterName: (inviter?.name ?? null) as string | null,
-          inviterUsername: (inviter?.username ?? "someone") as string,
+          inviterName: inviter?.name ?? null,
+          inviterUsername: inviter?.username ?? "someone",
         };
       })
     );
@@ -245,18 +246,17 @@ export const getTripById = query({
 
     const tripShowRows = await ctx.db
       .query("tripShows")
-      .withIndex("by_trip", (q: any) => q.eq("tripId", args.tripId))
+      .withIndex("by_trip", (q) => q.eq("tripId", args.tripId))
       .collect();
 
     const today = todayStr();
     const resolvedShows = await Promise.all(
-      tripShowRows.map(async (row: any) => {
-        const show = (await ctx.db.get(row.showId)) as any;
+      tripShowRows.map(async (row) => {
+        const show = await ctx.db.get(row.showId);
         if (!show) return null;
-        // Find the most relevant open/upcoming production to surface closingDate
         const productions = await ctx.db
           .query("productions")
-          .withIndex("by_show", (q: any) => q.eq("showId", row.showId))
+          .withIndex("by_show", (q) => q.eq("showId", row.showId))
           .collect();
         const pick = pickTripProductionDisplay(productions, today);
         return {
@@ -289,7 +289,7 @@ export const getTripById = query({
 
     const noteRows = await ctx.db
       .query("tripDayNotes")
-      .withIndex("by_trip", (q: any) => q.eq("tripId", args.tripId))
+      .withIndex("by_trip", (q) => q.eq("tripId", args.tripId))
       .collect();
 
     const days = enumerateDays(trip.startDate, trip.endDate).map((date) => {
@@ -297,8 +297,8 @@ export const getTripById = query({
         .filter((s) => s.dayDate === date)
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       const notes = noteRows
-        .filter((n: any) => n.dayDate === date)
-        .sort((a: any, b: any) => {
+        .filter((n) => n.dayDate === date)
+        .sort((a, b) => {
           if (a.time && b.time) return a.time.localeCompare(b.time);
           if (a.time) return -1;
           if (b.time) return 1;
@@ -309,12 +309,12 @@ export const getTripById = query({
 
     const members = await ctx.db
       .query("tripMembers")
-      .withIndex("by_trip", (q: any) => q.eq("tripId", args.tripId))
+      .withIndex("by_trip", (q) => q.eq("tripId", args.tripId))
       .collect();
 
     const membersWithUsers = await Promise.all(
-      members.map(async (m: any) => {
-        const user = (await ctx.db.get(m.userId)) as any;
+      members.map(async (m) => {
+        const user = await ctx.db.get(m.userId);
         if (!user) return null;
         const avatarUrl = user.avatarImage
           ? await ctx.storage.getUrl(user.avatarImage)
@@ -323,13 +323,13 @@ export const getTripById = query({
       })
     );
 
-    const ownerUser = (await ctx.db.get(trip.userId)) as any;
+    const ownerUser = await ctx.db.get(trip.userId);
     const ownerAvatarUrl =
       ownerUser?.avatarImage
         ? await ctx.storage.getUrl(ownerUser.avatarImage)
         : null;
 
-    const memberMe = members.find((m: any) => m.userId === userId);
+    const memberMe = members.find((m) => m.userId === userId);
     const canEdit =
       trip.userId === userId ||
       (memberMe?.status === "accepted" && memberMe?.role === "edit");
@@ -376,9 +376,9 @@ export const getClosingSoonForTrip = query({
     // Collect shows already on this trip
     const existingTripShows = await ctx.db
       .query("tripShows")
-      .withIndex("by_trip", (q: any) => q.eq("tripId", args.tripId))
+      .withIndex("by_trip", (q) => q.eq("tripId", args.tripId))
       .collect();
-    const alreadyOnTripShowIds = new Set(existingTripShows.map((s: any) => s.showId));
+    const alreadyOnTripShowIds = new Set(existingTripShows.map((s) => s.showId));
 
     const listShowIds = await getInterestListShowIdSet(ctx, userId);
 
@@ -472,7 +472,7 @@ export const updateTrip = mutation({
     const userId = await requireConvexUserId(ctx);
     const trip = await assertCanEditTrip(ctx, userId, args.tripId);
 
-    const patch: Record<string, any> = { updatedAt: Date.now() };
+    const patch: Partial<Doc<"trips">> = { updatedAt: Date.now() };
 
     if (args.name !== undefined) {
       const name = args.name.trim();
@@ -510,28 +510,28 @@ export const deleteTrip = mutation({
 
     const labelRows = await ctx.db
       .query("tripShowLabels")
-      .withIndex("by_trip", (q: any) => q.eq("tripId", args.tripId))
+      .withIndex("by_trip", (q) => q.eq("tripId", args.tripId))
       .collect();
-    await Promise.all(labelRows.map((r: any) => ctx.db.delete(r._id)));
+    await Promise.all(labelRows.map((r) => ctx.db.delete(r._id)));
 
     const presenceRows = await ctx.db
       .query("tripPresence")
-      .withIndex("by_trip", (q: any) => q.eq("tripId", args.tripId))
+      .withIndex("by_trip", (q) => q.eq("tripId", args.tripId))
       .collect();
-    await Promise.all(presenceRows.map((r: any) => ctx.db.delete(r._id)));
+    await Promise.all(presenceRows.map((r) => ctx.db.delete(r._id)));
 
     // Cascade delete tripShows and tripMembers
     const tripShows = await ctx.db
       .query("tripShows")
-      .withIndex("by_trip", (q: any) => q.eq("tripId", args.tripId))
+      .withIndex("by_trip", (q) => q.eq("tripId", args.tripId))
       .collect();
-    await Promise.all(tripShows.map((s: any) => ctx.db.delete(s._id)));
+    await Promise.all(tripShows.map((s) => ctx.db.delete(s._id)));
 
     const members = await ctx.db
       .query("tripMembers")
-      .withIndex("by_trip", (q: any) => q.eq("tripId", args.tripId))
+      .withIndex("by_trip", (q) => q.eq("tripId", args.tripId))
       .collect();
-    await Promise.all(members.map((m: any) => ctx.db.delete(m._id)));
+    await Promise.all(members.map((m) => ctx.db.delete(m._id)));
 
     await ctx.db.delete(args.tripId);
   },
@@ -551,7 +551,7 @@ export const addShowToTrip = mutation({
 
     const existing = await ctx.db
       .query("tripShows")
-      .withIndex("by_trip_show", (q: any) =>
+      .withIndex("by_trip_show", (q) =>
         q.eq("tripId", args.tripId).eq("showId", args.showId)
       )
       .first();
@@ -579,7 +579,7 @@ export const removeShowFromTrip = mutation({
 
     const row = await ctx.db
       .query("tripShows")
-      .withIndex("by_trip_show", (q: any) =>
+      .withIndex("by_trip_show", (q) =>
         q.eq("tripId", args.tripId).eq("showId", args.showId)
       )
       .first();
@@ -603,7 +603,7 @@ export const assignShowToDay = mutation({
 
     const row = await ctx.db
       .query("tripShows")
-      .withIndex("by_trip_show", (q: any) =>
+      .withIndex("by_trip_show", (q) =>
         q.eq("tripId", args.tripId).eq("showId", args.showId)
       )
       .first();
@@ -627,7 +627,7 @@ export const reorderTripDay = mutation({
       args.showIds.map(async (showId, index) => {
         const row = await ctx.db
           .query("tripShows")
-          .withIndex("by_trip_show", (q: any) =>
+          .withIndex("by_trip_show", (q) =>
             q.eq("tripId", args.tripId).eq("showId", showId)
           )
           .first();
@@ -650,13 +650,14 @@ export const addTripMember = mutation({
     const currentUserId = await requireConvexUserId(ctx);
     await assertCanEditTrip(ctx, currentUserId, args.tripId);
 
-    let targetUser: any;
+    let targetUser: Doc<"users"> | null = null;
     if (args.userId) {
       targetUser = await ctx.db.get(args.userId);
     } else if (args.username) {
+      const username = args.username;
       targetUser = await ctx.db
         .query("users")
-        .withIndex("by_username", (q: any) => q.eq("username", args.username))
+        .withIndex("by_username", (q) => q.eq("username", username))
         .first();
     }
 
@@ -667,7 +668,7 @@ export const addTripMember = mutation({
 
     const existing = await ctx.db
       .query("tripMembers")
-      .withIndex("by_trip_user", (q: any) =>
+      .withIndex("by_trip_user", (q) =>
         q.eq("tripId", args.tripId).eq("userId", targetUser._id)
       )
       .first();
@@ -751,7 +752,7 @@ export const respondToTripInvitation = mutation({
 
     const membership = await ctx.db
       .query("tripMembers")
-      .withIndex("by_trip_user", (q: any) =>
+      .withIndex("by_trip_user", (q) =>
         q.eq("tripId", args.tripId).eq("userId", userId)
       )
       .first();

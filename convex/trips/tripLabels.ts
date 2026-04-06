@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation } from "../_generated/server";
 import { requireConvexUserId } from "../auth";
 
@@ -19,19 +20,19 @@ const LABEL_ORDER = [
   "dont_want",
 ] as const;
 
-async function getTripOrThrow(ctx: any, tripId: Id<"trips">) {
+async function getTripOrThrow(ctx: QueryCtx, tripId: Id<"trips">): Promise<Doc<"trips">> {
   const trip = await ctx.db.get(tripId);
   if (!trip) throw new Error("Trip not found");
   return trip;
 }
 
-async function assertCanViewTrip(ctx: any, userId: Id<"users">, tripId: Id<"trips">) {
+async function assertCanViewTrip(ctx: QueryCtx, userId: Id<"users">, tripId: Id<"trips">): Promise<Doc<"trips">> {
   const trip = await getTripOrThrow(ctx, tripId);
   if (trip.userId === userId) return trip;
 
   const membership = await ctx.db
     .query("tripMembers")
-    .withIndex("by_trip_user", (q: any) =>
+    .withIndex("by_trip_user", (q) =>
       q.eq("tripId", tripId).eq("userId", userId)
     )
     .first();
@@ -43,21 +44,23 @@ async function assertCanViewTrip(ctx: any, userId: Id<"users">, tripId: Id<"trip
 }
 
 /** Attach myLabel + labelSummary to each trip show row (same shape as getTripById). */
-export async function enrichTripShowRowsWithLabels(
-  ctx: any,
+export async function enrichTripShowRowsWithLabels<T extends { _id: Id<"tripShows"> }>(
+  ctx: QueryCtx,
   tripId: Id<"trips">,
   viewerUserId: Id<"users">,
-  rows: any[]
+  rows: T[]
 ) {
   const labelRows = await ctx.db
     .query("tripShowLabels")
-    .withIndex("by_trip", (q: any) => q.eq("tripId", tripId))
+    .withIndex("by_trip", (q) => q.eq("tripId", tripId))
     .collect();
 
-  const userIds = [...new Set(labelRows.map((l: any) => l.userId))] as Id<"users">[];
+  const userIds = [...new Set(labelRows.map((l) => l.userId))] as Id<"users">[];
   const users = await Promise.all(userIds.map((id) => ctx.db.get(id)));
   const userById = new Map(
-    users.filter(Boolean).map((u: any) => [u._id as Id<"users">, u])
+    users
+      .filter((u): u is Doc<"users"> => u !== null)
+      .map((u) => [u._id, u] as const)
   );
 
   const avatarUrlByUserId = new Map<string, string | null>();
@@ -70,7 +73,7 @@ export async function enrichTripShowRowsWithLabels(
     })
   );
 
-  const labelsByTripShowId = new Map<string, any[]>();
+  const labelsByTripShowId = new Map<string, Doc<"tripShowLabels">[]>();
   for (const l of labelRows) {
     const key = String(l.tripShowId);
     const arr = labelsByTripShowId.get(key) ?? [];
@@ -80,7 +83,7 @@ export async function enrichTripShowRowsWithLabels(
 
   return rows.map((row) => {
     const forShow = labelsByTripShowId.get(String(row._id)) ?? [];
-    const myRow = forShow.find((l: any) => l.userId === viewerUserId);
+    const myRow = forShow.find((l) => l.userId === viewerUserId);
     const grouped = new Map<
       string,
       { userId: Id<"users">; name: string | undefined; username: string; avatarUrl: string | null }[]
@@ -113,18 +116,18 @@ export async function enrichTripShowRowsWithLabels(
 }
 
 export async function deleteTripShowLabelsForTripShow(
-  ctx: any,
+  ctx: MutationCtx,
   tripId: Id<"trips">,
   tripShowId: Id<"tripShows">
 ) {
   const rows = await ctx.db
     .query("tripShowLabels")
-    .withIndex("by_trip", (q: any) => q.eq("tripId", tripId))
+    .withIndex("by_trip", (q) => q.eq("tripId", tripId))
     .collect();
   await Promise.all(
     rows
-      .filter((r: any) => r.tripShowId === tripShowId)
-      .map((r: any) => ctx.db.delete(r._id))
+      .filter((r) => r.tripShowId === tripShowId)
+      .map((r) => ctx.db.delete(r._id))
   );
 }
 
@@ -145,7 +148,7 @@ export const setTripShowLabel = mutation({
 
     const existing = await ctx.db
       .query("tripShowLabels")
-      .withIndex("by_trip_show_user", (q: any) =>
+      .withIndex("by_trip_show_user", (q) =>
         q.eq("tripId", args.tripId).eq("tripShowId", args.tripShowId).eq("userId", userId)
       )
       .first();
@@ -177,7 +180,7 @@ export const clearTripShowLabel = mutation({
 
     const existing = await ctx.db
       .query("tripShowLabels")
-      .withIndex("by_trip_show_user", (q: any) =>
+      .withIndex("by_trip_show_user", (q) =>
         q.eq("tripId", args.tripId).eq("tripShowId", args.tripShowId).eq("userId", userId)
       )
       .first();
