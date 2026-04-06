@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { isCatalogPublished } from "./catalogVisibility";
 import { resolveShowImageUrls } from "./helpers";
 import { normalizeShowName } from "./showNormalization";
 
@@ -7,9 +8,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const shows = await ctx.db.query("shows").collect();
-    const visible = shows.filter(
-      (s) => s.dataStatus === "partial" || s.dataStatus === "complete"
-    );
+    const visible = shows.filter((s) => isCatalogPublished(s.dataStatus));
     return Promise.all(
       visible.map(async (show) => ({
         ...show,
@@ -50,9 +49,7 @@ export const search = query({
     const needle = args.q.trim().toLowerCase();
     const max = Math.min(args.limit ?? 20, 50);
     const allShows = await ctx.db.query("shows").collect();
-    const visible = allShows.filter(
-      (s) => s.dataStatus === "partial" || s.dataStatus === "complete"
-    );
+    const visible = allShows.filter((s) => isCatalogPublished(s.dataStatus));
 
     const matched = needle.length === 0
       ? visible.slice(0, max)

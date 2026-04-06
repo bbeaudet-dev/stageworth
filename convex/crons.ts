@@ -3,6 +3,7 @@ import { internalAction, internalMutation, internalQuery } from "./_generated/se
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
+import { isCatalogPublished } from "./catalogVisibility";
 
 const crons = cronJobs();
 
@@ -19,6 +20,7 @@ export const getProductionsClosingSoon = internalQuery({
     const productions = await ctx.db.query("productions").collect();
     return productions.filter(
       (p) =>
+        isCatalogPublished(p.dataStatus) &&
         p.closingDate !== undefined &&
         p.closingDate >= today &&
         p.closingDate <= cutoffStr

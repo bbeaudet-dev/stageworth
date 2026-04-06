@@ -1,5 +1,6 @@
 import type { GenericMutationCtx } from "convex/server";
 import type { DataModel, Id } from "./_generated/dataModel";
+import { isCatalogPublished } from "./catalogVisibility";
 import { getProductionStatus } from "../src/utils/productions";
 
 export const SYSTEM_LIST_KEYS = [
@@ -90,6 +91,7 @@ export async function getEligibleUncategorizedShowIds(
   const showIdSet = new Set<Id<"shows">>();
 
   for (const production of productions) {
+    if (!isCatalogPublished(production.dataStatus)) continue;
     const status = getProductionStatus(production, today);
     if (status === "closed") continue;
     showIdSet.add(production.showId);
