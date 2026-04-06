@@ -171,6 +171,7 @@ export function AddFromListsSheet({
                         primaryTextColor={primaryTextColor}
                         mutedTextColor={mutedTextColor}
                         accentColor={accentColor}
+                        onAccent={onAccent}
                         chipBg={chipBg}
                         borderColor={borderColor}
                       />
@@ -194,6 +195,7 @@ function ExpandedList({
   primaryTextColor,
   mutedTextColor,
   accentColor,
+  onAccent,
   chipBg,
   borderColor,
 }: {
@@ -205,6 +207,7 @@ function ExpandedList({
   primaryTextColor: string;
   mutedTextColor: string;
   accentColor: string;
+  onAccent: string;
   chipBg: string;
   borderColor: string;
 }) {
