@@ -7,8 +7,44 @@ on:
       - main
 
 jobs:
-  quality:
-    name: Lint and typecheck
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      website: ${{ steps.filter.outputs.website }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Filter paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            app:
+              - "app/**"
+              - "assets/**"
+              - "components/**"
+              - "config/**"
+              - "constants/**"
+              - "convex/**"
+              - "hooks/**"
+              - "lib/**"
+              - "scripts/**"
+              - "src/**"
+              - "types/**"
+              - "package.json"
+              - "bun.lock"
+              - "tsconfig.json"
+              - "eslint.config.*"
+            website:
+              - "website/**"
+
+  app-quality:
+    name: App lint and typecheck
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -29,3 +65,32 @@ jobs:
 
       - name: Typecheck
         run: bunx tsc --noEmit
+
+  website-quality:
+    name: Website lint and typecheck
+    needs: changes
+    if: needs.changes.outputs.website == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: website
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bunx tsc --noEmit -p tsconfig.json
