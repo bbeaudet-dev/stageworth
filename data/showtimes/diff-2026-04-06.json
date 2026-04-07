@@ -1,0 +1,25 @@
+{
+  "prevWeekOf": "2026-04-06",
+  "nextWeekOf": "2026-04-06",
+  "added": [],
+  "removed": [],
+  "timeChanges": [],
+  "openingNights": [
+    {
+      "title": "Becky Shaw",
+      "day": "Mon"
+    },
+    {
+      "title": "Cats: The Jellicle Ball",
+      "day": "Tue"
+    },
+    {
+      "title": "Death of a Salesman",
+      "day": "Thu"
+    },
+    {
+      "title": "Titaníque",
+      "day": "Sun"
+    }
+  ]
+}
