@@ -1,0 +1,131 @@
+name: Weekly Broadway Showtimes
+
+# Runs once on Monday at 1am ET. If Playbill hasn't updated yet (the script
+# exits 2), the job waits 1 hour and tries again — up to 5 times total
+# (safely under GitHub's 6-hour job limit). First successful fetch writes
+# the data and opens a PR.
+#
+# Manual trigger: Actions → "Weekly Broadway Showtimes" → Run workflow.
+# Use "Force write" to bypass the freshness check (e.g. re-run after a bad parse).
+
+on:
+  schedule:
+    # 6am UTC = 1am ET (EDT). Playbill typically updates Sunday evening ET.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force write even if weekOf unchanged (bypass freshness check)"
+        required: false
+        default: "false"
+        type: boolean
+
+jobs:
+  fetch-showtimes:
+    name: Fetch & diff Playbill showtimes
+    runs-on: ubuntu-latest
+    # Allow up to 6 hours: 5 retries × 1h sleep + script runtime
+    timeout-minutes: 360
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Fetch showtimes (with hourly retry)
+        id: fetch
+        run: |
+          ARGS=""
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            ARGS="--force"
+          fi
+
+          MAX_ATTEMPTS=5
+          ATTEMPT=0
+          EXIT_CODE=2
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "--- Attempt $ATTEMPT of $MAX_ATTEMPTS ($(date -u)) ---"
+
+            bun scripts/fetchWeeklyShowtimes.mjs $ARGS
+            EXIT_CODE=$?
+
+            if [ $EXIT_CODE -eq 0 ]; then
+              echo "Success on attempt $ATTEMPT."
+              break
+            elif [ $EXIT_CODE -eq 2 ]; then
+              if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+                echo "Playbill hasn't updated yet. Waiting 1 hour before retry..."
+                sleep 3600
+              else
+                echo "Playbill never updated after $MAX_ATTEMPTS attempts. Giving up for today."
+              fi
+            else
+              echo "Hard error (exit $EXIT_CODE) — failing immediately."
+              exit $EXIT_CODE
+            fi
+          done
+
+          # Expose stale status and weekOf for later steps
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "stale=false" >> $GITHUB_OUTPUT
+            WEEK_OF=$(bun -e "console.log(JSON.parse(require('fs').readFileSync('data/showtimes/current.json','utf8')).weekOf)")
+            echo "weekOf=${WEEK_OF}" >> $GITHUB_OUTPUT
+          else
+            echo "stale=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for data changes
+        id: changes
+        if: steps.fetch.outputs.stale == 'false'
+        run: |
+          git diff --quiet data/showtimes/current.json && \
+            echo "changed=false" >> $GITHUB_OUTPUT || \
+            echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Read PR body
+        id: pr_body
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          {
+            echo "body<<SCHEDULE_PR_BODY_EOF"
+            cat .github/pr-body.md
+            echo "SCHEDULE_PR_BODY_EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create pull request
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "data(showtimes): week of ${{ steps.fetch.outputs.weekOf }}"
+          branch: "data/showtimes-update"
+          # Delete and recreate the branch so there's only ever one open schedule PR
+          delete-branch: true
+          title: "data(showtimes): Broadway showtimes week of ${{ steps.fetch.outputs.weekOf }}"
+          body: ${{ steps.pr_body.outputs.body }}
+          labels: |
+            data
+            automated
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ steps.fetch.outputs.stale }}" = "true" ]; then
+            echo "### ⚠️ Playbill did not update this week" >> $GITHUB_STEP_SUMMARY
+            echo "All ${{ env.MAX_ATTEMPTS }} attempts returned the same weekOf. Check manually." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.changes.outputs.changed }}" = "false" ]; then
+            echo "### ✅ No changes vs current.json" >> $GITHUB_STEP_SUMMARY
+            echo "Showtimes fetched successfully but nothing changed from last week." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ✅ Showtimes updated — PR opened" >> $GITHUB_STEP_SUMMARY
+            cat .github/pr-body.md >> $GITHUB_STEP_SUMMARY || true
+          fi
