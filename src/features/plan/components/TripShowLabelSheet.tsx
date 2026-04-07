@@ -1,5 +1,6 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useMemo } from "react";
 
 import { BottomSheet } from "@/components/bottom-sheet";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -13,50 +14,68 @@ import {
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { closingStripLabel } from "@/features/browse/logic/closingStrip";
 import { formatDate } from "@/features/browse/logic/date";
+import {
+  BROADWAY_SHOWTIMES_DAY_ORDER,
+  formatBroadwaySlotLabel,
+  formatBroadwayWeekLabel,
+  findBroadwayShowtimes,
+  type BroadwayShowtimesResult,
+} from "@/lib/broadwayShowtimes";
 
 const AVATAR_CAP = 3;
 const SHEET_H_PAD = 16;
 const ROW_GAP = 8;
 
-/** Placeholder weekly grid (BwayRush-style); replace when venue schedules are ingested. */
-function ShowtimesPreviewPrototype({
+const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function BroadwayShowtimesGrid({
+  data,
   borderColor,
   surfaceColor,
   primaryTextColor,
   mutedTextColor,
 }: {
+  data: BroadwayShowtimesResult;
   borderColor: string;
   surfaceColor: string;
   primaryTextColor: string;
   mutedTextColor: string;
 }) {
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const slots: (string | null)[][] = [
-    ["—", "7 PM", "—", "7 PM", "8 PM", "2 PM", "—"],
-    [null, "2 PM", null, "2 PM", "2 PM", "8 PM", null],
-  ];
+  const maxSlots = Math.max(
+    ...BROADWAY_SHOWTIMES_DAY_ORDER.map((d) => data.schedule[d].length),
+    0
+  );
+  if (maxSlots === 0) return null;
+
+  const rows = Array.from({ length: maxSlots }, (_, rowIdx) =>
+    BROADWAY_SHOWTIMES_DAY_ORDER.map((day) => data.schedule[day][rowIdx] ?? null)
+  );
+
   return (
-    <View style={[proto.wrap, { borderColor, backgroundColor: surfaceColor }]}>
-      <View style={proto.headerRow}>
-        {days.map((d) => (
-          <Text key={d} style={[proto.dayHead, { color: mutedTextColor }]}>
+    <View style={[stGrid.wrap, { borderColor, backgroundColor: surfaceColor }]}>
+      <Text style={[stGrid.sourceHint, { color: mutedTextColor }]}>
+        Playbill · week of {formatBroadwayWeekLabel(data.weekOf)}
+      </Text>
+      <View style={stGrid.headerRow}>
+        {DAY_LABELS.map((d) => (
+          <Text key={d} style={[stGrid.dayHead, { color: mutedTextColor }]}>
             {d}
           </Text>
         ))}
       </View>
-      <View style={proto.slotsBlock}>
-        {slots.map((row, ri) => (
-          <View key={ri} style={proto.slotRow}>
-            {row.map((cell, ci) => (
-              <View key={ci} style={proto.cell}>
-                {cell ? (
-                  <View style={[proto.timeChip, { borderColor }]}>
-                    <Text style={[proto.timeChipText, { color: primaryTextColor }]} numberOfLines={1}>
-                      {cell}
+      <View style={stGrid.slotsBlock}>
+        {rows.map((row, ri) => (
+          <View key={ri} style={stGrid.slotRow}>
+            {row.map((slot, ci) => (
+              <View key={ci} style={stGrid.cell}>
+                {slot ? (
+                  <View style={[stGrid.timeChip, { borderColor }]}>
+                    <Text style={[stGrid.timeChipText, { color: primaryTextColor }]} numberOfLines={2}>
+                      {formatBroadwaySlotLabel(slot)}
                     </Text>
                   </View>
                 ) : (
-                  <Text style={[proto.dash, { color: mutedTextColor }]}> </Text>
+                  <Text style={[stGrid.dash, { color: mutedTextColor }]}>—</Text>
                 )}
               </View>
             ))}
@@ -67,7 +86,7 @@ function ShowtimesPreviewPrototype({
   );
 }
 
-const proto = StyleSheet.create({
+const stGrid = StyleSheet.create({
   wrap: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
@@ -75,20 +94,21 @@ const proto = StyleSheet.create({
     paddingVertical: 8,
     gap: 4,
   },
+  sourceHint: { fontSize: 10, fontWeight: "600", marginBottom: 2 },
   headerRow: { flexDirection: "row" },
   dayHead: { flex: 1, fontSize: 9, fontWeight: "800", textAlign: "center" },
   slotsBlock: { gap: 2 },
-  slotRow: { flexDirection: "row", alignItems: "center", minHeight: 20 },
-  cell: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 1 },
+  slotRow: { flexDirection: "row", alignItems: "flex-start", minHeight: 22 },
+  cell: { flex: 1, alignItems: "center", justifyContent: "flex-start", paddingHorizontal: 1 },
   timeChip: {
     borderRadius: 5,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 3,
-    paddingVertical: 1,
+    paddingVertical: 2,
     width: "100%",
   },
   timeChipText: { fontSize: 8, fontWeight: "700", textAlign: "center", lineHeight: 11 },
-  dash: { fontSize: 10 },
+  dash: { fontSize: 10, textAlign: "center" },
 });
 
 const LABEL_ROW_1: TripShowLabel[] = ["must_see", "want_see", "dont_want"];
@@ -152,9 +172,10 @@ export function TripShowLabelSheet({
   // All chips share the same width, calculated from the row with 3 chips.
   const chipWidth = (screenWidth - SHEET_H_PAD * 2 - ROW_GAP * (LABEL_ROW_1.length - 1)) / LABEL_ROW_1.length;
 
-  if (!item) return null;
+  const showName = item?.show?.name ?? "Show";
+  const broadwayShowtimes = useMemo(() => findBroadwayShowtimes(showName), [showName]);
 
-  const showName = item.show?.name ?? "Show";
+  if (!item) return null;
   const assignedToDay = item.dayDate != null && item.dayDate !== "";
   const closingCal = item.closingDate ? formatDate(item.closingDate) : null;
   const showRunSection =
@@ -262,15 +283,20 @@ export function TripShowLabelSheet({
             </>
           ) : null}
 
-          <Text style={[styles.sectionLabel, { color: mutedTextColor, marginTop: showRunSection ? 4 : 0 }]}>
-            Showtimes
-          </Text>
-          <ShowtimesPreviewPrototype
-            borderColor={borderColor}
-            surfaceColor={chipBg}
-            primaryTextColor={primaryTextColor}
-            mutedTextColor={mutedTextColor}
-          />
+          {broadwayShowtimes ? (
+            <>
+              <Text style={[styles.sectionLabel, { color: mutedTextColor, marginTop: showRunSection ? 4 : 0 }]}>
+                Showtimes
+              </Text>
+              <BroadwayShowtimesGrid
+                data={broadwayShowtimes}
+                borderColor={borderColor}
+                surfaceColor={chipBg}
+                primaryTextColor={primaryTextColor}
+                mutedTextColor={mutedTextColor}
+              />
+            </>
+          ) : null}
 
           <Text style={[styles.sectionLabel, { color: mutedTextColor }]}>Your label</Text>
 
