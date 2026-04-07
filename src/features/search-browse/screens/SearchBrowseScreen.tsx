@@ -19,8 +19,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/empty-state";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { AddToListSheet } from "@/components/AddToListSheet";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useNavGuard } from "@/hooks/use-nav-guard";
 import { useTabNav } from "@/hooks/use-tab-nav";
@@ -59,6 +61,10 @@ export default function SearchBrowseScreen() {
   const [query, setQuery] = useState("");
   const [inputFocused, setInputFocused] = useState(false);
 
+  // List status sheet state
+  const [listSheetShowId, setListSheetShowId] = useState<Id<"shows"> | null>(null);
+  const [listSheetShowName, setListSheetShowName] = useState("");
+
   useFocusEffect(
     useCallback(() => {
       const t = setTimeout(() => inputRef.current?.focus(), 100);
@@ -80,6 +86,51 @@ export default function SearchBrowseScreen() {
   const currentShows = useQuery(api.productions.listCurrent, {});
   const upcomingShows = useQuery(api.productions.listUpcoming, { days: 90 });
   const closingSoon = useQuery(api.productions.listClosingSoon, { days: 30 });
+
+  // Collect all visible showIds from browse rails to batch-fetch list statuses
+  const browseShowIds = useMemo<Id<"shows">[]>(() => {
+    const seen = new Set<string>();
+    const ids: Id<"shows">[] = [];
+    const addShows = (prods?: { show: { _id: string } }[] | null) => {
+      if (!prods) return;
+      for (const p of prods) {
+        if (!seen.has(p.show._id)) {
+          seen.add(p.show._id);
+          ids.push(p.show._id as Id<"shows">);
+        }
+      }
+    };
+    addShows(currentShows);
+    addShows(closingSoon);
+    addShows(upcomingShows);
+    return ids;
+  }, [currentShows, closingSoon, upcomingShows]);
+
+  const searchShowIds = useMemo<Id<"shows">[]>(() => {
+    if (!showResults?.length) return [];
+    return showResults.map((s) => s._id as Id<"shows">);
+  }, [showResults]);
+
+  const allVisibleShowIds = useMemo<Id<"shows">[]>(() => {
+    if (isSearchActive) return searchShowIds;
+    return browseShowIds;
+  }, [isSearchActive, searchShowIds, browseShowIds]);
+
+  const listStatuses = useQuery(
+    api.lists.getShowListStatuses,
+    allVisibleShowIds.length > 0 ? { showIds: allVisibleShowIds } : "skip"
+  );
+
+  const getListStatus = (showId: string) => {
+    if (!listStatuses) return undefined;
+    const key = listStatuses[showId];
+    return (key as "want_to_see" | "look_into" | "not_interested" | "uncategorized" | undefined) ?? "none";
+  };
+
+  const openListSheet = (showId: Id<"shows">, showName: string) => {
+    setListSheetShowId(showId);
+    setListSheetShowName(showName);
+  };
 
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
   const isDark = theme === "dark";
@@ -161,30 +212,17 @@ export default function SearchBrowseScreen() {
                   {chunkRows(showResults.slice(0, 8), GRID_COLUMNS).map((row, ri) => (
                     <View key={ri} style={styles.gridRow}>
                       {row.map((show) => (
-                        <Pressable
+                        <SearchShowCard
                           key={show._id}
-                          style={[styles.playbillCard, { width: cardWidth, backgroundColor: surface }]}
+                          show={show}
+                          cardWidth={cardWidth}
+                          surfaceColor={surface}
+                          posterBg={posterBg}
+                          mutedColor={muted}
+                          listStatus={getListStatus(show._id)}
                           onPress={() => navigateToShow(show._id, show.name)}
-                        >
-                          {show.images[0] ? (
-                            <Image
-                              source={{ uri: show.images[0] }}
-                              style={[styles.playbillImg, { backgroundColor: posterBg }]}
-                              contentFit="contain"
-                            />
-                          ) : (
-                            <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: posterBg }]}>
-                              <Text
-                                style={[styles.playbillFbText, { color: muted }]}
-                                numberOfLines={4}
-                                adjustsFontSizeToFit
-                                minimumFontScale={0.6}
-                              >
-                                {show.name}
-                              </Text>
-                            </View>
-                          )}
-                        </Pressable>
+                          onListIconPress={() => openListSheet(show._id as Id<"shows">, show.name)}
+                        />
                       ))}
                     </View>
                   ))}
@@ -237,73 +275,6 @@ export default function SearchBrowseScreen() {
         {/* ─── Default browse content — always visible unless showing results ─── */}
         {!isSearchActive && (
           <>
-            {currentShows && currentShows.length > 0 && (
-              <BrowseRail
-                title="Now Playing"
-                items={currentShows.map((p) => ({
-                  _id: p._id,
-                  show: p.show,
-                  posterUrl: p.posterUrl,
-                }))}
-                cardWidth={cardWidth}
-                surfaceColor={surface}
-                posterBg={posterBg}
-                textColor={text}
-                mutedColor={muted}
-                accentColor={accent}
-                onPress={navigateToShow}
-                onSeeMore={() => navigateToCategory("now-playing")}
-              />
-            )}
-
-            {closingSoon && closingSoon.length > 0 && (
-              <BrowseRail
-                title="Closing Soon"
-                items={closingSoon.map((p) => ({
-                  _id: p._id,
-                  show: p.show,
-                  posterUrl: p.posterUrl,
-                  badge: railBadgeForClosingSoon(p, isDark, todayStr),
-                }))}
-                cardWidth={cardWidth}
-                surfaceColor={surface}
-                posterBg={posterBg}
-                textColor={text}
-                mutedColor={muted}
-                accentColor={accent}
-                onPress={navigateToShow}
-                onSeeMore={() => navigateToCategory("closing-soon")}
-              />
-            )}
-
-            {upcomingShows && upcomingShows.length > 0 && (
-              <BrowseRail
-                title="Coming Soon"
-                items={upcomingShows.map((p) => ({
-                  _id: p._id,
-                  show: p.show,
-                  posterUrl: p.posterUrl,
-                  badge: railBadgeForProduction(p, isDark, todayStr),
-                }))}
-                cardWidth={cardWidth}
-                surfaceColor={surface}
-                posterBg={posterBg}
-                textColor={text}
-                mutedColor={muted}
-                accentColor={accent}
-                onPress={navigateToShow}
-                onSeeMore={() => navigateToCategory("coming-soon")}
-              />
-            )}
-
-            <Pressable
-              style={styles.seeAllButton}
-              onPress={() => navigateToCategory("all")}
-            >
-              <Text style={[styles.seeAllText, { color: accent }]}>See All Shows</Text>
-              <IconSymbol name="chevron.right" size={14} color={accent} />
-            </Pressable>
-
             {/* Quick actions */}
             <View style={styles.quickActionsRow}>
               <Pressable
@@ -332,10 +303,89 @@ export default function SearchBrowseScreen() {
                 <Text style={[styles.quickActionText, { color: text }]}>New List</Text>
               </Pressable>
             </View>
+
+            <Pressable
+              style={styles.seeAllButton}
+              onPress={() => navigateToCategory("all")}
+            >
+              <Text style={[styles.seeAllText, { color: accent }]}>See All Shows</Text>
+              <IconSymbol name="chevron.right" size={14} color={accent} />
+            </Pressable>
+
+            {currentShows && currentShows.length > 0 && (
+              <BrowseRail
+                title="Now Playing"
+                items={currentShows.map((p) => ({
+                  _id: p._id,
+                  show: p.show,
+                  posterUrl: p.posterUrl,
+                }))}
+                cardWidth={cardWidth}
+                surfaceColor={surface}
+                posterBg={posterBg}
+                textColor={text}
+                mutedColor={muted}
+                accentColor={accent}
+                onPress={navigateToShow}
+                onSeeMore={() => navigateToCategory("now-playing")}
+                listStatuses={listStatuses ?? {}}
+                onListIconPress={openListSheet}
+              />
+            )}
+
+            {closingSoon && closingSoon.length > 0 && (
+              <BrowseRail
+                title="Closing Soon"
+                items={closingSoon.map((p) => ({
+                  _id: p._id,
+                  show: p.show,
+                  posterUrl: p.posterUrl,
+                  badge: railBadgeForClosingSoon(p, isDark, todayStr),
+                }))}
+                cardWidth={cardWidth}
+                surfaceColor={surface}
+                posterBg={posterBg}
+                textColor={text}
+                mutedColor={muted}
+                accentColor={accent}
+                onPress={navigateToShow}
+                onSeeMore={() => navigateToCategory("closing-soon")}
+                listStatuses={listStatuses ?? {}}
+                onListIconPress={openListSheet}
+              />
+            )}
+
+            {upcomingShows && upcomingShows.length > 0 && (
+              <BrowseRail
+                title="Coming Soon"
+                items={upcomingShows.map((p) => ({
+                  _id: p._id,
+                  show: p.show,
+                  posterUrl: p.posterUrl,
+                  badge: railBadgeForProduction(p, isDark, todayStr),
+                }))}
+                cardWidth={cardWidth}
+                surfaceColor={surface}
+                posterBg={posterBg}
+                textColor={text}
+                mutedColor={muted}
+                accentColor={accent}
+                onPress={navigateToShow}
+                onSeeMore={() => navigateToCategory("coming-soon")}
+                listStatuses={listStatuses ?? {}}
+                onListIconPress={openListSheet}
+              />
+            )}
           </>
         )}
       </ScrollView>
     </SafeAreaView>
+    <AddToListSheet
+      visible={listSheetShowId !== null}
+      showId={listSheetShowId}
+      showName={listSheetShowName}
+      onClose={() => setListSheetShowId(null)}
+    />
     </KeyboardAvoidingView>
   );
 }
@@ -362,6 +412,8 @@ function BrowseRail({
   accentColor,
   onPress,
   onSeeMore,
+  listStatuses,
+  onListIconPress,
 }: {
   title: string;
   items: BrowseItem[];
@@ -373,6 +425,8 @@ function BrowseRail({
   accentColor: string;
   onPress: (showId: string, showName?: string) => void;
   onSeeMore?: () => void;
+  listStatuses?: Record<string, string>;
+  onListIconPress?: (showId: Id<"shows">, showName: string) => void;
 }) {
   const seen = new Set<string>();
   const unique = items.filter((p) => {
@@ -398,44 +452,112 @@ function BrowseRail({
       >
         {unique.map((prod) => {
           const image = prod.posterUrl ?? prod.show.images[0] ?? null;
+          const rawStatus = listStatuses?.[prod.show._id];
+          const listStatus = (rawStatus as "want_to_see" | "look_into" | "not_interested" | "uncategorized" | undefined) ?? "none";
           return (
-            <Pressable
+            <SearchShowCard
               key={prod._id}
-              style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}
+              show={{ name: prod.show.name, images: prod.show.images, image, badge: prod.badge }}
+              cardWidth={cardWidth}
+              surfaceColor={surfaceColor}
+              posterBg={posterBg}
+              mutedColor={mutedColor}
+              listStatus={listStatus}
               onPress={() => onPress(prod.show._id, prod.show.name)}
-            >
-              {image ? (
-                <Image
-                  source={{ uri: image }}
-                  style={[styles.playbillImg, { backgroundColor: posterBg }]}
-                  contentFit="contain"
-                />
-              ) : (
-                <View
-                  style={[styles.playbillImg, styles.playbillFb, { backgroundColor: posterBg }]}
-                >
-                  <Text
-                    style={[styles.playbillFbText, { color: mutedColor }]}
-                    numberOfLines={4}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.6}
-                  >
-                    {prod.show.name}
-                  </Text>
-                </View>
-              )}
-              {prod.badge ? (
-                <View style={[styles.railBadgeStrip, { backgroundColor: prod.badge.bg }]}>
-                  <Text style={[styles.railBadgeText, { color: prod.badge.text }]}>
-                    {prod.badge.label}
-                  </Text>
-                </View>
-              ) : null}
-            </Pressable>
+              onListIconPress={onListIconPress ? () => onListIconPress(prod.show._id as Id<"shows">, prod.show.name) : undefined}
+            />
           );
         })}
       </ScrollView>
     </View>
+  );
+}
+
+/**
+ * Small show card used in the Search tab for both search results and browse rails.
+ * Shows list status icon in the top-right corner.
+ */
+function SearchShowCard({
+  show,
+  cardWidth,
+  surfaceColor,
+  posterBg,
+  mutedColor,
+  listStatus,
+  onPress,
+  onListIconPress,
+}: {
+  show: { name: string; images?: string[]; image?: string | null; badge?: { label: string; bg: string; text: string } | null };
+  cardWidth: number;
+  surfaceColor: string;
+  posterBg: string;
+  mutedColor: string;
+  listStatus?: "want_to_see" | "look_into" | "not_interested" | "uncategorized" | "none";
+  onPress: () => void;
+  onListIconPress?: () => void;
+}) {
+  const image = show.image ?? show.images?.[0] ?? null;
+  return (
+    <Pressable
+      style={[styles.playbillCard, { width: cardWidth, backgroundColor: surfaceColor }]}
+      onPress={onPress}
+    >
+      {image ? (
+        <Image
+          source={{ uri: image }}
+          style={[styles.playbillImg, { backgroundColor: posterBg }]}
+          contentFit="contain"
+        />
+      ) : (
+        <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: posterBg }]}>
+          <Text
+            style={[styles.playbillFbText, { color: mutedColor }]}
+            numberOfLines={4}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
+          >
+            {show.name}
+          </Text>
+        </View>
+      )}
+      {show.badge ? (
+        <View style={[styles.railBadgeStrip, { backgroundColor: show.badge.bg }]}>
+          <Text style={[styles.railBadgeText, { color: show.badge.text }]}>
+            {show.badge.label}
+          </Text>
+        </View>
+      ) : null}
+      {listStatus != null && onListIconPress ? (
+        <ListStatusIcon status={listStatus} onPress={onListIconPress} />
+      ) : null}
+    </Pressable>
+  );
+}
+
+function ListStatusIcon({
+  status,
+  onPress,
+}: {
+  status: "want_to_see" | "look_into" | "not_interested" | "uncategorized" | "none";
+  onPress: () => void;
+}) {
+  const icon = (() => {
+    switch (status) {
+      case "want_to_see":    return "hand.thumbsup";
+      case "look_into":      return "questionmark.circle";
+      case "not_interested": return "hand.thumbsdown";
+      case "uncategorized":  return "minus.circle";
+      default:               return "bookmark";
+    }
+  })();
+  return (
+    <Pressable
+      style={styles.listIconBtn}
+      onPress={(e) => { e.stopPropagation?.(); onPress(); }}
+      hitSlop={6}
+    >
+      <IconSymbol name={icon as any} size={14} color="#fff" />
+    </Pressable>
   );
 }
 
@@ -520,7 +642,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    paddingVertical: 14,
+    paddingVertical: 6,
   },
   seeAllText: {
     fontSize: 15,
@@ -558,6 +680,18 @@ const styles = StyleSheet.create({
   railBadgeText: {
     fontSize: 9,
     fontWeight: "700",
+  },
+  listIconBtn: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    alignItems: "center",
+    justifyContent: "center",
+    // Drop shadow makes the outline icon readable over any poster colour
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 4,
   },
   playbillFbText: {
     fontSize: 13,

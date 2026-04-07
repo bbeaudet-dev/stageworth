@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireConvexUserId } from "./auth";
+import { getConvexUserId, requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
 import {
   SYSTEM_LIST_KEYS,
@@ -366,5 +366,38 @@ export const initializeSystemLists = mutation({
       key,
       name: SYSTEM_LIST_NAME_BY_KEY[key],
     }));
+  },
+});
+
+/**
+ * Returns a map of showId -> systemKey for the current user's system list membership.
+ * Shows not in any system list are omitted (treat as "none").
+ * Only checks system lists (want_to_see, look_into, not_interested, uncategorized).
+ */
+export const getShowListStatuses = query({
+  args: { showIds: v.array(v.id("shows")) },
+  handler: async (ctx, args) => {
+    const userId = await getConvexUserId(ctx);
+    if (!userId || args.showIds.length === 0) return {};
+
+    const systemLists = await ctx.db
+      .query("userLists")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter((q) => q.eq(q.field("kind"), "system"))
+      .collect();
+
+    const showIdSet = new Set(args.showIds.map(String));
+    const result: Record<string, string> = {};
+
+    for (const list of systemLists) {
+      if (!list.systemKey) continue;
+      for (const showId of list.showIds) {
+        if (showIdSet.has(String(showId))) {
+          result[String(showId)] = list.systemKey;
+        }
+      }
+    }
+
+    return result;
   },
 });

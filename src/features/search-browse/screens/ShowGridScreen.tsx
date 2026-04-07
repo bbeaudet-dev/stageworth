@@ -8,6 +8,7 @@ import { ScrollView, StyleSheet, Text, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ShowCard } from "@/features/browse/components/ShowCard";
+import { AddToListSheet } from "@/components/AddToListSheet";
 import {
   railBadgeForClosingSoon,
   railBadgeForProduction,
@@ -142,6 +143,18 @@ export default function ShowGridScreen() {
   const visible = items ? items.slice(0, limit) : [];
   const remaining = items ? items.length - visible.length : 0;
 
+  const visibleShowIds = useMemo<Id<"shows">[]>(
+    () => visible.map((item) => item.showId),
+    [visible]
+  );
+  const listStatuses = useQuery(
+    api.lists.getShowListStatuses,
+    visibleShowIds.length > 0 ? { showIds: visibleShowIds } : "skip"
+  );
+
+  const [listSheetShowId, setListSheetShowId] = useState<Id<"shows"> | null>(null);
+  const [listSheetShowName, setListSheetShowName] = useState("");
+
   return (
     <SafeAreaView style={[s.container, { backgroundColor: bg }]} edges={["bottom"]}>
       <Stack.Screen
@@ -168,14 +181,23 @@ export default function ShowGridScreen() {
             </Text>
             {chunkRows(visible, GRID_COLUMNS).map((row, ri) => (
               <View key={ri} style={browseStyles.gridRow}>
-                {row.map((item) => (
+                {row.map((item) => {
+                  const rawStatus = listStatuses?.[item.showId];
+                  const listStatus = (rawStatus as "want_to_see" | "look_into" | "not_interested" | "uncategorized" | undefined) ?? "none";
+                  return (
                   <ShowCard
                     key={item._id}
                     show={{ name: item.name, type: item.type, images: item.images }}
                     badge={item.badge}
+                    listStatus={listStatus}
+                    onListIconPress={() => {
+                      setListSheetShowId(item.showId);
+                      setListSheetShowName(item.name);
+                    }}
                     onPress={() => navigateToShow(item.showId, item.name)}
                   />
-                ))}
+                  );
+                })}
                 {row.length < GRID_COLUMNS &&
                   Array.from({ length: GRID_COLUMNS - row.length }).map((_, i) => (
                     <View key={`pad-${i}`} style={browseStyles.gridPlaceholder} />
@@ -195,6 +217,12 @@ export default function ShowGridScreen() {
           </>
         )}
       </ScrollView>
+      <AddToListSheet
+        visible={listSheetShowId !== null}
+        showId={listSheetShowId}
+        showName={listSheetShowName}
+        onClose={() => setListSheetShowId(null)}
+      />
     </SafeAreaView>
   );
 }
