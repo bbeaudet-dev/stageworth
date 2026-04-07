@@ -1,3 +1,5 @@
+import * as ImageManipulator from "expo-image-manipulator";
+import * as MediaLibrary from "expo-media-library";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
@@ -6,6 +8,25 @@ import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { styles } from "@/features/add-visit/styles";
 import { MAX_VISIT_PHOTOS } from "@/features/add-visit/utils/uploadVisitPhotos";
+
+async function toJpeg(uri: string): Promise<string> {
+  const result = await ImageManipulator.manipulateAsync(
+    uri,
+    [],
+    { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
+  );
+  return result.uri;
+}
+
+async function resolveAssetUri(asset: ImagePicker.ImagePickerAsset): Promise<string> {
+  if (asset.assetId) {
+    const info = await MediaLibrary.getAssetInfoAsync(asset.assetId, {
+      shouldDownloadFromNetwork: true,
+    });
+    if (info.localUri) return info.localUri;
+  }
+  return asset.uri;
+}
 
 export function PhotoPickerSection({
   photoUris,
@@ -30,17 +51,59 @@ export function PhotoPickerSection({
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsMultipleSelection: true,
-      selectionLimit: remaining,
-      quality: 0.85,
-    });
+    let pickerResult: ImagePicker.ImagePickerResult;
+    try {
+      pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: true,
+        selectionLimit: remaining,
+        // Don't request base64 or exif — keep payloads small.
+        base64: false,
+        exif: false,
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? `\n\n${error.message}` : "";
+      Alert.alert(
+        "Couldn't open photo picker",
+        `Something went wrong opening your photo library. Please try again.${detail}`,
+      );
+      return;
+    }
 
-    if (result.canceled || !result.assets?.length) return;
+    if (pickerResult.canceled || !pickerResult.assets?.length) return;
 
-    const newUris = result.assets.map((a) => a.uri);
-    setPhotoUris([...photoUris, ...newUris].slice(0, MAX_VISIT_PHOTOS));
+    // Convert every asset to a local JPEG. This sidesteps HEIC/iCloud
+    // representation issues that occur on iOS with PHPickerViewController.
+    const convertedUris: string[] = [];
+    const failedCount = { n: 0 };
+    await Promise.all(
+      pickerResult.assets.map(async (asset) => {
+        try {
+          const sourceUri = await resolveAssetUri(asset);
+          const jpeg = await toJpeg(sourceUri);
+          convertedUris.push(jpeg);
+        } catch {
+          failedCount.n += 1;
+        }
+      }),
+    );
+
+    if (convertedUris.length === 0) {
+      Alert.alert(
+        "Photos unavailable",
+        "The selected photo(s) couldn't be loaded. If they're stored in iCloud and not downloaded to this device, open the Photos app, tap the photo, and wait for it to download — then try again.",
+      );
+      return;
+    }
+
+    if (failedCount.n > 0) {
+      Alert.alert(
+        `${failedCount.n} photo${failedCount.n > 1 ? "s" : ""} skipped`,
+        "Some photos couldn't be loaded (they may not be downloaded from iCloud yet) and were skipped.",
+      );
+    }
+
+    setPhotoUris([...photoUris, ...convertedUris].slice(0, MAX_VISIT_PHOTOS));
   };
 
   const removeAt = (index: number) => {
