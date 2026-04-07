@@ -89,6 +89,10 @@ Coverage gaps:
 - Mid-week cancellations won't be reflected until the next Monday run
 - Holiday schedule changes may appear in the Playbill article text, not the table
 
+## Mobile app
+
+The Expo client imports `data/showtimes/current.json` via `src/lib/broadwayShowtimes.ts` (bundled at build time). After the weekly PR updates the JSON, ship a new app build—or OTA update if you publish one—to pick up new schedules.
+
 ## Running locally
 
 ```bash
