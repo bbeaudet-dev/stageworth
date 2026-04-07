@@ -13,8 +13,9 @@ import { convex } from "@/lib/convex";
 import { ProfileSettingsDrawerProvider } from "@/features/profile/ProfileSettingsDrawerProvider";
 
 GoogleSignin.configure({
-  iosClientId:
-    "436999476070-l97q7s44m1p9irm4ve8objjm0dt11pgn.apps.googleusercontent.com",
+  iosClientId: __DEV__
+    ? "907289279863-uoqm36rn3c5c0se27h3mmg6cj4flc6dt.apps.googleusercontent.com"
+    : "907289279863-tl52ra1s7itgbhqogjo93ub1qdlohgfh.apps.googleusercontent.com",
   webClientId:
     "907289279863-vcofhu6sieo2a69t6u01s28167c9q2ve.apps.googleusercontent.com",
 });

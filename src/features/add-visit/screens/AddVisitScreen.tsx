@@ -26,8 +26,10 @@ import { VisitDateSection } from "@/features/add-visit/components/VisitDateSecti
 import { LocationSection } from "@/features/add-visit/components/LocationSection";
 import { RankingSection } from "@/features/add-visit/components/RankingSection";
 import { NotesSection } from "@/features/add-visit/components/NotesSection";
+import { PhotoPickerSection } from "@/features/add-visit/components/PhotoPickerSection";
 import { SaveVisitButton } from "@/features/add-visit/components/SaveVisitButton";
 import { TagFriendsSection } from "@/features/add-visit/components/TagFriendsSection";
+import { uploadVisitPhotos } from "@/features/add-visit/utils/uploadVisitPhotos";
 
 function routeParamString(v: string | string[] | undefined): string | undefined {
   if (v === undefined) return undefined;
@@ -62,6 +64,7 @@ export default function AddVisitScreen() {
     selectCustomShow,
     clearSelection,
     toggleTaggedUser,
+    setPhotoUris,
   } = useAddVisitFormState();
 
   const selectExistingShowRef = useRef(selectExistingShow);
@@ -89,6 +92,7 @@ export default function AddVisitScreen() {
     shouldForceOtherLocation,
     myFollowing,
     createVisit,
+    generateVisitPhotoUploadUrl,
   } = useAddVisitData({
     query: state.query,
     selectedShowId: state.selectedShowId,
@@ -176,6 +180,11 @@ export default function AddVisitScreen() {
     if (!hasSelectedShow || state.isSaving) return;
     setIsSaving(true);
     try {
+      let photoStorageIds: Id<"_storage">[] | undefined;
+      if (state.photoUris.length > 0) {
+        photoStorageIds = await uploadVisitPhotos(state.photoUris, generateVisitPhotoUploadUrl);
+      }
+
       await createVisit({
         showId: state.selectedShowId ?? undefined,
         customShowName: state.customShowName ?? undefined,
@@ -196,9 +205,14 @@ export default function AddVisitScreen() {
             ? predictedResultIndex
             : undefined,
         taggedUserIds: state.taggedUserIds.length > 0 ? state.taggedUserIds : undefined,
+        photoStorageIds:
+          photoStorageIds && photoStorageIds.length > 0 ? photoStorageIds : undefined,
       });
       allowRemoveRef.current = true;
       router.replace("/(tabs)");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Something went wrong saving your visit.";
+      Alert.alert("Couldn’t save visit", message);
     } finally {
       setIsSaving(false);
     }
@@ -311,6 +325,7 @@ export default function AddVisitScreen() {
                 rankedShowsForRanking={rankedShowsForRanking}
               />
               <NotesSection notes={state.notes} setNotes={setNotes} />
+              <PhotoPickerSection photoUris={state.photoUris} setPhotoUris={setPhotoUris} />
               <TagFriendsSection
                 following={myFollowing}
                 taggedUserIds={state.taggedUserIds}

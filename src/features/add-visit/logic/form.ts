@@ -26,6 +26,7 @@ export function getInitialAddVisitFormState(): AddVisitFormState {
     searchHigh: 0,
     rankingResultIndex: null,
     taggedUserIds: [],
+    photoUris: [],
   };
 }
 
@@ -44,6 +45,7 @@ export function hasUnsavedAddVisitChanges(state: AddVisitFormState) {
     state.selectedTier !== null ||
     state.searchLow !== 0 ||
     state.searchHigh !== 0 ||
-    state.rankingResultIndex !== null
+    state.rankingResultIndex !== null ||
+    state.photoUris.length > 0
   );
 }

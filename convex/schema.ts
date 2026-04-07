@@ -243,6 +243,7 @@ export default defineSchema({
     cast: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    photos: v.optional(v.array(v.id("_storage"))),
   })
     .index("by_user_show", ["userId", "showId"])
     .index("by_user", ["userId"])
@@ -299,6 +300,7 @@ export default defineSchema({
     theatre: v.optional(v.string()),
     rankAtPost: v.optional(v.number()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    photos: v.optional(v.array(v.id("_storage"))),
     createdAt: v.number(),
   })
     .index("by_createdAt", ["createdAt"])

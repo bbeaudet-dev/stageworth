@@ -27,6 +27,9 @@ export function useAddVisitData({
   );
   const myFollowing = useQuery(api.social.social.listMyFollowing, {});
   const createVisitMutation = useMutation(api.visits.createVisit);
+  const generateVisitPhotoUploadUrlMutation = useMutation(
+    api.visits.generateVisitPhotoUploadUrl,
+  );
 
   const selectedShow = useMemo(
     () => allShows?.find((show) => show._id === selectedShowId) ?? null,
@@ -111,6 +114,11 @@ export function useAddVisitData({
     [createVisitMutation]
   );
 
+  const generateVisitPhotoUploadUrl = useMemo(
+    () => () => generateVisitPhotoUploadUrlMutation(),
+    [generateVisitPhotoUploadUrlMutation],
+  );
+
   return {
     allShows,
     rankedShows,
@@ -127,6 +135,7 @@ export function useAddVisitData({
     shouldForceOtherLocation,
     myFollowing: myFollowing ?? [],
     createVisit,
+    generateVisitPhotoUploadUrl,
   };
 }
 

@@ -56,6 +56,11 @@ async function hydratePosts(ctx: any, posts: any[], viewerUserId: string) {
         if (user) taggedUsers.push({ _id: user._id, username: user.username, name: user.name });
       }
 
+      const photoUrls = await Promise.all(
+        (post.photos ?? []).map((id: string) => ctx.storage.getUrl(id))
+      );
+      const photos = photoUrls.filter((url): url is string => url !== null);
+
       return {
         _id: post._id,
         createdAt: post.createdAt,
@@ -70,6 +75,7 @@ async function hydratePosts(ctx: any, posts: any[], viewerUserId: string) {
         actor,
         show,
         taggedUsers,
+        photos,
       };
     })
   );

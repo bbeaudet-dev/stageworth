@@ -76,10 +76,18 @@ module.exports = {
     "expo-secure-store",
     "expo-apple-authentication",
     [
+      "expo-image-picker",
+      {
+        photosPermission:
+          "Theatre Diary accesses your photos so you can attach pictures to your visit.",
+      },
+    ],
+    [
       "@react-native-google-signin/google-signin",
       {
         iosUrlScheme:
-          "com.googleusercontent.apps.436999476070-l97q7s44m1p9irm4ve8objjm0dt11pgn",
+          process.env.GOOGLE_IOS_URL_SCHEME ||
+          "com.googleusercontent.apps.907289279863-tl52ra1s7itgbhqogjo93ub1qdlohgfh",
       },
     ],
     [

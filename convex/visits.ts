@@ -496,6 +496,16 @@ export const getAddVisitContext = query({
   },
 });
 
+const MAX_VISIT_PHOTOS = 5;
+
+export const generateVisitPhotoUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireConvexUserId(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
 export const createVisit = mutation({
   args: {
     showId: v.optional(v.id("shows")),
@@ -521,9 +531,15 @@ export const createVisit = mutation({
     selectedTier: v.optional(rankedTierValidator),
     completedInsertionIndex: v.optional(v.number()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    photoStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
+
+    const visitPhotos =
+      args.photoStorageIds !== undefined
+        ? args.photoStorageIds.slice(0, MAX_VISIT_PHOTOS)
+        : undefined;
 
     const trimmedCustomShowName = args.customShowName?.trim();
     const hasShowId = args.showId !== undefined;
@@ -676,6 +692,7 @@ export const createVisit = mutation({
       district,
       notes: args.notes,
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
+      photos: visitPhotos && visitPhotos.length > 0 ? visitPhotos : undefined,
     });
 
     const now = Date.now();
@@ -719,6 +736,7 @@ export const createVisit = mutation({
       theatre,
       rankAtPost: rankingIndex === -1 ? undefined : rankingIndex + 1,
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
+      photos: visitPhotos && visitPhotos.length > 0 ? visitPhotos : undefined,
       createdAt: Date.now(),
     });
 

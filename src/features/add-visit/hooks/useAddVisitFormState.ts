@@ -24,7 +24,8 @@ type Action =
   | { type: "SELECT_EXISTING_SHOW"; showId: Id<"shows"> }
   | { type: "SELECT_CUSTOM_SHOW"; name: string }
   | { type: "CLEAR_SELECTION" }
-  | { type: "TOGGLE_TAGGED_USER"; userId: Id<"users"> };
+  | { type: "TOGGLE_TAGGED_USER"; userId: Id<"users"> }
+  | { type: "SET_PHOTO_URIS"; value: string[] };
 
 function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
   switch (action.type) {
@@ -75,6 +76,7 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
         searchLow: 0,
         searchHigh: 0,
         rankingResultIndex: null,
+        photoUris: [],
       };
     case "SELECT_CUSTOM_SHOW":
       return {
@@ -91,6 +93,7 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
         searchLow: 0,
         searchHigh: 0,
         rankingResultIndex: null,
+        photoUris: [],
       };
     case "CLEAR_SELECTION":
       return {
@@ -107,6 +110,7 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
         searchLow: 0,
         searchHigh: 0,
         rankingResultIndex: null,
+        photoUris: [],
       };
     case "TOGGLE_TAGGED_USER": {
       const isTagged = state.taggedUserIds.includes(action.userId);
@@ -117,6 +121,8 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
           : [...state.taggedUserIds, action.userId],
       };
     }
+    case "SET_PHOTO_URIS":
+      return { ...state, photoUris: action.value };
     default:
       return state;
   }
@@ -150,5 +156,6 @@ export function useAddVisitFormState() {
     selectCustomShow: (name: string) => dispatch({ type: "SELECT_CUSTOM_SHOW", name }),
     clearSelection: () => dispatch({ type: "CLEAR_SELECTION" }),
     toggleTaggedUser: (userId: Id<"users">) => dispatch({ type: "TOGGLE_TAGGED_USER", userId }),
+    setPhotoUris: (value: string[]) => dispatch({ type: "SET_PHOTO_URIS", value }),
   };
 }

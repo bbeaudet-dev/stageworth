@@ -416,6 +416,21 @@ export default function CommunityScreen() {
                           {post.notes}
                         </Text>
                       ) : null}
+                      {post.photos && post.photos.length > 0 ? (
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.visitPhotosRow}
+                        >
+                          {post.photos.map((uri) => (
+                            <Image
+                              key={uri}
+                              source={{ uri }}
+                              style={styles.visitPhotoThumb}
+                            />
+                          ))}
+                        </ScrollView>
+                      ) : null}
                       {post.rankAtPost ? (
                         <Text
                           style={[styles.rankText, { color: rankTextColor }]}
@@ -632,6 +647,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#2b2b2b",
     lineHeight: 20,
+  },
+  visitPhotosRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingTop: 4,
+    paddingBottom: 2,
+  },
+  visitPhotoThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 8,
   },
   rankText: {
     fontSize: 12,

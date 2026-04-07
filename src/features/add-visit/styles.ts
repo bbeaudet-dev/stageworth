@@ -362,4 +362,47 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
+  photoPickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 4,
+  },
+  photoThumbWrap: {
+    position: "relative",
+  },
+  photoThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+  },
+  photoRemoveBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoRemoveText: {
+    fontSize: 18,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
+  photoAddButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoAddButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
 });

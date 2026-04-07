@@ -36,4 +36,6 @@ export type AddVisitFormState = {
   searchHigh: number;
   rankingResultIndex: number | null;
   taggedUserIds: Id<"users">[];
+  /** Local image URIs; uploaded to Convex storage on save */
+  photoUris: string[];
 };
