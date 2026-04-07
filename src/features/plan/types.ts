@@ -13,6 +13,8 @@ export interface TripShowItem {
   closingDate: string | null;
   isOpenRun: boolean | null;
   tripProductionStatus: string | null;
+  previewDate: string | null;
+  openingDate: string | null;
   show: {
     _id: Id<"shows">;
     name: string;

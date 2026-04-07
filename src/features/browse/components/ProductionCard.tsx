@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   closingStripBadge,
+  fullStatusBadgeForProduction,
   openingSoonPlaybillColors,
 } from "@/features/browse/logic/closingStrip";
 import {
@@ -19,53 +20,6 @@ import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { SmartShowImage } from "@/components/SmartShowImage";
 
 type BadgeConfig = { label: string; bg: string; text: string };
-
-function getStatusBadge(
-  production: ProductionWithShow,
-  status: ReturnType<typeof getProductionStatus>,
-  isDark: boolean
-): BadgeConfig | null {
-  const todayStr = new Date().toISOString().split("T")[0];
-
-  if (status === "closed") {
-    return isDark
-      ? { label: "Closed", bg: "rgba(156,163,175,0.12)", text: "#D1D5DB" }
-      : { label: "Closed", bg: "#F3F4F6", text: "#9CA3AF" };
-  }
-
-  if (status === "announced") {
-    const milestone = earliestFutureRunDate(
-      production.previewDate,
-      production.openingDate,
-      todayStr
-    );
-    if (milestone) {
-      const d = daysUntil(milestone);
-      if (d >= 0) {
-        const { bg, text } = openingSoonPlaybillColors(isDark);
-        return { label: openingMilestoneLabel(milestone), bg, text };
-      }
-    }
-    const { bg, text } = openingSoonPlaybillColors(isDark);
-    return { label: "Announced", bg, text };
-  }
-
-  if (status === "open_run") {
-    return isDark
-      ? { label: "Open Run", bg: "rgba(34,197,94,0.15)", text: "#4ADE80" }
-      : { label: "Open Run", bg: "#F0FDF4", text: "#22C55E" };
-  }
-  if (status === "open") {
-    return isDark
-      ? { label: "Running", bg: "rgba(34,197,94,0.12)", text: "#4ADE80" }
-      : { label: "Running", bg: "#F0FDF4", text: "#22C55E" };
-  }
-  if (status === "in_previews") {
-    const { bg, text } = openingSoonPlaybillColors(isDark);
-    return { label: "Previews", bg, text };
-  }
-  return null;
-}
 
 /** Opening / preview badge for the Search "Coming Soon" rail and grid. */
 export function railBadgeForProduction(
@@ -109,11 +63,12 @@ export function ProductionCard({
   production: ProductionWithShow;
   onPress: () => void;
 }) {
-  const status = getProductionStatus(production);
+  const todayStr = new Date().toISOString().split("T")[0];
+  const status = getProductionStatus(production, todayStr);
   const theme = useColorScheme() ?? "light";
   const isDark = theme === "dark";
   const c = Colors[theme];
-  const badge = getStatusBadge(production, status, isDark);
+  const badgeResult = fullStatusBadgeForProduction(production, status, todayStr, isDark);
   const show = production.show;
   const image = production.posterUrl ?? show?.images?.[0];
   const [imageFailed, setImageFailed] = useState(false);
@@ -145,10 +100,17 @@ export function ProductionCard({
           </Text>
         </View>
       ) : null}
-      {badge ? (
-        <View style={[local.badgeStrip, { backgroundColor: badge.bg }]}>
-          <Text style={[local.badgeText, { color: badge.text }]}>{badge.label}</Text>
-        </View>
+      {badgeResult ? (
+        <>
+          {badgeResult.secondary ? (
+            <View style={[local.badgeStrip, local.secondaryBadgeStrip, { backgroundColor: badgeResult.secondary.bg }]}>
+              <Text style={[local.badgeText, { color: badgeResult.secondary.text }]}>{badgeResult.secondary.label}</Text>
+            </View>
+          ) : null}
+          <View style={[local.badgeStrip, { backgroundColor: badgeResult.primary.bg }]}>
+            <Text style={[local.badgeText, { color: badgeResult.primary.text }]}>{badgeResult.primary.label}</Text>
+          </View>
+        </>
       ) : null}
     </Pressable>
   );
@@ -159,6 +121,10 @@ const local = StyleSheet.create({
     width: "100%",
     paddingVertical: 4,
     alignItems: "center",
+  },
+  secondaryBadgeStrip: {
+    opacity: 0.85,
+    paddingVertical: 3,
   },
   badgeText: { fontSize: 9, fontWeight: "700" },
   attributionRow: {
