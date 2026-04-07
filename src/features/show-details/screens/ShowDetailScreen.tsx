@@ -30,6 +30,8 @@ import {
 } from "@/features/browse/logic/date";
 import { playbillMatBackground } from "@/features/browse/styles";
 import { getProductionStatus, type ProductionStatus } from "@/utils/productions";
+import { BroadwayShowtimesGrid } from "@/components/BroadwayShowtimesGrid";
+import { findBroadwayShowtimes } from "@/lib/broadwayShowtimes";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -343,6 +345,11 @@ export default function ShowDetailScreen() {
     return myTrips.upcoming ?? [];
   }, [myTrips]);
 
+  const broadwayShowtimes = useMemo(() => {
+    const name = show?.name ?? params.name ?? "";
+    return name ? findBroadwayShowtimes(name) : null;
+  }, [show?.name, params.name]);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={["bottom"]}>
       <Stack.Screen options={{ title: show?.name ?? (params.name ?? "Show"), headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
@@ -450,6 +457,20 @@ export default function ShowDetailScreen() {
                 </View>
               );
             })}
+          </View>
+        ) : null}
+
+        {broadwayShowtimes ? (
+          <View style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
+            <View style={{ paddingHorizontal: 14, paddingVertical: 12 }}>
+              <BroadwayShowtimesGrid
+                data={broadwayShowtimes}
+                borderColor={c.border}
+                surfaceColor={c.surface}
+                primaryTextColor={c.text}
+                mutedTextColor={c.mutedText}
+              />
+            </View>
           </View>
         ) : null}
 

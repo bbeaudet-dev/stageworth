@@ -12,107 +12,25 @@ import {
   tripShowLabelMeta,
 } from "@/features/plan/tripShowLabelMeta";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { closingStripLabel } from "@/features/browse/logic/closingStrip";
-import { formatDate } from "@/features/browse/logic/date";
-import {
-  BROADWAY_SHOWTIMES_DAY_ORDER,
-  formatBroadwaySlotLabel,
-  formatBroadwayWeekLabel,
-  findBroadwayShowtimes,
-  type BroadwayShowtimesResult,
-} from "@/lib/broadwayShowtimes";
+import { daysUntil, formatDate } from "@/features/browse/logic/date";
+import { BroadwayShowtimesGrid } from "@/components/BroadwayShowtimesGrid";
+import { findBroadwayShowtimes } from "@/lib/broadwayShowtimes";
 
 const AVATAR_CAP = 3;
 const SHEET_H_PAD = 16;
 const ROW_GAP = 8;
 
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function BroadwayShowtimesGrid({
-  data,
-  borderColor,
-  surfaceColor,
-  primaryTextColor,
-  mutedTextColor,
-}: {
-  data: BroadwayShowtimesResult;
-  borderColor: string;
-  surfaceColor: string;
-  primaryTextColor: string;
-  mutedTextColor: string;
-}) {
-  const maxSlots = Math.max(
-    ...BROADWAY_SHOWTIMES_DAY_ORDER.map((d) => data.schedule[d].length),
-    0
-  );
-  if (maxSlots === 0) return null;
-
-  const rows = Array.from({ length: maxSlots }, (_, rowIdx) =>
-    BROADWAY_SHOWTIMES_DAY_ORDER.map((day) => data.schedule[day][rowIdx] ?? null)
-  );
-
-  return (
-    <View style={[stGrid.wrap, { borderColor, backgroundColor: surfaceColor }]}>
-      <Text style={[stGrid.sourceHint, { color: mutedTextColor }]}>
-        Playbill · week of {formatBroadwayWeekLabel(data.weekOf)}
-      </Text>
-      <View style={stGrid.headerRow}>
-        {DAY_LABELS.map((d) => (
-          <Text key={d} style={[stGrid.dayHead, { color: mutedTextColor }]}>
-            {d}
-          </Text>
-        ))}
-      </View>
-      <View style={stGrid.slotsBlock}>
-        {rows.map((row, ri) => (
-          <View key={ri} style={stGrid.slotRow}>
-            {row.map((slot, ci) => (
-              <View key={ci} style={stGrid.cell}>
-                {slot ? (
-                  <View style={[stGrid.timeChip, { borderColor }]}>
-                    <Text style={[stGrid.timeChipText, { color: primaryTextColor }]} numberOfLines={2}>
-                      {formatBroadwaySlotLabel(slot)}
-                    </Text>
-                  </View>
-                ) : (
-                  <Text style={[stGrid.dash, { color: mutedTextColor }]}>—</Text>
-                )}
-              </View>
-            ))}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-const stGrid = StyleSheet.create({
-  wrap: {
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 4,
-  },
-  sourceHint: { fontSize: 10, fontWeight: "600", marginBottom: 2 },
-  headerRow: { flexDirection: "row" },
-  dayHead: { flex: 1, fontSize: 9, fontWeight: "800", textAlign: "center" },
-  slotsBlock: { gap: 2 },
-  slotRow: { flexDirection: "row", alignItems: "flex-start", minHeight: 22 },
-  cell: { flex: 1, alignItems: "center", justifyContent: "flex-start", paddingHorizontal: 1 },
-  timeChip: {
-    borderRadius: 5,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 3,
-    paddingVertical: 2,
-    width: "100%",
-  },
-  timeChipText: { fontSize: 8, fontWeight: "700", textAlign: "center", lineHeight: 11 },
-  dash: { fontSize: 10, textAlign: "center" },
-});
-
 const LABEL_ROW_1: TripShowLabel[] = ["must_see", "want_see", "dont_want"];
 const LABEL_ROW_2: TripShowLabel[] = ["indifferent", "dont_know"];
+
+function closingOneLine(closingDate: string): string {
+  const d = daysUntil(closingDate);
+  const cal = formatDate(closingDate);
+  if (d === 0) return "Closing today";
+  if (d === 1) return "Closing tomorrow";
+  if (cal) return `Closing ${cal}`;
+  return "Closing";
+}
 
 export type TripShowRowForLabel = {
   _id: Id<"tripShows">;
@@ -177,7 +95,6 @@ export function TripShowLabelSheet({
 
   if (!item) return null;
   const assignedToDay = item.dayDate != null && item.dayDate !== "";
-  const closingCal = item.closingDate ? formatDate(item.closingDate) : null;
   const showRunSection =
     Boolean(item.closingDate) ||
     item.isOpenRun === true ||
@@ -264,41 +181,22 @@ export function TripShowLabelSheet({
           showsVerticalScrollIndicator={false}
         >
           {showRunSection ? (
-            <>
-              <Text style={[styles.sectionLabel, { color: mutedTextColor }]}>Closing</Text>
-              <View style={[styles.infoCard, { borderColor, backgroundColor: surfaceColor }]}>
-                {item.closingDate ? (
-                  <>
-                    <Text style={[styles.infoPrimary, { color: primaryTextColor }]}>
-                      {closingStripLabel(item.closingDate)}
-                    </Text>
-                    {closingCal ? (
-                      <Text style={[styles.infoSecondary, { color: mutedTextColor }]}>{closingCal}</Text>
-                    ) : null}
-                  </>
-                ) : (
-                  <Text style={[styles.infoPrimary, { color: primaryTextColor }]}>Open run</Text>
-                )}
-              </View>
-            </>
+            <View style={[styles.infoCard, { borderColor, backgroundColor: surfaceColor }]}>
+              <Text style={[styles.infoPrimary, { color: primaryTextColor }]} numberOfLines={2}>
+                {item.closingDate ? closingOneLine(item.closingDate) : "Open run"}
+              </Text>
+            </View>
           ) : null}
 
           {broadwayShowtimes ? (
-            <>
-              <Text style={[styles.sectionLabel, { color: mutedTextColor, marginTop: showRunSection ? 4 : 0 }]}>
-                Showtimes
-              </Text>
-              <BroadwayShowtimesGrid
-                data={broadwayShowtimes}
-                borderColor={borderColor}
-                surfaceColor={chipBg}
-                primaryTextColor={primaryTextColor}
-                mutedTextColor={mutedTextColor}
-              />
-            </>
+            <BroadwayShowtimesGrid
+              data={broadwayShowtimes}
+              borderColor={borderColor}
+              surfaceColor={chipBg}
+              primaryTextColor={primaryTextColor}
+              mutedTextColor={mutedTextColor}
+            />
           ) : null}
-
-          <Text style={[styles.sectionLabel, { color: mutedTextColor }]}>Your label</Text>
 
           {/* Row 1: 3 chips, flex row */}
           <View style={styles.labelRow}>
@@ -311,11 +209,7 @@ export function TripShowLabelSheet({
           </View>
 
           {item.labelSummary.length > 0 ? (
-            <>
-              <Text style={[styles.sectionLabel, { color: mutedTextColor, marginTop: 4 }]}>
-                Group
-              </Text>
-              <View style={styles.groupCompactRow}>
+            <View style={styles.groupCompactRow}>
                 {item.labelSummary.map(({ label, users }) => {
                   if (users.length === 0) return null;
                   const meta = tripShowLabelMeta(label);
@@ -352,7 +246,6 @@ export function TripShowLabelSheet({
                   );
                 })}
               </View>
-            </>
           ) : null}
 
           {(canEdit && assignedToDay) || isOwner ? (
@@ -393,7 +286,6 @@ const styles = StyleSheet.create({
   done: { fontSize: 16, fontWeight: "600" },
   scroll: {},
   scrollContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8, gap: 10 },
-  sectionLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.6 },
   labelRow: { flexDirection: "row", gap: ROW_GAP },
   labelChip: {
     borderRadius: 12,
@@ -425,10 +317,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 12,
-    gap: 4,
   },
   infoPrimary: { fontSize: 15, fontWeight: "700" },
-  infoSecondary: { fontSize: 13 },
   actions: { marginTop: 4, paddingTop: 12, gap: 8, borderTopWidth: StyleSheet.hairlineWidth },
   actionBtn: {
     paddingVertical: 11,

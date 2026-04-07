@@ -12,13 +12,26 @@ export type BroadwayShowtimesResult = {
 
 const DAY_ORDER: BroadwayDayKey[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
+/** Remove parentheticals (e.g. subtitle) so "Two Strangers (Carry a Cake...)" ↔ "Two Strangers". */
+function stripParentheticalContent(s: string): string {
+  return s.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Drop tour / non–Broadway suffixes often present in catalog titles. */
+function stripTourishSuffix(s: string): string {
+  return s
+    .replace(/\s*[—–-]\s*(tour|touring|non[- ]equity|n\s*[\/\u2215]y|national tour).*/i, "")
+    .trim();
+}
+
 /** Extra title variants we index so app show names match Playbill rows. */
 function indexKeysForPlaybillTitle(title: string): string[] {
   const keys = new Set<string>();
   keys.add(normalizeShowName(title));
-  const withMusical = `${title} The Musical`;
+  keys.add(normalizeShowName(stripParentheticalContent(title)));
+  const withMusical = `${stripParentheticalContent(title)} The Musical`;
   keys.add(normalizeShowName(withMusical));
-  return [...keys];
+  return [...keys].filter(Boolean);
 }
 
 function buildScheduleByNormalizedTitle(): Map<string, BroadwayShowtimesSchedule> {
@@ -40,12 +53,24 @@ const scheduleByNormalizedTitle = buildScheduleByNormalizedTitle();
 /** Variants of the user's show name to try against the Playbill index. */
 function lookupKeysForUserShowName(showName: string): string[] {
   const keys = new Set<string>();
-  let s = showName.trim();
-  keys.add(normalizeShowName(s));
-  s = s.replace(/\s*[,-]?\s*the musical\s*$/i, "").trim();
-  keys.add(normalizeShowName(s));
-  s = s.replace(/\s+a new musical\s*$/i, "").trim();
-  keys.add(normalizeShowName(s));
+  const bases = new Set<string>();
+  const s0 = showName.trim();
+  bases.add(s0);
+  bases.add(stripParentheticalContent(s0));
+  bases.add(s0.replace(/:\s*the musical\s*$/i, "").trim());
+  bases.add(stripParentheticalContent(s0).replace(/:\s*the musical\s*$/i, "").trim());
+  bases.add(stripTourishSuffix(s0));
+  bases.add(stripTourishSuffix(stripParentheticalContent(s0)));
+
+  for (const base of bases) {
+    let s = base.trim();
+    if (!s) continue;
+    keys.add(normalizeShowName(s));
+    s = s.replace(/\s*[,-]?\s*the musical\s*$/i, "").trim();
+    keys.add(normalizeShowName(s));
+    s = s.replace(/\s+a new musical\s*$/i, "").trim();
+    keys.add(normalizeShowName(s));
+  }
   return [...keys].filter(Boolean);
 }
 
@@ -84,16 +109,4 @@ export function formatBroadwaySlotLabel(slot: string): string {
   const ampm = am ? "AM" : "PM";
   if (minute === 0) return `${hour12} ${ampm}`;
   return `${hour12}:${String(minute).padStart(2, "0")} ${ampm}`;
-}
-
-export function formatBroadwayWeekLabel(weekOfIso: string): string {
-  const [y, mo, d] = weekOfIso.split("-").map((x) => parseInt(x, 10));
-  if (!y || !mo || !d) return weekOfIso;
-  const date = new Date(Date.UTC(y, mo - 1, d));
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
 }

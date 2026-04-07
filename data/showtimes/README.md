@@ -93,6 +93,13 @@ Coverage gaps:
 
 The Expo client imports `data/showtimes/current.json` via `src/lib/broadwayShowtimes.ts` (bundled at build time). After the weekly PR updates the JSON, ship a new app build—or OTA update if you publish one—to pick up new schedules.
 
+**Where it appears**
+
+- **Show detail** (`ShowDetailScreen`): weekly grid under Productions when the title matches the snapshot.
+- **Trip** (`TripShowLabelSheet`): same grid when you tap a show on the list or schedule.
+
+If you see nothing, the show may be Off-Broadway, a tour-only title, or named differently than Playbill—matching uses the same normalization as Convex plus parenthetical / “The Musical” / tour-suffix variants. Rebuild the dev client after pulling so Metro bundles `current.json`.
+
 ## Running locally
 
 ```bash
