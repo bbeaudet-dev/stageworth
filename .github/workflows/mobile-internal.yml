@@ -1,0 +1,65 @@
+name: Mobile Internal Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Target platform"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - ios
+          - android
+      profile:
+        description: "EAS build profile"
+        required: true
+        default: "preview"
+        type: choice
+        options:
+          - development
+          - preview
+      ref:
+        description: "Git ref to build (branch, tag, or SHA)"
+        required: false
+        default: "main"
+        type: string
+
+jobs:
+  build:
+    name: Internal build (${{ inputs.platform }} / ${{ inputs.profile }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Trigger EAS internal build
+        run: npx eas-cli@latest build --platform "${{ inputs.platform }}" --profile "${{ inputs.profile }}" --non-interactive --no-wait
+
+      - name: Summary
+        run: |
+          echo "### Internal build submitted" >> $GITHUB_STEP_SUMMARY
+          echo "- Ref: \`${{ inputs.ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Platform: \`${{ inputs.platform }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Profile: \`${{ inputs.profile }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Check progress in Expo dashboard." >> $GITHUB_STEP_SUMMARY
