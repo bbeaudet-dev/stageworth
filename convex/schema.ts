@@ -467,6 +467,21 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
+  // AI recommendation history — one row per user × show recommendation trigger.
+  aiRecommendationHistory: defineTable({
+    userId: v.id("users"),
+    showId: v.id("shows"),
+    showNameSnapshot: v.string(),
+    score: v.number(),
+    headline: v.string(),
+    reasoning: v.string(),
+    matchedElements: v.array(v.string()),
+    mismatchedElements: v.array(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_show", ["userId", "showId"]),
+
   // Per-field review decisions for shows and productions.
   reviewQueue: defineTable({
     entityType: v.union(v.literal("show"), v.literal("production")),

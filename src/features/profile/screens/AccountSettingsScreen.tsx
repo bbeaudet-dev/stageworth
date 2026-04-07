@@ -143,6 +143,20 @@ export default function AccountSettingsScreen() {
             <Text style={{ fontSize: 18, color: Colors[theme].mutedText, fontWeight: "300" }}>›</Text>
           </View>
         </Pressable>
+        <Pressable
+          style={[styles.section, { backgroundColor: surfaceColor, borderColor: inputBorder }]}
+          onPress={() => router.push("/recommendation-history")}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Recommendation History</Text>
+              <Text style={{ fontSize: 13, color: Colors[theme].mutedText }}>
+                AI-generated show recommendations you've requested
+              </Text>
+            </View>
+            <Text style={{ fontSize: 18, color: Colors[theme].mutedText, fontWeight: "300" }}>›</Text>
+          </View>
+        </Pressable>
         <AccountSection
           email={session?.user?.email ?? "Unknown"}
           username={myProfile?.username}
