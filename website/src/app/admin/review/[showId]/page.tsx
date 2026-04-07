@@ -669,7 +669,7 @@ export default function ShowReviewDetail() {
         productionStatuses: prodStatuses,
         directEdits: directEditsArr,
       });
-      router.push("/admin");
+      router.back();
     } catch (err) {
       console.error("Failed to submit review:", err);
     } finally {
@@ -700,7 +700,7 @@ export default function ShowReviewDetail() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 pb-32">
       <button
-        onClick={() => router.push("/admin")}
+        onClick={() => router.back()}
         className="text-sm text-gray-500 hover:text-gray-900 mb-6 block"
       >
         &larr; Back to dashboard

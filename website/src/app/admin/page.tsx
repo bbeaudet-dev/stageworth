@@ -3,6 +3,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 type StatusFilter = "needs_review" | "partial" | "complete" | undefined;
@@ -11,7 +12,7 @@ type ScheduleFilter = "all" | "current_upcoming" | "historical";
 
 const PAGE_SIZE = 50;
 /** Fetch enough rows for client-side schedule filtering without extra Convex args. */
-const FETCH_LIMIT = 5000;
+const FETCH_LIMIT = 500;
 
 type ListRow = {
   _id: string;
@@ -50,12 +51,33 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
 };
 
 export default function AdminDashboard() {
-  /** Schedule filter applies across data statuses; default All so Current & upcoming is not empty when drafts lack dated runs. */
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(undefined);
-  const [scheduleFilter, setScheduleFilter] =
-    useState<ScheduleFilter>("all");
-  const [search, setSearch] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  /** Initialize filter state from URL params so it survives navigation back from review pages. */
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const p = searchParams.get("status");
+    if (p === "needs_review" || p === "partial" || p === "complete") return p;
+    return undefined;
+  });
+  const [scheduleFilter, setScheduleFilter] = useState<ScheduleFilter>(() => {
+    const p = searchParams.get("schedule");
+    if (p === "current_upcoming" || p === "historical") return p;
+    return "all";
+  });
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  /** Keep URL in sync with filters (shallow replace — no navigation). */
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (statusFilter) params.set("status", statusFilter);
+    if (scheduleFilter !== "all") params.set("schedule", scheduleFilter);
+    if (search) params.set("q", search);
+    const qs = params.toString();
+    router.replace(qs ? `/admin?${qs}` : "/admin");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, scheduleFilter, search]);
 
   const [newShowName, setNewShowName] = useState("");
   const [newShowType, setNewShowType] = useState<ShowFormType>("musical");
@@ -314,13 +336,15 @@ export default function AdminDashboard() {
                         className="flex items-center gap-3 group"
                       >
                         {show.imageUrl ? (
-                          <img
-                            src={show.imageUrl}
-                            alt={show.name}
-                            className="h-10 w-10 rounded object-cover bg-gray-100"
-                          />
+                          <div className="w-9 shrink-0 rounded overflow-hidden bg-[#f0f0f4]" style={{ aspectRatio: "2/3" }}>
+                            <img
+                              src={show.imageUrl}
+                              alt={show.name}
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
                         ) : (
-                          <div className="h-10 w-10 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs">
+                          <div className="w-9 shrink-0 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs" style={{ aspectRatio: "2/3" }}>
                             ?
                           </div>
                         )}
