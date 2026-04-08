@@ -26,23 +26,40 @@ export const search = query({
 
     type Scored = { name: string; city: string; state?: string; score: number };
     const scored: Scored[] = [];
+    const queryWords = normalized.split(" ").filter((w) => w.length > 1);
 
     for (const venue of venues) {
       if (!venue.isActive) continue;
       const n = venue.normalizedName;
+      const c = venue.city.toLowerCase();
+      let score = 0;
 
+      // ── Name matching ──────────────────────────────────────────────────────
       if (n.startsWith(normalized)) {
-        scored.push({ name: venue.name, city: venue.city, state: venue.state, score: 3 });
+        score = Math.max(score, 3);
       } else if (n.includes(normalized)) {
-        scored.push({ name: venue.name, city: venue.city, state: venue.state, score: 2 });
+        score = Math.max(score, 2);
       } else {
-        // word-boundary match: any query word is a prefix of any name word
-        const queryWords = normalized.split(" ").filter((w) => w.length > 1);
         const nameWords = n.split(" ");
-        const anyWordMatch = queryWords.some((qw) => nameWords.some((nw) => nw.startsWith(qw)));
-        if (anyWordMatch) {
-          scored.push({ name: venue.name, city: venue.city, state: venue.state, score: 1 });
+        if (queryWords.some((qw) => nameWords.some((nw) => nw.startsWith(qw)))) {
+          score = Math.max(score, 1);
         }
+      }
+
+      // ── City matching (e.g. "detroit" surfaces all Detroit venues) ─────────
+      if (c.startsWith(normalized)) {
+        score = Math.max(score, 2.5);
+      } else if (c.includes(normalized)) {
+        score = Math.max(score, 1.5);
+      } else {
+        const cityWords = c.split(" ");
+        if (queryWords.some((qw) => cityWords.some((cw) => cw.startsWith(qw)))) {
+          score = Math.max(score, 0.5);
+        }
+      }
+
+      if (score > 0) {
+        scored.push({ name: venue.name, city: venue.city, state: venue.state, score });
       }
     }
 

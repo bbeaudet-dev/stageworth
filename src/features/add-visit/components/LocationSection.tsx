@@ -49,12 +49,16 @@ export function LocationSection({
 
   // ── Venue autocomplete ──────────────────────────────────────────────────────
   const [venueQuery, setVenueQuery] = useState("");
+  const [inputHeight, setInputHeight] = useState(44);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const suggestions = useQuery(
     api.venues.search,
     venueQuery.length >= 2 ? { query: venueQuery } : "skip"
   ) as VenueSuggestion[] | undefined;
+
+  const showDropdown = venueQuery.length >= 2 && suggestions !== undefined && suggestions.length > 0;
 
   const handleTheatreChange = (text: string) => {
     setTheatre(text);
@@ -67,14 +71,22 @@ export function LocationSection({
     }
   };
 
-  const handleSuggestionSelect = (suggestion: VenueSuggestion) => {
-    setTheatre(suggestion.name);
-    setCity(suggestion.city);
+  const dismissDropdown = () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setVenueQuery("");
   };
 
-  const showDropdown = venueQuery.length >= 2 && suggestions !== undefined && suggestions.length > 0;
+  // Delay dismissal slightly so a tap on a suggestion row can fire first.
+  const handleBlur = () => {
+    blurTimerRef.current = setTimeout(dismissDropdown, 150);
+  };
+
+  const handleSuggestionSelect = (suggestion: VenueSuggestion) => {
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    setTheatre(suggestion.name);
+    setCity(suggestion.city);
+    dismissDropdown();
+  };
 
   return (
     <View style={styles.section}>
@@ -148,19 +160,28 @@ export function LocationSection({
 
       {useOtherProduction && (
         <View style={styles.otherForm}>
-          {/* Theatre — above City, with live venue autocomplete */}
-          <View>
+          {/* Theatre — above City, autocomplete dropdown overlays content below */}
+          <View style={localStyles.theatreContainer}>
             <TextInput
               style={inputStyle}
               placeholderTextColor={c.mutedText}
               value={theatre}
               onChangeText={handleTheatreChange}
+              onBlur={handleBlur}
+              onSubmitEditing={dismissDropdown}
+              returnKeyType="done"
               placeholder="Theatre"
               autoCapitalize="words"
               autoCorrect={false}
+              onLayout={(e) => setInputHeight(e.nativeEvent.layout.height)}
             />
             {showDropdown && (
-              <View style={[styles.resultsCard, localStyles.dropdown, { borderColor: c.border }]}>
+              <View
+                style={[
+                  localStyles.dropdown,
+                  { top: inputHeight + 4, borderColor: c.border, backgroundColor: c.surfaceElevated },
+                ]}
+              >
                 {suggestions!.map((suggestion, index) => (
                   <Pressable
                     key={`${suggestion.name}-${suggestion.city}`}
@@ -199,8 +220,25 @@ export function LocationSection({
 }
 
 const localStyles = StyleSheet.create({
+  theatreContainer: {
+    // zIndex ensures the absolutely-positioned dropdown renders above the City
+    // input and any other siblings below it in the form.
+    zIndex: 10,
+  },
   dropdown: {
-    marginTop: 2,
+    position: "absolute",
+    left: 0,
+    right: 0,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    overflow: "hidden",
+    // iOS shadow
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    // Android elevation
+    elevation: 5,
   },
   firstRow: {
     borderTopWidth: 0,
