@@ -196,7 +196,7 @@ const PRODUCTION_FIELDS: FieldDef[] = [
   { field: "openingDate", label: "Opening Date", inputType: "date" },
   { field: "closingDate", label: "Closing Date", inputType: "date" },
   { field: "isOpenRun", label: "Open Run", inputType: "boolean" },
-  { field: "isClosed", label: "Closed (manual or incomplete data)", inputType: "boolean" },
+  { field: "isClosed", label: "Closed", inputType: "boolean" },
   {
     field: "productionType",
     label: "Production Type",
@@ -910,7 +910,7 @@ export default function ShowReviewDetail() {
             disabled={deleteShowBusy || submitting}
             className="rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {deleteShowBusy ? "Deleting…" : "Delete show from catalog"}
+            {deleteShowBusy ? "Deleting…" : "Delete show"}
           </button>
         </div>
       </section>
