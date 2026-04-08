@@ -1,0 +1,76 @@
+name: Playbill Data Enrichment
+
+# Runs on the 1st of every month at 8am UTC.
+# Also supports manual triggering with optional dry-run and single-ID modes.
+#
+# The script fetches the enrichment queue from Convex (productions with a
+# playbillProductionId that are missing data), scrapes each Playbill
+# production page, and POSTs findings to Convex as pending reviewQueue
+# entries for admin review.
+#
+# Required secrets:
+#   CONVEX_URL        — Convex deployment URL, e.g. https://xxx.convex.cloud
+#   PLAYBILL_SECRET   — Shared secret for the /playbill/* HTTP endpoints
+
+on:
+  schedule:
+    # 1st of every month, 8am UTC
+    - cron: "0 8 1 * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (fetch and parse but do not write to Convex)"
+        required: false
+        default: "false"
+        type: boolean
+      production_id:
+        description: "Scrape a single playbillProductionId (for testing / manual backfill)"
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  enrich:
+    name: Scrape Playbill & stage findings
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Build script arguments
+        id: args
+        run: |
+          ARGS=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          if [ -n "${{ github.event.inputs.production_id }}" ]; then
+            ARGS="$ARGS --id ${{ github.event.inputs.production_id }}"
+          fi
+          echo "args=${ARGS}" >> $GITHUB_OUTPUT
+
+      - name: Run enrichment script
+        env:
+          CONVEX_URL: ${{ secrets.CONVEX_URL }}
+          PLAYBILL_SECRET: ${{ secrets.PLAYBILL_SECRET }}
+        run: bun scripts/fetchPlaybillShowData.mjs ${{ steps.args.outputs.args }}
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Playbill Enrichment" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "**Dry run** — no changes written to Convex." >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -n "${{ github.event.inputs.production_id }}" ]; then
+            echo "**Single-ID mode:** \`${{ github.event.inputs.production_id }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "Check the step logs above for per-show findings." >> $GITHUB_STEP_SUMMARY
+          echo "Staged findings appear as pending items in the admin review queue." >> $GITHUB_STEP_SUMMARY
