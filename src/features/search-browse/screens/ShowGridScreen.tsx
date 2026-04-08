@@ -12,6 +12,7 @@ import { AddToListSheet } from "@/components/AddToListSheet";
 import {
   railBadgeForClosingSoon,
   railBadgeForProduction,
+  type FullStatusBadge,
 } from "@/features/browse/components/ProductionCard";
 import { styles as browseStyles } from "@/features/browse/styles";
 import { Colors } from "@/constants/theme";
@@ -26,7 +27,7 @@ type ShowGridItem = {
   name: string;
   type?: "musical" | "play" | "opera" | "dance" | "other";
   images: string[];
-  badge?: { label: string; bg: string; text: string };
+  badge?: FullStatusBadge;
 };
 
 const GRID_COLUMNS = 4;
@@ -71,13 +72,14 @@ export default function ShowGridScreen() {
     api.productions.listCurrent,
     config.query === "now-playing" ? {} : "skip",
   );
+  // Grid shows full 10-week closing window and all upcoming (no days cap).
   const closingSoon = useQuery(
     api.productions.listClosingSoon,
-    config.query === "closing-soon" ? { days: 30 } : "skip",
+    config.query === "closing-soon" ? { days: 70 } : "skip",
   );
   const upcomingShows = useQuery(
     api.productions.listUpcoming,
-    config.query === "coming-soon" ? { days: 90 } : "skip",
+    config.query === "coming-soon" ? {} : "skip",
   );
   const allShows = useQuery(
     api.shows.list,

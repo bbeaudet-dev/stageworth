@@ -5,6 +5,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -29,6 +30,7 @@ import { useTabNav } from "@/hooks/use-tab-nav";
 import {
   railBadgeForClosingSoon,
   railBadgeForProduction,
+  type FullStatusBadge,
 } from "@/features/browse/components/ProductionCard";
 import { chunkRows } from "@/utils/arrays";
 import { getInitials } from "@/utils/user";
@@ -84,8 +86,10 @@ export default function SearchBrowseScreen() {
   );
 
   const currentShows = useQuery(api.productions.listCurrent, {});
-  const upcomingShows = useQuery(api.productions.listUpcoming, { days: 90 });
-  const closingSoon = useQuery(api.productions.listClosingSoon, { days: 30 });
+  // Rail limit: first 60 days of upcoming; all closing within 10 weeks.
+  // The full set is shown in the ShowGrid screen when "See All" is tapped.
+  const upcomingShows = useQuery(api.productions.listUpcoming, { days: 60 });
+  const closingSoon = useQuery(api.productions.listClosingSoon, { days: 70 });
 
   // Collect all visible showIds from browse rails to batch-fetch list statuses
   const browseShowIds = useMemo<Id<"shows">[]>(() => {
@@ -143,6 +147,7 @@ export default function SearchBrowseScreen() {
     setQuery("");
     setInputFocused(false);
     inputRef.current?.blur();
+    Keyboard.dismiss();
   };
 
   const navigateToShow = guard((showId: string, showName?: string) => {
@@ -186,7 +191,7 @@ export default function SearchBrowseScreen() {
             placeholderTextColor={muted}
             autoCapitalize="none"
             autoCorrect={false}
-            clearButtonMode="while-editing"
+            clearButtonMode="never"
             returnKeyType="search"
           />
         </View>
@@ -200,7 +205,8 @@ export default function SearchBrowseScreen() {
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + 24 }]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
       >
         {/* ─── Search results (2+ chars) ─── */}
         {isSearchActive && (
@@ -398,7 +404,7 @@ type BrowseItem = {
   _id: string;
   show: { _id: string; name: string; images: string[] };
   posterUrl?: string | null;
-  badge?: { label: string; bg: string; text: string } | null;
+  badge?: FullStatusBadge | null;
 };
 
 function BrowseRail({
@@ -487,7 +493,7 @@ function SearchShowCard({
   onPress,
   onListIconPress,
 }: {
-  show: { name: string; images?: string[]; image?: string | null; badge?: { label: string; bg: string; text: string } | null };
+  show: { name: string; images?: string[]; image?: string | null; badge?: FullStatusBadge | null };
   cardWidth: number;
   surfaceColor: string;
   posterBg: string;
@@ -521,10 +527,19 @@ function SearchShowCard({
         </View>
       )}
       {show.badge ? (
-        <View style={[styles.railBadgeStrip, { backgroundColor: show.badge.bg }]}>
-          <Text style={[styles.railBadgeText, { color: show.badge.text }]}>
-            {show.badge.label}
-          </Text>
+        <View style={show.badge.secondary ? styles.railBadgeOverlay : undefined}>
+          {show.badge.secondary ? (
+            <View style={[styles.railBadgeStrip, styles.railBadgeSecondary, { backgroundColor: show.badge.secondary.bg }]}>
+              <Text style={[styles.railBadgeText, { color: show.badge.secondary.text }]}>
+                {show.badge.secondary.label}
+              </Text>
+            </View>
+          ) : null}
+          <View style={[styles.railBadgeStrip, { backgroundColor: show.badge.primary.bg }]}>
+            <Text style={[styles.railBadgeText, { color: show.badge.primary.text }]}>
+              {show.badge.primary.label}
+            </Text>
+          </View>
         </View>
       ) : null}
       {listStatus != null && onListIconPress ? (
@@ -642,7 +657,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    paddingVertical: 6,
+    paddingVertical: 2,
+    marginVertical: -6,
   },
   seeAllText: {
     fontSize: 15,
@@ -672,10 +688,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 6,
   },
+  railBadgeOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
   railBadgeStrip: {
     width: "100%",
     paddingVertical: 4,
     alignItems: "center",
+  },
+  railBadgeSecondary: {
+    opacity: 0.85,
+    paddingVertical: 3,
   },
   railBadgeText: {
     fontSize: 9,

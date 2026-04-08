@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { playbillMatBackground, styles } from "@/features/browse/styles";
+import type { FullStatusBadge } from "@/features/browse/components/ProductionCard";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
@@ -30,7 +31,7 @@ export function ShowCard({
 }: {
   show: { name: string; type?: string; images: string[] };
   onPress: () => void;
-  badge?: { label: string; bg: string; text: string };
+  badge?: FullStatusBadge;
   listStatus?: ListStatus;
   onListIconPress?: () => void;
   /** Merged after base card styles (e.g. fixed width in a grid). */
@@ -64,8 +65,15 @@ export function ShowCard({
         <ShowPlaceholder name={show.name} type={show.type} />
       )}
       {badge ? (
-        <View style={[cardBadge.badgeStrip, { backgroundColor: badge.bg }]}>
-          <Text style={[cardBadge.badgeText, { color: badge.text }]}>{badge.label}</Text>
+        <View style={badge.secondary ? cardBadge.badgeOverlay : undefined}>
+          {badge.secondary ? (
+            <View style={[cardBadge.badgeStrip, cardBadge.badgeSecondary, { backgroundColor: badge.secondary.bg }]}>
+              <Text style={[cardBadge.badgeText, { color: badge.secondary.text }]}>{badge.secondary.label}</Text>
+            </View>
+          ) : null}
+          <View style={[cardBadge.badgeStrip, { backgroundColor: badge.primary.bg }]}>
+            <Text style={[cardBadge.badgeText, { color: badge.primary.text }]}>{badge.primary.label}</Text>
+          </View>
         </View>
       ) : null}
       {iconName && onListIconPress ? (
@@ -82,10 +90,20 @@ export function ShowCard({
 }
 
 const cardBadge = StyleSheet.create({
+  badgeOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
   badgeStrip: {
     width: "100%",
     paddingVertical: 4,
     alignItems: "center",
+  },
+  badgeSecondary: {
+    opacity: 0.85,
+    paddingVertical: 3,
   },
   badgeText: { fontSize: 9, fontWeight: "700" },
   listIconBtn: {

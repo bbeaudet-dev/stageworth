@@ -297,7 +297,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                         </View>
                       </Pressable>
                       {badge ? (
-                        <>
+                        <View style={badge.secondary ? styles.badgeOverlay : undefined}>
                           {badge.secondary ? (
                             <View style={[styles.closingBadgeBelow, styles.previewsBadge, { backgroundColor: badge.secondary.bg }]}>
                               <Text style={[styles.closingBadgeText, { color: badge.secondary.textCol }]}>{badge.secondary.label}</Text>
@@ -306,7 +306,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                           <View style={[styles.closingBadgeBelow, { backgroundColor: badge.primary.bg }]}>
                             <Text style={[styles.closingBadgeText, { color: badge.primary.textCol }]}>{badge.primary.label}</Text>
                           </View>
-                        </>
+                        </View>
                       ) : null}
                     </View>
                   );
@@ -517,6 +517,12 @@ const styles = StyleSheet.create({
   },
   playbillFb: { alignItems: "center", justifyContent: "center", padding: 8 },
   playbillFbText: { fontSize: 11, fontWeight: "600", textAlign: "center", lineHeight: 14 },
+  badgeOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
   // Full-width strip clipped by the card's overflow:hidden / borderRadius
   closingBadgeBelow: {
     width: "100%",

@@ -3,7 +3,10 @@ import { mutation, query } from "./_generated/server";
 import { isCatalogPublished } from "./catalogVisibility";
 import { requireConvexUserId } from "./auth";
 import { resolveProductionPosterUrl, resolveShowImageUrls } from "./helpers";
-import { getProductionStatus } from "../src/utils/productions";
+import {
+  getProductionStatus,
+  upcomingProductionSortKey,
+} from "../src/utils/productions";
 import { addShowToAllUsersUncategorizedIfEligible } from "./listRules";
 
 export { getProductionStatus } from "../src/utils/productions";
@@ -52,35 +55,46 @@ export const listCurrent = query({
   },
 });
 
-/** Productions opening within the next `days` days (not yet open). */
+/**
+ * Productions not yet in full run: announced or in previews.
+ * If `days` is set, only those whose next preview/opening milestone is on or before that horizon.
+ * If `days` is omitted, returns all such productions (any distance in the future).
+ */
 export const listUpcoming = query({
   args: { days: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const t = today();
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() + (args.days ?? 90));
-    const cutoffStr = cutoff.toISOString().split("T")[0];
+    let cutoffStr: string | null = null;
+    if (args.days !== undefined) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() + args.days);
+      cutoffStr = cutoff.toISOString().split("T")[0];
+    }
 
     const productions = await ctx.db.query("productions").collect();
     const upcoming = productions.filter((p) => {
       const status = getProductionStatus(p, t);
       if (status !== "announced" && status !== "in_previews") return false;
-      // Include if previewDate (or openingDate) is within the window
+      if (cutoffStr === null) return true;
       const startDate = p.previewDate ?? p.openingDate;
       return startDate !== undefined && startDate <= cutoffStr;
     });
     const results = await Promise.all(upcoming.map((p) => withShow(ctx, p)));
-    return results.filter(Boolean);
+    const visible = results.filter(Boolean);
+    visible.sort((a: NonNullable<(typeof visible)[number]>, b: NonNullable<(typeof visible)[number]>) =>
+      upcomingProductionSortKey(a, t).localeCompare(upcomingProductionSortKey(b, t)),
+    );
+    return visible;
   },
 });
 
-/** Productions whose closing date is within the next `days` days. */
+/** Productions whose closing date is within the next `days` days (default 10 weeks). */
 export const listClosingSoon = query({
   args: { days: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const t = today();
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() + (args.days ?? 30));
+    cutoff.setDate(cutoff.getDate() + (args.days ?? 70));
     const cutoffStr = cutoff.toISOString().split("T")[0];
 
     const productions = await ctx.db.query("productions").collect();
@@ -91,7 +105,12 @@ export const listClosingSoon = query({
         p.closingDate <= cutoffStr
     );
     const results = await Promise.all(closingSoon.map((p) => withShow(ctx, p)));
-    return results.filter(Boolean);
+    const visible = results.filter(Boolean);
+    /** Soonest closing first. */
+    visible.sort((a: NonNullable<(typeof visible)[number]>, b: NonNullable<(typeof visible)[number]>) =>
+      (a.closingDate ?? "").localeCompare(b.closingDate ?? ""),
+    );
+    return visible;
   },
 });
 
