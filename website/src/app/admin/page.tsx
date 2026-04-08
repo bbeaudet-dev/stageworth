@@ -8,8 +8,6 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 type StatusFilter = "needs_review" | "partial" | "complete" | undefined;
 
-type ScheduleFilter = "all" | "current_upcoming" | "historical";
-
 const PAGE_SIZE = 50;
 /** Fetch enough rows for client-side schedule filtering without extra Convex args. */
 const FETCH_LIMIT = 500;
@@ -22,7 +20,7 @@ type ListRow = {
   imageUrl: string | null;
   pendingCount: number;
   productionCount: number;
-  scheduleBucket: "current_upcoming" | "historical";
+  scheduleBucket: "running" | "upcoming" | "historical";
 };
 
 const SHOW_TYPES = [
@@ -60,11 +58,9 @@ export default function AdminDashboard() {
     if (p === "needs_review" || p === "partial" || p === "complete") return p;
     return undefined;
   });
-  const [scheduleFilter, setScheduleFilter] = useState<ScheduleFilter>(() => {
-    const p = searchParams.get("schedule");
-    if (p === "current_upcoming" || p === "historical") return p;
-    return "all";
-  });
+  const [showRunning, setShowRunning] = useState(() => searchParams.get("running") !== "0");
+  const [showUpcoming, setShowUpcoming] = useState(() => searchParams.get("upcoming") !== "0");
+  const [showClosed, setShowClosed] = useState(() => searchParams.get("closed") !== "0");
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -72,12 +68,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);
-    if (scheduleFilter !== "all") params.set("schedule", scheduleFilter);
+    if (!showRunning) params.set("running", "0");
+    if (!showUpcoming) params.set("upcoming", "0");
+    if (!showClosed) params.set("closed", "0");
     if (search) params.set("q", search);
     const qs = params.toString();
     router.replace(qs ? `/admin?${qs}` : "/admin");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, scheduleFilter, search]);
+  }, [statusFilter, showRunning, showUpcoming, showClosed, search]);
 
   const [newShowName, setNewShowName] = useState("");
   const [newShowType, setNewShowType] = useState<ShowFormType>("musical");
@@ -106,12 +104,14 @@ export default function AdminDashboard() {
   const filteredRows = useMemo(() => {
     const page = listResult?.page as ListRow[] | undefined;
     if (!page) return [];
-    if (scheduleFilter === "all") return page;
-    if (scheduleFilter === "current_upcoming") {
-      return page.filter((r) => r.scheduleBucket === "current_upcoming");
-    }
-    return page.filter((r) => r.scheduleBucket === "historical");
-  }, [listResult?.page, scheduleFilter]);
+    const allChecked = showRunning && showUpcoming && showClosed;
+    if (allChecked) return page;
+    return page.filter((r) => {
+      if (r.scheduleBucket === "running") return showRunning;
+      if (r.scheduleBucket === "upcoming") return showUpcoming;
+      return showClosed; // "historical"
+    });
+  }, [listResult?.page, showRunning, showUpcoming, showClosed]);
 
   const rows = useMemo(
     () => filteredRows.slice(0, visibleCount),
@@ -120,7 +120,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [statusFilter, scheduleFilter, search]);
+  }, [statusFilter, showRunning, showUpcoming, showClosed, search]);
 
   useEffect(() => {
     if (!addShowModalOpen) return;
@@ -230,7 +230,7 @@ export default function AdminDashboard() {
       )}
 
       <div className="flex flex-col gap-3 mb-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div
             className="flex gap-2 flex-wrap"
             role="group"
@@ -253,18 +253,25 @@ export default function AdminDashboard() {
               )
             )}
           </div>
-          <select
-            value={scheduleFilter}
-            onChange={(e) =>
-              setScheduleFilter(e.target.value as ScheduleFilter)
-            }
-            aria-label="Filter by schedule"
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 w-full min-w-0 lg:w-auto lg:min-w-[220px]"
-          >
-            <option value="all">All schedules</option>
-            <option value="current_upcoming">Current &amp; upcoming</option>
-            <option value="historical">Historical &amp; other</option>
-          </select>
+          <div className="flex items-center gap-4 ml-auto" role="group" aria-label="Filter by schedule">
+            {(
+              [
+                { key: "running", label: "Running", checked: showRunning, set: setShowRunning },
+                { key: "upcoming", label: "Upcoming", checked: showUpcoming, set: setShowUpcoming },
+                { key: "closed", label: "Closed/Other", checked: showClosed, set: setShowClosed },
+              ] as const
+            ).map(({ key, label, checked, set }) => (
+              <label key={key} className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(e) => set(e.target.checked)}
+                  className="rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                />
+                <span className="text-sm text-gray-700">{label}</span>
+              </label>
+            ))}
+          </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
           <div className="flex flex-col gap-1 flex-1 min-w-0 max-w-md">
