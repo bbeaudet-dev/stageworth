@@ -136,9 +136,12 @@ export const listShowsForReview = query({
     search: v.optional(v.string()),
     limit: v.optional(v.number()),
     offset: v.optional(v.number()),
+    /** When all omitted/true, no schedule filter. When any false, keep only those buckets. */
+    includeRunning: v.optional(v.boolean()),
+    includeUpcoming: v.optional(v.boolean()),
+    includeHistorical: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    /** Admin list loads a large page once; client filters by schedule without extra args. */
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 5000);
     const offset = Math.max(args.offset ?? 0, 0);
     const asOf = new Date().toISOString().split("T")[0];
@@ -181,6 +184,19 @@ export const listShowsForReview = query({
       if (aOrder !== bOrder) return aOrder - bOrder;
       return a.name.localeCompare(b.name);
     });
+
+    const incR = args.includeRunning !== false;
+    const incU = args.includeUpcoming !== false;
+    const incH = args.includeHistorical !== false;
+    if (!(incR && incU && incH)) {
+      shows = shows.filter((s) => {
+        const prods = prodsByShowId.get(s._id) ?? [];
+        const bucket = scheduleBucketForShow(prods, asOf);
+        if (bucket === "running") return incR;
+        if (bucket === "upcoming") return incU;
+        return incH;
+      });
+    }
 
     const total = shows.length;
     const pageShows = shows.slice(offset, offset + limit);

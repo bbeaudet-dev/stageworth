@@ -99,23 +99,16 @@ function AdminDashboardContent() {
     search: search || undefined,
     limit: FETCH_LIMIT,
     offset: 0,
+    includeRunning: showRunning,
+    includeUpcoming: showUpcoming,
+    includeHistorical: showClosed,
   });
 
-  const filteredRows = useMemo(() => {
-    const page = listResult?.page as ListRow[] | undefined;
-    if (!page) return [];
-    const allChecked = showRunning && showUpcoming && showClosed;
-    if (allChecked) return page;
-    return page.filter((r) => {
-      if (r.scheduleBucket === "running") return showRunning;
-      if (r.scheduleBucket === "upcoming") return showUpcoming;
-      return showClosed; // "historical"
-    });
-  }, [listResult?.page, showRunning, showUpcoming, showClosed]);
+  const listPage = listResult?.page as ListRow[] | undefined;
 
   const rows = useMemo(
-    () => filteredRows.slice(0, visibleCount),
-    [filteredRows, visibleCount]
+    () => (listPage ?? []).slice(0, visibleCount),
+    [listPage, visibleCount]
   );
 
   useEffect(() => {
@@ -137,8 +130,8 @@ function AdminDashboardContent() {
   }, [addShowModalOpen]);
 
   const loading = listResult === undefined;
-  const hasMore = visibleCount < filteredRows.length;
-  const totalFiltered = filteredRows.length;
+  const totalFiltered = listPage?.length ?? 0;
+  const hasMore = visibleCount < totalFiltered;
   const pageLen = listResult?.page?.length ?? 0;
   const truncated =
     pageLen >= FETCH_LIMIT && (listResult?.total ?? 0) > pageLen;
