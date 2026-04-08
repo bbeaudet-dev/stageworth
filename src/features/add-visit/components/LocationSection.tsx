@@ -84,7 +84,9 @@ export function LocationSection({
   const handleSuggestionSelect = (suggestion: VenueSuggestion) => {
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     setTheatre(suggestion.name);
-    setCity(suggestion.city);
+    // Include state abbreviation so the field reads "Detroit, MI" — the city
+    // normalization in the Convex mutation strips it before saving to the DB.
+    setCity(suggestion.state ? `${suggestion.city}, ${suggestion.state}` : suggestion.city);
     dismissDropdown();
   };
 
@@ -204,7 +206,7 @@ export function LocationSection({
             )}
           </View>
 
-          {/* City */}
+          {/* City — auto-filled as "Detroit, MI"; normalization strips state before DB save */}
           <TextInput
             style={inputStyle}
             placeholderTextColor={c.mutedText}
