@@ -231,6 +231,11 @@ function AdminDashboardContent() {
   return (
     <>
       <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+        <div className="flex gap-4 mb-5 text-sm">
+          <span className="font-medium text-gray-900">Shows</span>
+          <Link href="/admin/unmatched" className="text-gray-500 hover:text-gray-900">Unmatched Locations</Link>
+          <Link href="/admin/feedback" className="text-gray-500 hover:text-gray-900">User Feedback</Link>
+        </div>
         {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-5">
           <StatCard
