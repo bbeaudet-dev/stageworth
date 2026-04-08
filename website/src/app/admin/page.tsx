@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useQueries } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,7 +9,7 @@ import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 type StatusFilter = "needs_review" | "partial" | "complete" | undefined;
 
 const PAGE_SIZE = 50;
-/** Fetch enough rows for client-side schedule filtering without extra Convex args. */
+/** Cap rows returned per request (schedule filters run in Convex before this limit). */
 const FETCH_LIMIT = 500;
 
 type ListRow = {
@@ -93,16 +93,39 @@ function AdminDashboardContent() {
     api.reviewQueue.createShowFromAdminForm
   );
 
-  const stats = useQuery(api.reviewQueue.stats);
-  const listResult = useQuery(api.reviewQueue.listShowsForReview, {
-    statusFilter,
-    search: search || undefined,
-    limit: FETCH_LIMIT,
-    offset: 0,
-    includeRunning: showRunning,
-    includeUpcoming: showUpcoming,
-    includeHistorical: showClosed,
-  });
+  const adminQueries = useMemo(() => {
+    const listArgs: {
+      limit: number;
+      offset: number;
+      includeRunning: boolean;
+      includeUpcoming: boolean;
+      includeHistorical: boolean;
+      statusFilter?: Exclude<StatusFilter, undefined>;
+      search?: string;
+    } = {
+      limit: FETCH_LIMIT,
+      offset: 0,
+      includeRunning: showRunning,
+      includeUpcoming: showUpcoming,
+      includeHistorical: showClosed,
+    };
+    if (statusFilter !== undefined) listArgs.statusFilter = statusFilter;
+    const q = search.trim();
+    if (q) listArgs.search = q;
+
+    return {
+      stats: { query: api.reviewQueue.stats, args: {} },
+      list: { query: api.reviewQueue.listShowsForReview, args: listArgs },
+    };
+  }, [statusFilter, search, showRunning, showUpcoming, showClosed]);
+
+  const adminResults = useQueries(adminQueries);
+  const stats =
+    adminResults.stats instanceof Error ? undefined : adminResults.stats;
+  const listRaw = adminResults.list;
+  const listError = listRaw instanceof Error ? listRaw : null;
+  const listResult =
+    listRaw !== undefined && !(listRaw instanceof Error) ? listRaw : undefined;
 
   const listPage = listResult?.page as ListRow[] | undefined;
 
@@ -129,7 +152,7 @@ function AdminDashboardContent() {
     };
   }, [addShowModalOpen]);
 
-  const loading = listResult === undefined;
+  const loading = listRaw === undefined;
   const totalFiltered = listPage?.length ?? 0;
   const hasMore = visibleCount < totalFiltered;
   const pageLen = listResult?.page?.length ?? 0;
@@ -222,6 +245,23 @@ function AdminDashboardContent() {
         </div>
       )}
 
+      {listError ? (
+        <div
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mb-5 text-sm text-amber-950"
+          role="alert"
+        >
+          <p className="font-medium">Could not load the show list from Convex.</p>
+          <p className="mt-2 text-amber-900/90 whitespace-pre-wrap">
+            {listError.message}
+          </p>
+          <p className="mt-3 text-amber-900/90">
+            This often happens if the website was deployed before the backend.
+            From the repo root, deploy Convex so <code className="rounded bg-amber-100/80 px-1">listShowsForReview</code> matches the site (includes schedule filter arguments):{" "}
+            <code className="rounded bg-amber-100/80 px-1">npx convex deploy</code>
+          </p>
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-3 mb-5">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div
@@ -290,7 +330,7 @@ function AdminDashboardContent() {
 
       {loading ? (
         <div className="text-gray-500 text-sm">Loading...</div>
-      ) : rows.length === 0 ? (
+      ) : listError ? null : rows.length === 0 ? (
         <div className="text-gray-500 text-sm">
           No shows match the current filters.
         </div>
