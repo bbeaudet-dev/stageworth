@@ -40,6 +40,7 @@ jobs:
               - "eslint.config.*"
             website:
               - "website/**"
+              - "convex/**"
 
   app-quality:
     name: App lint and typecheck
@@ -86,7 +87,15 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install dependencies
+      # website/convex_generated stubs re-export ../../convex/_generated/api, so tsc
+      # loads ../convex/*.ts. Those imports resolve @convex-dev/* from repo-root
+      # node_modules (convex/ has no node_modules). Without this step only
+      # website/node_modules exists — same TS2307 errors as local with no root install.
+      - name: Install repo-root dependencies (for Convex source module resolution)
+        working-directory: .
+        run: bun install --frozen-lockfile
+
+      - name: Install website dependencies
         run: bun install --frozen-lockfile
 
       - name: Copy Convex generated stubs for website

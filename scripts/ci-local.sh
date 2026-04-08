@@ -28,6 +28,8 @@ bunx tsc --noEmit
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo " Website — install (frozen lockfile)"
+echo " (Repo root was installed above — required: website tsc follows ../convex"
+echo "  via convex_generated stubs and resolves @convex-dev/* from root node_modules.)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 cd "$ROOT/website"
 bun install --frozen-lockfile
