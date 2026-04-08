@@ -2,8 +2,9 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
-import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { sanitizeAdminReturnTo } from "../../adminReturnTo";
 import type React from "react";
 
 type Decision = "approved" | "rejected" | "edited";
@@ -444,10 +445,20 @@ function getFieldValue(
   return String(raw);
 }
 
-export default function ShowReviewDetail() {
+function ShowReviewDetailInner() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const showId = params.showId as string;
+  const adminReturnTo = sanitizeAdminReturnTo(searchParams.get("returnTo"));
+
+  const navigateToAdminList = () => {
+    if (adminReturnTo) {
+      router.push(adminReturnTo);
+      return;
+    }
+    router.back();
+  };
 
   const detail = useQuery(
     api.reviewQueue.getShowReviewDetail,
@@ -698,7 +709,7 @@ export default function ShowReviewDetail() {
         productionStatuses: prodStatuses,
         directEdits: directEditsArr,
       });
-      router.back();
+      navigateToAdminList();
     } catch (err) {
       console.error("Failed to submit review:", err);
     } finally {
@@ -737,7 +748,7 @@ export default function ShowReviewDetail() {
     setDeleteShowBusy(true);
     try {
       await deleteShowAdmin({ showId: showId as Id<"shows"> });
-      router.push("/admin");
+      router.push(adminReturnTo ?? "/admin");
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Delete failed");
     } finally {
@@ -748,7 +759,7 @@ export default function ShowReviewDetail() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 pb-32">
       <button
-        onClick={() => router.back()}
+        onClick={() => navigateToAdminList()}
         className="text-sm text-gray-500 hover:text-gray-900 mb-6 block"
       >
         &larr; Back to dashboard
@@ -1389,6 +1400,20 @@ export default function ShowReviewDetail() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ShowReviewDetail() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-4xl px-4 py-8">
+          <div className="text-gray-500 text-sm">Loading...</div>
+        </div>
+      }
+    >
+      <ShowReviewDetailInner />
+    </Suspense>
   );
 }
 

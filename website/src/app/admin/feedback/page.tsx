@@ -27,7 +27,7 @@ export default function AdminUserFeedbackPage() {
               <div className="flex flex-wrap items-baseline justify-between gap-2 gap-y-1">
                 <div className="text-sm font-semibold text-gray-900">
                   <Link
-                    href={`/admin/review/${r.showId}`}
+                    href={`/admin/review/${r.showId}?returnTo=${encodeURIComponent("/admin/feedback")}`}
                     className="hover:underline"
                   >
                     {r.showNameSnapshot}

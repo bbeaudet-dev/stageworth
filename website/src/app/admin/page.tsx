@@ -64,6 +64,17 @@ function AdminDashboardContent() {
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
+  /** Dashboard URL with status/schedule only (no search) — passed as review `returnTo`. */
+  const adminPathWithoutSearch = useMemo(() => {
+    const params = new URLSearchParams();
+    if (statusFilter) params.set("status", statusFilter);
+    if (!showRunning) params.set("running", "0");
+    if (!showUpcoming) params.set("upcoming", "0");
+    if (!showClosed) params.set("closed", "0");
+    const qs = params.toString();
+    return qs ? `/admin?${qs}` : "/admin";
+  }, [statusFilter, showRunning, showUpcoming, showClosed]);
+
   /** Keep URL in sync with filters (shallow replace — no navigation). */
   useEffect(() => {
     const params = new URLSearchParams();
@@ -372,7 +383,7 @@ function AdminDashboardContent() {
                   <tr key={show._id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <Link
-                        href={`/admin/review/${show._id}`}
+                        href={`/admin/review/${show._id}?returnTo=${encodeURIComponent(adminPathWithoutSearch)}`}
                         className="flex items-center gap-3 group"
                       >
                         {show.imageUrl ? (
@@ -473,7 +484,7 @@ function AdminDashboardContent() {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Link
-                    href={`/admin/review/${addShowSuccessId}`}
+                    href={`/admin/review/${addShowSuccessId}?returnTo=${encodeURIComponent(adminPathWithoutSearch)}`}
                     className="inline-flex rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
                   >
                     Open review
