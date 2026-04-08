@@ -2,100 +2,17 @@ import { v } from "convex/values";
 import { action, internalQuery, internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-
-type VenueDistrict =
-  | "broadway"
-  | "off_broadway"
-  | "off_off_broadway"
-  | "west_end"
-  | "touring"
-  | "regional"
-  | "other";
-
-type SeedVenue = {
-  name: string;
-  district: VenueDistrict;
-  city: string;
-  state?: string;
-  country: string;
-  addressLine1?: string;
-  source: string;
-  sourceUrl: string;
-  ingestionConfidence: "high" | "medium" | "low";
-};
+import { INITIAL_VENUE_SEED } from "../data/venues-seed";
 
 function normalizeVenueName(name: string) {
   return name
     .toLowerCase()
     .replace(/&/g, "and")
-    .replace(/['’]/g, "")
+    .replace(/['']/g, "")
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
-
-const BROADWAY_SOURCE_URL = "https://www.broadway.org/broadway-theatres";
-const OFF_BROADWAY_SOURCE_URL = "https://www.newyorktheatreguide.com/venues/off-broadway";
-
-// Batch 1 seed set:
-// - Full Broadway theatre list by name
-// - Initial Off/Off-Off entries from the first NYTG page
-const INITIAL_VENUE_SEED: SeedVenue[] = [
-  // Broadway
-  { name: "Al Hirschfeld Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Ambassador Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "August Wilson Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Belasco Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Bernard B. Jacobs Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Booth Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Broadhurst Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Broadway Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Circle in the Square Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Ethel Barrymore Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Eugene O'Neill Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Gershwin Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Hudson Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Imperial Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "James Earl Jones Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "John Golden Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Lena Horne Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Longacre Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Lunt-Fontanne Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Lyceum Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Lyric Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Majestic Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Marquis Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Minskoff Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Music Box Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Nederlander Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Neil Simon Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "New Amsterdam Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Palace Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Richard Rodgers Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Samuel J. Friedman Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Gerald Schoenfeld Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Shubert Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "St. James Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Stephen Sondheim Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Studio 54", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Todd Haimes Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Vivian Beaumont Theater", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Walter Kerr Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Winter Garden Theatre", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-  { name: "Hayes Theater", district: "broadway", city: "New York", state: "NY", country: "USA", source: "broadway_org", sourceUrl: BROADWAY_SOURCE_URL, ingestionConfidence: "high" },
-
-  // Off / Off-Off Broadway (first page batch)
-  { name: "54 Below", district: "off_broadway", city: "New York", state: "NY", country: "USA", addressLine1: "254 West 54th Street", source: "newyorktheatreguide", sourceUrl: OFF_BROADWAY_SOURCE_URL, ingestionConfidence: "medium" },
-  { name: "Anne L. Bernstein Theater", district: "off_broadway", city: "New York", state: "NY", country: "USA", addressLine1: "210 West 50th Street", source: "newyorktheatreguide", sourceUrl: OFF_BROADWAY_SOURCE_URL, ingestionConfidence: "medium" },
-  { name: "Apollo Theater", district: "off_broadway", city: "New York", state: "NY", country: "USA", addressLine1: "253 West 125th Street", source: "newyorktheatreguide", sourceUrl: OFF_BROADWAY_SOURCE_URL, ingestionConfidence: "medium" },
-  { name: "Astor Place Theatre", district: "off_broadway", city: "New York", state: "NY", country: "USA", addressLine1: "434 Lafayette Street", source: "newyorktheatreguide", sourceUrl: OFF_BROADWAY_SOURCE_URL, ingestionConfidence: "medium" },
-  { name: "Asylum NYC", district: "off_off_broadway", city: "New York", state: "NY", country: "USA", addressLine1: "123 E 24th Street", source: "newyorktheatreguide", sourceUrl: OFF_BROADWAY_SOURCE_URL, ingestionConfidence: "low" },
-  { name: "Atlantic Stage 2", district: "off_broadway", city: "New York", state: "NY", country: "USA", addressLine1: "330 West 16th Street", source: "newyorktheatreguide", sourceUrl: OFF_BROADWAY_SOURCE_URL, ingestionConfidence: "medium" },
-  { name: "Atlantic Theater Company - Linda Gross Theater", district: "off_broadway", city: "New York", state: "NY", country: "USA", addressLine1: "336 West 20th Street", source: "newyorktheatreguide", sourceUrl: OFF_BROADWAY_SOURCE_URL, ingestionConfidence: "medium" },
-  { name: "Audible's Minetta Lane Theatre", district: "off_broadway", city: "New York", state: "NY", country: "USA", addressLine1: "18 Minetta Lane", source: "newyorktheatreguide", sourceUrl: OFF_BROADWAY_SOURCE_URL, ingestionConfidence: "medium" },
-  { name: "BAM Howard Gilman Opera House", district: "off_broadway", city: "Brooklyn", state: "NY", country: "USA", addressLine1: "30 Lafayette Avenue", source: "newyorktheatreguide", sourceUrl: OFF_BROADWAY_SOURCE_URL, ingestionConfidence: "medium" },
-  { name: "Bowery Palace", district: "off_broadway", city: "New York", state: "NY", country: "USA", addressLine1: "327 Bowery", source: "newyorktheatreguide", sourceUrl: OFF_BROADWAY_SOURCE_URL, ingestionConfidence: "low" },
-];
 
 export const list = query({
   args: {
