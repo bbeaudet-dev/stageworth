@@ -982,3 +982,31 @@ export const remove = mutation({
     await ctx.db.delete(args.visitId);
   },
 });
+
+// Admin: visits that have a theatre or city but no resolved venueId, grouped
+// and counted so we can spot high-frequency unmatched locations to enrich.
+export const listUnmatchedLocations = query({
+  args: {},
+  handler: async (ctx) => {
+    const visits = await ctx.db.query("visits").collect();
+
+    const counts = new Map<string, { theatre: string; city: string; count: number }>();
+    for (const visit of visits) {
+      if (visit.venueId) continue;
+      const theatre = visit.theatre?.trim() ?? "";
+      const city = visit.city?.trim() ?? "";
+      if (!theatre && !city) continue;
+      const key = `${theatre}|||${city}`;
+      const existing = counts.get(key);
+      if (existing) {
+        existing.count++;
+      } else {
+        counts.set(key, { theatre, city, count: 1 });
+      }
+    }
+
+    return [...counts.values()]
+      .sort((a, b) => b.count - a.count || a.theatre.localeCompare(b.theatre))
+      .slice(0, 500);
+  },
+});

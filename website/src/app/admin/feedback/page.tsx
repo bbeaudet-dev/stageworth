@@ -9,6 +9,11 @@ export default function AdminUserFeedbackPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+      <div className="flex gap-4 mb-5 text-sm">
+        <Link href="/admin" className="text-gray-500 hover:text-gray-900">Shows</Link>
+        <Link href="/admin/unmatched" className="text-gray-500 hover:text-gray-900">Unmatched Locations</Link>
+        <span className="font-medium text-gray-900">User Feedback</span>
+      </div>
       <p className="text-sm text-gray-500 mb-5">
         Notes from the app about incorrect or missing catalog data.
       </p>
