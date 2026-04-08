@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { internalMutation, mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  mutation,
+  query,
+  type MutationCtx,
+} from "./_generated/server";
 import { resolveShowImageUrls, resolveProductionPosterUrl } from "./helpers";
 import { normalizeShowName } from "./showNormalization";
 import { getProductionStatus } from "../src/utils/productions";
@@ -556,6 +561,197 @@ export const createProductionFromAdminForm = mutation({
     }
 
     return productionId;
+  },
+});
+
+async function deleteReviewQueueEntriesForEntity(
+  ctx: MutationCtx,
+  entityType: "show" | "production",
+  entityId: string
+) {
+  const entries = await ctx.db
+    .query("reviewQueue")
+    .withIndex("by_entity", (q) =>
+      q.eq("entityType", entityType).eq("entityId", entityId)
+    )
+    .collect();
+  for (const e of entries) {
+    await ctx.db.delete(e._id);
+  }
+}
+
+/** Remove a production from the catalog (admin). Blocked if any visit references it. */
+export const deleteProductionAdmin = mutation({
+  args: { productionId: v.id("productions") },
+  handler: async (ctx, args) => {
+    const prod = await ctx.db.get(args.productionId);
+    if (!prod) throw new Error("Production not found");
+
+    const visits = await ctx.db
+      .query("visits")
+      .filter((q) => q.eq(q.field("productionId"), args.productionId))
+      .collect();
+    if (visits.length > 0) {
+      throw new Error(
+        `Cannot delete production: ${visits.length} visit(s) reference it. Remove or reassign those visits first.`
+      );
+    }
+
+    await deleteReviewQueueEntriesForEntity(
+      ctx,
+      "production",
+      args.productionId as string
+    );
+
+    if (prod.posterImage) {
+      try {
+        await ctx.storage.delete(prod.posterImage);
+      } catch {
+        /* best-effort storage cleanup */
+      }
+    }
+
+    await ctx.db.delete(args.productionId);
+  },
+});
+
+/**
+ * Remove a show and all its productions from the catalog (admin).
+ * Blocked when user-owned data (visits, lists, rankings, etc.) still references the show.
+ */
+export const deleteShowAdmin = mutation({
+  args: { showId: v.id("shows") },
+  handler: async (ctx, args) => {
+    const show = await ctx.db.get(args.showId);
+    if (!show) throw new Error("Show not found");
+
+    const blocks: string[] = [];
+
+    const visitCount = (
+      await ctx.db
+        .query("visits")
+        .filter((q) => q.eq(q.field("showId"), args.showId))
+        .collect()
+    ).length;
+    if (visitCount > 0) blocks.push(`${visitCount} visit(s)`);
+
+    const userShowCount = (
+      await ctx.db
+        .query("userShows")
+        .filter((q) => q.eq(q.field("showId"), args.showId))
+        .collect()
+    ).length;
+    if (userShowCount > 0) {
+      blocks.push(`${userShowCount} entr${userShowCount === 1 ? "y" : "ies"} in user libraries`);
+    }
+
+    const tripShowCount = (
+      await ctx.db
+        .query("tripShows")
+        .filter((q) => q.eq(q.field("showId"), args.showId))
+        .collect()
+    ).length;
+    if (tripShowCount > 0) {
+      blocks.push(`${tripShowCount} trip plan entr${tripShowCount === 1 ? "y" : "ies"}`);
+    }
+
+    const lists = await ctx.db.query("userLists").collect();
+    const listsContaining = lists.filter((list) =>
+      list.showIds.includes(args.showId)
+    ).length;
+    if (listsContaining > 0) {
+      blocks.push(`${listsContaining} custom list(s)`);
+    }
+
+    const rankings = await ctx.db.query("userRankings").collect();
+    const rankingsContaining = rankings.filter((r) =>
+      r.showIds.includes(args.showId)
+    ).length;
+    if (rankingsContaining > 0) {
+      blocks.push(`${rankingsContaining} user ranking list(s)`);
+    }
+
+    const postCount = (
+      await ctx.db
+        .query("activityPosts")
+        .filter((q) => q.eq(q.field("showId"), args.showId))
+        .collect()
+    ).length;
+    if (postCount > 0) {
+      blocks.push(`${postCount} activity post(s)`);
+    }
+
+    const recCount = (
+      await ctx.db
+        .query("aiRecommendationHistory")
+        .filter((q) => q.eq(q.field("showId"), args.showId))
+        .collect()
+    ).length;
+    if (recCount > 0) {
+      blocks.push(`${recCount} AI recommendation record(s)`);
+    }
+
+    if (blocks.length > 0) {
+      throw new Error(
+        `Cannot delete show: still referenced by ${blocks.join(", ")}.`
+      );
+    }
+
+    const productions = await ctx.db
+      .query("productions")
+      .withIndex("by_show", (q) => q.eq("showId", args.showId))
+      .collect();
+
+    for (const p of productions) {
+      await deleteReviewQueueEntriesForEntity(ctx, "production", p._id as string);
+      if (p.posterImage) {
+        try {
+          await ctx.storage.delete(p.posterImage);
+        } catch {
+          /* ignore */
+        }
+      }
+      await ctx.db.delete(p._id);
+    }
+
+    await deleteReviewQueueEntriesForEntity(ctx, "show", args.showId as string);
+
+    const feedback = await ctx.db
+      .query("catalogUserFeedback")
+      .withIndex("by_show", (q) => q.eq("showId", args.showId))
+      .collect();
+    for (const f of feedback) {
+      await ctx.db.delete(f._id);
+    }
+
+    const notifs = await ctx.db
+      .query("notifications")
+      .filter((q) => q.eq(q.field("showId"), args.showId))
+      .collect();
+    for (const n of notifs) {
+      await ctx.db.delete(n._id);
+    }
+
+    const botRows = await ctx.db
+      .query("botActivity")
+      .filter((q) => q.eq(q.field("showId"), args.showId))
+      .collect();
+    for (const b of botRows) {
+      await ctx.db.patch(b._id, {
+        showId: undefined,
+        productionId: undefined,
+      });
+    }
+
+    for (const storageId of show.images) {
+      try {
+        await ctx.storage.delete(storageId);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    await ctx.db.delete(args.showId);
   },
 });
 

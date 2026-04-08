@@ -455,6 +455,8 @@ export default function ShowReviewDetail() {
   );
   const submitReview = useMutation(api.reviewQueue.submitShowReview);
   const createProduction = useMutation(api.reviewQueue.createProductionFromAdminForm);
+  const deleteProductionAdmin = useMutation(api.reviewQueue.deleteProductionAdmin);
+  const deleteShowAdmin = useMutation(api.reviewQueue.deleteShowAdmin);
 
   const [decisions, setDecisions] = useState<Map<string, EntryDecision>>(
     new Map()
@@ -488,6 +490,10 @@ export default function ShowReviewDetail() {
   const [newProdNotes, setNewProdNotes] = useState("");
   const [newProdTmUrl, setNewProdTmUrl] = useState("");
   const [newProdPosterId, setNewProdPosterId] = useState<string | undefined>();
+  const [deletingProductionId, setDeletingProductionId] = useState<string | null>(
+    null
+  );
+  const [deleteShowBusy, setDeleteShowBusy] = useState(false);
 
   useEffect(() => {
     if (detail) {
@@ -647,6 +653,26 @@ export default function ShowReviewDetail() {
     }
   };
 
+  const handleDeleteProduction = async (prodId: string, label: string) => {
+    if (
+      !window.confirm(
+        `Delete production "${label.trim() || "this run"}"? This cannot be undone. Blocked if any visit is tied to this production.`
+      )
+    ) {
+      return;
+    }
+    setDeletingProductionId(prodId);
+    try {
+      await deleteProductionAdmin({
+        productionId: prodId as Id<"productions">,
+      });
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setDeletingProductionId(null);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!detail) return;
     setSubmitting(true);
@@ -699,6 +725,25 @@ export default function ShowReviewDetail() {
       0
     );
   const dirtyCount = directEdits.size;
+
+  const handleDeleteShow = async () => {
+    if (
+      !window.confirm(
+        `Delete "${show.name}" and all ${productions.length} production(s) from the catalog? This cannot be undone. The server will refuse if visits, lists, trips, or other user data still reference this show.`
+      )
+    ) {
+      return;
+    }
+    setDeleteShowBusy(true);
+    try {
+      await deleteShowAdmin({ showId: showId as Id<"shows"> });
+      router.push("/admin");
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setDeleteShowBusy(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 pb-32">
@@ -852,6 +897,21 @@ export default function ShowReviewDetail() {
               </button>
             )}
           </div>
+        </div>
+        <div className="mt-6 pt-4 border-t border-red-100">
+          <p className="text-xs text-gray-600 mb-2">
+            Remove this show and every production from the catalog. The server
+            blocks the delete if visits, lists, trip plans, rankings, feed
+            posts, or AI history still reference the show.
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleDeleteShow()}
+            disabled={deleteShowBusy || submitting}
+            className="rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {deleteShowBusy ? "Deleting…" : "Delete show from catalog"}
+          </button>
         </div>
       </section>
 
@@ -1283,6 +1343,29 @@ export default function ShowReviewDetail() {
                             Approve All
                           </button>
                         )}
+                      </div>
+                      <div className="mt-4 pt-3 border-t border-red-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <p className="text-xs text-gray-600">
+                          Remove this run from the catalog. Blocked if any user
+                          visit is linked to this production.
+                        </p>
+                        <button
+                          type="button"
+                          disabled={
+                            deletingProductionId === prod._id || submitting
+                          }
+                          onClick={() =>
+                            void handleDeleteProduction(
+                              prod._id,
+                              [prod.theatre, prod.city].filter(Boolean).join(", ")
+                            )
+                          }
+                          className="shrink-0 rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {deletingProductionId === prod._id
+                            ? "Deleting…"
+                            : "Delete production"}
+                        </button>
                       </div>
                     </div>
                   )}
