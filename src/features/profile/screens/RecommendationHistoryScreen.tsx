@@ -90,7 +90,7 @@ export default function RecommendationHistoryScreen() {
           <View style={s.emptyState}>
             <Text style={[s.emptyTitle, { color: c.text }]}>No recommendations yet</Text>
             <Text style={[s.emptySub, { color: c.mutedText }]}>
-              Tap "Would I like this?" on any show detail page to get a personalized recommendation. Your results will appear here.
+              Tap &quot;Would I like this?&quot; on any show detail page to get a personalized recommendation. Your results will appear here.
             </Text>
           </View>
         ) : (

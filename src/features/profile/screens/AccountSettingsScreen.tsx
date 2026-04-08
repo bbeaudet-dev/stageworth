@@ -151,7 +151,7 @@ export default function AccountSettingsScreen() {
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Recommendation History</Text>
               <Text style={{ fontSize: 13, color: Colors[theme].mutedText }}>
-                AI-generated show recommendations you've requested
+                AI-generated show recommendations you&apos;ve requested
               </Text>
             </View>
             <Text style={{ fontSize: 18, color: Colors[theme].mutedText, fontWeight: "300" }}>›</Text>
