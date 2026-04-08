@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { internalMutation, internalQuery } from "../_generated/server";
 import { normalizeShowName } from "../showNormalization";
 
 // ─── One-time: clear curated playbill-banner images from all shows ───────────
@@ -98,7 +98,7 @@ async function getShowByName(ctx: any, name: string) {
 async function mergeShowIntoCanonical(
   ctx: any,
   sourceShowId: Id<"shows">,
-  targetShowId: Id<"shows">
+  targetShowId: Id<"shows">,
 ) {
   // productions.showId
   const sourceProductions = await ctx.db
@@ -127,15 +127,13 @@ async function mergeShowIntoCanonical(
   }
 
   // userShows.showId
-  const sourceUserShows = await ctx.db
-    .query("userShows")
-    .collect();
+  const sourceUserShows = await ctx.db.query("userShows").collect();
   for (const userShow of sourceUserShows) {
     if (userShow.showId !== sourceShowId) continue;
     const targetUserShow = await ctx.db
       .query("userShows")
       .withIndex("by_user_show", (q: any) =>
-        q.eq("userId", userShow.userId).eq("showId", targetShowId)
+        q.eq("userId", userShow.userId).eq("showId", targetShowId),
       )
       .first();
     if (targetUserShow) {
@@ -150,7 +148,7 @@ async function mergeShowIntoCanonical(
   for (const ranking of rankings) {
     if (!ranking.showIds.includes(sourceShowId)) continue;
     const remapped = ranking.showIds.map((id: Id<"shows">) =>
-      id === sourceShowId ? targetShowId : id
+      id === sourceShowId ? targetShowId : id,
     );
     await ctx.db.patch(ranking._id, { showIds: dedupeShowIdList(remapped) });
   }
@@ -160,7 +158,7 @@ async function mergeShowIntoCanonical(
   for (const list of lists) {
     if (!list.showIds.includes(sourceShowId)) continue;
     const remapped = list.showIds.map((id: Id<"shows">) =>
-      id === sourceShowId ? targetShowId : id
+      id === sourceShowId ? targetShowId : id,
     );
     await ctx.db.patch(list._id, { showIds: dedupeShowIdList(remapped) });
   }
@@ -177,17 +175,18 @@ async function mergeShowIntoCanonical(
 }
 
 async function hasShowReferences(ctx: any, showId: Id<"shows">) {
-  const [productions, visits, userShows, rankings, lists, posts] = await Promise.all([
-    ctx.db
-      .query("productions")
-      .withIndex("by_show", (q: any) => q.eq("showId", showId))
-      .first(),
-    ctx.db.query("visits").collect(),
-    ctx.db.query("userShows").collect(),
-    ctx.db.query("userRankings").collect(),
-    ctx.db.query("userLists").collect(),
-    ctx.db.query("activityPosts").collect(),
-  ]);
+  const [productions, visits, userShows, rankings, lists, posts] =
+    await Promise.all([
+      ctx.db
+        .query("productions")
+        .withIndex("by_show", (q: any) => q.eq("showId", showId))
+        .first(),
+      ctx.db.query("visits").collect(),
+      ctx.db.query("userShows").collect(),
+      ctx.db.query("userRankings").collect(),
+      ctx.db.query("userLists").collect(),
+      ctx.db.query("activityPosts").collect(),
+    ]);
 
   if (productions) return true;
   if (visits.some((v: any) => v.showId === showId)) return true;
@@ -302,7 +301,7 @@ export const cleanupNonWikidataDuplicateShows = internalMutation({
     return {
       totalShows: shows.length,
       groupsWithDuplicates: Array.from(byNormalized.values()).filter(
-        (g) => g.length > 1
+        (g) => g.length > 1,
       ).length,
       kept,
       removed,
@@ -360,15 +359,21 @@ export const wipeNonWikidataShows = internalMutation({
       const rankings = await ctx.db.query("userRankings").collect();
       for (const ranking of rankings) {
         if (!ranking.showIds.includes(showId)) continue;
-        const filtered = ranking.showIds.filter((id: Id<"shows">) => id !== showId);
-        await ctx.db.patch(ranking._id, { showIds: dedupeShowIdList(filtered) });
+        const filtered = ranking.showIds.filter(
+          (id: Id<"shows">) => id !== showId,
+        );
+        await ctx.db.patch(ranking._id, {
+          showIds: dedupeShowIdList(filtered),
+        });
       }
 
       // userLists.showIds
       const lists = await ctx.db.query("userLists").collect();
       for (const list of lists) {
         if (!list.showIds.includes(showId)) continue;
-        const filtered = list.showIds.filter((id: Id<"shows">) => id !== showId);
+        const filtered = list.showIds.filter(
+          (id: Id<"shows">) => id !== showId,
+        );
         await ctx.db.patch(list._id, { showIds: dedupeShowIdList(filtered) });
       }
 
@@ -508,7 +513,7 @@ export const previewShowTitleCleanup = internalQuery({
 
     const renameDecisions = decisions.filter((d) => d.action === "rename");
     const keepDisambiguated = decisions.filter(
-      (d) => d.action === "keep_disambiguated"
+      (d) => d.action === "keep_disambiguated",
     );
     const sampleLimit = args.sampleLimit ?? 30;
 
@@ -520,7 +525,7 @@ export const previewShowTitleCleanup = internalQuery({
       mergeGroupCount: mergePlans.length,
       mergeSourceCount: mergePlans.reduce(
         (acc, group) => acc + group.sourceShowIds.length,
-        0
+        0,
       ),
       renameSamples: renameDecisions.slice(0, sampleLimit),
       keepDisambiguatedSamples: keepDisambiguated.slice(0, sampleLimit),
@@ -545,7 +550,7 @@ export const applyShowTitleCleanup = internalMutation({
     }
 
     const mergedSourceIds = new Set<string>(
-      mergePlans.flatMap((p) => p.sourceShowIds.map((id) => String(id)))
+      mergePlans.flatMap((p) => p.sourceShowIds.map((id) => String(id))),
     );
 
     let renamed = 0;
@@ -570,7 +575,7 @@ export const applyShowTitleCleanup = internalMutation({
     }
 
     const keepDisambiguatedCount = decisions.filter(
-      (d) => d.action === "keep_disambiguated"
+      (d) => d.action === "keep_disambiguated",
     ).length;
 
     return {
