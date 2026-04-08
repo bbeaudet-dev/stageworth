@@ -2,6 +2,8 @@
 
 # dependencies
 node_modules/
+# Root app uses Bun (bun.lock); ignore accidental npm lock at repo root only
+/package-lock.json
 
 # Next/Vercel: minimal Convex install + symlink (see website/scripts/vercel-install.js)
 .convex-vendor/
