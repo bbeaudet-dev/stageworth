@@ -3,6 +3,7 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
+  mutation,
 } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -916,7 +917,7 @@ export const importProductionImages = internalAction({
  * Run with: npx convex run admin/migration:backfillIsClosed
  * For a dry run first: npx convex run admin/migration:backfillIsClosed '{"dryRun":true}'
  */
-export const backfillIsClosed = internalMutation({
+export const backfillIsClosed = mutation({
   args: { dryRun: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
     const dryRun = args.dryRun ?? false;
