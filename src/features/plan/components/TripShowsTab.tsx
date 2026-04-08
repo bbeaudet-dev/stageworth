@@ -19,7 +19,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
-import { closingStripBadge, tripPlaybillStripBadge } from "@/features/browse/logic/closingStrip";
+import { closingStripBadge, fullStatusBadgeForProduction } from "@/features/browse/logic/closingStrip";
+import { getProductionStatus } from "@/utils/productions";
 import { AddFromListsSheet } from "@/features/plan/components/AddFromListsSheet";
 import { AddShowToTripSheet } from "@/features/plan/components/AddShowToTripSheet";
 import { TripShowLabelSheet } from "@/features/plan/components/TripShowLabelSheet";
@@ -213,17 +214,36 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   };
 
   const stripForTripPlaybill = (item: TripShowItem) => {
-    const b = tripPlaybillStripBadge(
+    const status = item.tripProductionStatus
+      ? getProductionStatus(
+          {
+            previewDate: item.previewDate ?? undefined,
+            openingDate: item.openingDate ?? undefined,
+            closingDate: item.closingDate ?? undefined,
+            isOpenRun: item.isOpenRun,
+          },
+          todayStr,
+        )
+      : null;
+    if (!status) return null;
+    const result = fullStatusBadgeForProduction(
       {
+        previewDate: item.previewDate,
+        openingDate: item.openingDate,
         closingDate: item.closingDate,
         isOpenRun: item.isOpenRun,
-        tripProductionStatus: item.tripProductionStatus,
       },
+      status,
       todayStr,
       theme === "dark",
     );
-    if (!b) return null;
-    return { label: b.label, bg: b.bg, textCol: b.text };
+    if (!result) return null;
+    return {
+      primary: { label: result.primary.label, bg: result.primary.bg, textCol: result.primary.text },
+      secondary: result.secondary
+        ? { label: result.secondary.label, bg: result.secondary.bg, textCol: result.secondary.text }
+        : undefined,
+    };
   };
 
   return (
@@ -277,8 +297,15 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                         </View>
                       </Pressable>
                       {badge ? (
-                        <View style={[styles.closingBadgeBelow, { backgroundColor: badge.bg }]}>
-                          <Text style={[styles.closingBadgeText, { color: badge.textCol }]}>{badge.label}</Text>
+                        <View style={badge.secondary ? styles.badgeOverlay : undefined}>
+                          {badge.secondary ? (
+                            <View style={[styles.closingBadgeBelow, styles.previewsBadge, { backgroundColor: badge.secondary.bg }]}>
+                              <Text style={[styles.closingBadgeText, { color: badge.secondary.textCol }]}>{badge.secondary.label}</Text>
+                            </View>
+                          ) : null}
+                          <View style={[styles.closingBadgeBelow, { backgroundColor: badge.primary.bg }]}>
+                            <Text style={[styles.closingBadgeText, { color: badge.primary.textCol }]}>{badge.primary.label}</Text>
+                          </View>
                         </View>
                       ) : null}
                     </View>
@@ -490,11 +517,21 @@ const styles = StyleSheet.create({
   },
   playbillFb: { alignItems: "center", justifyContent: "center", padding: 8 },
   playbillFbText: { fontSize: 11, fontWeight: "600", textAlign: "center", lineHeight: 14 },
+  badgeOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
   // Full-width strip clipped by the card's overflow:hidden / borderRadius
   closingBadgeBelow: {
     width: "100%",
     paddingVertical: 4,
     alignItems: "center",
+  },
+  previewsBadge: {
+    opacity: 0.85,
+    paddingVertical: 3,
   },
   closingBadgeText: { fontSize: 9, fontWeight: "700" },
 });

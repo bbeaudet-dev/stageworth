@@ -196,6 +196,7 @@ const PRODUCTION_FIELDS: FieldDef[] = [
   { field: "openingDate", label: "Opening Date", inputType: "date" },
   { field: "closingDate", label: "Closing Date", inputType: "date" },
   { field: "isOpenRun", label: "Open Run", inputType: "boolean" },
+  { field: "isClosed", label: "Closed (no date)", inputType: "boolean" },
   {
     field: "productionType",
     label: "Production Type",
@@ -482,6 +483,7 @@ export default function ShowReviewDetail() {
   const [newProdOpening, setNewProdOpening] = useState("");
   const [newProdClosing, setNewProdClosing] = useState("");
   const [newProdIsOpenRun, setNewProdIsOpenRun] = useState(false);
+  const [newProdIsClosed, setNewProdIsClosed] = useState(false);
   const [newProdType, setNewProdType] = useState<string>("original");
   const [newProdNotes, setNewProdNotes] = useState("");
   const [newProdTmUrl, setNewProdTmUrl] = useState("");
@@ -609,6 +611,7 @@ export default function ShowReviewDetail() {
         openingDate: newProdOpening.trim() || undefined,
         closingDate: newProdClosing.trim() || undefined,
         isOpenRun: newProdIsOpenRun ? true : undefined,
+        isClosed: newProdIsClosed ? true : undefined,
         productionType: newProdType as
           | "original"
           | "revival"
@@ -669,7 +672,7 @@ export default function ShowReviewDetail() {
         productionStatuses: prodStatuses,
         directEdits: directEditsArr,
       });
-      router.push("/admin");
+      router.back();
     } catch (err) {
       console.error("Failed to submit review:", err);
     } finally {
@@ -700,7 +703,7 @@ export default function ShowReviewDetail() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 pb-32">
       <button
-        onClick={() => router.push("/admin")}
+        onClick={() => router.back()}
         className="text-sm text-gray-500 hover:text-gray-900 mb-6 block"
       >
         &larr; Back to dashboard
@@ -956,7 +959,7 @@ export default function ShowReviewDetail() {
                   className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
                 />
               </label>
-              <label className="flex items-center gap-2 sm:col-span-2 mt-1">
+              <label className="flex items-center gap-2 mt-1">
                 <input
                   type="checkbox"
                   checked={newProdIsOpenRun}
@@ -964,6 +967,15 @@ export default function ShowReviewDetail() {
                   className="rounded border-gray-300"
                 />
                 <span className="text-sm text-gray-700">Open run</span>
+              </label>
+              <label className="flex items-center gap-2 mt-1">
+                <input
+                  type="checkbox"
+                  checked={newProdIsClosed}
+                  onChange={(e) => setNewProdIsClosed(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <span className="text-sm text-gray-700">Closed</span>
               </label>
               <label className="block sm:col-span-2">
                 <span className="text-xs font-medium text-gray-700">

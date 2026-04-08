@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * Vercel install hook: npm install in website/, then mirror packages into the
  * repo root node_modules so TypeScript can resolve modules when it follows

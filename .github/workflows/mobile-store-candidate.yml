@@ -1,0 +1,65 @@
+name: Mobile Store Candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Target platform"
+        required: true
+        default: "ios"
+        type: choice
+        options:
+          - ios
+          - android
+      submit:
+        description: "Also submit latest build after build request"
+        required: true
+        default: false
+        type: boolean
+      ref:
+        description: "Git ref to build (branch, tag, or SHA)"
+        required: false
+        default: "main"
+        type: string
+
+jobs:
+  build:
+    name: Store candidate build (${{ inputs.platform }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Trigger EAS production build
+        run: npx eas-cli@latest build --platform "${{ inputs.platform }}" --profile production --non-interactive --no-wait
+
+      - name: Submit latest build
+        if: inputs.submit
+        run: npx eas-cli@latest submit --platform "${{ inputs.platform }}" --profile production --latest --non-interactive
+
+      - name: Summary
+        run: |
+          echo "### Store candidate requested" >> $GITHUB_STEP_SUMMARY
+          echo "- Ref: \`${{ inputs.ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Platform: \`${{ inputs.platform }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Build profile: \`production\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Submit requested: \`${{ inputs.submit }}\`" >> $GITHUB_STEP_SUMMARY

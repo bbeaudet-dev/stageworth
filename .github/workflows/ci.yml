@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      website: ${{ steps.filter.outputs.website }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Filter paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            app:
+              - "app/**"
+              - "assets/**"
+              - "components/**"
+              - "config/**"
+              - "constants/**"
+              - "convex/**"
+              - "hooks/**"
+              - "lib/**"
+              - "scripts/**"
+              - "src/**"
+              - "types/**"
+              - "package.json"
+              - "bun.lock"
+              - "tsconfig.json"
+              - "eslint.config.*"
+            website:
+              - "website/**"
+              - "convex/**"
+
+  app-quality:
+    name: App lint and typecheck
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+  website-quality:
+    name: Website lint and typecheck
+    needs: changes
+    if: needs.changes.outputs.website == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: website
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # website/convex_generated stubs re-export ../../convex/_generated/api, so tsc
+      # loads ../convex/*.ts. Those imports resolve @convex-dev/* from repo-root
+      # node_modules (convex/ has no node_modules). Without this step only
+      # website/node_modules exists — same TS2307 errors as local with no root install.
+      - name: Install repo-root dependencies (for Convex source module resolution)
+        working-directory: .
+        run: bun install --frozen-lockfile
+
+      - name: Install website dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Copy Convex generated stubs for website
+        run: bun run copy-convex
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bunx tsc --noEmit -p tsconfig.json

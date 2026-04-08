@@ -70,6 +70,9 @@ export default defineSchema({
     // false = closing date not yet announced but not confirmed as open run.
     // undefined/null = unknown.
     isOpenRun: v.optional(v.boolean()),
+    // true = explicitly confirmed as closed (e.g. opening date recorded but no closing date).
+    // Counterpart to isOpenRun — disambiguates "missing closing date" from "actually closed".
+    isClosed: v.optional(v.boolean()),
     productionType: v.union(
       v.literal("original"),
       v.literal("revival"),
@@ -466,6 +469,21 @@ export default defineSchema({
     })),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
+
+  // AI recommendation history — one row per user × show recommendation trigger.
+  aiRecommendationHistory: defineTable({
+    userId: v.id("users"),
+    showId: v.id("shows"),
+    showNameSnapshot: v.string(),
+    score: v.number(),
+    headline: v.string(),
+    reasoning: v.string(),
+    matchedElements: v.array(v.string()),
+    mismatchedElements: v.array(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_show", ["userId", "showId"]),
 
   // Per-field review decisions for shows and productions.
   reviewQueue: defineTable({

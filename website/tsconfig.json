@@ -13,6 +13,7 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    "baseUrl": ".",
     "plugins": [
       {
         "name": "next"
@@ -22,7 +23,12 @@
       "@/*": ["./src/*"],
       "@convex/_generated/api": ["./convex_generated/api"],
       "@convex/_generated/dataModel": ["./convex_generated/dataModel"],
-      "@convex/_generated/server": ["./convex_generated/server"]
+      "@convex/_generated/server": ["./convex_generated/server"],
+      "convex/*": ["./node_modules/convex/*"],
+      "@convex-dev/better-auth": ["./node_modules/@convex-dev/better-auth"],
+      "@convex-dev/better-auth/*": ["./node_modules/@convex-dev/better-auth/*"],
+      "@better-auth/*": ["./node_modules/@better-auth/*"],
+      "better-auth": ["./node_modules/better-auth"]
     }
   },
   "include": [

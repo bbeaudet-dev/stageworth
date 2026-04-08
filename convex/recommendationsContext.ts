@@ -72,6 +72,7 @@ export const gatherRecommendationContext = internalQuery({
 
     return {
       show: show ? { name: show.name, type: show.type } : null,
+      userId,
       preferences,
       ranked,
     };

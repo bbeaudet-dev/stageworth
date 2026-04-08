@@ -7,6 +7,8 @@ export type ProductionWithShow = {
   previewDate?: string;
   openingDate?: string;
   closingDate?: string;
+  isOpenRun?: boolean | null;
+  isClosed?: boolean | null;
   posterUrl?: string | null;
   ticketmasterEventUrl?: string;
   show?: {

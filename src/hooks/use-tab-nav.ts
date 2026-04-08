@@ -10,10 +10,13 @@ export function useTabNav() {
   const segments = useSegments();
 
   const tabKey = useMemo<"community" | "plan" | "search" | "my-shows" | "profile">(() => {
-    if (segments[0] === "(tabs)" && segments[1] === "community") return "community";
-    if (segments[0] === "(tabs)" && segments[1] === "plan") return "plan";
-    if (segments[0] === "(tabs)" && segments[1] === "search") return "search";
-    if (segments[0] === "(tabs)" && segments[1] === "my-shows") return "my-shows";
+    const segs: string[] = [...segments];
+    const root = segs[0];
+    const tabSlug = segs.length > 1 ? segs[1] : undefined;
+    if (root === "(tabs)" && tabSlug === "community") return "community";
+    if (root === "(tabs)" && tabSlug === "plan") return "plan";
+    if (root === "(tabs)" && tabSlug === "search") return "search";
+    if (root === "(tabs)" && tabSlug === "my-shows") return "my-shows";
     return "profile";
   }, [segments]);
 

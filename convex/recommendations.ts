@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { requireConvexUserId } from "./auth";
 
 const RATING_LABELS: Record<number, string> = {
   1: "Strongly Disagree",
@@ -115,12 +116,68 @@ Respond with ONLY a valid JSON object (no markdown, no code fences) with these f
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("Failed to parse recommendation");
 
-    return JSON.parse(jsonMatch[0]) as {
+    const parsed = JSON.parse(jsonMatch[0]) as {
       score: number;
       headline: string;
       reasoning: string;
       matchedElements: string[];
       mismatchedElements: string[];
     };
+
+    // Persist to history if the user is authenticated
+    if (data.userId) {
+      await ctx.runMutation(internal.recommendations.saveRecommendation, {
+        userId: data.userId,
+        showId: args.showId,
+        showNameSnapshot: data.show.name,
+        ...parsed,
+      });
+    }
+
+    return parsed;
+  },
+});
+
+export const saveRecommendation = internalMutation({
+  args: {
+    userId: v.id("users"),
+    showId: v.id("shows"),
+    showNameSnapshot: v.string(),
+    score: v.number(),
+    headline: v.string(),
+    reasoning: v.string(),
+    matchedElements: v.array(v.string()),
+    mismatchedElements: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("aiRecommendationHistory", {
+      ...args,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const listRecommendationHistory = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireConvexUserId(ctx);
+    const rows = await ctx.db
+      .query("aiRecommendationHistory")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(100);
+    return rows;
+  },
+});
+
+export const clearRecommendationHistory = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireConvexUserId(ctx);
+    const rows = await ctx.db
+      .query("aiRecommendationHistory")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    await Promise.all(rows.map((r) => ctx.db.delete(r._id)));
   },
 });

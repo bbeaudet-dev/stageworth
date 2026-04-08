@@ -1,5 +1,6 @@
 import { daysUntil } from "@/features/browse/logic/date";
 import { formatDateShort } from "@/utils/dates";
+import type { ProductionStatus } from "@/utils/productions";
 
 export type ClosingStripBadge = { label: string; bg: string; text: string };
 
@@ -30,24 +31,27 @@ export function closingStripLabel(closingDate: string): string {
 
 /**
  * Background + text color from days until closing (future dates only; d >= 0).
+ *
+ * Thresholds match the badge urgency plan:
+ *   ≤7 red · ≤14 orange-red · ≤42 orange · ≤70 yellow · else neutral
  */
 export function closingStripColors(days: number, isDark: boolean): { bg: string; text: string } {
-  if (days <= 1) {
+  if (days <= 7) {
     return isDark
       ? { bg: "rgba(239,68,68,0.22)", text: "#F87171" }
       : { bg: "#FEF2F2", text: "#B91C1C" };
   }
-  if (days <= 7) {
+  if (days <= 14) {
     return isDark
       ? { bg: "rgba(249,115,22,0.2)", text: "#FB923C" }
       : { bg: "#FFF7ED", text: "#C2410C" };
   }
-  if (days <= 30) {
+  if (days <= 42) {
     return isDark
       ? { bg: "rgba(234,179,8,0.18)", text: "#FBBF24" }
       : { bg: "#FFFBEB", text: "#B45309" };
   }
-  if (days <= 60) {
+  if (days <= 70) {
     return isDark
       ? { bg: "rgba(234,179,8,0.1)", text: "#FCD34D" }
       : { bg: "#FEF9C3", text: "#A16207" };
@@ -102,4 +106,127 @@ export function tripPlaybillStripBadge(
     return openRunStripBadge(isDark);
   }
   return null;
+}
+
+// ─── Full status badge (richer text + urgency color) ─────────────────────────
+
+export type FullStatusBadge = {
+  /** Primary strip at bottom of card — describes current status. */
+  primary: ClosingStripBadge;
+  /** Optional secondary ghost strip shown above primary — only "In Previews". */
+  secondary?: ClosingStripBadge;
+};
+
+/** Neutral gray for a show that has already closed. */
+function closedColors(isDark: boolean): { bg: string; text: string } {
+  return isDark
+    ? { bg: "rgba(156,163,175,0.12)", text: "#D1D5DB" }
+    : { bg: "#F3F4F6", text: "#9CA3AF" };
+}
+
+/**
+ * Full status badge for show cards. Returns a primary badge (status text + urgency color)
+ * and an optional secondary ghost badge ("In Previews" when the show is in previews).
+ *
+ * Text describes current status; color reflects urgency of closing (or open run / no info).
+ * Reuses {@link closingStripColors}, {@link openRunStripBadge}, and
+ * {@link openingSoonPlaybillColors} so all color logic lives in one place.
+ */
+export function fullStatusBadgeForProduction(
+  production: {
+    previewDate?: string | null;
+    openingDate?: string | null;
+    closingDate?: string | null;
+    isOpenRun?: boolean | null;
+  },
+  status: ProductionStatus,
+  todayStr: string,
+  isDark: boolean,
+): FullStatusBadge | null {
+  // ── Derive urgency color ─────────────────────────────────────────────────
+  const getColors = (): { bg: string; text: string } => {
+    if (status === "closed") return closedColors(isDark);
+
+    // Urgency colors only apply when closing date is known and within 10 weeks.
+    // A closing date > 70 days out is not urgent and falls through to green/blue.
+    if (production.closingDate && production.closingDate >= todayStr) {
+      const d = daysUntil(production.closingDate);
+      if (d <= 70) return closingStripColors(d, isDark);
+    }
+
+    // Green: show is currently active in some form (in previews, open, or open run).
+    // Previews count as "running" — the second banner provides the disambiguation.
+    if (
+      status === "in_previews" ||
+      status === "open" ||
+      status === "open_run"
+    ) {
+      const { bg, text } = openRunStripBadge(isDark);
+      return { bg, text };
+    }
+
+    // Blue: not yet started (announced) — reuse openingSoonPlaybillColors
+    return openingSoonPlaybillColors(isDark);
+  };
+
+  // ── Derive primary label from status ─────────────────────────────────────
+  const getPrimaryLabel = (): string => {
+    if (status === "closed") {
+      const d = formatDateShort(production.closingDate ?? "");
+      return d ? `Closed ${d}` : "Closed";
+    }
+
+    // Closing date label for any actively running show — covers open, open_run, and in_previews.
+    // The color already signals urgency; the label names the date so users know when it ends.
+    if (
+      production.closingDate &&
+      production.closingDate >= todayStr &&
+      (status === "open" || status === "open_run" || status === "in_previews")
+    ) {
+      return closingStripLabel(production.closingDate);
+    }
+
+    if (status === "open_run") return "Open Run";
+    if (status === "open") return "Running";
+
+    if (status === "in_previews") {
+      if (production.openingDate && production.openingDate >= todayStr) {
+        const d = formatDateShort(production.openingDate);
+        if (d) return `Opens ${d}`;
+      }
+      // No future opening date known — show is running but opening date is TBD.
+      return "Running";
+    }
+
+    if (status === "announced") {
+      if (production.previewDate && production.previewDate >= todayStr) {
+        const d = formatDateShort(production.previewDate);
+        if (d) return `Previews ${d}`;
+      }
+      if (production.openingDate && production.openingDate >= todayStr) {
+        const d = formatDateShort(production.openingDate);
+        if (d) return `Opens ${d}`;
+      }
+      return "Announced";
+    }
+
+    return "";
+  };
+
+  const label = getPrimaryLabel();
+  if (!label) return null;
+
+  const { bg, text } = getColors();
+  const primary: ClosingStripBadge = { label, bg, text };
+
+  // ── Secondary "In Previews" ghost strip ──────────────────────────────────
+  // Transparent white/black so it reads as a subtle indicator without a color pop.
+  let secondary: ClosingStripBadge | undefined;
+  if (status === "in_previews") {
+    secondary = isDark
+      ? { label: "In Previews", bg: "rgba(255,255,255,0.18)", text: "rgba(255,255,255,0.80)" }
+      : { label: "In Previews", bg: "rgba(0,0,0,0.12)", text: "rgba(0,0,0,0.65)" };
+  }
+
+  return { primary, secondary };
 }

@@ -8,9 +8,11 @@ import { ScrollView, StyleSheet, Text, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ShowCard } from "@/features/browse/components/ShowCard";
+import { AddToListSheet } from "@/components/AddToListSheet";
 import {
   railBadgeForClosingSoon,
   railBadgeForProduction,
+  type FullStatusBadge,
 } from "@/features/browse/components/ProductionCard";
 import { styles as browseStyles } from "@/features/browse/styles";
 import { Colors } from "@/constants/theme";
@@ -25,7 +27,7 @@ type ShowGridItem = {
   name: string;
   type?: "musical" | "play" | "opera" | "dance" | "other";
   images: string[];
-  badge?: { label: string; bg: string; text: string };
+  badge?: FullStatusBadge;
 };
 
 const GRID_COLUMNS = 4;
@@ -33,13 +35,13 @@ const PAGE_SIZE = 100;
 
 type CategoryConfig = {
   title: string;
-  query: "now-playing" | "closing-soon" | "coming-soon" | "all";
+  query: "now-playing" | "closing-soon" | "upcoming" | "all";
 };
 
 const CATEGORIES: Record<string, CategoryConfig> = {
   "now-playing": { title: "Now Playing", query: "now-playing" },
   "closing-soon": { title: "Closing Soon", query: "closing-soon" },
-  "coming-soon": { title: "Coming Soon", query: "coming-soon" },
+  "upcoming": { title: "Upcoming", query: "upcoming" },
   all: { title: "All Shows", query: "all" },
 };
 
@@ -70,13 +72,14 @@ export default function ShowGridScreen() {
     api.productions.listCurrent,
     config.query === "now-playing" ? {} : "skip",
   );
+  // Grid shows full 10-week closing window and all upcoming (no days cap).
   const closingSoon = useQuery(
     api.productions.listClosingSoon,
-    config.query === "closing-soon" ? { days: 30 } : "skip",
+    config.query === "closing-soon" ? { days: 70 } : "skip",
   );
   const upcomingShows = useQuery(
     api.productions.listUpcoming,
-    config.query === "coming-soon" ? { days: 90 } : "skip",
+    config.query === "upcoming" ? {} : "skip",
   );
   const allShows = useQuery(
     api.shows.list,
@@ -121,7 +124,7 @@ export default function ShowGridScreen() {
       seen.add(p.show._id);
       const resolvedImage = p.posterUrl ?? p.show.images[0] ?? null;
       const badge =
-        config.query === "coming-soon"
+          config.query === "upcoming"
           ? railBadgeForProduction(p, isDark, todayStr) ?? undefined
           : config.query === "closing-soon"
             ? railBadgeForClosingSoon(p, isDark, todayStr) ?? undefined
@@ -141,6 +144,18 @@ export default function ShowGridScreen() {
   const isLoading = items === null;
   const visible = items ? items.slice(0, limit) : [];
   const remaining = items ? items.length - visible.length : 0;
+
+  const visibleShowIds = useMemo<Id<"shows">[]>(
+    () => visible.map((item) => item.showId),
+    [visible]
+  );
+  const listStatuses = useQuery(
+    api.lists.getShowListStatuses,
+    visibleShowIds.length > 0 ? { showIds: visibleShowIds } : "skip"
+  );
+
+  const [listSheetShowId, setListSheetShowId] = useState<Id<"shows"> | null>(null);
+  const [listSheetShowName, setListSheetShowName] = useState("");
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: bg }]} edges={["bottom"]}>
@@ -168,14 +183,23 @@ export default function ShowGridScreen() {
             </Text>
             {chunkRows(visible, GRID_COLUMNS).map((row, ri) => (
               <View key={ri} style={browseStyles.gridRow}>
-                {row.map((item) => (
+                {row.map((item) => {
+                  const rawStatus = listStatuses?.[item.showId];
+                  const listStatus = (rawStatus as "want_to_see" | "look_into" | "not_interested" | "uncategorized" | undefined) ?? "none";
+                  return (
                   <ShowCard
                     key={item._id}
                     show={{ name: item.name, type: item.type, images: item.images }}
                     badge={item.badge}
+                    listStatus={listStatus}
+                    onListIconPress={() => {
+                      setListSheetShowId(item.showId);
+                      setListSheetShowName(item.name);
+                    }}
                     onPress={() => navigateToShow(item.showId, item.name)}
                   />
-                ))}
+                  );
+                })}
                 {row.length < GRID_COLUMNS &&
                   Array.from({ length: GRID_COLUMNS - row.length }).map((_, i) => (
                     <View key={`pad-${i}`} style={browseStyles.gridPlaceholder} />
@@ -195,6 +219,12 @@ export default function ShowGridScreen() {
           </>
         )}
       </ScrollView>
+      <AddToListSheet
+        visible={listSheetShowId !== null}
+        showId={listSheetShowId}
+        showName={listSheetShowName}
+        onClose={() => setListSheetShowId(null)}
+      />
     </SafeAreaView>
   );
 }

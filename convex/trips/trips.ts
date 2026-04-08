@@ -127,13 +127,15 @@ function pickTripProductionDisplay(
   closingDate: string | null;
   isOpenRun: boolean | null;
   tripProductionStatus: ProductionStatus | null;
+  previewDate: string | null;
+  openingDate: string | null;
 } {
   if (productions.length === 0) {
-    return { closingDate: null, isOpenRun: null, tripProductionStatus: null };
+    return { closingDate: null, isOpenRun: null, tripProductionStatus: null, previewDate: null, openingDate: null };
   }
   const active = productions.filter((p) => getProductionStatus(p, today) !== "closed");
   if (active.length === 0) {
-    return { closingDate: null, isOpenRun: null, tripProductionStatus: null };
+    return { closingDate: null, isOpenRun: null, tripProductionStatus: null, previewDate: null, openingDate: null };
   }
   const sorted = [...active].sort((a, b) => {
     const sta = getProductionStatus(a, today);
@@ -149,6 +151,8 @@ function pickTripProductionDisplay(
     closingDate: best.closingDate ?? null,
     isOpenRun: best.isOpenRun ?? null,
     tripProductionStatus,
+    previewDate: best.previewDate ?? null,
+    openingDate: best.openingDate ?? null,
   };
 }
 
@@ -264,6 +268,8 @@ export const getTripById = query({
           closingDate: pick.closingDate,
           isOpenRun: pick.isOpenRun,
           tripProductionStatus: pick.tripProductionStatus,
+          previewDate: pick.previewDate,
+          openingDate: pick.openingDate,
           show: {
             ...show,
             images: await resolveShowImageUrls(ctx, show),

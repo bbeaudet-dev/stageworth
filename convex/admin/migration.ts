@@ -3,6 +3,7 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
+  mutation,
 } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -895,5 +896,81 @@ export const importProductionImages = internalAction({
     }
 
     return { uploaded, failed, errors: errors.slice(0, 50) };
+  },
+});
+
+// ─── isClosed backfill ────────────────────────────────────────────────────────
+
+/**
+ * Backfill: set `isClosed=true` on every production that has no future proof of
+ * being currently active.
+ *
+ * A production is left unchanged (not marked closed) if ANY of the following is true:
+ *   • `isOpenRun === true` — explicitly an open-ended run
+ *   • `closingDate >= today` — has a known future closing date (date logic handles it)
+ *   • `previewDate > today` OR `openingDate > today` — announced/upcoming show
+ *   • `isClosed` is already set (true or false) — already reviewed
+ *
+ * Everything else — productions whose only evidence of "running" is a past
+ * opening or preview date — is marked `isClosed=true`.
+ *
+ * Run with: npx convex run admin/migration:backfillIsClosed
+ * For a dry run first: npx convex run admin/migration:backfillIsClosed '{"dryRun":true}'
+ */
+export const backfillIsClosed = mutation({
+  args: { dryRun: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const today = new Date().toISOString().split("T")[0];
+
+    const productions = await ctx.db.query("productions").collect();
+
+    let marked = 0;
+    let skipped = 0;
+    let alreadySet = 0;
+
+    for (const p of productions) {
+      // Already explicitly reviewed — leave it alone.
+      if (p.isClosed !== undefined && p.isClosed !== null) {
+        alreadySet++;
+        continue;
+      }
+
+      // Open run — still active with no planned closing date.
+      if (p.isOpenRun === true) {
+        skipped++;
+        continue;
+      }
+
+      // Has a future closing date — date logic already marks it as active.
+      if (p.closingDate && p.closingDate >= today) {
+        skipped++;
+        continue;
+      }
+
+      // Announced / upcoming — has at least one future milestone.
+      if (
+        (p.previewDate && p.previewDate > today) ||
+        (p.openingDate && p.openingDate > today)
+      ) {
+        skipped++;
+        continue;
+      }
+
+      // Everything else: past dates only, no closing date, not an open run.
+      // Mark as closed so it stops appearing as "currently running".
+      if (!dryRun) {
+        await ctx.db.patch(p._id, { isClosed: true });
+      }
+      marked++;
+    }
+
+    return {
+      dryRun,
+      total: productions.length,
+      marked,
+      skipped,
+      alreadySet,
+    };
   },
 });

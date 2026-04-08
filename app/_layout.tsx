@@ -64,6 +64,10 @@ export default function RootLayout() {
                   options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
                 />
                 <Stack.Screen
+                  name="recommendation-history"
+                  options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+                />
+                <Stack.Screen
                   name="user-search"
                   options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
                 />

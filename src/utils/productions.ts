@@ -3,6 +3,30 @@
 
 export type ProductionStatus = "announced" | "in_previews" | "open" | "open_run" | "closed";
 
+/**
+ * Sort key for upcoming / coming-soon lists (YYYY-MM-DD).
+ * Soonest next milestone (on or after `asOf`) first; items with no future dated
+ * milestone sort after those with dates (e.g. in previews with TBD opening).
+ */
+export function upcomingProductionSortKey(
+  production: { previewDate?: string; openingDate?: string },
+  asOf: string
+): string {
+  const pool: string[] = [];
+  if (production.previewDate && production.previewDate >= asOf) {
+    pool.push(production.previewDate);
+  }
+  if (production.openingDate && production.openingDate >= asOf) {
+    pool.push(production.openingDate);
+  }
+  if (pool.length > 0) {
+    return pool.sort()[0];
+  }
+  if (production.openingDate) return production.openingDate;
+  if (production.previewDate) return production.previewDate;
+  return "9999-12-31";
+}
+
 function todayString() {
   return new Date().toISOString().split("T")[0];
 }
@@ -13,12 +37,19 @@ export function getProductionStatus(
     openingDate?: string;
     closingDate?: string;
     isOpenRun?: boolean | null;
+    isClosed?: boolean | null;
   },
   asOf: string = todayString()
 ): ProductionStatus {
   const { previewDate, openingDate, closingDate } = production;
 
-  const { isOpenRun } = production;
+  const { isOpenRun, isClosed } = production;
+
+  // Explicit close flag — marks a production as closed even without a recorded closing date.
+  // Counterpart to isOpenRun; allows disambiguating "missing closing date" from "still running".
+  if (isClosed === true) {
+    return "closed";
+  }
 
   // If we have an explicit closing date in the past, it's closed.
   if (closingDate && closingDate < asOf) {
@@ -97,6 +128,7 @@ export function isProductionBrowseVisible(
     openingDate?: string;
     closingDate?: string;
     isOpenRun?: boolean | null;
+    isClosed?: boolean | null;
     theatre?: string;
     city?: string;
   },

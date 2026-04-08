@@ -194,10 +194,6 @@ export default function ShowDetailScreen() {
   // Catalog feedback (suggest correction)
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackNote, setFeedbackNote] = useState("");
-  /** `null` = whole show; otherwise a specific production on this show. */
-  const [feedbackProductionId, setFeedbackProductionId] = useState<
-    Id<"productions"> | null
-  >(null);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
 
   // AI recommendation state
@@ -305,7 +301,6 @@ export default function ShowDetailScreen() {
     }
     if (!showId || !show) return;
     setFeedbackNote("");
-    setFeedbackProductionId(null);
     setFeedbackOpen(true);
   }
 
@@ -320,12 +315,10 @@ export default function ShowDetailScreen() {
     try {
       await submitCatalogFeedback({
         showId,
-        productionId: feedbackProductionId ?? undefined,
         note,
       });
       setFeedbackOpen(false);
       setFeedbackNote("");
-      setFeedbackProductionId(null);
       Alert.alert("Thanks", "We have received your note and will review it.");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not send feedback.";
@@ -730,71 +723,6 @@ export default function ShowDetailScreen() {
             Tell us what’s wrong with this listing. A moderator will review it.
           </Text>
 
-          <Text style={[styles.feedbackFieldLabel, { color: c.mutedText }]}>About</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.feedbackScopeScroll}
-            contentContainerStyle={styles.feedbackScopeRow}
-          >
-            <Pressable
-              onPress={() => setFeedbackProductionId(null)}
-              style={[
-                styles.feedbackChip,
-                {
-                  borderColor:
-                    feedbackProductionId === null ? c.accent : c.border,
-                  backgroundColor:
-                    feedbackProductionId === null
-                      ? c.accent + "22"
-                      : c.surfaceElevated,
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: "600",
-                  color: feedbackProductionId === null ? c.accent : c.text,
-                }}
-              >
-                Whole show
-              </Text>
-            </Pressable>
-            {(productions ?? []).map((p) => {
-              const selected = feedbackProductionId === p._id;
-              const label =
-                [p.theatre, p.city].filter(Boolean).join(" · ") || "Production";
-              return (
-                <Pressable
-                  key={p._id}
-                  onPress={() => setFeedbackProductionId(p._id as Id<"productions">)}
-                  style={[
-                    styles.feedbackChip,
-                    {
-                      borderColor: selected ? c.accent : c.border,
-                      backgroundColor: selected
-                        ? c.accent + "22"
-                        : c.surfaceElevated,
-                      maxWidth: 200,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      fontWeight: "600",
-                      color: selected ? c.accent : c.text,
-                    }}
-                    numberOfLines={2}
-                  >
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-
           <Text style={[styles.feedbackFieldLabel, { color: c.mutedText }]}>Your note</Text>
           <TextInput
             value={feedbackNote}
@@ -905,15 +833,6 @@ const styles = StyleSheet.create({
   feedbackSheet: { maxHeight: "85%" },
   feedbackHint: { fontSize: 13, lineHeight: 18, paddingHorizontal: 18, marginBottom: 12 },
   feedbackFieldLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", paddingHorizontal: 18, marginBottom: 8 },
-  feedbackScopeScroll: { marginBottom: 14, maxHeight: 44 },
-  feedbackScopeRow: { flexDirection: "row", gap: 8, paddingHorizontal: 18 },
-  feedbackChip: {
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    justifyContent: "center",
-  },
   feedbackInput: {
     marginHorizontal: 18,
     minHeight: 100,
