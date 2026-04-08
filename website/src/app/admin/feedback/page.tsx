@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import Link from "next/link";
 
 export default function AdminUserFeedbackPage() {
-  const rows = useQuery(api.catalogUserFeedback.listForAdmin, { limit: 200 });
+  const rows = useQuery(api.admin.catalogUserFeedback.listForAdmin, { limit: 200 });
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">

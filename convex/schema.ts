@@ -31,6 +31,9 @@ export default defineSchema({
     runningTime: v.optional(v.number()),
     // Number of intermissions: 0 = none, 1 = one, 2 = two (rare). Undefined = unknown.
     intermissionCount: v.optional(v.number()),
+    // Total intermission time in minutes (all intermissions combined). Undefined = unknown.
+    // Playbill does not provide this; filled in manually or from other sources.
+    intermissionMinutes: v.optional(v.number()),
     // Short synopsis / description, typically a few sentences.
     description: v.optional(v.string()),
     isUserCreated: v.boolean(),

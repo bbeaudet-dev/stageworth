@@ -8,16 +8,17 @@
  * @module
  */
 
+import type * as admin_catalogUserFeedback from "../admin/catalogUserFeedback.js";
 import type * as admin_legacyWikidata from "../admin/legacyWikidata.js";
 import type * as admin_maintenance from "../admin/maintenance.js";
 import type * as admin_migration from "../admin/migration.js";
 import type * as admin_reviewBackfill from "../admin/reviewBackfill.js";
 import type * as admin_seed from "../admin/seed.js";
+import type * as admin_showScore from "../admin/showScore.js";
 import type * as admin_wikiApi from "../admin/wikiApi.js";
 import type * as auth from "../auth.js";
 import type * as authFactory from "../authFactory.js";
 import type * as botIngestion from "../botIngestion.js";
-import type * as catalogUserFeedback from "../catalogUserFeedback.js";
 import type * as catalogVisibility from "../catalogVisibility.js";
 import type * as challenges from "../challenges.js";
 import type * as crons from "../crons.js";
@@ -33,13 +34,13 @@ import type * as leaderboard from "../leaderboard.js";
 import type * as listRules from "../listRules.js";
 import type * as lists from "../lists.js";
 import type * as notifications from "../notifications.js";
+import type * as playbill from "../playbill.js";
 import type * as productions from "../productions.js";
 import type * as rankings from "../rankings.js";
 import type * as recommendations from "../recommendations.js";
 import type * as recommendationsContext from "../recommendationsContext.js";
 import type * as reviewQueue from "../reviewQueue.js";
 import type * as showNormalization from "../showNormalization.js";
-import type * as showScore from "../showScore.js";
 import type * as shows from "../shows.js";
 import type * as social_community from "../social/community.js";
 import type * as social_profiles from "../social/profiles.js";
@@ -60,16 +61,17 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "admin/catalogUserFeedback": typeof admin_catalogUserFeedback;
   "admin/legacyWikidata": typeof admin_legacyWikidata;
   "admin/maintenance": typeof admin_maintenance;
   "admin/migration": typeof admin_migration;
   "admin/reviewBackfill": typeof admin_reviewBackfill;
   "admin/seed": typeof admin_seed;
+  "admin/showScore": typeof admin_showScore;
   "admin/wikiApi": typeof admin_wikiApi;
   auth: typeof auth;
   authFactory: typeof authFactory;
   botIngestion: typeof botIngestion;
-  catalogUserFeedback: typeof catalogUserFeedback;
   catalogVisibility: typeof catalogVisibility;
   challenges: typeof challenges;
   crons: typeof crons;
@@ -85,13 +87,13 @@ declare const fullApi: ApiFromModules<{
   listRules: typeof listRules;
   lists: typeof lists;
   notifications: typeof notifications;
+  playbill: typeof playbill;
   productions: typeof productions;
   rankings: typeof rankings;
   recommendations: typeof recommendations;
   recommendationsContext: typeof recommendationsContext;
   reviewQueue: typeof reviewQueue;
   showNormalization: typeof showNormalization;
-  showScore: typeof showScore;
   shows: typeof shows;
   "social/community": typeof social_community;
   "social/profiles": typeof social_profiles;

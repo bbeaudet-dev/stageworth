@@ -18,6 +18,7 @@ export const SHOW_REVIEWABLE_FIELDS = [
   "hotlinkImageUrl",
   "runningTime",
   "intermissionCount",
+  "intermissionMinutes",
   "description",
 ] as const;
 
@@ -963,6 +964,9 @@ function normalizeForVenueMatch(name: string): string {
 // Fields stored as booleans — string values "true"/"false" must be converted.
 const BOOLEAN_FIELDS = new Set(["isOpenRun", "isClosed"]);
 
+// Fields stored as numbers — string values must be parsed before writing to DB.
+const NUMERIC_FIELDS = new Set(["runningTime", "intermissionCount", "intermissionMinutes"]);
+
 /** Heuristic: uploaded admin image edits pass a storage id, not a http(s) URL. */
 function isLikelyConvexStorageId(s: string): boolean {
   if (s.length < 20 || s.length > 64) return false;
@@ -1015,6 +1019,11 @@ async function applyFieldChange(
     const boolValue =
       value === "true" ? true : value === "false" ? false : undefined;
     await ctx.db.patch(entityId as any, { [field]: boolValue });
+  } else if (NUMERIC_FIELDS.has(field)) {
+    const numValue = Number(value);
+    await ctx.db.patch(entityId as any, {
+      [field]: isNaN(numValue) ? undefined : numValue,
+    });
   } else {
     await ctx.db.patch(entityId as any, { [field]: value });
   }

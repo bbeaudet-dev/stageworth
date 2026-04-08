@@ -155,7 +155,8 @@ const SHOW_FIELDS: FieldDef[] = [
   },
   { field: "subtype", label: "Sub-type", inputType: "text" },
   { field: "runningTime", label: "Running Time (min)", inputType: "text" },
-  { field: "intermissionCount", label: "Intermissions", inputType: "text" },
+  { field: "intermissionCount", label: "Intermissions (count)", inputType: "text" },
+  { field: "intermissionMinutes", label: "Intermission Duration (min)", inputType: "text" },
   { field: "description", label: "Description", inputType: "textarea" },
   {
     field: "hotlinkImageUrl",
