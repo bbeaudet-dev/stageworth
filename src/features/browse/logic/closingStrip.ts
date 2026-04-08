@@ -146,15 +146,26 @@ export function fullStatusBadgeForProduction(
   // ── Derive urgency color ─────────────────────────────────────────────────
   const getColors = (): { bg: string; text: string } => {
     if (status === "closed") return closedColors(isDark);
+
+    // Urgency colors only apply when closing date is known and within 10 weeks.
+    // A closing date > 70 days out is not urgent and falls through to green/blue.
     if (production.closingDate && production.closingDate >= todayStr) {
-      return closingStripColors(daysUntil(production.closingDate), isDark);
+      const d = daysUntil(production.closingDate);
+      if (d <= 70) return closingStripColors(d, isDark);
     }
-    if (production.isOpenRun === true || status === "open_run") {
-      // Reuse openRunStripBadge colors — single source of truth
+
+    // Green: show is currently active in some form (in previews, open, or open run).
+    // Previews count as "running" — the second banner provides the disambiguation.
+    if (
+      status === "in_previews" ||
+      status === "open" ||
+      status === "open_run"
+    ) {
       const { bg, text } = openRunStripBadge(isDark);
       return { bg, text };
     }
-    // Blue: running/upcoming with no closing info — reuse openingSoonPlaybillColors
+
+    // Blue: not yet started (announced) — reuse openingSoonPlaybillColors
     return openingSoonPlaybillColors(isDark);
   };
 
@@ -165,11 +176,12 @@ export function fullStatusBadgeForProduction(
       return d ? `Closed ${d}` : "Closed";
     }
 
-    // Closing date label for actively running shows — reuse closingStripLabel
+    // Closing date label for any actively running show — covers open, open_run, and in_previews.
+    // The color already signals urgency; the label names the date so users know when it ends.
     if (
       production.closingDate &&
       production.closingDate >= todayStr &&
-      (status === "open" || status === "open_run")
+      (status === "open" || status === "open_run" || status === "in_previews")
     ) {
       return closingStripLabel(production.closingDate);
     }
@@ -182,7 +194,8 @@ export function fullStatusBadgeForProduction(
         const d = formatDateShort(production.openingDate);
         if (d) return `Opens ${d}`;
       }
-      return "Opens soon";
+      // No future opening date known — show is running but opening date is TBD.
+      return "Running";
     }
 
     if (status === "announced") {
@@ -211,8 +224,8 @@ export function fullStatusBadgeForProduction(
   let secondary: ClosingStripBadge | undefined;
   if (status === "in_previews") {
     secondary = isDark
-      ? { label: "In Previews", bg: "rgba(255,255,255,0.10)", text: "rgba(255,255,255,0.55)" }
-      : { label: "In Previews", bg: "rgba(0,0,0,0.06)", text: "rgba(0,0,0,0.45)" };
+      ? { label: "In Previews", bg: "rgba(255,255,255,0.18)", text: "rgba(255,255,255,0.80)" }
+      : { label: "In Previews", bg: "rgba(0,0,0,0.12)", text: "rgba(0,0,0,0.65)" };
   }
 
   return { primary, secondary };
