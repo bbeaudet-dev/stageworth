@@ -80,6 +80,7 @@ export const exportProductions = internalQuery({
         openingDate: p.openingDate,
         closingDate: p.closingDate,
         isOpenRun: p.isOpenRun,
+        isClosed: p.isClosed,
         productionType: p.productionType,
         hotlinkPosterUrl: p.hotlinkPosterUrl,
         ticketmasterEventId: p.ticketmasterEventId,
@@ -260,6 +261,11 @@ export const importShows = internalMutation({
   handler: async (ctx, args) => {
     let inserted = 0;
     let skipped = 0;
+    const skippedShows: Array<{
+      normalizedName: string;
+      name: string;
+      _devId?: string;
+    }> = [];
 
     for (const row of args.rows) {
       const existing = await ctx.db
@@ -270,6 +276,11 @@ export const importShows = internalMutation({
         .first();
       if (existing) {
         skipped++;
+        skippedShows.push({
+          normalizedName: row.normalizedName,
+          name: row.name,
+          _devId: row._devId,
+        });
         continue;
       }
 
@@ -292,7 +303,7 @@ export const importShows = internalMutation({
       inserted++;
     }
 
-    return { inserted, skipped };
+    return { inserted, skipped, skippedShows };
   },
 });
 
@@ -318,7 +329,9 @@ export const importProductions = internalMutation({
         previewDate: v.optional(v.string()),
         openingDate: v.optional(v.string()),
         closingDate: v.optional(v.string()),
-        isOpenRun: v.optional(v.boolean()),
+        // JSON exports / dashboard paste may include explicit null; v.optional(v.boolean()) rejects null.
+        isOpenRun: v.optional(v.union(v.boolean(), v.null())),
+        isClosed: v.optional(v.union(v.boolean(), v.null())),
         productionType: productionTypeValidator,
         hotlinkPosterUrl: v.optional(v.string()),
         ticketmasterEventId: v.optional(v.string()),
@@ -334,6 +347,12 @@ export const importProductions = internalMutation({
     let inserted = 0;
     let skipped = 0;
     const missingShows: string[] = [];
+    const skippedProductions: Array<{
+      showNormalizedName: string;
+      theatre: string | undefined;
+      _devId?: string;
+      reason: "duplicate_show_theatre";
+    }> = [];
 
     const showCache = new Map<string, Id<"shows">>();
 
@@ -362,6 +381,12 @@ export const importProductions = internalMutation({
           .first();
         if (existing) {
           skipped++;
+          skippedProductions.push({
+            showNormalizedName: row.showNormalizedName,
+            theatre: row.theatre,
+            _devId: row._devId,
+            reason: "duplicate_show_theatre",
+          });
           continue;
         }
       }
@@ -374,7 +399,8 @@ export const importProductions = internalMutation({
         previewDate: row.previewDate,
         openingDate: row.openingDate,
         closingDate: row.closingDate,
-        isOpenRun: row.isOpenRun,
+        isOpenRun: row.isOpenRun == null ? undefined : row.isOpenRun,
+        isClosed: row.isClosed == null ? undefined : row.isClosed,
         productionType: row.productionType,
         hotlinkPosterUrl: row.hotlinkPosterUrl,
         ticketmasterEventId: row.ticketmasterEventId,
@@ -391,6 +417,7 @@ export const importProductions = internalMutation({
       inserted,
       skipped,
       missingShows: [...new Set(missingShows)],
+      skippedProductions,
     };
   },
 });
