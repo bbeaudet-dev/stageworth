@@ -27,6 +27,12 @@ export default defineSchema({
     showScoreCount: v.optional(v.string()),
     showScoreSlug: v.optional(v.string()),
     showScoreUpdatedAt: v.optional(v.number()),
+    // Running time in minutes (total, including any intermission), e.g. 150 for "2h 30m".
+    runningTime: v.optional(v.number()),
+    // Number of intermissions: 0 = none, 1 = one, 2 = two (rare). Undefined = unknown.
+    intermissionCount: v.optional(v.number()),
+    // Short synopsis / description, typically a few sentences.
+    description: v.optional(v.string()),
     isUserCreated: v.boolean(),
     externalSource: v.optional(v.string()),
     externalId: v.optional(v.string()),
@@ -89,6 +95,9 @@ export default defineSchema({
     ticketmasterEventUrl: v.optional(v.string()),
     // false = seeded/curated data; true = added manually by a user
     isUserCreated: v.boolean(),
+    // Playbill production slug, e.g. "hamilton-richard-rodgers-theatre-vault-0000000029".
+    // Used to construct the Playbill URL and drive scheduled enrichment.
+    playbillProductionId: v.optional(v.string()),
     // Hook for future sync with IBDB, Playbill, etc.
     externalId: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -497,7 +506,8 @@ export default defineSchema({
       v.literal("bot"),
       v.literal("seed"),
       v.literal("manual"),
-      v.literal("wikidata")
+      v.literal("wikidata"),
+      v.literal("playbill")
     ),
     status: v.union(
       v.literal("pending"),

@@ -16,6 +16,9 @@ export const SHOW_REVIEWABLE_FIELDS = [
   "type",
   "subtype",
   "hotlinkImageUrl",
+  "runningTime",
+  "intermissionCount",
+  "description",
 ] as const;
 
 export const PRODUCTION_REVIEWABLE_FIELDS = [
@@ -47,7 +50,8 @@ const sourceValidator = v.union(
   v.literal("bot"),
   v.literal("seed"),
   v.literal("manual"),
-  v.literal("wikidata")
+  v.literal("wikidata"),
+  v.literal("playbill")
 );
 
 const showTypeValidator = v.union(

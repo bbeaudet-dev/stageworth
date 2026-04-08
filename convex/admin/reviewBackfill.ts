@@ -6,7 +6,7 @@ import {
   PRODUCTION_REVIEWABLE_FIELDS,
 } from "../reviewQueue";
 
-type Source = "wikipedia" | "ticketmaster" | "bot" | "seed" | "manual" | "wikidata";
+type Source = "wikipedia" | "ticketmaster" | "bot" | "seed" | "manual" | "wikidata" | "playbill";
 
 function resolveSource(doc: { externalSource?: string }): Source {
   switch (doc.externalSource) {
