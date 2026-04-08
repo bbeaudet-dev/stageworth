@@ -10,8 +10,9 @@ export function useTabNav() {
   const segments = useSegments();
 
   const tabKey = useMemo<"community" | "plan" | "search" | "my-shows" | "profile">(() => {
-    const root = segments[0];
-    const tabSlug = segments.length > 1 ? segments[1] : undefined;
+    const segs: string[] = [...segments];
+    const root = segs[0];
+    const tabSlug = segs.length > 1 ? segs[1] : undefined;
     if (root === "(tabs)" && tabSlug === "community") return "community";
     if (root === "(tabs)" && tabSlug === "plan") return "plan";
     if (root === "(tabs)" && tabSlug === "search") return "search";

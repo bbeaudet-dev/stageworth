@@ -89,6 +89,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Copy Convex generated stubs for website
+        run: bun run copy-convex
+
       - name: Lint
         run: bun run lint
 
