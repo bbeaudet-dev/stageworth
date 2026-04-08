@@ -25,7 +25,8 @@
       "@convex/_generated/dataModel": ["./convex_generated/dataModel"],
       "@convex/_generated/server": ["./convex_generated/server"],
       "convex/*": ["./node_modules/convex/*"],
-      "@convex-dev/*": ["./node_modules/@convex-dev/*"],
+      "@convex-dev/better-auth": ["./node_modules/@convex-dev/better-auth"],
+      "@convex-dev/better-auth/*": ["./node_modules/@convex-dev/better-auth/*"],
       "@better-auth/*": ["./node_modules/@better-auth/*"],
       "better-auth": ["./node_modules/better-auth"]
     }
