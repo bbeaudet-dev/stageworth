@@ -5,7 +5,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
 import { removeShowFromSystemLists } from "./listRules";
-import { normalizeShowName } from "./showNormalization";
+import { normalizeShowName, normalizeCityName } from "./showNormalization";
 
 const TIER_ORDER = ["loved", "liked", "okay", "disliked", "unranked"] as const;
 type Tier = (typeof TIER_ORDER)[number];
@@ -73,12 +73,12 @@ async function resolveVenueIdForVisit(
   const normalizedName = normalizeVenueName(trimmedTheatre);
   if (!normalizedName) return undefined;
 
-  const trimmedCity = city?.trim();
-  const exactByName = trimmedCity
+  const normalizedCity = city?.trim() ? normalizeCityName(city.trim()) : undefined;
+  const exactByName = normalizedCity
     ? await ctx.db
         .query("venues")
         .withIndex("by_city_normalized_name", (q: any) =>
-          q.eq("city", trimmedCity).eq("normalizedName", normalizedName)
+          q.eq("city", normalizedCity).eq("normalizedName", normalizedName)
         )
         .first()
     : await ctx.db
@@ -87,10 +87,10 @@ async function resolveVenueIdForVisit(
         .first();
   if (exactByName?._id) return exactByName._id;
 
-  const cityCandidates = trimmedCity
+  const cityCandidates = normalizedCity
     ? await ctx.db
         .query("venues")
-        .withIndex("by_city", (q: any) => q.eq("city", trimmedCity))
+        .withIndex("by_city", (q: any) => q.eq("city", normalizedCity))
         .collect()
     : await ctx.db.query("venues").collect();
 
@@ -447,7 +447,8 @@ export const create = mutation({
     const userId = await requireConvexUserId(ctx);
     const production = args.productionId ? await ctx.db.get(args.productionId) : null;
     const theatre = args.theatre?.trim() || production?.theatre?.trim();
-    const city = args.city?.trim() || production?.city?.trim();
+    const rawCity = args.city?.trim() || production?.city?.trim();
+    const city = rawCity ? normalizeCityName(rawCity) : rawCity;
     const district = args.district ?? production?.district;
     const venueId = args.venueId ?? (await resolveVenueIdForVisit(ctx, theatre, city));
 
@@ -661,7 +662,8 @@ export const createVisit = mutation({
     );
     const production = args.productionId ? await ctx.db.get(args.productionId) : null;
     const theatre = args.theatre?.trim() || production?.theatre?.trim();
-    const city = args.city?.trim() || production?.city?.trim();
+    const rawCity = args.city?.trim() || production?.city?.trim();
+    const city = rawCity ? normalizeCityName(rawCity) : rawCity;
     const district = args.district ?? production?.district;
     const venueId = args.venueId ?? (await resolveVenueIdForVisit(ctx, theatre, city));
 
@@ -914,7 +916,8 @@ export const updateVisit = mutation({
 
     const production = args.productionId ? await ctx.db.get(args.productionId) : null;
     const theatre = args.theatre?.trim() || production?.theatre?.trim();
-    const city = args.city?.trim() || production?.city?.trim();
+    const rawCity = args.city?.trim() || production?.city?.trim();
+    const city = rawCity ? normalizeCityName(rawCity) : rawCity;
     const district = production?.district ?? visit.district;
     const resolvedVenueId = await resolveVenueIdForVisit(ctx, theatre, city);
     const venueId = resolvedVenueId ?? visit.venueId;
