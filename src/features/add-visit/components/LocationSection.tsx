@@ -1,5 +1,8 @@
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useRef, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useQuery } from "convex/react";
 
+import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -10,6 +13,8 @@ type Production = {
   theatre?: string;
   city?: string;
 };
+
+type VenueSuggestion = { name: string; city: string; state?: string };
 
 export function LocationSection({
   selectedShowId,
@@ -41,6 +46,36 @@ export function LocationSection({
   const theme = useColorScheme() ?? "light";
   const c = Colors[theme];
   const inputStyle = [styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text }];
+
+  // ── Venue autocomplete ──────────────────────────────────────────────────────
+  const [venueQuery, setVenueQuery] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const suggestions = useQuery(
+    api.venues.search,
+    venueQuery.length >= 2 ? { query: venueQuery } : "skip"
+  ) as VenueSuggestion[] | undefined;
+
+  const handleTheatreChange = (text: string) => {
+    setTheatre(text);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const trimmed = text.trim();
+    if (trimmed.length >= 2) {
+      debounceRef.current = setTimeout(() => setVenueQuery(trimmed), 200);
+    } else {
+      setVenueQuery("");
+    }
+  };
+
+  const handleSuggestionSelect = (suggestion: VenueSuggestion) => {
+    setTheatre(suggestion.name);
+    setCity(suggestion.city);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setVenueQuery("");
+  };
+
+  const showDropdown = venueQuery.length >= 2 && suggestions !== undefined && suggestions.length > 0;
+
   return (
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: c.text }]}>Location</Text>
@@ -113,6 +148,42 @@ export function LocationSection({
 
       {useOtherProduction && (
         <View style={styles.otherForm}>
+          {/* Theatre — above City, with live venue autocomplete */}
+          <View>
+            <TextInput
+              style={inputStyle}
+              placeholderTextColor={c.mutedText}
+              value={theatre}
+              onChangeText={handleTheatreChange}
+              placeholder="Theatre"
+              autoCapitalize="words"
+              autoCorrect={false}
+            />
+            {showDropdown && (
+              <View style={[styles.resultsCard, localStyles.dropdown, { borderColor: c.border }]}>
+                {suggestions!.map((suggestion, index) => (
+                  <Pressable
+                    key={`${suggestion.name}-${suggestion.city}`}
+                    style={[
+                      styles.resultRow,
+                      { borderTopColor: c.border, backgroundColor: c.surfaceElevated },
+                      index === 0 && localStyles.firstRow,
+                    ]}
+                    onPress={() => handleSuggestionSelect(suggestion)}
+                  >
+                    <Text style={[styles.resultName, { color: c.text }]} numberOfLines={1}>
+                      {suggestion.name}
+                    </Text>
+                    <Text style={[styles.resultType, { color: c.mutedText }]}>
+                      {suggestion.city}{suggestion.state ? `, ${suggestion.state}` : ""}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* City */}
           <TextInput
             style={inputStyle}
             placeholderTextColor={c.mutedText}
@@ -121,16 +192,17 @@ export function LocationSection({
             placeholder="City"
             autoCapitalize="words"
           />
-          <TextInput
-            style={inputStyle}
-            placeholderTextColor={c.mutedText}
-            value={theatre}
-            onChangeText={setTheatre}
-            placeholder="Theatre"
-            autoCapitalize="words"
-          />
         </View>
       )}
     </View>
   );
 }
+
+const localStyles = StyleSheet.create({
+  dropdown: {
+    marginTop: 2,
+  },
+  firstRow: {
+    borderTopWidth: 0,
+  },
+});

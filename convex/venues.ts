@@ -14,6 +14,45 @@ function normalizeVenueName(name: string) {
     .trim();
 }
 
+export const search = query({
+  args: { query: v.string() },
+  handler: async (ctx, args) => {
+    const q = args.query.trim();
+    if (q.length < 2) return [];
+    const normalized = normalizeVenueName(q);
+    if (!normalized) return [];
+
+    const venues = await ctx.db.query("venues").collect();
+
+    type Scored = { name: string; city: string; state?: string; score: number };
+    const scored: Scored[] = [];
+
+    for (const venue of venues) {
+      if (!venue.isActive) continue;
+      const n = venue.normalizedName;
+
+      if (n.startsWith(normalized)) {
+        scored.push({ name: venue.name, city: venue.city, state: venue.state, score: 3 });
+      } else if (n.includes(normalized)) {
+        scored.push({ name: venue.name, city: venue.city, state: venue.state, score: 2 });
+      } else {
+        // word-boundary match: any query word is a prefix of any name word
+        const queryWords = normalized.split(" ").filter((w) => w.length > 1);
+        const nameWords = n.split(" ");
+        const anyWordMatch = queryWords.some((qw) => nameWords.some((nw) => nw.startsWith(qw)));
+        if (anyWordMatch) {
+          scored.push({ name: venue.name, city: venue.city, state: venue.state, score: 1 });
+        }
+      }
+    }
+
+    return scored
+      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+      .slice(0, 8)
+      .map(({ name, city, state }) => ({ name, city, state }));
+  },
+});
+
 export const list = query({
   args: {
     district: v.optional(
