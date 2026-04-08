@@ -114,14 +114,20 @@ function scheduleBucketForShow(
     openingDate?: string;
     closingDate?: string;
     isOpenRun?: boolean | null;
+    isClosed?: boolean | null;
   }>,
   asOf: string
-): "current_upcoming" | "historical" {
+): "running" | "upcoming" | "historical" {
   if (prods.length === 0) return "historical";
-  const anyLiveOrUpcoming = prods.some(
-    (p) => getProductionStatus(p, asOf) !== "closed"
-  );
-  return anyLiveOrUpcoming ? "current_upcoming" : "historical";
+  // Priority: running > upcoming > historical
+  for (const p of prods) {
+    const s = getProductionStatus(p, asOf);
+    if (s === "open" || s === "open_run" || s === "in_previews") return "running";
+  }
+  for (const p of prods) {
+    if (getProductionStatus(p, asOf) === "announced") return "upcoming";
+  }
+  return "historical";
 }
 
 export const listShowsForReview = query({
@@ -444,6 +450,7 @@ export const createProductionFromAdminForm = mutation({
     openingDate: v.optional(v.string()),
     closingDate: v.optional(v.string()),
     isOpenRun: v.optional(v.boolean()),
+    isClosed: v.optional(v.boolean()),
     productionType: productionTypeFormValidator,
     notes: v.optional(v.string()),
     ticketmasterEventUrl: v.optional(v.string()),
@@ -472,6 +479,7 @@ export const createProductionFromAdminForm = mutation({
       openingDate,
       closingDate,
       isOpenRun: args.isOpenRun,
+      isClosed: args.isClosed,
       productionType: args.productionType,
       notes,
       ticketmasterEventUrl,
@@ -494,6 +502,9 @@ export const createProductionFromAdminForm = mutation({
     ];
     if (args.isOpenRun !== undefined) {
       queuePairs.push(["isOpenRun", args.isOpenRun ? "true" : "false"]);
+    }
+    if (args.isClosed !== undefined) {
+      queuePairs.push(["isClosed", args.isClosed ? "true" : "false"]);
     }
     if (notes) queuePairs.push(["notes", notes]);
     if (ticketmasterEventUrl) {
@@ -734,7 +745,7 @@ function normalizeForVenueMatch(name: string): string {
 }
 
 // Fields stored as booleans — string values "true"/"false" must be converted.
-const BOOLEAN_FIELDS = new Set(["isOpenRun"]);
+const BOOLEAN_FIELDS = new Set(["isOpenRun", "isClosed"]);
 
 /** Heuristic: uploaded admin image edits pass a storage id, not a http(s) URL. */
 function isLikelyConvexStorageId(s: string): boolean {
