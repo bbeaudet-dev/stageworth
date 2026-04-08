@@ -37,12 +37,19 @@ export function getProductionStatus(
     openingDate?: string;
     closingDate?: string;
     isOpenRun?: boolean | null;
+    isClosed?: boolean | null;
   },
   asOf: string = todayString()
 ): ProductionStatus {
   const { previewDate, openingDate, closingDate } = production;
 
-  const { isOpenRun } = production;
+  const { isOpenRun, isClosed } = production;
+
+  // Explicit close flag — marks a production as closed even without a recorded closing date.
+  // Counterpart to isOpenRun; allows disambiguating "missing closing date" from "still running".
+  if (isClosed === true) {
+    return "closed";
+  }
 
   // If we have an explicit closing date in the past, it's closed.
   if (closingDate && closingDate < asOf) {
@@ -121,6 +128,7 @@ export function isProductionBrowseVisible(
     openingDate?: string;
     closingDate?: string;
     isOpenRun?: boolean | null;
+    isClosed?: boolean | null;
     theatre?: string;
     city?: string;
   },

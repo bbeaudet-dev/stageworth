@@ -23,6 +23,7 @@ export function railBadgeForProduction(
     openingDate?: string;
     closingDate?: string;
     isOpenRun?: boolean | null;
+    isClosed?: boolean | null;
   },
   isDark: boolean,
   todayStr: string
