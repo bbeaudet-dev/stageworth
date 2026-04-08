@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BRAND_BLUE, BRAND_GRADIENT_STYLE } from "@/lib/brand-colors";
 import { TESTFLIGHT_PUBLIC_URL } from "@/lib/testflight";
 
@@ -10,12 +10,12 @@ export default function InvitePage() {
   const params = useParams();
   const token = params.token as string;
 
-  const [status, setStatus] = useState<"idle" | "opening" | "fallback">("idle");
+  const [status, setStatus] = useState<"idle" | "opening" | "fallback">("opening");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function handleOpen() {
+  const openInviteDeepLink = useCallback(() => {
     if (!token) return;
-    setStatus("opening");
+    if (timerRef.current) clearTimeout(timerRef.current);
 
     const deepLink = `theatrediary://invite/${token}`;
     window.location.href = deepLink;
@@ -23,14 +23,14 @@ export default function InvitePage() {
     timerRef.current = setTimeout(() => {
       setStatus("fallback");
     }, 1500);
-  }
+  }, [token]);
 
   useEffect(() => {
-    handleOpen();
+    openInviteDeepLink();
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [token]);
+  }, [openInviteDeepLink]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16">
@@ -74,7 +74,10 @@ export default function InvitePage() {
         ) : (
           <div className="space-y-3">
             <button
-              onClick={handleOpen}
+              onClick={() => {
+                setStatus("opening");
+                openInviteDeepLink();
+              }}
               disabled={status === "opening"}
               className="inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold shadow-md hover:bg-white/90 transition-colors disabled:opacity-70"
               style={{ color: BRAND_BLUE }}

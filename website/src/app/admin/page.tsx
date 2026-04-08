@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 
 type StatusFilter = "needs_review" | "partial" | "complete" | undefined;
 
@@ -48,7 +48,7 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   },
 };
 
-export default function AdminDashboard() {
+function AdminDashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -536,6 +536,14 @@ export default function AdminDashboard() {
         </div>
       )}
     </>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-7xl px-4 py-5 text-sm text-gray-500">Loading...</div>}>
+      <AdminDashboardContent />
+    </Suspense>
   );
 }
 

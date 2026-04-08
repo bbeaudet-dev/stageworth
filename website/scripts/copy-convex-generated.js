@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * Copies ../convex/_generated JS files into website/convex_generated/ and
  * generates stub .d.ts files that re-export types from the originals.
