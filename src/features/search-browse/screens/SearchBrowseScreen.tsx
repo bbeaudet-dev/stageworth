@@ -363,7 +363,7 @@ export default function SearchBrowseScreen() {
 
             {upcomingShows && upcomingShows.length > 0 && (
               <BrowseRail
-                title="Coming Soon"
+                title="Upcoming"
                 items={upcomingShows.map((p) => ({
                   _id: p._id,
                   show: p.show,
@@ -377,7 +377,7 @@ export default function SearchBrowseScreen() {
                 mutedColor={muted}
                 accentColor={accent}
                 onPress={navigateToShow}
-                onSeeMore={() => navigateToCategory("coming-soon")}
+                onSeeMore={() => navigateToCategory("upcoming")}
                 listStatuses={listStatuses ?? {}}
                 onListIconPress={openListSheet}
               />

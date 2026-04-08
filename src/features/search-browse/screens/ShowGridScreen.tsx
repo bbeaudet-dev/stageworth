@@ -35,13 +35,13 @@ const PAGE_SIZE = 100;
 
 type CategoryConfig = {
   title: string;
-  query: "now-playing" | "closing-soon" | "coming-soon" | "all";
+  query: "now-playing" | "closing-soon" | "upcoming" | "all";
 };
 
 const CATEGORIES: Record<string, CategoryConfig> = {
   "now-playing": { title: "Now Playing", query: "now-playing" },
   "closing-soon": { title: "Closing Soon", query: "closing-soon" },
-  "coming-soon": { title: "Coming Soon", query: "coming-soon" },
+  "upcoming": { title: "Upcoming", query: "upcoming" },
   all: { title: "All Shows", query: "all" },
 };
 
@@ -79,7 +79,7 @@ export default function ShowGridScreen() {
   );
   const upcomingShows = useQuery(
     api.productions.listUpcoming,
-    config.query === "coming-soon" ? {} : "skip",
+    config.query === "upcoming" ? {} : "skip",
   );
   const allShows = useQuery(
     api.shows.list,
@@ -124,7 +124,7 @@ export default function ShowGridScreen() {
       seen.add(p.show._id);
       const resolvedImage = p.posterUrl ?? p.show.images[0] ?? null;
       const badge =
-        config.query === "coming-soon"
+          config.query === "upcoming"
           ? railBadgeForProduction(p, isDark, todayStr) ?? undefined
           : config.query === "closing-soon"
             ? railBadgeForClosingSoon(p, isDark, todayStr) ?? undefined
