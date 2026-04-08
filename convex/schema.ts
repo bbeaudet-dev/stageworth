@@ -70,6 +70,9 @@ export default defineSchema({
     // false = closing date not yet announced but not confirmed as open run.
     // undefined/null = unknown.
     isOpenRun: v.optional(v.boolean()),
+    // true = explicitly confirmed as closed (e.g. opening date recorded but no closing date).
+    // Counterpart to isOpenRun — disambiguates "missing closing date" from "actually closed".
+    isClosed: v.optional(v.boolean()),
     productionType: v.union(
       v.literal("original"),
       v.literal("revival"),
