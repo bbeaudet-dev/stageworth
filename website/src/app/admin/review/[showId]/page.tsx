@@ -196,7 +196,7 @@ const PRODUCTION_FIELDS: FieldDef[] = [
   { field: "openingDate", label: "Opening Date", inputType: "date" },
   { field: "closingDate", label: "Closing Date", inputType: "date" },
   { field: "isOpenRun", label: "Open Run", inputType: "boolean" },
-  { field: "isClosed", label: "Closed (no date)", inputType: "boolean" },
+  { field: "isClosed", label: "Closed (manual or incomplete data)", inputType: "boolean" },
   {
     field: "productionType",
     label: "Production Type",
