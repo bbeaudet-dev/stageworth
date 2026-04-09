@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
+import { useToast } from "@/components/Toast";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getBottomInsertionIndexForTier } from "@/features/add-visit/logic/ranking";
 import { getTodayIsoDate } from "@/features/add-visit/logic/form";
@@ -41,6 +42,7 @@ export default function AddVisitScreen() {
   const paramShowName = routeParamString(params.showName);
   const navigation = useNavigation();
   const allowRemoveRef = useRef(false);
+  const { showToast } = useToast();
   const {
     state,
     hasUnsavedChanges,
@@ -198,6 +200,7 @@ export default function AddVisitScreen() {
         taggedUserIds: state.taggedUserIds.length > 0 ? state.taggedUserIds : undefined,
       });
       allowRemoveRef.current = true;
+      showToast({ message: "Visit saved!" });
       router.replace("/(tabs)");
     } finally {
       setIsSaving(false);
