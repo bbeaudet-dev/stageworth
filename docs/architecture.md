@@ -4,7 +4,7 @@ This project uses file-based routing with Expo Router and feature-based implemen
 
 ## Routing vs Features
 
-- `app/*` defines navigation routes. Keep these files thin.
+- `src/app/*` defines navigation routes. Keep these files thin.
 - `src/features/*` contains real screen logic, hooks, components, and feature-specific utilities.
 
 Typical route wrapper:
