@@ -23,7 +23,7 @@ jobs:
         with:
           filters: |
             app:
-              - "app/**"
+              - "src/app/**"
               - "assets/**"
               - "components/**"
               - "config/**"

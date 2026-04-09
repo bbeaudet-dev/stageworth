@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@/lib/api";
+import { api, type Id } from "@/lib/api";
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 
@@ -18,18 +18,18 @@ export default function AdminShowtimesPage() {
   const [rejectNote, setRejectNote] = useState("");
 
   const rows = useQuery(
-    (api as any).showtimes.listProposals,
+    api.showtimes.listProposals,
     status === "all" ? { limit: 100 } : { status, limit: 100 }
   );
-  const approve = useMutation((api as any).showtimes.approveProposal);
-  const reject = useMutation((api as any).showtimes.rejectProposal);
+  const approve = useMutation(api.showtimes.approveProposal);
+  const reject = useMutation(api.showtimes.rejectProposal);
 
   const ordered = useMemo(() => rows ?? [], [rows]);
 
   async function onApprove(id: string) {
     setBusyId(id);
     try {
-      await approve({ proposalId: id as never });
+      await approve({ proposalId: id as Id<"showtimesReviews"> });
     } finally {
       setBusyId(null);
     }
@@ -38,7 +38,10 @@ export default function AdminShowtimesPage() {
   async function onReject(id: string) {
     setBusyId(id);
     try {
-      await reject({ proposalId: id as never, note: rejectNote || undefined });
+      await reject({
+        proposalId: id as Id<"showtimesReviews">,
+        note: rejectNote || undefined,
+      });
       setRejectNote("");
     } finally {
       setBusyId(null);

@@ -387,7 +387,7 @@ export const listProposals = query({
   },
 });
 
-export const approveProposal: any = mutation({
+export const approveProposal = mutation({
   args: { proposalId: v.id("showtimesReviews") },
   handler: async (ctx, args): Promise<{ ok: true; status: string; weekOf?: string; matched?: string[]; unmatched?: string[] }> => {
     const proposal = await ctx.db.get(args.proposalId);
@@ -426,7 +426,7 @@ export const rejectProposal = mutation({
   },
 });
 
-export const syncFromPlaybill: any = action({
+export const syncFromPlaybill = action({
   args: { force: v.optional(v.boolean()) },
   handler: async (ctx, { force }): Promise<
     | { status: "stale"; weekOf: string; expectedWeek: string }
