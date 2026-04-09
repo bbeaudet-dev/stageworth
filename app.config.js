@@ -38,6 +38,7 @@ module.exports = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.theatrediary.app",
+    icon: "./assets/images/ios-icon.png",
     buildNumber: "3",
     usesAppleSignIn: true,
     appleTeamId: "M8M7T576K8",
