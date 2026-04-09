@@ -568,11 +568,14 @@ export const createVisit = mutation({
 
     if (!showId) throw new Error("Unable to resolve show");
 
-    const rankings = await ctx.db
+    let rankings = await ctx.db
       .query("userRankings")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();
-    if (!rankings) throw new Error("Rankings not found");
+    if (!rankings) {
+      const newId = await ctx.db.insert("userRankings", { userId, showIds: [] });
+      rankings = (await ctx.db.get(newId))!;
+    }
     let finalRankingShowIds = [...rankings.showIds];
 
     const alreadyRanked = rankings.showIds.includes(showId);

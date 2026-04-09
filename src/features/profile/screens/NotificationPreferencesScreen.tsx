@@ -46,6 +46,7 @@ type ToggleRowProps = {
   borderColor: string;
   surfaceColor: string;
   accentColor: string;
+  switchColor: string;
   iconBg: string;
 };
 
@@ -60,6 +61,7 @@ function ToggleRow({
   borderColor,
   surfaceColor,
   accentColor,
+  switchColor,
   iconBg,
 }: ToggleRowProps) {
   return (
@@ -74,7 +76,7 @@ function ToggleRow({
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: borderColor, true: accentColor }}
+        trackColor={{ false: borderColor, true: switchColor }}
         thumbColor="#fff"
         ios_backgroundColor={borderColor}
       />
@@ -121,12 +123,17 @@ export default function NotificationPreferencesScreen() {
     }
   };
 
+  // In dark mode, accent is white (#fff) which makes the Switch thumb invisible
+  // (iOS thumb is always white). Use a blue that contrasts with the white thumb.
+  const switchColor = theme === "dark" ? "#0a7ea4" : c.accent;
+
   const commonProps = {
     textColor: c.text,
     mutedColor: c.mutedText,
     borderColor: c.border,
     surfaceColor: c.surfaceElevated,
     accentColor: c.accent,
+    switchColor,
     iconBg,
   };
 
