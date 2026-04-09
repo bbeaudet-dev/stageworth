@@ -59,7 +59,6 @@ export const getProductionsNeedingEnrichment = internalQuery({
       playbillProductionId: string;
       showId: string;
       showName: string;
-      missingShowFields: string[];
       missingProductionFields: string[];
     }> = [];
 
@@ -69,31 +68,26 @@ export const getProductionsNeedingEnrichment = internalQuery({
       const show = await ctx.db.get(production.showId);
       if (!show) continue;
 
-      // Show-level fields enrichable from Playbill.
-      const missingShowFields: string[] = [];
-      if (show.runningTime === undefined || show.runningTime === null)
-        missingShowFields.push("runningTime");
-      if (show.intermissionCount === undefined || show.intermissionCount === null)
-        missingShowFields.push("intermissionCount");
-      if (!show.description) missingShowFields.push("description");
-
-      // Production-level date fields enrichable from Playbill.
+      // All enrichable fields are production-level.
       const missingProductionFields: string[] = [];
+      if (production.runningTime === undefined || production.runningTime === null)
+        missingProductionFields.push("runningTime");
+      if (production.intermissionCount === undefined || production.intermissionCount === null)
+        missingProductionFields.push("intermissionCount");
+      if (!production.description) missingProductionFields.push("description");
       if (!production.previewDate) missingProductionFields.push("previewDate");
       if (!production.openingDate) missingProductionFields.push("openingDate");
       // Only flag closingDate if we don't already know it's an open run.
       if (!production.closingDate && !production.isOpenRun)
         missingProductionFields.push("closingDate");
 
-      if (missingShowFields.length === 0 && missingProductionFields.length === 0)
-        continue;
+      if (missingProductionFields.length === 0) continue;
 
       rows.push({
         productionId: production._id as string,
         playbillProductionId: production.playbillProductionId,
         showId: production.showId as string,
         showName: show.name,
-        missingShowFields,
         missingProductionFields,
       });
     }

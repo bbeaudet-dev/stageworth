@@ -240,9 +240,7 @@ async function scrapeProduction(production) {
   const {
     productionId,
     playbillProductionId,
-    showId,
     showName,
-    missingShowFields,
     missingProductionFields,
   } = production;
 
@@ -264,38 +262,38 @@ async function scrapeProduction(production) {
 
   const findings = [];
 
-  // ── Show-level fields ────────────────────────────────────────────────────
+  // ── Production-level fields ──────────────────────────────────────────────
 
   if (
-    missingShowFields.includes("runningTime") ||
-    missingShowFields.includes("intermissionCount")
+    missingProductionFields.includes("runningTime") ||
+    missingProductionFields.includes("intermissionCount")
   ) {
     const { minutes, intermissionCount } = parseRunningTime(html);
 
-    if (minutes !== null && missingShowFields.includes("runningTime")) {
+    if (minutes !== null && missingProductionFields.includes("runningTime")) {
       findings.push({
-        entityType: "show",
-        entityId: showId,
+        entityType: "production",
+        entityId: productionId,
         field: "runningTime",
         value: String(minutes),
       });
     }
-    if (intermissionCount !== null && missingShowFields.includes("intermissionCount")) {
+    if (intermissionCount !== null && missingProductionFields.includes("intermissionCount")) {
       findings.push({
-        entityType: "show",
-        entityId: showId,
+        entityType: "production",
+        entityId: productionId,
         field: "intermissionCount",
         value: String(intermissionCount),
       });
     }
   }
 
-  if (missingShowFields.includes("description")) {
+  if (missingProductionFields.includes("description")) {
     const description = parseDescription(html);
     if (description) {
       findings.push({
-        entityType: "show",
-        entityId: showId,
+        entityType: "production",
+        entityId: productionId,
         field: "description",
         value: description,
       });
@@ -376,8 +374,7 @@ async function main() {
           playbillProductionId: SPECIFIC_ID,
           showId: "manual-test",
           showName: SPECIFIC_ID,
-          missingShowFields: ["runningTime", "intermissionCount", "description"],
-          missingProductionFields: ["previewDate", "openingDate", "closingDate"],
+          missingProductionFields: ["runningTime", "intermissionCount", "description", "previewDate", "openingDate", "closingDate"],
         },
       ];
     }

@@ -154,10 +154,6 @@ const SHOW_FIELDS: FieldDef[] = [
     options: ["musical", "play", "opera", "dance", "other"],
   },
   { field: "subtype", label: "Sub-type", inputType: "text" },
-  { field: "runningTime", label: "Running Time (min)", inputType: "text" },
-  { field: "intermissionCount", label: "Intermissions (count)", inputType: "text" },
-  { field: "intermissionMinutes", label: "Intermission Duration (min)", inputType: "text" },
-  { field: "description", label: "Description", inputType: "textarea" },
   {
     field: "hotlinkImageUrl",
     label: "Image",
@@ -229,6 +225,10 @@ const PRODUCTION_FIELDS: FieldDef[] = [
     label: "Ticketmaster URL",
     inputType: "url",
   },
+  { field: "runningTime", label: "Running Time (min)", inputType: "text" },
+  { field: "intermissionCount", label: "Intermissions (count)", inputType: "text" },
+  { field: "intermissionMinutes", label: "Intermission Duration (min)", inputType: "text" },
+  { field: "description", label: "Description", inputType: "textarea" },
   { field: "playbillProductionId", label: "Playbill Production ID", inputType: "text" },
   { field: "notes", label: "Notes", inputType: "textarea" },
 ];

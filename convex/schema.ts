@@ -27,15 +27,6 @@ export default defineSchema({
     showScoreCount: v.optional(v.string()),
     showScoreSlug: v.optional(v.string()),
     showScoreUpdatedAt: v.optional(v.number()),
-    // Running time in minutes (total, including any intermission), e.g. 150 for "2h 30m".
-    runningTime: v.optional(v.number()),
-    // Number of intermissions: 0 = none, 1 = one, 2 = two (rare). Undefined = unknown.
-    intermissionCount: v.optional(v.number()),
-    // Total intermission time in minutes (all intermissions combined). Undefined = unknown.
-    // Playbill does not provide this; filled in manually or from other sources.
-    intermissionMinutes: v.optional(v.number()),
-    // Short synopsis / description, typically a few sentences.
-    description: v.optional(v.string()),
     isUserCreated: v.boolean(),
     externalSource: v.optional(v.string()),
     externalId: v.optional(v.string()),
@@ -103,6 +94,15 @@ export default defineSchema({
     playbillProductionId: v.optional(v.string()),
     // Hook for future sync with IBDB, Playbill, etc.
     externalId: v.optional(v.string()),
+    // Running time in minutes (total, including any intermission), e.g. 150 for "2h 30m".
+    runningTime: v.optional(v.number()),
+    // Number of intermissions: 0 = none, 1 = one, 2 = two (rare). Undefined = unknown.
+    intermissionCount: v.optional(v.number()),
+    // Total intermission time in minutes (all intermissions combined). Undefined = unknown.
+    intermissionMinutes: v.optional(v.number()),
+    // Short synopsis / description for this specific production.
+    // Used as the show-level description when no show-level description exists.
+    description: v.optional(v.string()),
     notes: v.optional(v.string()),
     // Admin review status — undefined treated as "needs_review".
     dataStatus: v.optional(
