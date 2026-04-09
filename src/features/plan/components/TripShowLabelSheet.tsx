@@ -1,11 +1,13 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMemo } from "react";
+import { useQuery } from "convex/react";
 
 import { BottomSheet } from "@/components/bottom-sheet";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
+import { api } from "@/convex/_generated/api";
 import { Image } from "expo-image";
 import {
   type TripShowLabel,
@@ -14,7 +16,6 @@ import {
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { daysUntil, formatDate } from "@/features/browse/logic/date";
 import { BroadwayShowtimesGrid } from "@/components/BroadwayShowtimesGrid";
-import { findBroadwayShowtimes } from "@/lib/broadwayShowtimes";
 
 const AVATAR_CAP = 3;
 const SHEET_H_PAD = 16;
@@ -91,7 +92,15 @@ export function TripShowLabelSheet({
   const chipWidth = (screenWidth - SHEET_H_PAD * 2 - ROW_GAP * (LABEL_ROW_1.length - 1)) / LABEL_ROW_1.length;
 
   const showName = item?.show?.name ?? "Show";
-  const broadwayShowtimes = useMemo(() => findBroadwayShowtimes(showName), [showName]);
+  const productions = useQuery(
+    api.productions.listByShowWithImages,
+    item?.showId ? { showId: item.showId } : "skip"
+  );
+  const broadwayShowtimes = useMemo(() => {
+    if (!productions) return null;
+    const prod = productions.find((p) => p.district === "broadway" && p.weeklySchedule != null);
+    return prod?.weeklySchedule ?? null;
+  }, [productions]);
 
   if (!item) return null;
   const assignedToDay = item.dayDate != null && item.dayDate !== "";

@@ -1,12 +1,30 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import {
-  BROADWAY_SHOWTIMES_DAY_ORDER,
-  formatBroadwaySlotLabel,
-  type BroadwayShowtimesResult,
-} from "@/lib/broadwayShowtimes";
+export type WeeklySchedule = {
+  weekOf: string;
+  mon: string[];
+  tue: string[];
+  wed: string[];
+  thu: string[];
+  fri: string[];
+  sat: string[];
+  sun: string[];
+};
 
+const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function formatSlotLabel(slot: string): string {
+  if (slot === "opening") return "Opening";
+  const m = slot.match(/^(\d{2}):(\d{2})$/);
+  if (!m) return slot;
+  const hour = parseInt(m[1], 10);
+  const minute = parseInt(m[2], 10);
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  const ampm = hour < 12 ? "AM" : "PM";
+  if (minute === 0) return `${hour12} ${ampm}`;
+  return `${hour12}:${String(minute).padStart(2, "0")} ${ampm}`;
+}
 
 export function BroadwayShowtimesGrid({
   data,
@@ -15,20 +33,17 @@ export function BroadwayShowtimesGrid({
   primaryTextColor,
   mutedTextColor,
 }: {
-  data: BroadwayShowtimesResult;
+  data: WeeklySchedule;
   borderColor: string;
   surfaceColor: string;
   primaryTextColor: string;
   mutedTextColor: string;
 }) {
-  const maxSlots = Math.max(
-    ...BROADWAY_SHOWTIMES_DAY_ORDER.map((d) => data.schedule[d].length),
-    0
-  );
+  const maxSlots = Math.max(...DAY_KEYS.map((d) => data[d].length), 0);
   if (maxSlots === 0) return null;
 
   const rows = Array.from({ length: maxSlots }, (_, rowIdx) =>
-    BROADWAY_SHOWTIMES_DAY_ORDER.map((day) => data.schedule[day][rowIdx] ?? null)
+    DAY_KEYS.map((day) => data[day][rowIdx] ?? null)
   );
 
   return (
@@ -48,7 +63,7 @@ export function BroadwayShowtimesGrid({
                 {slot ? (
                   <View style={[styles.timeChip, { borderColor }]}>
                     <Text style={[styles.timeChipText, { color: primaryTextColor }]} numberOfLines={2}>
-                      {formatBroadwaySlotLabel(slot)}
+                      {formatSlotLabel(slot)}
                     </Text>
                   </View>
                 ) : (

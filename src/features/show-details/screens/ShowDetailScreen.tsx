@@ -31,7 +31,6 @@ import {
 import { playbillMatBackground } from "@/features/browse/styles";
 import { getProductionStatus, type ProductionStatus } from "@/utils/productions";
 import { BroadwayShowtimesGrid } from "@/components/BroadwayShowtimesGrid";
-import { findBroadwayShowtimes } from "@/lib/broadwayShowtimes";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -343,9 +342,10 @@ export default function ShowDetailScreen() {
   }, [myTrips]);
 
   const broadwayShowtimes = useMemo(() => {
-    const name = show?.name ?? params.name ?? "";
-    return name ? findBroadwayShowtimes(name) : null;
-  }, [show?.name, params.name]);
+    if (!productions) return null;
+    const prod = productions.find((p) => p.district === "broadway" && p.weeklySchedule != null);
+    return prod?.weeklySchedule ?? null;
+  }, [productions]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={["bottom"]}>
