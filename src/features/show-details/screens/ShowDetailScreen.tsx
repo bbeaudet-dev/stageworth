@@ -235,13 +235,6 @@ export default function ShowDetailScreen() {
   const typeColors = isDark ? TYPE_COLORS_DARK[showType] ?? TYPE_COLORS_DARK.other : TYPE_COLORS[showType] ?? TYPE_COLORS.other;
 
   const todayStr = today();
-  const activeProductions = useMemo(
-    () => productions?.filter((p) => {
-      const s = getProductionStatus(p, todayStr);
-      return s !== "closed";
-    }) ?? [],
-    [productions, todayStr]
-  );
 
   const hasVisits = (visits?.length ?? 0) > 0;
 
