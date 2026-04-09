@@ -31,7 +31,6 @@ import {
 import { playbillMatBackground } from "@/features/browse/styles";
 import { getProductionStatus, type ProductionStatus } from "@/utils/productions";
 import { BroadwayShowtimesGrid } from "@/components/BroadwayShowtimesGrid";
-import { findBroadwayShowtimes } from "@/lib/broadwayShowtimes";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -236,13 +235,6 @@ export default function ShowDetailScreen() {
   const typeColors = isDark ? TYPE_COLORS_DARK[showType] ?? TYPE_COLORS_DARK.other : TYPE_COLORS[showType] ?? TYPE_COLORS.other;
 
   const todayStr = today();
-  const activeProductions = useMemo(
-    () => productions?.filter((p) => {
-      const s = getProductionStatus(p, todayStr);
-      return s !== "closed";
-    }) ?? [],
-    [productions, todayStr]
-  );
 
   const hasVisits = (visits?.length ?? 0) > 0;
 
@@ -343,9 +335,10 @@ export default function ShowDetailScreen() {
   }, [myTrips]);
 
   const broadwayShowtimes = useMemo(() => {
-    const name = show?.name ?? params.name ?? "";
-    return name ? findBroadwayShowtimes(name) : null;
-  }, [show?.name, params.name]);
+    if (!productions) return null;
+    const prod = productions.find((p) => p.district === "broadway" && p.weeklySchedule != null);
+    return prod?.weeklySchedule ?? null;
+  }, [productions]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={["bottom"]}>

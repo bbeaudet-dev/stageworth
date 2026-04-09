@@ -1,12 +1,10 @@
 name: Weekly Broadway Showtimes
 
 # Runs once on Monday at 1am ET. If Playbill hasn't updated yet (the script
-# exits 2), the job waits 1 hour and tries again — up to 5 times total
-# (safely under GitHub's 6-hour job limit). First successful fetch writes
-# the data and opens a PR.
+# exits 2), the job waits 1 hour and tries again — up to 5 times total.
 #
 # Manual trigger: Actions → "Weekly Broadway Showtimes" → Run workflow.
-# Use "Force write" to bypass the freshness check (e.g. re-run after a bad parse).
+# Use "Force write" to bypass the freshness check.
 
 on:
   schedule:
@@ -15,20 +13,17 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "Force write even if weekOf unchanged (bypass freshness check)"
+        description: "Force sync even if weekOf unchanged (bypass freshness check)"
         required: false
         default: "false"
         type: boolean
 
 jobs:
   fetch-showtimes:
-    name: Fetch & diff Playbill showtimes
+    name: Fetch & sync Playbill showtimes to Convex
     runs-on: ubuntu-latest
     # Allow up to 6 hours: 5 retries × 1h sleep + script runtime
     timeout-minutes: 360
-    permissions:
-      contents: write
-      pull-requests: write
 
     steps:
       - name: Checkout
@@ -39,8 +34,11 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Fetch showtimes (with hourly retry)
+      - name: Fetch & sync showtimes (with hourly retry)
         id: fetch
+        env:
+          CONVEX_HTTP_URL: ${{ secrets.CONVEX_HTTP_URL }}
+          SHOWTIMES_SYNC_SECRET: ${{ secrets.SHOWTIMES_SYNC_SECRET }}
         run: |
           ARGS=""
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
@@ -74,58 +72,18 @@ jobs:
             fi
           done
 
-          # Expose stale status and weekOf for later steps
           if [ $EXIT_CODE -eq 0 ]; then
-            echo "stale=false" >> $GITHUB_OUTPUT
-            WEEK_OF=$(bun -e "console.log(JSON.parse(require('fs').readFileSync('data/showtimes/current.json','utf8')).weekOf)")
-            echo "weekOf=${WEEK_OF}" >> $GITHUB_OUTPUT
+            echo "status=synced" >> $GITHUB_OUTPUT
           else
-            echo "stale=true" >> $GITHUB_OUTPUT
+            echo "status=stale" >> $GITHUB_OUTPUT
           fi
-
-      - name: Check for data changes
-        id: changes
-        if: steps.fetch.outputs.stale == 'false'
-        run: |
-          git diff --quiet data/showtimes/current.json && \
-            echo "changed=false" >> $GITHUB_OUTPUT || \
-            echo "changed=true" >> $GITHUB_OUTPUT
-
-      - name: Read PR body
-        id: pr_body
-        if: steps.changes.outputs.changed == 'true'
-        run: |
-          {
-            echo "body<<SCHEDULE_PR_BODY_EOF"
-            cat .github/pr-body.md
-            echo "SCHEDULE_PR_BODY_EOF"
-          } >> $GITHUB_OUTPUT
-
-      - name: Create pull request
-        if: steps.changes.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v7
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "data(showtimes): week of ${{ steps.fetch.outputs.weekOf }}"
-          branch: "data/showtimes-update"
-          # Delete and recreate the branch so there's only ever one open schedule PR
-          delete-branch: true
-          title: "data(showtimes): Broadway showtimes week of ${{ steps.fetch.outputs.weekOf }}"
-          body: ${{ steps.pr_body.outputs.body }}
-          labels: |
-            data
-            automated
 
       - name: Summary
         if: always()
         run: |
-          if [ "${{ steps.fetch.outputs.stale }}" = "true" ]; then
+          if [ "${{ steps.fetch.outputs.status }}" = "stale" ]; then
             echo "### ⚠️ Playbill did not update this week" >> $GITHUB_STEP_SUMMARY
-            echo "All ${{ env.MAX_ATTEMPTS }} attempts returned the same weekOf. Check manually." >> $GITHUB_STEP_SUMMARY
-          elif [ "${{ steps.changes.outputs.changed }}" = "false" ]; then
-            echo "### ✅ No changes vs current.json" >> $GITHUB_STEP_SUMMARY
-            echo "Showtimes fetched successfully but nothing changed from last week." >> $GITHUB_STEP_SUMMARY
+            echo "All attempts returned a stale weekOf. Check manually." >> $GITHUB_STEP_SUMMARY
           else
-            echo "### ✅ Showtimes updated — PR opened" >> $GITHUB_STEP_SUMMARY
-            cat .github/pr-body.md >> $GITHUB_STEP_SUMMARY || true
+            echo "### ✅ Showtimes synced to Convex" >> $GITHUB_STEP_SUMMARY
           fi

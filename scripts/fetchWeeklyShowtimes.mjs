@@ -1,30 +1,20 @@
 /**
- * Fetches the Playbill weekly Broadway schedule and writes structured JSON.
- *
- * Outputs:
- *   data/showtimes/current.json          — always the latest week (overwritten each run)
- *   data/showtimes/YYYY-MM-DD.json       — immutable snapshot for that week
- *   data/showtimes/diff-YYYY-MM-DD.json  — structured diff vs the previous week
+ * Fetches the Playbill weekly Broadway schedule and syncs it to Convex.
  *
  * Usage:
  *   bun scripts/fetchWeeklyShowtimes.mjs
- *   bun scripts/fetchWeeklyShowtimes.mjs --dry-run   (no file writes, logs output)
- *   bun scripts/fetchWeeklyShowtimes.mjs --force      (write even if same weekOf)
+ *   bun scripts/fetchWeeklyShowtimes.mjs --dry-run   (logs output, no Convex write)
+ *   bun scripts/fetchWeeklyShowtimes.mjs --force      (write even if weekOf unchanged)
+ *
+ * Required env vars (when not --dry-run):
+ *   CONVEX_HTTP_URL        — e.g. https://your-deployment.convex.site
+ *   SHOWTIMES_SYNC_SECRET  — bearer token matching SHOWTIMES_SYNC_SECRET in Convex
  *
  * Exit codes:
- *   0  — success (wrote new data, or no-op because weekOf unchanged)
- *   1  — fetch or parse error
- *   2  — freshness check failed (Playbill still shows previous week — retry later)
+ *   0  — success (synced new data or --dry-run)
+ *   1  — fetch, parse, or Convex error
+ *   2  — freshness check: Playbill still shows last week's schedule (retry later)
  */
-
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.join(__dirname, "..");
-const SHOWTIMES_DIR = path.join(ROOT, "data", "showtimes");
-const CURRENT_PATH = path.join(SHOWTIMES_DIR, "current.json");
 
 const PLAYBILL_URL =
   "https://playbill.com/article/weekly-schedule-of-current-broadway-shows";
@@ -138,14 +128,12 @@ function extractWeekOf(html) {
   }
 
   // Strategy 3: "Mon. April 6" table header — derive year from current date
-  // (the year is almost never in the header itself)
   const headerMatch = html.match(/Mon\.\s+([A-Za-z]+)\s+(\d{1,2})/i);
   if (headerMatch) {
     const monthName = headerMatch[1].toLowerCase();
     const month = months[monthName];
     const day = parseInt(headerMatch[2], 10);
     if (month) {
-      // Use current year; if the parsed month is far in the future, try next year
       const now = new Date();
       let year = now.getUTCFullYear();
       const candidate = new Date(Date.UTC(year, month - 1, day));
@@ -160,12 +148,24 @@ function extractWeekOf(html) {
   // Last resort: compute Monday of the current week
   warn("Could not extract weekOf from page — using computed Monday of current week");
   const today = new Date();
-  const dayOfWeek = today.getUTCDay(); // 0=Sun
-  const daysToMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7 || 7;
-  // If today IS Monday, use today
-  const daysOffset = dayOfWeek === 1 ? 0 : -(dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+  const dayOfWeek = today.getUTCDay();
+  const daysOffset = dayOfWeek === 0 ? -6 : -(dayOfWeek - 1);
   const monday = new Date(today);
   monday.setUTCDate(today.getUTCDate() + daysOffset);
+  return monday.toISOString().slice(0, 10);
+}
+
+/**
+ * Compute what Monday's date should be for the current week (UTC).
+ * Used as the expected weekOf — if Playbill still shows last week's date, they
+ * haven't published the new schedule yet.
+ */
+function getExpectedWeekOf() {
+  const now = new Date();
+  const utcDay = now.getUTCDay(); // 0=Sun, 1=Mon, ...
+  const daysBack = utcDay === 0 ? 6 : utcDay - 1;
+  const monday = new Date(now);
+  monday.setUTCDate(now.getUTCDate() - daysBack);
   return monday.toISOString().slice(0, 10);
 }
 
@@ -174,8 +174,7 @@ function extractWeekOf(html) {
  * Returns an array of show objects.
  */
 function parseShowtimesTable(html) {
-  // Find the schedule table — it contains a header row with day names.
-  // Strategy: find the <table> that has a <th> containing "Mon"
+  // Find the <table> that has a <th> containing "Mon"
   const tableMatch = html.match(/<table[^>]*>([\s\S]*?)<\/table>/gi);
   if (!tableMatch) throw new Error("No <table> found in page HTML");
 
@@ -199,7 +198,6 @@ function parseShowtimesTable(html) {
     (m) => stripTags(m[1]).trim()
   );
 
-  // Map day abbreviation → column index (0-based, first col is show name)
   const dayIndex = {};
   for (const [i, cell] of headerCells.entries()) {
     for (const day of DAYS) {
@@ -218,17 +216,9 @@ function parseShowtimesTable(html) {
     );
     if (cells.length < 2) continue;
 
-    // First cell is always the show name + sometimes venue on a new line
     const firstCell = cells[0];
     if (!firstCell) continue;
 
-    // Some rows are section headers (e.g. bold show name) — skip if no day data
-    const hasAnyPerf = DAYS.some((day) => {
-      const idx = dayIndex[day];
-      return idx !== undefined && cells[idx] && cells[idx] !== "DARK";
-    });
-
-    // Parse show name (may include theatre in parens or on a second line in HTML)
     const showName = firstCell.replace(/\s+/g, " ").trim();
     if (!showName) continue;
 
@@ -259,131 +249,10 @@ function stripTags(html) {
 }
 
 // ---------------------------------------------------------------------------
-// Diff
-// ---------------------------------------------------------------------------
-
-const DAYS_LABEL = { mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" };
-
-function slotsEqual(a, b) {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) return false;
-  }
-  return true;
-}
-
-function slotLabel(slots) {
-  if (!slots || slots.length === 0) return "DARK";
-  return slots.join(", ");
-}
-
-/**
- * Compute a human-readable + machine-readable diff between two schedule snapshots.
- */
-function computeDiff(prev, next) {
-  const prevMap = new Map(prev.shows.map((s) => [s.title, s]));
-  const nextMap = new Map(next.shows.map((s) => [s.title, s]));
-
-  const added = next.shows
-    .filter((s) => !prevMap.has(s.title))
-    .map((s) => s.title);
-
-  const removed = prev.shows
-    .filter((s) => !nextMap.has(s.title))
-    .map((s) => s.title);
-
-  const timeChanges = [];
-  for (const nextShow of next.shows) {
-    const prevShow = prevMap.get(nextShow.title);
-    if (!prevShow) continue;
-    const changes = [];
-    for (const day of DAYS) {
-      const p = prevShow.schedule[day] ?? [];
-      const n = nextShow.schedule[day] ?? [];
-      if (!slotsEqual(p, n)) {
-        changes.push({
-          day: DAYS_LABEL[day],
-          from: slotLabel(p),
-          to: slotLabel(n),
-        });
-      }
-    }
-    if (changes.length) timeChanges.push({ title: nextShow.title, changes });
-  }
-
-  const openingNights = next.shows
-    .filter((s) => DAYS.some((d) => s.schedule[d]?.includes("opening")))
-    .map((s) => {
-      const day = DAYS.find((d) => s.schedule[d]?.includes("opening"));
-      return { title: s.title, day: DAYS_LABEL[day] };
-    });
-
-  return {
-    prevWeekOf: prev.weekOf,
-    nextWeekOf: next.weekOf,
-    added,
-    removed,
-    timeChanges,
-    openingNights,
-  };
-}
-
-/** Render the diff as a Markdown summary for PR bodies / commit messages. */
-function renderDiffMarkdown(diff) {
-  const lines = [
-    `## Broadway Showtimes: Week of ${diff.nextWeekOf}`,
-    `_vs. previous week (${diff.prevWeekOf})_`,
-    "",
-  ];
-
-  if (diff.openingNights.length) {
-    lines.push("### 🎭 Opening Nights");
-    for (const o of diff.openingNights) {
-      lines.push(`- **${o.title}** opens ${o.day}`);
-    }
-    lines.push("");
-  }
-
-  if (diff.added.length) {
-    lines.push("### ✅ Shows Added");
-    for (const t of diff.added) lines.push(`- ${t}`);
-    lines.push("");
-  }
-
-  if (diff.removed.length) {
-    lines.push("### ❌ Shows Removed");
-    for (const t of diff.removed) lines.push(`- ${t}`);
-    lines.push("");
-  }
-
-  if (diff.timeChanges.length) {
-    lines.push("### 🕐 Time Changes");
-    for (const sc of diff.timeChanges) {
-      lines.push(`- **${sc.title}**`);
-      for (const c of sc.changes) {
-        lines.push(`  - ${c.day}: ${c.from} → ${c.to}`);
-      }
-    }
-    lines.push("");
-  }
-
-  if (
-    !diff.openingNights.length &&
-    !diff.added.length &&
-    !diff.removed.length &&
-    !diff.timeChanges.length
-  ) {
-    lines.push("_No changes from last week._");
-  }
-
-  return lines.join("\n");
-}
-
-// ---------------------------------------------------------------------------
 // Quality checks
 // ---------------------------------------------------------------------------
 
-function runQualityChecks(snapshot, prev) {
+function runQualityChecks(snapshot) {
   const issues = [];
   const warnings = [];
 
@@ -395,16 +264,6 @@ function runQualityChecks(snapshot, prev) {
     );
     if (total === 0) {
       issues.push(`"${show.title}" has zero performances this week`);
-    }
-  }
-
-  // Show count shouldn't swing wildly (>10 in one week is suspicious)
-  if (prev) {
-    const delta = Math.abs(snapshot.shows.length - prev.shows.length);
-    if (delta > 10) {
-      warnings.push(
-        `Show count changed by ${delta} (${prev.shows.length} → ${snapshot.shows.length}) — verify source`
-      );
     }
   }
 
@@ -423,22 +282,50 @@ function runQualityChecks(snapshot, prev) {
 }
 
 // ---------------------------------------------------------------------------
+// Convex sync
+// ---------------------------------------------------------------------------
+
+async function syncToConvex(weekOf, shows) {
+  const convexUrl = process.env.CONVEX_HTTP_URL;
+  const secret = process.env.SHOWTIMES_SYNC_SECRET;
+
+  if (!convexUrl || !secret) {
+    throw new Error(
+      "Missing required env vars: CONVEX_HTTP_URL and SHOWTIMES_SYNC_SECRET must be set"
+    );
+  }
+
+  const url = `${convexUrl.replace(/\/$/, "")}/showtimes/sync`;
+  log(`Syncing ${shows.length} shows to Convex (${url})`);
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${secret}`,
+    },
+    body: JSON.stringify({ weekOf, shows }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Convex sync failed: HTTP ${res.status} — ${text}`);
+  }
+
+  const result = await res.json();
+  log(`Convex sync complete: matched=${result.matched?.length ?? "?"} unmatched=${result.unmatched?.length ?? "?"}`);
+  if (result.unmatched?.length) {
+    warn(`Unmatched Playbill titles: ${result.unmatched.join(", ")}`);
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 async function main() {
   log(`Starting (DRY_RUN=${DRY_RUN}, FORCE=${FORCE})`);
-
-  // Load previous snapshot if it exists
-  let prev = null;
-  if (fs.existsSync(CURRENT_PATH)) {
-    try {
-      prev = JSON.parse(fs.readFileSync(CURRENT_PATH, "utf8"));
-      log(`Previous snapshot: weekOf=${prev.weekOf}, shows=${prev.shows.length}`);
-    } catch {
-      warn("Could not parse existing current.json — treating as no previous data");
-    }
-  }
 
   // Fetch and parse
   let html;
@@ -452,12 +339,16 @@ async function main() {
   const weekOf = extractWeekOf(html);
   log(`Parsed weekOf: ${weekOf}`);
 
-  // Freshness check: if the scraped week matches what we already have, skip.
-  if (!FORCE && prev && prev.weekOf === weekOf) {
-    log(
-      `weekOf=${weekOf} matches current.json — Playbill hasn't updated yet. Exiting with code 2 (retry later).`
-    );
-    process.exit(2);
+  // Freshness check: if Playbill still shows a weekOf that doesn't match the
+  // expected current week's Monday, they haven't published the new schedule yet.
+  if (!FORCE) {
+    const expected = getExpectedWeekOf();
+    if (weekOf < expected) {
+      log(
+        `weekOf=${weekOf} is before expected ${expected} — Playbill hasn't updated yet. Exiting with code 2 (retry later).`
+      );
+      process.exit(2);
+    }
   }
 
   let shows;
@@ -475,70 +366,35 @@ async function main() {
 
   log(`Parsed ${shows.length} shows`);
 
-  const snapshot = {
-    weekOf,
-    fetchedAt: new Date().toISOString(),
-    showCount: shows.length,
-    shows,
-  };
+  const snapshot = { weekOf, fetchedAt: new Date().toISOString(), showCount: shows.length, shows };
 
   // Quality checks
-  const { issues, warnings } = runQualityChecks(snapshot, prev);
+  const { issues, warnings } = runQualityChecks(snapshot);
   for (const w of warnings) warn(w);
   if (issues.length) {
     for (const issue of issues) console.error(`QUALITY ISSUE: ${issue}`);
-    // Don't hard-fail on quality issues — write the data but surface them
-  }
-
-  // Diff
-  let diff = null;
-  let diffMarkdown = "";
-  if (prev) {
-    diff = computeDiff(prev, snapshot);
-    diffMarkdown = renderDiffMarkdown(diff);
-    log("Diff computed:");
-    console.log(diffMarkdown);
-  } else {
-    diffMarkdown = `## Broadway Showtimes: Week of ${weekOf}\n\n_Initial snapshot — no previous data to diff._\n\n${shows.length} shows parsed.`;
   }
 
   if (DRY_RUN) {
-    log("DRY RUN — no files written");
+    log("DRY RUN — skipping Convex sync");
     log("Snapshot preview:");
     console.log(JSON.stringify(snapshot, null, 2).slice(0, 2000) + "\n...");
     return;
   }
 
-  // Write files
-  const snapshotPath = path.join(SHOWTIMES_DIR, `${weekOf}.json`);
-  const diffPath = path.join(SHOWTIMES_DIR, `diff-${weekOf}.json`);
-  const diffMdPath = path.join(SHOWTIMES_DIR, `diff-${weekOf}.md`);
-
-  fs.mkdirSync(SHOWTIMES_DIR, { recursive: true });
-
-  fs.writeFileSync(CURRENT_PATH, JSON.stringify(snapshot, null, 2));
-  fs.writeFileSync(snapshotPath, JSON.stringify(snapshot, null, 2));
-  if (diff) {
-    fs.writeFileSync(diffPath, JSON.stringify(diff, null, 2));
-    fs.writeFileSync(diffMdPath, diffMarkdown);
+  // Sync to Convex
+  try {
+    await syncToConvex(weekOf, shows);
+  } catch (err) {
+    console.error(`Convex sync error: ${err.message}`);
+    process.exit(1);
   }
 
-  log(`Wrote: data/showtimes/current.json`);
-  log(`Wrote: data/showtimes/${weekOf}.json`);
-  if (diff) log(`Wrote: data/showtimes/diff-${weekOf}.{json,md}`);
-
-  // Write PR body to a temp file so the workflow can read it
-  const prBodyPath = path.join(ROOT, ".github", "pr-body.md");
-  fs.mkdirSync(path.dirname(prBodyPath), { recursive: true });
-  fs.writeFileSync(prBodyPath, diffMarkdown);
-  log(`Wrote: .github/pr-body.md`);
-
-  // Output structured result for GitHub Actions
   const qualitySummary =
     issues.length || warnings.length
       ? `\n\n---\n**Quality:** ${issues.length} issues, ${warnings.length} warnings`
       : "";
-  console.log(`\nDONE weekOf=${weekOf} shows=${shows.length}${qualitySummary}`);
+  log(`DONE weekOf=${weekOf} shows=${shows.length}${qualitySummary}`);
 }
 
 main().catch((err) => {

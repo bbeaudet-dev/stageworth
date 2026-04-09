@@ -154,4 +154,60 @@ http.route({
   }),
 });
 
+// ─── Weekly showtimes sync endpoint ──────────────────────────────────────────
+// Called by the weekly-showtimes GitHub Action after scraping Playbill.
+// Secured with a shared secret: npx convex env set SHOWTIMES_SYNC_SECRET <value>
+
+/**
+ * POST /showtimes/sync
+ * Body: { weekOf: string, shows: Array<{ title, schedule: { mon..sun: string[] } }> }
+ * Response: { weekOf, matched: string[], unmatched: string[] }
+ */
+http.route({
+  path: "/showtimes/sync",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = request.headers.get("Authorization");
+    const token = auth?.replace(/^Bearer\s+/i, "").trim();
+    const allowedTokens = [
+      process.env.SHOWTIMES_SYNC_SECRET,
+      // Temporary fallback so existing infra can still sync even if
+      // SHOWTIMES_SYNC_SECRET is mismatched across deployments.
+      process.env.PLAYBILL_SECRET,
+      process.env.BOT_SECRET,
+    ]
+      .filter((v): v is string => Boolean(v))
+      .map((v) => v.trim());
+    if (!token || !allowedTokens.includes(token)) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+
+    const payload = body as { weekOf?: string; shows?: unknown[] };
+    if (typeof payload?.weekOf !== "string" || !Array.isArray(payload?.shows)) {
+      return new Response('Body must be { "weekOf": "...", "shows": [...] }', { status: 400 });
+    }
+
+    try {
+      const result = await ctx.runMutation(
+        internal.showtimes.syncWeeklyShowtimes,
+        { weekOf: payload.weekOf, shows: payload.shows } as never
+      );
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (err) {
+      console.error("showtimes.syncWeeklyShowtimes failed:", err);
+      return new Response("Internal error", { status: 500 });
+    }
+  }),
+});
+
 export default http;

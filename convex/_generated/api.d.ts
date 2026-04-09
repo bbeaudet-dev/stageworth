@@ -42,6 +42,7 @@ import type * as recommendationsContext from "../recommendationsContext.js";
 import type * as reviewQueue from "../reviewQueue.js";
 import type * as showNormalization from "../showNormalization.js";
 import type * as shows from "../shows.js";
+import type * as showtimes from "../showtimes.js";
 import type * as social_community from "../social/community.js";
 import type * as social_profiles from "../social/profiles.js";
 import type * as social_social from "../social/social.js";
@@ -95,6 +96,7 @@ declare const fullApi: ApiFromModules<{
   reviewQueue: typeof reviewQueue;
   showNormalization: typeof showNormalization;
   shows: typeof shows;
+  showtimes: typeof showtimes;
   "social/community": typeof social_community;
   "social/profiles": typeof social_profiles;
   "social/social": typeof social_social;

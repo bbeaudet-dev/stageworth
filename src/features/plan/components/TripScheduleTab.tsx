@@ -16,7 +16,7 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
-import { closingStripBadge, tripPlaybillStripBadge } from "@/features/browse/logic/closingStrip";
+import { fullStatusBadgeForProduction } from "@/features/browse/logic/closingStrip";
 import { AddDayNoteSheet } from "@/features/plan/components/AddDayNoteSheet";
 import { TripShowLabelSheet } from "@/features/plan/components/TripShowLabelSheet";
 import { useTripData } from "@/features/plan/hooks/useTripData";
@@ -25,6 +25,7 @@ import type { TripDetail, TripShowItem, TripDay, TripDayNote } from "@/features/
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { chunkRows } from "@/utils/arrays";
 import { formatDateDisplayUTC } from "@/utils/dates";
+import { getProductionStatus } from "@/utils/productions";
 
 const COLS = 4;
 const GAP = 8;
@@ -87,24 +88,29 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
   const gridWidthFull = screenWidth - TAB_CONTENT_H_PAD * 2;
   const cardWidth = (gridWidthFull - GAP * (COLS - 1)) / COLS;
 
-  const closingBadge = (closingDate: string | null | undefined) => {
-    const b = closingStripBadge(closingDate, todayStr, theme === "dark");
-    if (!b) return null;
-    return { label: b.label, bg: b.bg, textCol: b.text };
-  };
-
   const tripPlaybillBadge = (item: TripShowItem) => {
-    const b = tripPlaybillStripBadge(
+    const status = getProductionStatus(
       {
+        previewDate: item.previewDate ?? undefined,
+        openingDate: item.openingDate ?? undefined,
+        closingDate: item.closingDate ?? undefined,
+        isOpenRun: item.isOpenRun,
+      },
+      todayStr
+    );
+    const b = fullStatusBadgeForProduction(
+      {
+        previewDate: item.previewDate,
+        openingDate: item.openingDate,
         closingDate: item.closingDate,
         isOpenRun: item.isOpenRun,
-        tripProductionStatus: item.tripProductionStatus,
       },
+      status,
       todayStr,
-      theme === "dark",
+      theme === "dark"
     );
     if (!b) return null;
-    return { label: b.label, bg: b.bg, textCol: b.text };
+    return { label: b.primary.label, bg: b.primary.bg, textCol: b.primary.text };
   };
 
   const handleAssignToDay = async (showId: Id<"shows">, dayDate: string) => {

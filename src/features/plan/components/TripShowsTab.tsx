@@ -64,7 +64,6 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
 
-  const backgroundColor = Colors[theme].background;
   const surfaceColor = Colors[theme].surfaceElevated;
   const borderColor = Colors[theme].border;
   const primaryTextColor = Colors[theme].text;
@@ -214,18 +213,15 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
   };
 
   const stripForTripPlaybill = (item: TripShowItem) => {
-    const status = item.tripProductionStatus
-      ? getProductionStatus(
-          {
-            previewDate: item.previewDate ?? undefined,
-            openingDate: item.openingDate ?? undefined,
-            closingDate: item.closingDate ?? undefined,
-            isOpenRun: item.isOpenRun,
-          },
-          todayStr,
-        )
-      : null;
-    if (!status) return null;
+    const status = getProductionStatus(
+      {
+        previewDate: item.previewDate ?? undefined,
+        openingDate: item.openingDate ?? undefined,
+        closingDate: item.closingDate ?? undefined,
+        isOpenRun: item.isOpenRun,
+      },
+      todayStr,
+    );
     const result = fullStatusBadgeForProduction(
       {
         previewDate: item.previewDate,
