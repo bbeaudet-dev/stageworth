@@ -112,6 +112,20 @@ export default defineSchema({
         v.literal("complete")
       )
     ),
+    // Weekly Playbill showtime schedule for currently-running Broadway productions.
+    // Synced by the weekly-showtimes GitHub Action via POST /showtimes/sync.
+    weeklySchedule: v.optional(
+      v.object({
+        weekOf: v.string(),
+        mon: v.array(v.string()),
+        tue: v.array(v.string()),
+        wed: v.array(v.string()),
+        thu: v.array(v.string()),
+        fri: v.array(v.string()),
+        sat: v.array(v.string()),
+        sun: v.array(v.string()),
+      })
+    ),
   })
     .index("by_show", ["showId"])
     .index("by_district", ["district"])
