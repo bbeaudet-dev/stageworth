@@ -132,6 +132,44 @@ export default defineSchema({
     .index("by_closing_date", ["closingDate"])
     .index("by_dataStatus", ["dataStatus"]),
 
+  // Weekly Broadway showtime snapshots staged for manual admin approval.
+  showtimesReviews: defineTable({
+    weekOf: v.string(),
+    fetchedAt: v.number(),
+    source: v.literal("playbill"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected")
+    ),
+    shows: v.array(
+      v.object({
+        title: v.string(),
+        schedule: v.object({
+          mon: v.array(v.string()),
+          tue: v.array(v.string()),
+          wed: v.array(v.string()),
+          thu: v.array(v.string()),
+          fri: v.array(v.string()),
+          sat: v.array(v.string()),
+          sun: v.array(v.string()),
+        }),
+      })
+    ),
+    matchedCount: v.number(),
+    unmatchedTitles: v.array(v.string()),
+    reviewedAt: v.optional(v.number()),
+    reviewNote: v.optional(v.string()),
+    applyResult: v.optional(
+      v.object({
+        matched: v.array(v.string()),
+        unmatched: v.array(v.string()),
+      })
+    ),
+  })
+    .index("by_status", ["status"])
+    .index("by_weekOf", ["weekOf"]),
+
   venues: defineTable({
     name: v.string(),
     normalizedName: v.string(),

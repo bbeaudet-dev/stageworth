@@ -295,8 +295,8 @@ async function syncToConvex(weekOf, shows) {
     );
   }
 
-  const url = `${convexUrl.replace(/\/$/, "")}/showtimes/sync`;
-  log(`Syncing ${shows.length} shows to Convex (${url})`);
+  const url = `${convexUrl.replace(/\/$/, "")}/showtimes/propose`;
+  log(`Submitting ${shows.length} shows proposal to Convex (${url})`);
 
   const res = await fetch(url, {
     method: "POST",
@@ -313,8 +313,10 @@ async function syncToConvex(weekOf, shows) {
   }
 
   const result = await res.json();
-  log(`Convex sync complete: matched=${result.matched?.length ?? "?"} unmatched=${result.unmatched?.length ?? "?"}`);
-  if (result.unmatched?.length) {
+  log(
+    `Proposal queued: id=${result.proposalId ?? "?"} matched=${result.matched ?? "?"} unmatched=${result.unmatched?.length ?? "?"}`
+  );
+  if (Array.isArray(result.unmatched) && result.unmatched.length) {
     warn(`Unmatched Playbill titles: ${result.unmatched.join(", ")}`);
   }
   return result;

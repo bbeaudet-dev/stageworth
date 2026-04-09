@@ -1,6 +1,6 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { authComponent, createAuth } from "./authFactory";
 
 const http = httpRouter();
@@ -159,12 +159,12 @@ http.route({
 // Secured with a shared secret: npx convex env set SHOWTIMES_SYNC_SECRET <value>
 
 /**
- * POST /showtimes/sync
+ * POST /showtimes/propose
  * Body: { weekOf: string, shows: Array<{ title, schedule: { mon..sun: string[] } }> }
- * Response: { weekOf, matched: string[], unmatched: string[] }
+ * Response: { proposalId, weekOf, matched, unmatched }
  */
 http.route({
-  path: "/showtimes/sync",
+  path: "/showtimes/propose",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const auth = request.headers.get("Authorization");
@@ -195,16 +195,17 @@ http.route({
     }
 
     try {
-      const result = await ctx.runMutation(
-        internal.showtimes.syncWeeklyShowtimes,
-        { weekOf: payload.weekOf, shows: payload.shows } as never
-      );
+      const result = await ctx.runMutation((api as any).showtimes.createProposal, {
+        weekOf: payload.weekOf,
+        fetchedAt: Date.now(),
+        shows: payload.shows,
+      } as never);
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
     } catch (err) {
-      console.error("showtimes.syncWeeklyShowtimes failed:", err);
+      console.error("showtimes.createProposal failed:", err);
       return new Response("Internal error", { status: 500 });
     }
   }),

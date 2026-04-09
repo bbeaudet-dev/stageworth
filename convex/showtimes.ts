@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { action, internalMutation } from "./_generated/server";
+import { action, internalMutation, mutation, query } from "./_generated/server";
 import { normalizeShowName } from "./showNormalization";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -28,6 +28,21 @@ type PlaybillShow = {
     sun: string[];
   };
 };
+
+const dayScheduleValidator = v.object({
+  mon: v.array(v.string()),
+  tue: v.array(v.string()),
+  wed: v.array(v.string()),
+  thu: v.array(v.string()),
+  fri: v.array(v.string()),
+  sat: v.array(v.string()),
+  sun: v.array(v.string()),
+});
+
+const playbillShowValidator = v.object({
+  title: v.string(),
+  schedule: dayScheduleValidator,
+});
 
 const PLAYBILL_URL =
   "https://playbill.com/article/weekly-schedule-of-current-broadway-shows";
@@ -211,20 +226,7 @@ function parseShowtimesTable(html: string): PlaybillShow[] {
 export const syncWeeklyShowtimes = internalMutation({
   args: {
     weekOf: v.string(),
-    shows: v.array(
-      v.object({
-        title: v.string(),
-        schedule: v.object({
-          mon: v.array(v.string()),
-          tue: v.array(v.string()),
-          wed: v.array(v.string()),
-          thu: v.array(v.string()),
-          fri: v.array(v.string()),
-          sat: v.array(v.string()),
-          sun: v.array(v.string()),
-        }),
-      })
-    ),
+    shows: v.array(playbillShowValidator),
   },
   handler: async (ctx, { weekOf, shows }) => {
     // Fetch all open Broadway productions joined to their show's normalizedName.
@@ -299,7 +301,132 @@ export const syncWeeklyShowtimes = internalMutation({
   },
 });
 
-export const syncFromPlaybill: any = action({
+async function estimateShowtimeMatches(
+  ctx: any,
+  shows: PlaybillShow[]
+): Promise<{ matchedCount: number; unmatchedTitles: string[] }> {
+  const today = new Date().toISOString().slice(0, 10);
+  const broadwayProductions = await ctx.db
+    .query("productions")
+    .withIndex("by_district", (q: any) => q.eq("district", "broadway"))
+    .collect();
+
+  const normalizedKeys = new Set<string>();
+  for (const prod of broadwayProductions) {
+    if (prod.isClosed) continue;
+    if (prod.closingDate && prod.closingDate < today) continue;
+    const show = await ctx.db.get(prod.showId);
+    if (!show) continue;
+    normalizedKeys.add(show.normalizedName);
+    for (const k of indexKeysForPlaybillTitle(show.name)) normalizedKeys.add(k);
+  }
+
+  const unmatchedTitles: string[] = [];
+  let matchedCount = 0;
+  for (const row of shows) {
+    const keys = indexKeysForPlaybillTitle(row.title);
+    const matched = keys.some((k) => normalizedKeys.has(k));
+    if (matched) matchedCount += 1;
+    else unmatchedTitles.push(row.title);
+  }
+  return { matchedCount, unmatchedTitles };
+}
+
+export const createProposal = mutation({
+  args: {
+    weekOf: v.string(),
+    fetchedAt: v.optional(v.number()),
+    shows: v.array(playbillShowValidator),
+  },
+  handler: async (ctx, args) => {
+    // Keep one pending proposal per week; replace if retried.
+    const existing = await ctx.db
+      .query("showtimesReviews")
+      .withIndex("by_weekOf", (q) => q.eq("weekOf", args.weekOf))
+      .collect();
+    for (const row of existing) {
+      if (row.status === "pending") await ctx.db.delete(row._id);
+    }
+
+    const estimate = await estimateShowtimeMatches(ctx, args.shows as PlaybillShow[]);
+    const proposalId = await ctx.db.insert("showtimesReviews", {
+      weekOf: args.weekOf,
+      fetchedAt: args.fetchedAt ?? Date.now(),
+      source: "playbill",
+      status: "pending",
+      shows: args.shows,
+      matchedCount: estimate.matchedCount,
+      unmatchedTitles: estimate.unmatchedTitles,
+    });
+
+    return {
+      proposalId,
+      weekOf: args.weekOf,
+      matched: estimate.matchedCount,
+      unmatched: estimate.unmatchedTitles,
+    };
+  },
+});
+
+export const listProposals = query({
+  args: {
+    status: v.optional(
+      v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected"))
+    ),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const rows = args.status
+      ? await ctx.db
+          .query("showtimesReviews")
+          .withIndex("by_status", (q) => q.eq("status", args.status!))
+          .collect()
+      : await ctx.db.query("showtimesReviews").collect();
+    const sorted = rows.sort((a, b) => b.fetchedAt - a.fetchedAt);
+    return sorted.slice(0, Math.min(args.limit ?? 50, 200));
+  },
+});
+
+export const approveProposal = mutation({
+  args: { proposalId: v.id("showtimesReviews") },
+  handler: async (ctx, args): Promise<{ ok: true; status: string; weekOf?: string; matched?: string[]; unmatched?: string[] }> => {
+    const proposal = await ctx.db.get(args.proposalId);
+    if (!proposal) throw new Error("Showtimes proposal not found");
+    if (proposal.status !== "pending") {
+      return { ok: true, status: proposal.status };
+    }
+
+    const result: { weekOf: string; matched: string[]; unmatched: string[] } = await ctx.runMutation((internal as any).showtimes.syncWeeklyShowtimes, {
+      weekOf: proposal.weekOf,
+      shows: proposal.shows,
+    });
+    await ctx.db.patch(args.proposalId, {
+      status: "approved",
+      reviewedAt: Date.now(),
+      applyResult: { matched: result.matched, unmatched: result.unmatched },
+    });
+    return { ok: true, status: "approved", ...result };
+  },
+});
+
+export const rejectProposal = mutation({
+  args: { proposalId: v.id("showtimesReviews"), note: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const proposal = await ctx.db.get(args.proposalId);
+    if (!proposal) throw new Error("Showtimes proposal not found");
+    if (proposal.status !== "pending") {
+      return { ok: true, status: proposal.status };
+    }
+    await ctx.db.patch(args.proposalId, {
+      status: "rejected",
+      reviewedAt: Date.now(),
+      reviewNote: args.note?.trim() || undefined,
+    });
+    return { ok: true, status: "rejected" };
+  },
+});
+
+export const syncFromPlaybill = action({
   args: { force: v.optional(v.boolean()) },
   handler: async (ctx, { force }): Promise<
     | { status: "stale"; weekOf: string; expectedWeek: string }

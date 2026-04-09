@@ -14,6 +14,7 @@ export function SiteHeader() {
     pathname === "/admin" || pathname.startsWith("/admin/review");
   const unmatchedActive = pathname.startsWith("/admin/unmatched");
   const feedbackActive = pathname.startsWith("/admin/feedback");
+  const showtimesActive = pathname.startsWith("/admin/showtimes");
 
   const tabBase =
     "rounded-md px-3 py-1.5 text-sm font-medium transition-colors";
@@ -57,6 +58,12 @@ export function SiteHeader() {
               className={`${tabBase} ${feedbackActive ? tabActive : tabIdle}`}
             >
               User Feedback
+            </Link>
+            <Link
+              href="/admin/showtimes"
+              className={`${tabBase} ${showtimesActive ? tabActive : tabIdle}`}
+            >
+              Showtimes
             </Link>
           </nav>
         )}

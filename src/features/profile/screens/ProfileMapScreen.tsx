@@ -1,3 +1,4 @@
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Stack } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
@@ -6,7 +7,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "@/constants/theme";
 import { MyShowsMapView } from "@/features/my-shows/components/MyShowsMapView";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
 type MapScope = "mine" | "following" | "all";
 
