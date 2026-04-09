@@ -282,12 +282,16 @@ export default function ShowDetailScreen() {
 
   async function handleAddToTrip(tripId: Id<"trips">) {
     if (!showId || addingToTrip) return;
+    const trip = activeTrips.find((t) => t._id === tripId);
     setAddingToTrip(tripId);
     try {
       await addShowToTrip({ tripId, showId });
+      setTripSheetOpen(false);
+      showToast({ message: `Added "${show?.name ?? "show"}" to ${trip?.name ?? "trip"}` });
+    } catch {
+      setTripSheetOpen(false);
     } finally {
       setAddingToTrip(null);
-      setTripSheetOpen(false);
     }
   }
 
@@ -403,6 +407,41 @@ export default function ShowDetailScreen() {
           </View>
         </View>
 
+        {/* ── Action buttons ────────────────────────────────────────────────── */}
+        <Pressable
+          style={[styles.primaryBtn, { backgroundColor: c.accent }]}
+          onPress={() => {
+            if (!showId) {
+              router.push("/add-visit");
+              return;
+            }
+            router.push({
+              pathname: "/add-visit",
+              params: {
+                showId: String(showId),
+                showName: show?.name ?? params.name ?? "",
+              },
+            });
+          }}
+        >
+          <Text style={[styles.primaryBtnText, { color: c.onAccent }]}>Add a Visit</Text>
+        </Pressable>
+
+        <View style={styles.secondaryBtnRow}>
+          <Pressable
+            style={[styles.secondaryBtn, { backgroundColor: c.accent + "18", borderColor: c.accent + "40" }]}
+            onPress={() => setListSheetOpen(true)}
+          >
+            <Text style={[styles.secondaryBtnText, { color: c.accent }]}>+ Add to List</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.secondaryBtn, { backgroundColor: c.accent + "18", borderColor: c.accent + "40" }]}
+            onPress={() => setTripSheetOpen(true)}
+          >
+            <Text style={[styles.secondaryBtnText, { color: c.accent }]}>+ Add to Trip</Text>
+          </Pressable>
+        </View>
+
         {/* ── Productions ──────────────────────────────────────────────────── */}
         {productions !== undefined && productions.length > 0 ? (
           <View style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
@@ -485,41 +524,6 @@ export default function ShowDetailScreen() {
             ))}
           </View>
         ) : null}
-
-        {/* ── Action buttons ────────────────────────────────────────────────── */}
-        <Pressable
-          style={[styles.primaryBtn, { backgroundColor: c.accent }]}
-          onPress={() => {
-            if (!showId) {
-              router.push("/add-visit");
-              return;
-            }
-            router.push({
-              pathname: "/add-visit",
-              params: {
-                showId: String(showId),
-                showName: show?.name ?? params.name ?? "",
-              },
-            });
-          }}
-        >
-          <Text style={[styles.primaryBtnText, { color: c.onAccent }]}>Add a Visit</Text>
-        </Pressable>
-
-        <View style={styles.secondaryBtnRow}>
-          <Pressable
-            style={[styles.secondaryBtn, { backgroundColor: c.accent + "18", borderColor: c.accent + "40" }]}
-            onPress={() => setListSheetOpen(true)}
-          >
-            <Text style={[styles.secondaryBtnText, { color: c.accent }]}>+ Add to List</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.secondaryBtn, { backgroundColor: c.accent + "18", borderColor: c.accent + "40" }]}
-            onPress={() => setTripSheetOpen(true)}
-          >
-            <Text style={[styles.secondaryBtnText, { color: c.accent }]}>+ Add to Trip</Text>
-          </Pressable>
-        </View>
 
         {/* ── Would I Like This? ───────────────────────────────────────────── */}
         {!recResult ? (
