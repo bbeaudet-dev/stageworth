@@ -12,6 +12,7 @@ export function SiteHeader() {
 
   const reviewQueueActive =
     pathname === "/admin" || pathname.startsWith("/admin/review");
+  const unmatchedActive = pathname.startsWith("/admin/unmatched");
   const feedbackActive = pathname.startsWith("/admin/feedback");
 
   const tabBase =
@@ -43,13 +44,19 @@ export function SiteHeader() {
               href="/admin"
               className={`${tabBase} ${reviewQueueActive ? tabActive : tabIdle}`}
             >
-              Review queue
+              Show Review
+            </Link>
+            <Link
+              href="/admin/unmatched"
+              className={`${tabBase} ${unmatchedActive ? tabActive : tabIdle}`}
+            >
+              Venue Review
             </Link>
             <Link
               href="/admin/feedback"
               className={`${tabBase} ${feedbackActive ? tabActive : tabIdle}`}
             >
-              User feedback
+              User Feedback
             </Link>
           </nav>
         )}

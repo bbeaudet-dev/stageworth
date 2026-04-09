@@ -288,26 +288,26 @@ export const listShowsForReview = query({
 });
 
 /**
- * Property Focus query — returns all shows with their current DB value for a
- * single field plus any pending reviewQueue entry for that field.
- * Used by the admin dashboard Property Focus mode for bulk field review.
+ * Property Focus query — show-level fields (flat list, one row per show).
  *
- * Applies the same status / schedule / search filters as listShowsForReview.
- * Show fields only; production-level fields are not yet supported here.
+ * Accepts a group of fields (e.g. ["type","subtype"]) so the dashboard can
+ * show multiple related columns at once. Each row returns fieldValues and
+ * pendingEntries keyed by field name.
  */
 export const listShowsForFieldReview = query({
   args: {
-    field: v.string(),
+    fields: v.array(v.string()),
     statusFilter: v.optional(dataStatusValidator),
     search: v.optional(v.string()),
     includeRunning: v.optional(v.boolean()),
     includeUpcoming: v.optional(v.boolean()),
     includeHistorical: v.optional(v.boolean()),
-    /** When true, only return shows that have a pending queue entry for this field. */
+    /** When true, only return shows that have a pending entry for at least one field. */
     onlyWithPending: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const asOf = new Date().toISOString().split("T")[0];
+    const fieldSet = new Set(args.fields);
 
     const allProductions = await ctx.db.query("productions").collect();
     const prodsByShowId = new Map<Id<"shows">, typeof allProductions>();
@@ -324,101 +324,95 @@ export const listShowsForFieldReview = query({
         (s) => (s.dataStatus ?? "needs_review") === args.statusFilter
       );
     }
-
     if (args.search) {
       const needle = args.search.trim().toLowerCase();
-      if (needle.length > 0) {
+      if (needle.length > 0)
         shows = shows.filter((s) => s.name.toLowerCase().includes(needle));
-      }
     }
-
     const incR = args.includeRunning !== false;
     const incU = args.includeUpcoming !== false;
     const incH = args.includeHistorical !== false;
     if (!(incR && incU && incH)) {
       shows = shows.filter((s) => {
-        const prods = prodsByShowId.get(s._id) ?? [];
-        const bucket = scheduleBucketForShow(prods, asOf);
+        const bucket = scheduleBucketForShow(prodsByShowId.get(s._id) ?? [], asOf);
         if (bucket === "running") return incR;
         if (bucket === "upcoming") return incU;
         return incH;
       });
     }
-
     shows.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Fetch all pending entries for these fields at once — avoids N×F round trips.
+    type PendingEntry = { _id: string; proposedValue: string; source: string };
+    const allPending = await ctx.db
+      .query("reviewQueue")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .collect();
+    const pendingByEntityField = new Map<string, PendingEntry>();
+    for (const entry of allPending) {
+      if (entry.entityType !== "show" || !fieldSet.has(entry.field)) continue;
+      const key = `${entry.entityId as string}:${entry.field}`;
+      if (!pendingByEntityField.has(key)) {
+        pendingByEntityField.set(key, {
+          _id: entry._id as string,
+          proposedValue: entry.currentValue ?? "",
+          source: entry.source,
+        });
+      }
+    }
 
     const rows = await Promise.all(
       shows.map(async (show) => {
         const images = await resolveShowImageUrls(ctx, show);
-
-        // Read the current DB value for the focused field as a string.
-        const rawVal = (show as Record<string, unknown>)[args.field];
-        const currentFieldValue =
-          rawVal !== undefined && rawVal !== null ? String(rawVal) : null;
-
-        // Find the most recent pending entry for this field.
-        const entries = await ctx.db
-          .query("reviewQueue")
-          .withIndex("by_entity_field", (q) =>
-            q
-              .eq("entityType", "show")
-              .eq("entityId", show._id)
-              .eq("field", args.field)
-          )
-          .collect();
-        const pending = entries.find((e) => e.status === "pending") ?? null;
-
+        const showDoc = show as Record<string, unknown>;
+        const fieldValues: Record<string, string | null> = {};
+        const pendingEntries: Record<string, PendingEntry | null> = {};
+        for (const field of args.fields) {
+          const raw = showDoc[field];
+          fieldValues[field] = raw !== undefined && raw !== null ? String(raw) : null;
+          pendingEntries[field] =
+            pendingByEntityField.get(`${show._id as string}:${field}`) ?? null;
+        }
         return {
           _id: show._id as string,
           name: show.name,
-          type: show.type,
           dataStatus: show.dataStatus ?? "needs_review",
           imageUrl: images[0] ?? null,
-          scheduleBucket: scheduleBucketForShow(
-            prodsByShowId.get(show._id) ?? [],
-            asOf
-          ),
-          currentFieldValue,
-          pendingEntry: pending
-            ? {
-                _id: pending._id as string,
-                proposedValue: pending.currentValue ?? "",
-                source: pending.source,
-              }
-            : null,
+          scheduleBucket: scheduleBucketForShow(prodsByShowId.get(show._id) ?? [], asOf),
+          fieldValues,
+          pendingEntries,
         };
       })
     );
 
     if (args.onlyWithPending) {
-      return rows.filter((r) => r.pendingEntry !== null);
+      return rows.filter((r) => args.fields.some((f) => r.pendingEntries[f] !== null));
     }
-
     return rows;
   },
 });
 
 /**
- * Production Field Focus query — used by the admin Property Focus mode when a
- * production-level field is selected (e.g. openingDate, runningTime, description).
+ * Production Field Focus query — E-layout (one row per production per show).
  *
- * Returns shows (with the same filters as listShowsForReview) where each show
- * carries its productions with their current DB value for the focused field plus
- * any pending reviewQueue entry for that field. Drives the E-layout table.
+ * Accepts a group of fields (e.g. ["closingDate","isOpenRun","isClosed"]) and
+ * returns shows with nested productions, each carrying fieldValues and
+ * pendingEntries keyed by field name.
  */
 export const listShowsWithProductionFieldFocus = query({
   args: {
-    field: v.string(),
+    fields: v.array(v.string()),
     statusFilter: v.optional(dataStatusValidator),
     search: v.optional(v.string()),
     includeRunning: v.optional(v.boolean()),
     includeUpcoming: v.optional(v.boolean()),
     includeHistorical: v.optional(v.boolean()),
-    /** When true, only return shows that have at least one production with a pending entry. */
+    /** When true, only return shows where at least one production has a pending entry. */
     onlyWithPending: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const asOf = new Date().toISOString().split("T")[0];
+    const fieldSet = new Set(args.fields);
 
     const allProductions = await ctx.db.query("productions").collect();
     const prodsByShowId = new Map<Id<"shows">, (typeof allProductions)[number][]>();
@@ -435,80 +429,69 @@ export const listShowsWithProductionFieldFocus = query({
         (s) => (s.dataStatus ?? "needs_review") === args.statusFilter
       );
     }
-
     if (args.search) {
       const needle = args.search.trim().toLowerCase();
-      if (needle.length > 0) {
+      if (needle.length > 0)
         shows = shows.filter((s) => s.name.toLowerCase().includes(needle));
-      }
     }
-
     const incR = args.includeRunning !== false;
     const incU = args.includeUpcoming !== false;
     const incH = args.includeHistorical !== false;
     if (!(incR && incU && incH)) {
       shows = shows.filter((s) => {
-        const prods = prodsByShowId.get(s._id) ?? [];
-        const bucket = scheduleBucketForShow(prods, asOf);
+        const bucket = scheduleBucketForShow(prodsByShowId.get(s._id) ?? [], asOf);
         if (bucket === "running") return incR;
         if (bucket === "upcoming") return incU;
         return incH;
       });
     }
-
     shows.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Fetch all pending production entries for these fields at once.
+    type PendingEntry = { _id: string; proposedValue: string; source: string };
+    const allPending = await ctx.db
+      .query("reviewQueue")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .collect();
+    const pendingByEntityField = new Map<string, PendingEntry>();
+    for (const entry of allPending) {
+      if (entry.entityType !== "production" || !fieldSet.has(entry.field)) continue;
+      const key = `${entry.entityId as string}:${entry.field}`;
+      if (!pendingByEntityField.has(key)) {
+        pendingByEntityField.set(key, {
+          _id: entry._id as string,
+          proposedValue: entry.currentValue ?? "",
+          source: entry.source,
+        });
+      }
+    }
 
     const rows = await Promise.all(
       shows.map(async (show) => {
         const images = await resolveShowImageUrls(ctx, show);
         const prods = prodsByShowId.get(show._id) ?? [];
 
-        const productionRows = await Promise.all(
-          prods.map(async (prod) => {
-            const rawVal = (prod as Record<string, unknown>)[args.field];
-            const currentFieldValue =
-              rawVal !== undefined && rawVal !== null ? String(rawVal) : null;
-
-            const entries = await ctx.db
-              .query("reviewQueue")
-              .withIndex("by_entity_field", (q) =>
-                q
-                  .eq("entityType", "production")
-                  .eq("entityId", prod._id)
-                  .eq("field", args.field)
-              )
-              .collect();
-            const pending = entries.find((e) => e.status === "pending") ?? null;
-
-            // Build a compact production label.
-            const yearPart = prod.openingDate
-              ? prod.openingDate.slice(0, 4)
-              : prod.previewDate
-              ? prod.previewDate.slice(0, 4)
-              : null;
-            const label = [
-              prod.district.replace(/_/g, " "),
-              yearPart,
-            ]
-              .filter(Boolean)
-              .join(" · ");
-
-            return {
-              _id: prod._id as string,
-              showId: show._id as string,
-              label,
-              dataStatus: prod.dataStatus ?? "needs_review",
-              currentFieldValue,
-              pendingEntry: pending
-                ? {
-                    _id: pending._id as string,
-                    proposedValue: pending.currentValue ?? "",
-                    source: pending.source,
-                  }
-                : null,
-            };
-          })
-        );
+        const productionRows = prods.map((prod) => {
+          const prodDoc = prod as Record<string, unknown>;
+          const fieldValues: Record<string, string | null> = {};
+          const pendingEntries: Record<string, PendingEntry | null> = {};
+          for (const field of args.fields) {
+            const raw = prodDoc[field];
+            fieldValues[field] = raw !== undefined && raw !== null ? String(raw) : null;
+            pendingEntries[field] =
+              pendingByEntityField.get(`${prod._id as string}:${field}`) ?? null;
+          }
+          const yearPart = prod.openingDate?.slice(0, 4) ?? prod.previewDate?.slice(0, 4) ?? null;
+          const label = [prod.district.replace(/_/g, " "), yearPart].filter(Boolean).join(" · ");
+          return {
+            _id: prod._id as string,
+            showId: show._id as string,
+            label,
+            dataStatus: prod.dataStatus ?? "needs_review",
+            fieldValues,
+            pendingEntries,
+          };
+        });
 
         return {
           _id: show._id as string,
@@ -523,10 +506,11 @@ export const listShowsWithProductionFieldFocus = query({
 
     if (args.onlyWithPending) {
       return rows.filter((r) =>
-        r.productions.some((p) => p.pendingEntry !== null)
+        r.productions.some((p) =>
+          args.fields.some((f) => p.pendingEntries[f] !== null)
+        )
       );
     }
-
     return rows;
   },
 });

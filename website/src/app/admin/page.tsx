@@ -12,36 +12,33 @@ const PAGE_SIZE = 50;
 /** Cap rows returned per request (schedule filters run in Convex before this limit). */
 const FETCH_LIMIT = 500;
 
-/** Property Focus mode: show-level fields (flat list, one row per show). */
-const SHOW_FOCUS_FIELDS = [
-  { value: "name", label: "Name" },
-  { value: "type", label: "Type" },
-  { value: "subtype", label: "Subtype" },
-  { value: "hotlinkImageUrl", label: "Image URL" },
-] as const;
+/** A group of related fields shown together in Property Focus mode. */
+type FocusGroup = {
+  value: string;
+  label: string;
+  entityType: "show" | "production";
+  fields: readonly string[];
+  fieldLabels: readonly string[];
+};
 
-/** Property Focus mode: production-level fields (E-layout, one row per production). */
-const PRODUCTION_FOCUS_FIELDS = [
-  { value: "openingDate", label: "Opening Date" },
-  { value: "closingDate", label: "Closing Date" },
-  { value: "previewDate", label: "Preview Date" },
-  { value: "theatre", label: "Theatre" },
-  { value: "city", label: "City" },
-  { value: "runningTime", label: "Running Time" },
-  { value: "intermissionCount", label: "Intermissions" },
-  { value: "intermissionMinutes", label: "Intermission Duration" },
-  { value: "description", label: "Description" },
-  { value: "hotlinkPosterUrl", label: "Poster Image" },
-  { value: "isOpenRun", label: "Open Run" },
-  { value: "isClosed", label: "Is Closed" },
-] as const;
+const SHOW_FOCUS_GROUPS: FocusGroup[] = [
+  { value: "show_type", label: "Type", entityType: "show", fields: ["type", "subtype"], fieldLabels: ["Type", "Subtype"] },
+  { value: "show_image", label: "Image", entityType: "show", fields: ["hotlinkImageUrl"], fieldLabels: ["Image URL"] },
+];
 
-type ShowFocusField = (typeof SHOW_FOCUS_FIELDS)[number]["value"];
-type ProductionFocusField = (typeof PRODUCTION_FOCUS_FIELDS)[number]["value"];
-type FocusFieldValue = ShowFocusField | ProductionFocusField;
+const PRODUCTION_FOCUS_GROUPS: FocusGroup[] = [
+  { value: "prod_preview_opening", label: "Preview & Opening Dates", entityType: "production", fields: ["previewDate", "openingDate"], fieldLabels: ["Preview Date", "Opening Date"] },
+  { value: "prod_closing", label: "Closing Info", entityType: "production", fields: ["closingDate", "isOpenRun", "isClosed"], fieldLabels: ["Closing Date", "Open Run", "Is Closed"] },
+  { value: "prod_venue", label: "Venue", entityType: "production", fields: ["theatre", "city"], fieldLabels: ["Theatre", "City"] },
+  { value: "prod_running_time", label: "Running Time", entityType: "production", fields: ["runningTime", "intermissionCount", "intermissionMinutes"], fieldLabels: ["Running Time (min)", "Intermissions", "Intermission (min)"] },
+  { value: "prod_description", label: "Description", entityType: "production", fields: ["description"], fieldLabels: ["Description"] },
+  { value: "prod_poster", label: "Poster Image", entityType: "production", fields: ["hotlinkPosterUrl"], fieldLabels: ["Poster URL"] },
+];
 
-function isProductionFocusField(field: string): field is ProductionFocusField {
-  return PRODUCTION_FOCUS_FIELDS.some((f) => f.value === field);
+const ALL_FOCUS_GROUPS = [...SHOW_FOCUS_GROUPS, ...PRODUCTION_FOCUS_GROUPS];
+
+function getFocusGroup(value: string): FocusGroup | undefined {
+  return ALL_FOCUS_GROUPS.find((g) => g.value === value);
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -60,9 +57,8 @@ function formatFocusValue(field: string, value: string | null): string {
   if (field === "runningTime") return `${value} min`;
   if (field === "intermissionCount") return value === "0" ? "None" : value;
   if (field === "intermissionMinutes") return `${value} min`;
-  if (field === "description") {
-    return value.length > 90 ? value.slice(0, 90) + "…" : value;
-  }
+  if (field === "isOpenRun" || field === "isClosed") return value === "true" ? "Yes" : "No";
+  if (field === "description") return value.length > 80 ? value.slice(0, 80) + "…" : value;
   return value;
 }
 
@@ -118,10 +114,9 @@ function AdminDashboardContent() {
   const [showClosed, setShowClosed] = useState(() => searchParams.get("closed") !== "0");
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [focusField, setFocusField] = useState<FocusFieldValue | "">(() => {
+  const [focusField, setFocusField] = useState<string>(() => {
     const p = searchParams.get("focus");
-    const allFields = [...SHOW_FOCUS_FIELDS, ...PRODUCTION_FOCUS_FIELDS];
-    return allFields.some((f) => f.value === p) ? (p as FocusFieldValue) : "";
+    return p !== null && ALL_FOCUS_GROUPS.some((g) => g.value === p) ? p : "";
   });
   const [onlyWithPending, setOnlyWithPending] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "recentQueue">(() => {
@@ -174,10 +169,12 @@ function AdminDashboardContent() {
   const submitReview = useMutation(api.reviewQueue.submitShowReview);
 
   // ── Property Focus mode ──────────────────────────────────────────────────
+  const focusGroup = focusField ? getFocusGroup(focusField) : undefined;
+
   const showFocusArgs = useMemo(() => {
-    if (!focusField || isProductionFocusField(focusField)) return "skip" as const;
+    if (!focusGroup || focusGroup.entityType !== "show") return "skip" as const;
     return {
-      field: focusField,
+      fields: [...focusGroup.fields],
       statusFilter: statusFilter,
       search: search.trim() || undefined,
       includeRunning: showRunning,
@@ -185,12 +182,12 @@ function AdminDashboardContent() {
       includeHistorical: showClosed,
       onlyWithPending: onlyWithPending || undefined,
     };
-  }, [focusField, statusFilter, search, showRunning, showUpcoming, showClosed, onlyWithPending]);
+  }, [focusGroup, statusFilter, search, showRunning, showUpcoming, showClosed, onlyWithPending]);
 
   const productionFocusArgs = useMemo(() => {
-    if (!focusField || !isProductionFocusField(focusField)) return "skip" as const;
+    if (!focusGroup || focusGroup.entityType !== "production") return "skip" as const;
     return {
-      field: focusField,
+      fields: [...focusGroup.fields],
       statusFilter: statusFilter,
       search: search.trim() || undefined,
       includeRunning: showRunning,
@@ -198,12 +195,12 @@ function AdminDashboardContent() {
       includeHistorical: showClosed,
       onlyWithPending: onlyWithPending || undefined,
     };
-  }, [focusField, statusFilter, search, showRunning, showUpcoming, showClosed, onlyWithPending]);
+  }, [focusGroup, statusFilter, search, showRunning, showUpcoming, showClosed, onlyWithPending]);
 
   const showFocusListRaw = useQuery(api.reviewQueue.listShowsForFieldReview, showFocusArgs);
   const prodFocusListRaw = useQuery(api.reviewQueue.listShowsWithProductionFieldFocus, productionFocusArgs);
-  const focusListRaw = focusField
-    ? (isProductionFocusField(focusField) ? prodFocusListRaw : showFocusListRaw)
+  const focusListRaw = focusGroup
+    ? (focusGroup.entityType === "production" ? prodFocusListRaw : showFocusListRaw)
     : undefined;
 
   // Inline focus-row action state
@@ -322,8 +319,8 @@ function AdminDashboardContent() {
     };
   }, [addShowModalOpen]);
 
-  const loading = focusField
-    ? (isProductionFocusField(focusField) ? prodFocusListRaw === undefined : showFocusListRaw === undefined)
+  const loading = focusGroup
+    ? (focusGroup.entityType === "production" ? prodFocusListRaw === undefined : showFocusListRaw === undefined)
     : listRaw === undefined;
   const totalFiltered = focusField
     ? (focusListRaw instanceof Error ? 0 : (focusListRaw?.length ?? 0))
@@ -394,11 +391,6 @@ function AdminDashboardContent() {
   return (
     <>
       <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-        <div className="flex gap-4 mb-5 text-sm">
-          <span className="font-medium text-gray-900">Shows</span>
-          <Link href="/admin/unmatched" className="text-gray-500 hover:text-gray-900">Unmatched Locations</Link>
-          <Link href="/admin/feedback" className="text-gray-500 hover:text-gray-900">User Feedback</Link>
-        </div>
         {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-5">
           <StatCard
@@ -518,7 +510,7 @@ function AdminDashboardContent() {
                 id="focus-field-select"
                 value={focusField}
                 onChange={(e) => {
-                  setFocusField(e.target.value as FocusFieldValue | "");
+                  setFocusField(e.target.value);
                   setFocusEdit(null);
                   setOnlyWithPending(false);
                 }}
@@ -526,13 +518,13 @@ function AdminDashboardContent() {
               >
                 <option value="">— none —</option>
                 <optgroup label="Show">
-                  {SHOW_FOCUS_FIELDS.map((f) => (
-                    <option key={f.value} value={f.value}>{f.label}</option>
+                  {SHOW_FOCUS_GROUPS.map((g) => (
+                    <option key={g.value} value={g.value}>{g.label}</option>
                   ))}
                 </optgroup>
                 <optgroup label="Production">
-                  {PRODUCTION_FOCUS_FIELDS.map((f) => (
-                    <option key={f.value} value={f.value}>{f.label}</option>
+                  {PRODUCTION_FOCUS_GROUPS.map((g) => (
+                    <option key={g.value} value={g.value}>{g.label}</option>
                   ))}
                 </optgroup>
               </select>
@@ -563,44 +555,50 @@ function AdminDashboardContent() {
         <div className="text-gray-500 text-sm">Loading...</div>
       ) : listError && !focusField ? null : (
         <>
-          {focusField ? (
+          {focusField && focusGroup ? (
             // ── Property Focus mode ───────────────────────────────────────
             (() => {
+              type PendingEntry = { _id: string; proposedValue: string; source: string };
               const focusRows = focusListRaw instanceof Error || !focusListRaw ? [] : focusListRaw;
               const visibleFocusRows = focusRows.slice(0, visibleCount);
-              const isProdFocus = isProductionFocusField(focusField);
-              const allFields = [...SHOW_FOCUS_FIELDS, ...PRODUCTION_FOCUS_FIELDS];
-              const focusLabel = allFields.find((f) => f.value === focusField)?.label ?? focusField;
+              const isProdFocus = focusGroup.entityType === "production";
+              const groupFields = focusGroup.fields;
+              const groupFieldLabels = focusGroup.fieldLabels;
 
               if (focusRows.length === 0 && !loading) {
                 return <div className="text-gray-500 text-sm">No shows match the current filters.</div>;
               }
 
-              /** Reusable inline action cell for any pending entry + entity. */
-              const ActionCell = ({
+              /**
+               * A single field cell: shows current value, and if there's a pending
+               * suggestion, shows it with compact Approve / Edit / Reject buttons.
+               * Edit opens an inline input; Set appears when the field is empty with no suggestion.
+               */
+              const FieldCell = ({
+                field,
                 showId,
                 showDataStatus,
-                entryId,
-                proposedValue,
-                currentValue,
                 entityType,
                 entityId,
+                currentValue,
+                pendingEntry,
               }: {
+                field: string;
                 showId: string;
                 showDataStatus: string;
-                entryId: string | null;
-                proposedValue: string | null;
-                currentValue: string | null;
                 entityType: "show" | "production";
                 entityId: string;
+                currentValue: string | null;
+                pendingEntry: PendingEntry | null;
               }) => {
-                const busyKey = entryId ?? entityId;
-                const busy = focusBusy.has(busyKey);
-                const isEditing = focusEdit?.showId === showId && focusEdit?.entryId === entryId && (focusEdit?.entityId ?? showId) === entityId;
+                const editKey = `${entityId}:${field}`;
+                const busy = focusBusy.has(pendingEntry?._id ?? editKey);
+                const isEditing = focusEdit?.entityId === editKey;
+
                 if (isEditing) {
                   return (
                     <form
-                      className="flex items-center gap-1.5"
+                      className="flex flex-col gap-1"
                       onSubmit={(e) => {
                         e.preventDefault();
                         const val = focusEdit!.value;
@@ -616,25 +614,39 @@ function AdminDashboardContent() {
                         type="text"
                         value={focusEdit!.value}
                         onChange={(e) => setFocusEdit((prev) => prev ? { ...prev, value: e.target.value } : null)}
-                        className="w-28 rounded border border-gray-300 px-2 py-1 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                        className="w-28 rounded border border-gray-300 px-2 py-1 text-xs focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
                         disabled={busy}
                       />
-                      <button type="submit" disabled={busy} className="rounded bg-gray-900 px-2 py-1 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-50">Save</button>
-                      <button type="button" onClick={() => setFocusEdit(null)} disabled={busy} className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+                      <div className="flex gap-1">
+                        <button type="submit" disabled={busy} className="rounded bg-gray-900 px-2 py-0.5 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-50">Save</button>
+                        <button type="button" onClick={() => setFocusEdit(null)} disabled={busy} className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+                      </div>
                     </form>
                   );
                 }
-                if (entryId && proposedValue !== null) {
-                  return (
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <button type="button" disabled={busy} onClick={() => handleFocusAction(showId, showDataStatus, entryId, "approved")} className="rounded bg-green-700 px-2 py-1 text-xs font-medium text-white hover:bg-green-800 disabled:opacity-50">Approve</button>
-                      <button type="button" disabled={busy} onClick={() => setFocusEdit({ showId, entryId, entityId, value: proposedValue })} className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50">Edit</button>
-                      <button type="button" disabled={busy} onClick={() => handleFocusAction(showId, showDataStatus, entryId, "rejected")} className="rounded border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50">Reject</button>
-                    </div>
-                  );
-                }
+
                 return (
-                  <button type="button" onClick={() => setFocusEdit({ showId, entryId: null, entityId, value: currentValue ?? "" })} className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50">Set</button>
+                  <div className={`flex flex-col gap-0.5 ${busy ? "opacity-50" : ""}`}>
+                    <span className={currentValue !== null ? "text-gray-800 text-sm" : "text-gray-400 text-xs italic"}>
+                      {formatFocusValue(field, currentValue)}
+                    </span>
+                    {pendingEntry ? (
+                      <>
+                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                          <span className="text-amber-700 font-medium">→</span>
+                          {formatFocusValue(field, pendingEntry.proposedValue)}
+                          <span className="rounded-full bg-amber-100 px-1.5 py-px text-xs font-medium text-amber-800 ml-0.5">{SOURCE_LABELS[pendingEntry.source] ?? pendingEntry.source}</span>
+                        </span>
+                        <div className="flex gap-1 mt-0.5">
+                          <button type="button" disabled={busy} onClick={() => handleFocusAction(showId, showDataStatus, pendingEntry._id, "approved")} className="rounded bg-green-700 px-1.5 py-px text-xs font-medium text-white hover:bg-green-800 disabled:opacity-50">✓</button>
+                          <button type="button" disabled={busy} onClick={() => setFocusEdit({ showId, entryId: pendingEntry._id, entityId: editKey, value: pendingEntry.proposedValue })} className="rounded border border-gray-300 px-1.5 py-px text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50">✏</button>
+                          <button type="button" disabled={busy} onClick={() => handleFocusAction(showId, showDataStatus, pendingEntry._id, "rejected")} className="rounded border border-red-200 px-1.5 py-px text-xs text-red-700 hover:bg-red-50 disabled:opacity-50">✗</button>
+                        </div>
+                      </>
+                    ) : (
+                      <button type="button" onClick={() => setFocusEdit({ showId, entryId: null, entityId: editKey, value: currentValue ?? "" })} className="self-start rounded border border-gray-300 px-1.5 py-px text-xs text-gray-500 hover:bg-gray-50">Set</button>
+                    )}
+                  </div>
                 );
               };
 
@@ -654,106 +666,82 @@ function AdminDashboardContent() {
               return (
                 <>
                   <p className="text-sm text-gray-500 mb-3">
-                    Showing {visibleFocusRows.length} of {focusRows.length} shows — {focusLabel}
-                    {isProdFocus && <span className="text-gray-400"> (production level)</span>}
+                    Showing {visibleFocusRows.length} of {focusRows.length} shows — {focusGroup.label}
+                    {isProdFocus && <span className="text-gray-400"> · production level</span>}
                   </p>
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="border border-gray-200 rounded-lg overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-56">Show</th>
-                          {isProdFocus && <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Production</th>}
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Suggestion</th>
-                          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Show</th>
+                          {isProdFocus && <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Production</th>}
+                          {groupFieldLabels.map((label) => (
+                            <th key={label} className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {isProdFocus ? (
                           // E-layout: show image spans all its production rows
-                          (visibleFocusRows as typeof prodFocusListRaw extends (infer T)[] | undefined ? T[] : never[]).flatMap((show) => {
-                            const prods = (show as { productions: { _id: string; showId: string; label: string; dataStatus: string; currentFieldValue: string | null; pendingEntry: { _id: string; proposedValue: string; source: string } | null }[] }).productions;
-                            if (prods.length === 0) {
+                          (visibleFocusRows as Array<{
+                            _id: string; name: string; imageUrl: string | null; dataStatus: string;
+                            productions: Array<{ _id: string; label: string; fieldValues: Record<string, string | null>; pendingEntries: Record<string, PendingEntry | null> }>;
+                          }>).flatMap((show) => {
+                            if (show.productions.length === 0) {
                               return [(
                                 <tr key={show._id} className="hover:bg-gray-50">
-                                  <td className="px-4 py-3"><ShowThumbnail show={show as { _id: string; name: string; imageUrl: string | null }} /></td>
-                                  <td colSpan={4} className="px-3 py-3 text-sm text-gray-400 italic">No productions</td>
+                                  <td className="px-4 py-3"><ShowThumbnail show={show} /></td>
+                                  <td colSpan={groupFields.length + 1} className="px-3 py-3 text-sm text-gray-400 italic">No productions</td>
                                 </tr>
                               )];
                             }
-                            return prods.map((prod, i) => {
-                              const busyKey = prod.pendingEntry?._id ?? prod._id;
-                              const busy = focusBusy.has(busyKey);
-                              return (
-                                <tr key={prod._id} className={busy ? "opacity-50" : "hover:bg-gray-50"}>
-                                  {i === 0 && (
-                                    <td rowSpan={prods.length} className="px-4 py-3 align-top border-r border-gray-100">
-                                      <ShowThumbnail show={show as { _id: string; name: string; imageUrl: string | null }} />
-                                    </td>
-                                  )}
-                                  <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">{prod.label}</td>
-                                  <td className="px-3 py-3 text-sm max-w-[180px]">
-                                    {prod.currentFieldValue !== null
-                                      ? <span className="text-gray-800">{formatFocusValue(focusField, prod.currentFieldValue)}</span>
-                                      : <span className="text-gray-400 italic">empty</span>}
+                            return show.productions.map((prod, i) => (
+                              <tr key={prod._id} className="hover:bg-gray-50">
+                                {i === 0 && (
+                                  <td rowSpan={show.productions.length} className="px-4 py-3 align-top border-r border-gray-100">
+                                    <ShowThumbnail show={show} />
                                   </td>
-                                  <td className="px-3 py-3 text-sm max-w-[200px]">
-                                    {prod.pendingEntry ? (
-                                      <span className="flex flex-col gap-1">
-                                        <span className="text-gray-800">{formatFocusValue(focusField, prod.pendingEntry.proposedValue)}</span>
-                                        <span className="inline-flex w-fit items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{SOURCE_LABELS[prod.pendingEntry.source] ?? prod.pendingEntry.source}</span>
-                                      </span>
-                                    ) : <span className="text-gray-400 italic">none</span>}
-                                  </td>
-                                  <td className="px-3 py-3">
-                                    <ActionCell
-                                      showId={(show as { _id: string })._id}
-                                      showDataStatus={(show as { dataStatus: string }).dataStatus}
-                                      entryId={prod.pendingEntry?._id ?? null}
-                                      proposedValue={prod.pendingEntry?.proposedValue ?? null}
-                                      currentValue={prod.currentFieldValue}
+                                )}
+                                <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap align-top">{prod.label}</td>
+                                {groupFields.map((field) => (
+                                  <td key={field} className="px-3 py-3 align-top">
+                                    <FieldCell
+                                      field={field}
+                                      showId={show._id}
+                                      showDataStatus={show.dataStatus}
                                       entityType="production"
                                       entityId={prod._id}
+                                      currentValue={prod.fieldValues[field] ?? null}
+                                      pendingEntry={prod.pendingEntries[field] ?? null}
                                     />
                                   </td>
-                                </tr>
-                              );
-                            });
+                                ))}
+                              </tr>
+                            ));
                           })
                         ) : (
                           // Flat layout: one row per show
-                          (visibleFocusRows as typeof showFocusListRaw extends (infer T)[] | undefined ? T[] : never[]).map((show) => {
-                            const s = show as { _id: string; name: string; imageUrl: string | null; dataStatus: string; currentFieldValue: string | null; pendingEntry: { _id: string; proposedValue: string; source: string } | null };
-                            return (
-                              <tr key={s._id} className="hover:bg-gray-50">
-                                <td className="px-4 py-3"><ShowThumbnail show={s} /></td>
-                                <td className="px-3 py-3 text-sm max-w-[200px]">
-                                  {s.currentFieldValue !== null
-                                    ? <span className="text-gray-800">{formatFocusValue(focusField, s.currentFieldValue)}</span>
-                                    : <span className="text-gray-400 italic">empty</span>}
-                                </td>
-                                <td className="px-3 py-3 text-sm max-w-[220px]">
-                                  {s.pendingEntry ? (
-                                    <span className="flex flex-col gap-1">
-                                      <span className="text-gray-800">{formatFocusValue(focusField, s.pendingEntry.proposedValue)}</span>
-                                      <span className="inline-flex w-fit items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{SOURCE_LABELS[s.pendingEntry.source] ?? s.pendingEntry.source}</span>
-                                    </span>
-                                  ) : <span className="text-gray-400 italic">none</span>}
-                                </td>
-                                <td className="px-3 py-3">
-                                  <ActionCell
-                                    showId={s._id}
-                                    showDataStatus={s.dataStatus}
-                                    entryId={s.pendingEntry?._id ?? null}
-                                    proposedValue={s.pendingEntry?.proposedValue ?? null}
-                                    currentValue={s.currentFieldValue}
+                          (visibleFocusRows as Array<{
+                            _id: string; name: string; imageUrl: string | null; dataStatus: string;
+                            fieldValues: Record<string, string | null>; pendingEntries: Record<string, PendingEntry | null>;
+                          }>).map((show) => (
+                            <tr key={show._id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 align-top"><ShowThumbnail show={show} /></td>
+                              {groupFields.map((field) => (
+                                <td key={field} className="px-3 py-3 align-top">
+                                  <FieldCell
+                                    field={field}
+                                    showId={show._id}
+                                    showDataStatus={show.dataStatus}
                                     entityType="show"
-                                    entityId={s._id}
+                                    entityId={show._id}
+                                    currentValue={show.fieldValues[field] ?? null}
+                                    pendingEntry={show.pendingEntries[field] ?? null}
                                   />
                                 </td>
-                              </tr>
-                            );
-                          })
+                              ))}
+                            </tr>
+                          ))
                         )}
                       </tbody>
                     </table>
