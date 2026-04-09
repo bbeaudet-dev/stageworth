@@ -168,7 +168,17 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     const auth = request.headers.get("Authorization");
-    if (auth !== `Bearer ${process.env.SHOWTIMES_SYNC_SECRET}`) {
+    const token = auth?.replace(/^Bearer\s+/i, "").trim();
+    const allowedTokens = [
+      process.env.SHOWTIMES_SYNC_SECRET,
+      // Temporary fallback so existing infra can still sync even if
+      // SHOWTIMES_SYNC_SECRET is mismatched across deployments.
+      process.env.PLAYBILL_SECRET,
+      process.env.BOT_SECRET,
+    ]
+      .filter((v): v is string => Boolean(v))
+      .map((v) => v.trim());
+    if (!token || !allowedTokens.includes(token)) {
       return new Response("Unauthorized", { status: 401 });
     }
 
