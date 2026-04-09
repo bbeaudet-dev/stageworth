@@ -27,6 +27,10 @@ export const PRODUCTION_REVIEWABLE_FIELDS = [
   "closingDate",
   "productionType",
   "hotlinkPosterUrl",
+  "runningTime",
+  "intermissionCount",
+  "intermissionMinutes",
+  "description",
 ] as const;
 
 const dataStatusValidator = v.union(
@@ -47,7 +51,8 @@ const sourceValidator = v.union(
   v.literal("bot"),
   v.literal("seed"),
   v.literal("manual"),
-  v.literal("wikidata")
+  v.literal("wikidata"),
+  v.literal("playbill")
 );
 
 const showTypeValidator = v.union(
@@ -145,6 +150,8 @@ export const listShowsForReview = query({
     includeRunning: v.optional(v.boolean()),
     includeUpcoming: v.optional(v.boolean()),
     includeHistorical: v.optional(v.boolean()),
+    /** "name" = alphabetical (default); "recentQueue" = shows with newest queue items first. */
+    sortBy: v.optional(v.union(v.literal("name"), v.literal("recentQueue"))),
   },
   handler: async (ctx, args) => {
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 5000);
@@ -157,6 +164,8 @@ export const listShowsForReview = query({
       Id<"shows">,
       (typeof allProductions)[number][]
     >();
+    // Reverse map for resolving production entries → showId when sorting by queue.
+    const showIdByProductionId = new Map<string, string>();
     for (const p of allProductions) {
       const list = productionIdsByShow.get(p.showId) ?? [];
       list.push(p._id);
@@ -164,6 +173,7 @@ export const listShowsForReview = query({
       const arr = prodsByShowId.get(p.showId) ?? [];
       arr.push(p);
       prodsByShowId.set(p.showId, arr);
+      showIdByProductionId.set(p._id as string, p.showId as string);
     }
 
     let shows = await ctx.db.query("shows").collect();
@@ -182,14 +192,6 @@ export const listShowsForReview = query({
       }
     }
 
-    const statusOrder = { needs_review: 0, partial: 1, complete: 2 };
-    shows.sort((a, b) => {
-      const aOrder = statusOrder[a.dataStatus ?? "needs_review"];
-      const bOrder = statusOrder[b.dataStatus ?? "needs_review"];
-      if (aOrder !== bOrder) return aOrder - bOrder;
-      return a.name.localeCompare(b.name);
-    });
-
     const incR = args.includeRunning !== false;
     const incU = args.includeUpcoming !== false;
     const incH = args.includeHistorical !== false;
@@ -203,19 +205,53 @@ export const listShowsForReview = query({
       });
     }
 
+    const allEntries = await ctx.db.query("reviewQueue").collect();
+    const pendingCountByEntity = new Map<string, number>();
+    // For recentQueue sort: track the newest *pending* entry timestamp per show.
+    // Only pending entries count — approved/rejected items don't keep a show at the top.
+    const latestQueueAtByShow = new Map<string, number>();
+    for (const entry of allEntries) {
+      const key = `${entry.entityType}:${entry.entityId}`;
+      if (entry.status === "pending") {
+        pendingCountByEntity.set(key, (pendingCountByEntity.get(key) || 0) + 1);
+        const showId =
+          entry.entityType === "show"
+            ? (entry.entityId as string)
+            : (showIdByProductionId.get(entry.entityId as string) ?? null);
+        if (showId) {
+          const t = entry._creationTime ?? 0;
+          if ((latestQueueAtByShow.get(showId) ?? 0) < t) {
+            latestQueueAtByShow.set(showId, t);
+          }
+        }
+      }
+    }
+
+    const statusOrder = { needs_review: 0, partial: 1, complete: 2 };
+    if (args.sortBy === "recentQueue") {
+      shows.sort((a, b) => {
+        const aT = latestQueueAtByShow.get(a._id as string) ?? 0;
+        const bT = latestQueueAtByShow.get(b._id as string) ?? 0;
+        // Primary: shows with pending items before shows without
+        const aHas = aT > 0 ? 1 : 0;
+        const bHas = bT > 0 ? 1 : 0;
+        if (bHas !== aHas) return bHas - aHas;
+        // Secondary: newest pending entry first (matters for fresh Playbill data)
+        if (bT !== aT) return bT - aT;
+        // Tertiary: alphabetical
+        return a.name.localeCompare(b.name);
+      });
+    } else {
+      shows.sort((a, b) => {
+        const aOrder = statusOrder[a.dataStatus ?? "needs_review"];
+        const bOrder = statusOrder[b.dataStatus ?? "needs_review"];
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return a.name.localeCompare(b.name);
+      });
+    }
+
     const total = shows.length;
     const pageShows = shows.slice(offset, offset + limit);
-
-    const pendingEntries = await ctx.db
-      .query("reviewQueue")
-      .withIndex("by_status", (q) => q.eq("status", "pending"))
-      .collect();
-
-    const pendingCountByEntity = new Map<string, number>();
-    for (const entry of pendingEntries) {
-      const key = `${entry.entityType}:${entry.entityId}`;
-      pendingCountByEntity.set(key, (pendingCountByEntity.get(key) || 0) + 1);
-    }
 
     const page = await Promise.all(
       pageShows.map(async (show) => {
@@ -238,6 +274,7 @@ export const listShowsForReview = query({
           pendingCount: showPending + productionPending,
           productionCount: prodIds.length,
           scheduleBucket: scheduleBucketForShow(prods, asOf),
+          latestQueueAt: latestQueueAtByShow.get(show._id as string) ?? null,
         };
       })
     );
@@ -247,6 +284,234 @@ export const listShowsForReview = query({
       total,
       hasMore: offset + page.length < total,
     };
+  },
+});
+
+/**
+ * Property Focus query — show-level fields (flat list, one row per show).
+ *
+ * Accepts a group of fields (e.g. ["type","subtype"]) so the dashboard can
+ * show multiple related columns at once. Each row returns fieldValues and
+ * pendingEntries keyed by field name.
+ */
+export const listShowsForFieldReview = query({
+  args: {
+    fields: v.array(v.string()),
+    statusFilter: v.optional(dataStatusValidator),
+    search: v.optional(v.string()),
+    includeRunning: v.optional(v.boolean()),
+    includeUpcoming: v.optional(v.boolean()),
+    includeHistorical: v.optional(v.boolean()),
+    /** When true, only return shows that have a pending entry for at least one field. */
+    onlyWithPending: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const asOf = new Date().toISOString().split("T")[0];
+    const fieldSet = new Set(args.fields);
+
+    const allProductions = await ctx.db.query("productions").collect();
+    const prodsByShowId = new Map<Id<"shows">, typeof allProductions>();
+    for (const p of allProductions) {
+      const arr = prodsByShowId.get(p.showId) ?? [];
+      arr.push(p);
+      prodsByShowId.set(p.showId, arr);
+    }
+
+    let shows = await ctx.db.query("shows").collect();
+
+    if (args.statusFilter) {
+      shows = shows.filter(
+        (s) => (s.dataStatus ?? "needs_review") === args.statusFilter
+      );
+    }
+    if (args.search) {
+      const needle = args.search.trim().toLowerCase();
+      if (needle.length > 0)
+        shows = shows.filter((s) => s.name.toLowerCase().includes(needle));
+    }
+    const incR = args.includeRunning !== false;
+    const incU = args.includeUpcoming !== false;
+    const incH = args.includeHistorical !== false;
+    if (!(incR && incU && incH)) {
+      shows = shows.filter((s) => {
+        const bucket = scheduleBucketForShow(prodsByShowId.get(s._id) ?? [], asOf);
+        if (bucket === "running") return incR;
+        if (bucket === "upcoming") return incU;
+        return incH;
+      });
+    }
+    shows.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Fetch all pending entries for these fields at once — avoids N×F round trips.
+    type PendingEntry = { _id: string; proposedValue: string; source: string };
+    const allPending = await ctx.db
+      .query("reviewQueue")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .collect();
+    const pendingByEntityField = new Map<string, PendingEntry>();
+    for (const entry of allPending) {
+      if (entry.entityType !== "show" || !fieldSet.has(entry.field)) continue;
+      const key = `${entry.entityId as string}:${entry.field}`;
+      if (!pendingByEntityField.has(key)) {
+        pendingByEntityField.set(key, {
+          _id: entry._id as string,
+          proposedValue: entry.currentValue ?? "",
+          source: entry.source,
+        });
+      }
+    }
+
+    const rows = await Promise.all(
+      shows.map(async (show) => {
+        const images = await resolveShowImageUrls(ctx, show);
+        const showDoc = show as Record<string, unknown>;
+        const fieldValues: Record<string, string | null> = {};
+        const pendingEntries: Record<string, PendingEntry | null> = {};
+        for (const field of args.fields) {
+          const raw = showDoc[field];
+          fieldValues[field] = raw !== undefined && raw !== null ? String(raw) : null;
+          pendingEntries[field] =
+            pendingByEntityField.get(`${show._id as string}:${field}`) ?? null;
+        }
+        return {
+          _id: show._id as string,
+          name: show.name,
+          dataStatus: show.dataStatus ?? "needs_review",
+          imageUrl: images[0] ?? null,
+          scheduleBucket: scheduleBucketForShow(prodsByShowId.get(show._id) ?? [], asOf),
+          fieldValues,
+          pendingEntries,
+        };
+      })
+    );
+
+    if (args.onlyWithPending) {
+      return rows.filter((r) => args.fields.some((f) => r.pendingEntries[f] !== null));
+    }
+    return rows;
+  },
+});
+
+/**
+ * Production Field Focus query — E-layout (one row per production per show).
+ *
+ * Accepts a group of fields (e.g. ["closingDate","isOpenRun","isClosed"]) and
+ * returns shows with nested productions, each carrying fieldValues and
+ * pendingEntries keyed by field name.
+ */
+export const listShowsWithProductionFieldFocus = query({
+  args: {
+    fields: v.array(v.string()),
+    statusFilter: v.optional(dataStatusValidator),
+    search: v.optional(v.string()),
+    includeRunning: v.optional(v.boolean()),
+    includeUpcoming: v.optional(v.boolean()),
+    includeHistorical: v.optional(v.boolean()),
+    /** When true, only return shows where at least one production has a pending entry. */
+    onlyWithPending: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const asOf = new Date().toISOString().split("T")[0];
+    const fieldSet = new Set(args.fields);
+
+    const allProductions = await ctx.db.query("productions").collect();
+    const prodsByShowId = new Map<Id<"shows">, (typeof allProductions)[number][]>();
+    for (const p of allProductions) {
+      const arr = prodsByShowId.get(p.showId) ?? [];
+      arr.push(p);
+      prodsByShowId.set(p.showId, arr);
+    }
+
+    let shows = await ctx.db.query("shows").collect();
+
+    if (args.statusFilter) {
+      shows = shows.filter(
+        (s) => (s.dataStatus ?? "needs_review") === args.statusFilter
+      );
+    }
+    if (args.search) {
+      const needle = args.search.trim().toLowerCase();
+      if (needle.length > 0)
+        shows = shows.filter((s) => s.name.toLowerCase().includes(needle));
+    }
+    const incR = args.includeRunning !== false;
+    const incU = args.includeUpcoming !== false;
+    const incH = args.includeHistorical !== false;
+    if (!(incR && incU && incH)) {
+      shows = shows.filter((s) => {
+        const bucket = scheduleBucketForShow(prodsByShowId.get(s._id) ?? [], asOf);
+        if (bucket === "running") return incR;
+        if (bucket === "upcoming") return incU;
+        return incH;
+      });
+    }
+    shows.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Fetch all pending production entries for these fields at once.
+    type PendingEntry = { _id: string; proposedValue: string; source: string };
+    const allPending = await ctx.db
+      .query("reviewQueue")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .collect();
+    const pendingByEntityField = new Map<string, PendingEntry>();
+    for (const entry of allPending) {
+      if (entry.entityType !== "production" || !fieldSet.has(entry.field)) continue;
+      const key = `${entry.entityId as string}:${entry.field}`;
+      if (!pendingByEntityField.has(key)) {
+        pendingByEntityField.set(key, {
+          _id: entry._id as string,
+          proposedValue: entry.currentValue ?? "",
+          source: entry.source,
+        });
+      }
+    }
+
+    const rows = await Promise.all(
+      shows.map(async (show) => {
+        const images = await resolveShowImageUrls(ctx, show);
+        const prods = prodsByShowId.get(show._id) ?? [];
+
+        const productionRows = prods.map((prod) => {
+          const prodDoc = prod as Record<string, unknown>;
+          const fieldValues: Record<string, string | null> = {};
+          const pendingEntries: Record<string, PendingEntry | null> = {};
+          for (const field of args.fields) {
+            const raw = prodDoc[field];
+            fieldValues[field] = raw !== undefined && raw !== null ? String(raw) : null;
+            pendingEntries[field] =
+              pendingByEntityField.get(`${prod._id as string}:${field}`) ?? null;
+          }
+          const yearPart = prod.openingDate?.slice(0, 4) ?? prod.previewDate?.slice(0, 4) ?? null;
+          const label = [prod.district.replace(/_/g, " "), yearPart].filter(Boolean).join(" · ");
+          return {
+            _id: prod._id as string,
+            showId: show._id as string,
+            label,
+            dataStatus: prod.dataStatus ?? "needs_review",
+            fieldValues,
+            pendingEntries,
+          };
+        });
+
+        return {
+          _id: show._id as string,
+          name: show.name,
+          dataStatus: show.dataStatus ?? "needs_review",
+          imageUrl: images[0] ?? null,
+          scheduleBucket: scheduleBucketForShow(prods, asOf),
+          productions: productionRows,
+        };
+      })
+    );
+
+    if (args.onlyWithPending) {
+      return rows.filter((r) =>
+        r.productions.some((p) =>
+          args.fields.some((f) => p.pendingEntries[f] !== null)
+        )
+      );
+    }
+    return rows;
   },
 });
 
@@ -803,7 +1068,21 @@ export const submitShowReview = mutation({
         reviewedAt: now,
       });
 
-      if (decision.decision === "rejected") {
+      if (decision.decision === "approved") {
+        // Apply the queued value to the DB. Sources like Wikipedia/Ticketmaster
+        // pre-write the value before creating the queue entry, so this is
+        // idempotent for them. Sources like Playbill stage the entry only, so
+        // this is where the value actually lands in the DB.
+        if (entry.currentValue !== undefined) {
+          await applyFieldChange(
+            ctx,
+            entry.entityType,
+            entry.entityId,
+            entry.field,
+            entry.currentValue
+          );
+        }
+      } else if (decision.decision === "rejected") {
         await applyFieldChange(
           ctx,
           entry.entityType,
@@ -959,6 +1238,9 @@ function normalizeForVenueMatch(name: string): string {
 // Fields stored as booleans — string values "true"/"false" must be converted.
 const BOOLEAN_FIELDS = new Set(["isOpenRun", "isClosed"]);
 
+// Fields stored as numbers — string values must be parsed before writing to DB.
+const NUMERIC_FIELDS = new Set(["runningTime", "intermissionCount", "intermissionMinutes"]);
+
 /** Heuristic: uploaded admin image edits pass a storage id, not a http(s) URL. */
 function isLikelyConvexStorageId(s: string): boolean {
   if (s.length < 20 || s.length > 64) return false;
@@ -1011,6 +1293,11 @@ async function applyFieldChange(
     const boolValue =
       value === "true" ? true : value === "false" ? false : undefined;
     await ctx.db.patch(entityId as any, { [field]: boolValue });
+  } else if (NUMERIC_FIELDS.has(field)) {
+    const numValue = Number(value);
+    await ctx.db.patch(entityId as any, {
+      [field]: isNaN(numValue) ? undefined : numValue,
+    });
   } else {
     await ctx.db.patch(entityId as any, { [field]: value });
   }

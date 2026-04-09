@@ -79,4 +79,79 @@ http.route({
   }),
 });
 
+// ─── Playbill enrichment endpoints ───────────────────────────────────────────
+// Called by the GitHub Actions scraping pipeline.
+// Secured with a shared secret: npx convex env set PLAYBILL_SECRET <value>
+
+/**
+ * GET /playbill/enrich-queue
+ * Returns the list of productions with a playbillProductionId that are still
+ * missing enrichable fields. The scraping script uses this to build its work
+ * list without needing full DB access.
+ */
+http.route({
+  path: "/playbill/enrich-queue",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const auth = request.headers.get("Authorization");
+    if (auth !== `Bearer ${process.env.PLAYBILL_SECRET}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const rows = await ctx.runQuery(
+      internal.playbill.getProductionsNeedingEnrichment,
+      {}
+    );
+
+    return new Response(JSON.stringify(rows), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+/**
+ * POST /playbill/findings
+ * Accepts an array of scraped findings and stages them as pending reviewQueue
+ * entries. Idempotent — safe to call multiple times with the same data.
+ *
+ * Body: { findings: Array<{ entityType, entityId, field, value }> }
+ * Response: { created: number, skipped: number }
+ */
+http.route({
+  path: "/playbill/findings",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = request.headers.get("Authorization");
+    if (auth !== `Bearer ${process.env.PLAYBILL_SECRET}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    let body: { findings: unknown };
+    try {
+      body = await request.json();
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+
+    if (!Array.isArray(body?.findings)) {
+      return new Response('Body must be { "findings": [...] }', { status: 400 });
+    }
+
+    try {
+      const result = await ctx.runMutation(
+        internal.playbill.submitFindings,
+        { findings: body.findings } as never
+      );
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (err) {
+      console.error("playbill.submitFindings failed:", err);
+      return new Response("Internal error", { status: 500 });
+    }
+  }),
+});
+
 export default http;

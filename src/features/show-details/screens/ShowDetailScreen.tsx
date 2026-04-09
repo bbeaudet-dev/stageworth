@@ -169,8 +169,8 @@ export default function ShowDetailScreen() {
   );
   const addShowToList = useMutation(api.lists.addShowToList);
   const addShowToTrip = useMutation(api.trips.trips.addShowToTrip);
-  const submitCatalogFeedback = useMutation(api.catalogUserFeedback.submit);
-  const enrichShowScore = useAction(api.showScore.enrichShowWithShowScore);
+  const submitCatalogFeedback = useMutation(api.admin.catalogUserFeedback.submit);
+  const enrichShowScore = useAction(api.admin.showScore.enrichShowWithShowScore);
   const getRecommendation = useAction(api.recommendations.getShowRecommendation);
 
   const colorScheme = useColorScheme();

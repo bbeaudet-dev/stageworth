@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { action, internalMutation, internalQuery } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { action, internalMutation, internalQuery } from "../_generated/server";
+import { internal } from "../_generated/api";
 
 const STALE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -42,7 +42,7 @@ export const enrichShowWithShowScore = action({
   args: { showId: v.id("shows") },
   handler: async (ctx, args) => {
     const show = await ctx.runQuery(
-      internal.showScore.getShowForEnrichment,
+      internal.admin.showScore.getShowForEnrichment,
       { showId: args.showId }
     );
     if (!show) return;
@@ -63,7 +63,7 @@ export const enrichShowWithShowScore = action({
     for (const slug of slugsToTry) {
       const result = await fetchShowScorePage(slug);
       if (result) {
-        await ctx.runMutation(internal.showScore.patchShowScore, {
+        await ctx.runMutation(internal.admin.showScore.patchShowScore, {
           showId: args.showId,
           showScoreRating: result.rating,
           showScoreCount: result.count,
@@ -75,7 +75,7 @@ export const enrichShowWithShowScore = action({
     }
 
     // Mark as checked even on miss to avoid re-fetching constantly
-    await ctx.runMutation(internal.showScore.patchShowScore, {
+    await ctx.runMutation(internal.admin.showScore.patchShowScore, {
       showId: args.showId,
       showScoreUpdatedAt: Date.now(),
     });

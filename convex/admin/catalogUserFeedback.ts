@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { requireConvexUserId } from "./auth";
+import { mutation, query } from "../_generated/server";
+import { requireConvexUserId } from "../auth";
 
 const MAX_NOTE_LEN = 4000;
 

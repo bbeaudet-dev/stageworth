@@ -2,19 +2,12 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/lib/api";
-import Link from "next/link";
 
 export default function AdminUnmatchedLocationsPage() {
   const rows = useQuery(api.visits.listUnmatchedLocations, {});
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-      <div className="flex gap-4 mb-5 text-sm">
-        <Link href="/admin" className="text-gray-500 hover:text-gray-900">Shows</Link>
-        <span className="font-medium text-gray-900">Unmatched Locations</span>
-        <Link href="/admin/feedback" className="text-gray-500 hover:text-gray-900">User Feedback</Link>
-      </div>
-
       <div className="mb-5">
         <h1 className="text-xl font-semibold text-gray-900">Unmatched Locations</h1>
         <p className="mt-1 text-sm text-gray-500">

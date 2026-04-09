@@ -1,16 +1,66 @@
 "use client";
 
-import { useMutation, useQueries } from "convex/react";
+import { useMutation, useQueries, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 type StatusFilter = "needs_review" | "partial" | "complete" | undefined;
 
 const PAGE_SIZE = 50;
 /** Cap rows returned per request (schedule filters run in Convex before this limit). */
 const FETCH_LIMIT = 500;
+
+/** A group of related fields shown together in Property Focus mode. */
+type FocusGroup = {
+  value: string;
+  label: string;
+  entityType: "show" | "production";
+  fields: readonly string[];
+  fieldLabels: readonly string[];
+};
+
+const SHOW_FOCUS_GROUPS: FocusGroup[] = [
+  { value: "show_type", label: "Type", entityType: "show", fields: ["type", "subtype"], fieldLabels: ["Type", "Subtype"] },
+  { value: "show_image", label: "Image", entityType: "show", fields: ["hotlinkImageUrl"], fieldLabels: ["Image URL"] },
+];
+
+const PRODUCTION_FOCUS_GROUPS: FocusGroup[] = [
+  { value: "prod_preview_opening", label: "Preview & Opening Dates", entityType: "production", fields: ["previewDate", "openingDate"], fieldLabels: ["Preview Date", "Opening Date"] },
+  { value: "prod_closing", label: "Closing Info", entityType: "production", fields: ["closingDate", "isOpenRun", "isClosed"], fieldLabels: ["Closing Date", "Open Run", "Is Closed"] },
+  { value: "prod_venue", label: "Venue", entityType: "production", fields: ["theatre", "city"], fieldLabels: ["Theatre", "City"] },
+  { value: "prod_running_time", label: "Running Time", entityType: "production", fields: ["runningTime", "intermissionCount", "intermissionMinutes"], fieldLabels: ["Running Time (min)", "Intermissions", "Intermission (min)"] },
+  { value: "prod_description", label: "Description", entityType: "production", fields: ["description"], fieldLabels: ["Description"] },
+  { value: "prod_poster", label: "Poster Image", entityType: "production", fields: ["hotlinkPosterUrl"], fieldLabels: ["Poster URL"] },
+];
+
+const ALL_FOCUS_GROUPS = [...SHOW_FOCUS_GROUPS, ...PRODUCTION_FOCUS_GROUPS];
+
+function getFocusGroup(value: string): FocusGroup | undefined {
+  return ALL_FOCUS_GROUPS.find((g) => g.value === value);
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  playbill: "Playbill",
+  wikipedia: "Wikipedia",
+  ticketmaster: "Ticketmaster",
+  bot: "Bot",
+  seed: "Seed",
+  manual: "Manual",
+  wikidata: "Wikidata",
+};
+
+/** Format a raw DB string value for display in the focus column. */
+function formatFocusValue(field: string, value: string | null): string {
+  if (value === null) return "—";
+  if (field === "runningTime") return `${value} min`;
+  if (field === "intermissionCount") return value === "0" ? "None" : value;
+  if (field === "intermissionMinutes") return `${value} min`;
+  if (field === "isOpenRun" || field === "isClosed") return value === "true" ? "Yes" : "No";
+  if (field === "description") return value.length > 80 ? value.slice(0, 80) + "…" : value;
+  return value;
+}
 
 type ListRow = {
   _id: string;
@@ -21,6 +71,7 @@ type ListRow = {
   pendingCount: number;
   productionCount: number;
   scheduleBucket: "running" | "upcoming" | "historical";
+  latestQueueAt: number | null;
 };
 
 const SHOW_TYPES = [
@@ -63,6 +114,14 @@ function AdminDashboardContent() {
   const [showClosed, setShowClosed] = useState(() => searchParams.get("closed") !== "0");
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [focusField, setFocusField] = useState<string>(() => {
+    const p = searchParams.get("focus");
+    return p !== null && ALL_FOCUS_GROUPS.some((g) => g.value === p) ? p : "";
+  });
+  const [onlyWithPending, setOnlyWithPending] = useState(false);
+  const [sortBy, setSortBy] = useState<"name" | "recentQueue">(() => {
+    return searchParams.get("sort") === "recentQueue" ? "recentQueue" : "name";
+  });
 
   /** Dashboard URL with status/schedule only (no search) — passed as review `returnTo`. */
   const adminPathWithoutSearch = useMemo(() => {
@@ -71,9 +130,11 @@ function AdminDashboardContent() {
     if (!showRunning) params.set("running", "0");
     if (!showUpcoming) params.set("upcoming", "0");
     if (!showClosed) params.set("closed", "0");
+    if (focusField) params.set("focus", focusField);
+    if (sortBy !== "name") params.set("sort", sortBy);
     const qs = params.toString();
     return qs ? `/admin?${qs}` : "/admin";
-  }, [statusFilter, showRunning, showUpcoming, showClosed]);
+  }, [statusFilter, showRunning, showUpcoming, showClosed, focusField, sortBy]);
 
   /** Keep URL in sync with filters (shallow replace — no navigation). */
   useEffect(() => {
@@ -83,10 +144,12 @@ function AdminDashboardContent() {
     if (!showUpcoming) params.set("upcoming", "0");
     if (!showClosed) params.set("closed", "0");
     if (search) params.set("q", search);
+    if (focusField) params.set("focus", focusField);
+    if (sortBy !== "name") params.set("sort", sortBy);
     const qs = params.toString();
     router.replace(qs ? `/admin?${qs}` : "/admin");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, showRunning, showUpcoming, showClosed, search]);
+  }, [statusFilter, showRunning, showUpcoming, showClosed, search, focusField, sortBy]);
 
   const [newShowName, setNewShowName] = useState("");
   const [newShowType, setNewShowType] = useState<ShowFormType>("musical");
@@ -103,6 +166,97 @@ function AdminDashboardContent() {
   const createShowFromForm = useMutation(
     api.reviewQueue.createShowFromAdminForm
   );
+  const submitReview = useMutation(api.reviewQueue.submitShowReview);
+
+  // ── Property Focus mode ──────────────────────────────────────────────────
+  const focusGroup = focusField ? getFocusGroup(focusField) : undefined;
+
+  const showFocusArgs = useMemo(() => {
+    if (!focusGroup || focusGroup.entityType !== "show") return "skip" as const;
+    return {
+      fields: [...focusGroup.fields],
+      statusFilter: statusFilter,
+      search: search.trim() || undefined,
+      includeRunning: showRunning,
+      includeUpcoming: showUpcoming,
+      includeHistorical: showClosed,
+      onlyWithPending: onlyWithPending || undefined,
+    };
+  }, [focusGroup, statusFilter, search, showRunning, showUpcoming, showClosed, onlyWithPending]);
+
+  const productionFocusArgs = useMemo(() => {
+    if (!focusGroup || focusGroup.entityType !== "production") return "skip" as const;
+    return {
+      fields: [...focusGroup.fields],
+      statusFilter: statusFilter,
+      search: search.trim() || undefined,
+      includeRunning: showRunning,
+      includeUpcoming: showUpcoming,
+      includeHistorical: showClosed,
+      onlyWithPending: onlyWithPending || undefined,
+    };
+  }, [focusGroup, statusFilter, search, showRunning, showUpcoming, showClosed, onlyWithPending]);
+
+  const showFocusListRaw = useQuery(api.reviewQueue.listShowsForFieldReview, showFocusArgs);
+  const prodFocusListRaw = useQuery(api.reviewQueue.listShowsWithProductionFieldFocus, productionFocusArgs);
+  const focusListRaw = focusGroup
+    ? (focusGroup.entityType === "production" ? prodFocusListRaw : showFocusListRaw)
+    : undefined;
+
+  // Inline focus-row action state
+  type FocusEditState = { showId: string; entryId: string | null; entityId?: string; value: string };
+  const [focusEdit, setFocusEdit] = useState<FocusEditState | null>(null);
+  const [focusBusy, setFocusBusy] = useState<Set<string>>(new Set());
+  const focusEditRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (focusEdit) focusEditRef.current?.focus();
+  }, [focusEdit]);
+
+  async function handleFocusAction(
+    showId: string,
+    showDataStatus: string,
+    entryId: string | null,
+    decision: "approved" | "rejected" | "edited" | "direct",
+    value?: string,
+    /** For production field direct-sets: the production entity ID and type. */
+    directEntity?: { entityType: "show" | "production"; entityId: string }
+  ) {
+    setFocusBusy((prev) => new Set(prev).add(entryId ?? showId));
+    try {
+      if (decision === "approved" && entryId) {
+        await submitReview({
+          showId: showId as Id<"shows">,
+          showDataStatus: showDataStatus as "needs_review" | "partial" | "complete",
+          entryDecisions: [{ entryId: entryId as Id<"reviewQueue">, decision: "approved" }],
+        });
+      } else if (decision === "rejected" && entryId) {
+        await submitReview({
+          showId: showId as Id<"shows">,
+          showDataStatus: showDataStatus as "needs_review" | "partial" | "complete",
+          entryDecisions: [{ entryId: entryId as Id<"reviewQueue">, decision: "rejected" }],
+        });
+      } else if (decision === "edited" && entryId && value !== undefined) {
+        await submitReview({
+          showId: showId as Id<"shows">,
+          showDataStatus: showDataStatus as "needs_review" | "partial" | "complete",
+          entryDecisions: [{ entryId: entryId as Id<"reviewQueue">, decision: "edited", reviewedValue: value }],
+        });
+        setFocusEdit(null);
+      } else if (decision === "direct" && value !== undefined && focusField) {
+        const entity = directEntity ?? { entityType: "show" as const, entityId: showId };
+        await submitReview({
+          showId: showId as Id<"shows">,
+          showDataStatus: showDataStatus as "needs_review" | "partial" | "complete",
+          entryDecisions: [],
+          directEdits: [{ entityType: entity.entityType, entityId: entity.entityId, field: focusField, newValue: value || undefined }],
+        });
+        setFocusEdit(null);
+      }
+    } finally {
+      setFocusBusy((prev) => { const s = new Set(prev); s.delete(entryId ?? showId); return s; });
+    }
+  }
 
   const adminQueries = useMemo(() => {
     const listArgs: {
@@ -113,12 +267,14 @@ function AdminDashboardContent() {
       includeHistorical: boolean;
       statusFilter?: Exclude<StatusFilter, undefined>;
       search?: string;
+      sortBy?: "name" | "recentQueue";
     } = {
       limit: FETCH_LIMIT,
       offset: 0,
       includeRunning: showRunning,
       includeUpcoming: showUpcoming,
       includeHistorical: showClosed,
+      sortBy,
     };
     if (statusFilter !== undefined) listArgs.statusFilter = statusFilter;
     const q = search.trim();
@@ -128,7 +284,7 @@ function AdminDashboardContent() {
       stats: { query: api.reviewQueue.stats, args: {} },
       list: { query: api.reviewQueue.listShowsForReview, args: listArgs },
     };
-  }, [statusFilter, search, showRunning, showUpcoming, showClosed]);
+  }, [statusFilter, search, showRunning, showUpcoming, showClosed, sortBy]);
 
   const adminResults = useQueries(adminQueries);
   const stats =
@@ -147,7 +303,7 @@ function AdminDashboardContent() {
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [statusFilter, showRunning, showUpcoming, showClosed, search]);
+  }, [statusFilter, showRunning, showUpcoming, showClosed, search, focusField, onlyWithPending, sortBy]);
 
   useEffect(() => {
     if (!addShowModalOpen) return;
@@ -163,12 +319,16 @@ function AdminDashboardContent() {
     };
   }, [addShowModalOpen]);
 
-  const loading = listRaw === undefined;
-  const totalFiltered = listPage?.length ?? 0;
+  const loading = focusGroup
+    ? (focusGroup.entityType === "production" ? prodFocusListRaw === undefined : showFocusListRaw === undefined)
+    : listRaw === undefined;
+  const totalFiltered = focusField
+    ? (focusListRaw instanceof Error ? 0 : (focusListRaw?.length ?? 0))
+    : (listPage?.length ?? 0);
   const hasMore = visibleCount < totalFiltered;
   const pageLen = listResult?.page?.length ?? 0;
   const truncated =
-    pageLen >= FETCH_LIMIT && (listResult?.total ?? 0) > pageLen;
+    !focusField && pageLen >= FETCH_LIMIT && (listResult?.total ?? 0) > pageLen;
 
   async function handleAddMissingShow(e: FormEvent) {
     e.preventDefault();
@@ -231,11 +391,6 @@ function AdminDashboardContent() {
   return (
     <>
       <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-        <div className="flex gap-4 mb-5 text-sm">
-          <span className="font-medium text-gray-900">Shows</span>
-          <Link href="/admin/unmatched" className="text-gray-500 hover:text-gray-900">Unmatched Locations</Link>
-          <Link href="/admin/feedback" className="text-gray-500 hover:text-gray-900">User Feedback</Link>
-        </div>
         {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-5">
           <StatCard
@@ -322,8 +477,8 @@ function AdminDashboardContent() {
             ))}
           </div>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
-          <div className="flex flex-col gap-1 flex-1 min-w-0 max-w-md">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
             <input
               id="admin-show-search"
               type="search"
@@ -331,8 +486,60 @@ function AdminDashboardContent() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search shows"
-              className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              className="min-w-0 w-48 flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
             />
+            <div className="flex items-center gap-1.5 shrink-0">
+              <label className="text-xs font-medium text-gray-500 whitespace-nowrap" htmlFor="sort-select">
+                Sort:
+              </label>
+              <select
+                id="sort-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as "name" | "recentQueue")}
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              >
+                <option value="name">Name</option>
+                <option value="recentQueue">Recent Activity</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <label className="text-xs font-medium text-gray-500 whitespace-nowrap" htmlFor="focus-field-select">
+                Focus:
+              </label>
+              <select
+                id="focus-field-select"
+                value={focusField}
+                onChange={(e) => {
+                  setFocusField(e.target.value);
+                  setFocusEdit(null);
+                  setOnlyWithPending(false);
+                }}
+                className="rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              >
+                <option value="">— none —</option>
+                <optgroup label="Show">
+                  {SHOW_FOCUS_GROUPS.map((g) => (
+                    <option key={g.value} value={g.value}>{g.label}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Production">
+                  {PRODUCTION_FOCUS_GROUPS.map((g) => (
+                    <option key={g.value} value={g.value}>{g.label}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+            {focusField && (
+              <label className="flex items-center gap-1.5 cursor-pointer select-none shrink-0">
+                <input
+                  type="checkbox"
+                  checked={onlyWithPending}
+                  onChange={(e) => setOnlyWithPending(e.target.checked)}
+                  className="rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                />
+                <span className="text-sm text-gray-600">Pending only</span>
+              </label>
+            )}
           </div>
           <button
             type="button"
@@ -346,102 +553,307 @@ function AdminDashboardContent() {
 
       {loading ? (
         <div className="text-gray-500 text-sm">Loading...</div>
-      ) : listError ? null : rows.length === 0 ? (
-        <div className="text-gray-500 text-sm">
-          No shows match the current filters.
-        </div>
-      ) : (
+      ) : listError && !focusField ? null : (
         <>
-          <p className="text-sm text-gray-500 mb-3">
-            Showing {rows.length} of {totalFiltered} shows
-            {truncated && (
-              <span className="text-amber-600">
-                {" "}
-                (first {FETCH_LIMIT} matches loaded; narrow data status or search
-                if you need the rest)
-              </span>
-            )}
-          </p>
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Show
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Pending
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Productions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {rows.map((show) => (
-                  <tr key={show._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/review/${show._id}?returnTo=${encodeURIComponent(adminPathWithoutSearch)}`}
-                        className="flex items-center gap-3 group"
-                      >
-                        {show.imageUrl ? (
-                          <div className="w-9 shrink-0 rounded overflow-hidden bg-[#f0f0f4]" style={{ aspectRatio: "2/3" }}>
-                            <img
-                              src={show.imageUrl}
-                              alt={show.name}
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
+          {focusField && focusGroup ? (
+            // ── Property Focus mode ───────────────────────────────────────
+            (() => {
+              type PendingEntry = { _id: string; proposedValue: string; source: string };
+              const focusRows = focusListRaw instanceof Error || !focusListRaw ? [] : focusListRaw;
+              const visibleFocusRows = focusRows.slice(0, visibleCount);
+              const isProdFocus = focusGroup.entityType === "production";
+              const groupFields = focusGroup.fields;
+              const groupFieldLabels = focusGroup.fieldLabels;
+
+              if (focusRows.length === 0 && !loading) {
+                return <div className="text-gray-500 text-sm">No shows match the current filters.</div>;
+              }
+
+              /**
+               * A single field cell: shows current value, and if there's a pending
+               * suggestion, shows it with compact Approve / Edit / Reject buttons.
+               * Edit opens an inline input; Set appears when the field is empty with no suggestion.
+               */
+              const FieldCell = ({
+                field,
+                showId,
+                showDataStatus,
+                entityType,
+                entityId,
+                currentValue,
+                pendingEntry,
+              }: {
+                field: string;
+                showId: string;
+                showDataStatus: string;
+                entityType: "show" | "production";
+                entityId: string;
+                currentValue: string | null;
+                pendingEntry: PendingEntry | null;
+              }) => {
+                const editKey = `${entityId}:${field}`;
+                const busy = focusBusy.has(pendingEntry?._id ?? editKey);
+                const isEditing = focusEdit?.entityId === editKey;
+
+                if (isEditing) {
+                  return (
+                    <form
+                      className="flex flex-col gap-1"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const val = focusEdit!.value;
+                        if (focusEdit!.entryId) {
+                          void handleFocusAction(showId, showDataStatus, focusEdit!.entryId, "edited", val);
+                        } else {
+                          void handleFocusAction(showId, showDataStatus, null, "direct", val, { entityType, entityId });
+                        }
+                      }}
+                    >
+                      <input
+                        ref={focusEditRef}
+                        type="text"
+                        value={focusEdit!.value}
+                        onChange={(e) => setFocusEdit((prev) => prev ? { ...prev, value: e.target.value } : null)}
+                        className="w-28 rounded border border-gray-300 px-2 py-1 text-xs focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                        disabled={busy}
+                      />
+                      <div className="flex gap-1">
+                        <button type="submit" disabled={busy} className="rounded bg-gray-900 px-2 py-0.5 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-50">Save</button>
+                        <button type="button" onClick={() => setFocusEdit(null)} disabled={busy} className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+                      </div>
+                    </form>
+                  );
+                }
+
+                return (
+                  <div className={`flex flex-col gap-0.5 ${busy ? "opacity-50" : ""}`}>
+                    <span className={currentValue !== null ? "text-gray-800 text-sm" : "text-gray-400 text-xs italic"}>
+                      {formatFocusValue(field, currentValue)}
+                    </span>
+                    {pendingEntry ? (
+                      <>
+                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                          <span className="text-amber-700 font-medium">→</span>
+                          {formatFocusValue(field, pendingEntry.proposedValue)}
+                          <span className="rounded-full bg-amber-100 px-1.5 py-px text-xs font-medium text-amber-800 ml-0.5">{SOURCE_LABELS[pendingEntry.source] ?? pendingEntry.source}</span>
+                        </span>
+                        <div className="flex gap-1 mt-0.5">
+                          <button type="button" disabled={busy} onClick={() => handleFocusAction(showId, showDataStatus, pendingEntry._id, "approved")} className="rounded bg-green-700 px-1.5 py-px text-xs font-medium text-white hover:bg-green-800 disabled:opacity-50">✓</button>
+                          <button type="button" disabled={busy} onClick={() => setFocusEdit({ showId, entryId: pendingEntry._id, entityId: editKey, value: pendingEntry.proposedValue })} className="rounded border border-gray-300 px-1.5 py-px text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50">✏</button>
+                          <button type="button" disabled={busy} onClick={() => handleFocusAction(showId, showDataStatus, pendingEntry._id, "rejected")} className="rounded border border-red-200 px-1.5 py-px text-xs text-red-700 hover:bg-red-50 disabled:opacity-50">✗</button>
+                        </div>
+                      </>
+                    ) : (
+                      <button type="button" onClick={() => setFocusEdit({ showId, entryId: null, entityId: editKey, value: currentValue ?? "" })} className="self-start rounded border border-gray-300 px-1.5 py-px text-xs text-gray-500 hover:bg-gray-50">Set</button>
+                    )}
+                  </div>
+                );
+              };
+
+              const ShowThumbnail = ({ show }: { show: { _id: string; name: string; imageUrl: string | null } }) => (
+                <Link href={`/admin/review/${show._id}?returnTo=${encodeURIComponent(adminPathWithoutSearch)}`} className="flex items-center gap-2.5 group min-w-0">
+                  {show.imageUrl ? (
+                    <div className="w-8 shrink-0 rounded overflow-hidden bg-[#f0f0f4]" style={{ aspectRatio: "2/3" }}>
+                      <img src={show.imageUrl} alt={show.name} className="w-full h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="w-8 shrink-0 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs" style={{ aspectRatio: "2/3" }}>?</div>
+                  )}
+                  <span className="text-sm font-medium text-gray-900 group-hover:underline truncate">{show.name}</span>
+                </Link>
+              );
+
+              return (
+                <>
+                  <p className="text-sm text-gray-500 mb-3">
+                    Showing {visibleFocusRows.length} of {focusRows.length} shows — {focusGroup.label}
+                    {isProdFocus && <span className="text-gray-400"> · production level</span>}
+                  </p>
+                  <div className="border border-gray-200 rounded-lg overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Show</th>
+                          {isProdFocus && <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Production</th>}
+                          {groupFieldLabels.map((label) => (
+                            <th key={label} className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {isProdFocus ? (
+                          // E-layout: show image spans all its production rows
+                          (visibleFocusRows as Array<{
+                            _id: string; name: string; imageUrl: string | null; dataStatus: string;
+                            productions: Array<{ _id: string; label: string; fieldValues: Record<string, string | null>; pendingEntries: Record<string, PendingEntry | null> }>;
+                          }>).flatMap((show) => {
+                            if (show.productions.length === 0) {
+                              return [(
+                                <tr key={show._id} className="hover:bg-gray-50">
+                                  <td className="px-4 py-3"><ShowThumbnail show={show} /></td>
+                                  <td colSpan={groupFields.length + 1} className="px-3 py-3 text-sm text-gray-400 italic">No productions</td>
+                                </tr>
+                              )];
+                            }
+                            return show.productions.map((prod, i) => (
+                              <tr key={prod._id} className="hover:bg-gray-50">
+                                {i === 0 && (
+                                  <td rowSpan={show.productions.length} className="px-4 py-3 align-top border-r border-gray-100">
+                                    <ShowThumbnail show={show} />
+                                  </td>
+                                )}
+                                <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap align-top">{prod.label}</td>
+                                {groupFields.map((field) => (
+                                  <td key={field} className="px-3 py-3 align-top">
+                                    <FieldCell
+                                      field={field}
+                                      showId={show._id}
+                                      showDataStatus={show.dataStatus}
+                                      entityType="production"
+                                      entityId={prod._id}
+                                      currentValue={prod.fieldValues[field] ?? null}
+                                      pendingEntry={prod.pendingEntries[field] ?? null}
+                                    />
+                                  </td>
+                                ))}
+                              </tr>
+                            ));
+                          })
                         ) : (
-                          <div className="w-9 shrink-0 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs" style={{ aspectRatio: "2/3" }}>
-                            ?
-                          </div>
+                          // Flat layout: one row per show
+                          (visibleFocusRows as Array<{
+                            _id: string; name: string; imageUrl: string | null; dataStatus: string;
+                            fieldValues: Record<string, string | null>; pendingEntries: Record<string, PendingEntry | null>;
+                          }>).map((show) => (
+                            <tr key={show._id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 align-top"><ShowThumbnail show={show} /></td>
+                              {groupFields.map((field) => (
+                                <td key={field} className="px-3 py-3 align-top">
+                                  <FieldCell
+                                    field={field}
+                                    showId={show._id}
+                                    showDataStatus={show.dataStatus}
+                                    entityType="show"
+                                    entityId={show._id}
+                                    currentValue={show.fieldValues[field] ?? null}
+                                    pendingEntry={show.pendingEntries[field] ?? null}
+                                  />
+                                </td>
+                              ))}
+                            </tr>
+                          ))
                         )}
-                        <span className="text-sm font-medium text-gray-900 group-hover:underline">
-                          {show.name}
-                        </span>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 capitalize">
-                      {show.type}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={show.dataStatus} />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {show.pendingCount > 0 ? (
-                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                          {show.pendingCount}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">0</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {show.productionCount}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {hasMore && (
-            <div className="flex justify-center py-4">
-              <button
-                type="button"
-                onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Load more
-              </button>
+                      </tbody>
+                    </table>
+                  </div>
+                  {visibleCount < focusRows.length && (
+                    <div className="flex justify-center py-4">
+                      <button type="button" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)} className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Load more</button>
+                    </div>
+                  )}
+                </>
+              );
+            })()
+          ) : rows.length === 0 ? (
+            // ── Normal mode — empty state ─────────────────────────────────
+            <div className="text-gray-500 text-sm">
+              No shows match the current filters.
             </div>
+          ) : (
+            // ── Normal mode — shows table ─────────────────────────────────
+            <>
+              <p className="text-sm text-gray-500 mb-3">
+                Showing {rows.length} of {totalFiltered} shows
+                {truncated && (
+                  <span className="text-amber-600">
+                    {" "}
+                    (first {FETCH_LIMIT} matches loaded; narrow data status or search
+                    if you need the rest)
+                  </span>
+                )}
+              </p>
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Show
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Pending
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Productions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {rows.map((show) => (
+                      <tr key={show._id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <Link
+                            href={`/admin/review/${show._id}?returnTo=${encodeURIComponent(adminPathWithoutSearch)}`}
+                            className="flex items-center gap-3 group"
+                          >
+                            {show.imageUrl ? (
+                              <div className="w-9 shrink-0 rounded overflow-hidden bg-[#f0f0f4]" style={{ aspectRatio: "2/3" }}>
+                                <img
+                                  src={show.imageUrl}
+                                  alt={show.name}
+                                  className="w-full h-full object-contain"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-9 shrink-0 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs" style={{ aspectRatio: "2/3" }}>
+                                ?
+                              </div>
+                            )}
+                            <span className="text-sm font-medium text-gray-900 group-hover:underline">
+                              {show.name}
+                            </span>
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600 capitalize">
+                          {show.type}
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={show.dataStatus} />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {show.pendingCount > 0 ? (
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                              {show.pendingCount}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">0</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {show.productionCount}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {hasMore && (
+                <div className="flex justify-center py-4">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Load more
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
