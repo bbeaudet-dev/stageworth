@@ -491,7 +491,11 @@ function similarityForShowMatch(queryNorm: string, showNorm: string): number {
   }
   const union = wordsQ.size + wordsS.size - inter || 1;
   const jacc = inter / union;
-  return Math.max(lev, jacc > 0.25 ? jacc * 0.97 : 0);
+  // Use raw Jaccard above the noise floor — do not dampen with *0.97, which can push
+  // legitimately strong overlap (e.g. same 3 words, different order + extra words like
+  // "Rockettes Christmas Spectacular" vs "Christmas Spectacular Starring the Rockettes")
+  // just under typical acceptance thresholds (0.6 * 0.97 = 0.582).
+  return Math.max(lev, jacc > 0.25 ? jacc : 0);
 }
 
 // Fuzzy match Playbill / paste names to existing shows (same normalization as applyPlaybillProductionPaste).
