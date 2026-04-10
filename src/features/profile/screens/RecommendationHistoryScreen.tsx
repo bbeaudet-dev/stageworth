@@ -3,7 +3,6 @@ import { Stack, useRouter } from "expo-router";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { IconSymbol } from "@/components/ui/icon-symbol";
 import { api } from "@/convex/_generated/api";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -73,13 +72,7 @@ export default function RecommendationHistoryScreen() {
         options={{
           title: "Recommendation History",
           headerShown: true,
-          // Explicit back button using router.back() avoids a known issue where the
-          // native-header back button can appear but not respond on first visit.
-          headerLeft: () => (
-            <Pressable onPress={() => router.back()} hitSlop={12}>
-              <IconSymbol name="chevron.left" size={20} color={c.accent} />
-            </Pressable>
-          ),
+          headerBackButtonDisplayMode: "minimal",
         }}
       />
 

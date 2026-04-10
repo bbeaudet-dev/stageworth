@@ -398,10 +398,12 @@ export default function LeaderboardScreen() {
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         ListHeaderComponent={visitsHeader}
         ListEmptyComponent={
-          data === undefined ? (
+          visitsMode === "select_show" && !selectedShow ? (
+            <View style={styles.emptyState}>
+              <Text style={[styles.emptyText, { color: mutedTextColor }]}>Search for a show above to see who&apos;s seen it the most.</Text>
+            </View>
+          ) : data === undefined ? (
             <Text style={[styles.emptyText, { color: mutedTextColor }]}>Loading...</Text>
-          ) : visitsMode === "select_show" && !selectedShow ? (
-            <Text style={[styles.emptyText, { color: mutedTextColor }]}>Select a show above to see the leaderboard.</Text>
           ) : (
             <Text style={[styles.emptyText, { color: mutedTextColor }]}>No data yet.</Text>
           )
@@ -471,7 +473,7 @@ const styles = StyleSheet.create({
   scopeRow: {
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 4,
+    paddingBottom: 14,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -580,7 +582,8 @@ const styles = StyleSheet.create({
   },
   countText: { fontSize: 18, fontWeight: "700" },
   countLabel: { fontSize: 11, fontWeight: "500", width: 50 },
-  emptyText: { fontSize: 15, textAlign: "center", marginTop: 40 },
+  emptyState: { paddingHorizontal: 32, paddingTop: 40, alignItems: "center" },
+  emptyText: { fontSize: 15, textAlign: "center", lineHeight: 22 },
   inviteFooterBtn: {
     flexDirection: "row",
     alignItems: "center",

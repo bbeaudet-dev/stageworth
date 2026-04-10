@@ -72,3 +72,19 @@ Run `npx tsc --noEmit` and test the common navigation paths:
 ## Why not do this now
 
 The current `feature/brand-phase-2` branch is focused on UI/UX changes. Mixing a structural navigation refactor would make the diff harder to review and increase risk of regressions. Create a separate GitHub issue to track this.
+
+---
+
+## Deferred items (related UX bugs / enhancements)
+
+These are known issues or ideas that are not in scope for the current branch. Each should become a GitHub issue.
+
+### "New Trip" from Search tab when Plan tab hasn't loaded
+
+**Symptom**: Clicking "New Trip" from the Search tab navigates to the Plan tab and plays the Create Trip bottom sheet animation correctly — *unless* the Plan tab has never been visited in the current session, in which case the sheet does not open.
+
+**Root cause**: The `createTrip` URL param handler in `PlanScreen` fires on first render via a `useEffect`, but at that point the Convex query for the user's trips has not yet resolved and the screen may not have fully mounted its FlatList. The 60ms `setTimeout` delay added in Phase 5 covers the tab-switch animation, but not a cold Plan-tab mount (which may take 200–600ms on first load).
+
+**Possible fix**: Gate the `setShowCreateTrip(true)` call on a "trips loaded" boolean derived from the Convex query resolving to a non-`undefined` value, with an upper timeout fallback so the sheet still opens even if the query is slow.
+
+**Priority**: Low — only affects cold-start navigation from the Search tab. Users who visit the Plan tab first (the natural flow) are unaffected.
