@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { BrandGradientTitle } from "@/components/BrandGradientTitle";
 import { BottomSheet } from "@/components/bottom-sheet";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -165,9 +166,7 @@ export default function CommunityScreen() {
     >
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={[styles.title, { color: primaryTextColor }]}>
-            Community
-          </Text>
+          <BrandGradientTitle text="Community" fontSize={28} />
           <View style={styles.headerActions}>
             <Pressable
               onPress={() => router.push("/(tabs)/community/leaderboard")}
@@ -502,11 +501,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111",
-  },
+
   bellButton: {
     position: "relative",
     width: 36,

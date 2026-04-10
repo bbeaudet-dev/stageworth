@@ -18,7 +18,7 @@ export default function ProfileMapScreen() {
   const backgroundColor = Colors[theme].background;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["bottom"]}>
+    <SafeAreaView style={[styles.container, { backgroundColor }]} edges={[]}>
       <Stack.Screen
         options={{
           headerShown: true,

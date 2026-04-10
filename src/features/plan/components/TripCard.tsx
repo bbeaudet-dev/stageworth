@@ -1,9 +1,18 @@
+import {
+  Canvas,
+  LinearGradient,
+  RoundedRect,
+  vec,
+} from "@shopify/react-native-skia";
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { Colors } from "@/constants/theme";
+import { BRAND_BLUE, BRAND_PURPLE, Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { formatDateRange } from "@/utils/dates";
 import { getTripCountdown } from "@/utils/tripCountdown";
+
+const CARD_RADIUS = 12;
 
 interface TripCardProps {
   name: string;
@@ -33,38 +42,92 @@ export function TripCard({
   const dateRange = formatDateRange(startDate, endDate);
   const { text: countdownText, phase } = getTripCountdown(startDate, endDate);
 
-  // Phase-based pastel badge colors, dark-mode aware
-  const badgeBg =
-    phase === "active"
-      ? theme === "dark" ? "rgba(34,197,94,0.18)" : "#F0FDF4"
-      : phase === "upcoming"
-      ? theme === "dark" ? "rgba(59,130,246,0.18)" : "#EFF6FF"
-      : theme === "dark" ? "rgba(156,163,175,0.18)" : "#F3F4F6";
-  const badgeTextColor =
-    phase === "active"
-      ? theme === "dark" ? "#86EFAC" : "#15803D"
-      : phase === "upcoming"
-      ? theme === "dark" ? "#93C5FD" : "#1D4ED8"
-      : theme === "dark" ? "#9CA3AF" : "#6B7280";
+  const isActive = phase === "active";
+
+  // Measure the card dimensions so the Skia gradient canvas fills it exactly
+  const [cardSize, setCardSize] = useState<{ width: number; height: number } | null>(null);
+
+  // Badge colours — frosted white on active gradient, standard pastels otherwise
+  const badgeBg = isActive
+    ? "rgba(255,255,255,0.22)"
+    : phase === "upcoming"
+    ? theme === "dark" ? "rgba(59,130,246,0.18)" : "#EFF6FF"
+    : theme === "dark" ? "rgba(156,163,175,0.18)" : "#F3F4F6";
+
+  const badgeTextColor = isActive
+    ? "#ffffff"
+    : phase === "upcoming"
+    ? theme === "dark" ? "#93C5FD" : "#1D4ED8"
+    : theme === "dark" ? "#9CA3AF" : "#6B7280";
 
   return (
     <Pressable
-      style={[styles.card, { backgroundColor: surfaceColor, borderColor }]}
+      style={[
+        styles.card,
+        isActive
+          ? { borderColor: "transparent" }
+          : { backgroundColor: surfaceColor, borderColor },
+      ]}
       onPress={onPress}
+      onLayout={(e) => {
+        if (!isActive) return;
+        const { width, height } = e.nativeEvent.layout;
+        if (width > 0 && height > 0) setCardSize({ width, height });
+      }}
     >
+      {/* Gradient background for active cards, painted via Skia (no new native modules) */}
+      {isActive && cardSize && (
+        <Canvas style={[StyleSheet.absoluteFill, { borderRadius: CARD_RADIUS }]}>
+          <RoundedRect
+            x={0}
+            y={0}
+            width={cardSize.width}
+            height={cardSize.height}
+            r={CARD_RADIUS}
+          >
+            <LinearGradient
+              start={vec(0, 0)}
+              end={vec(cardSize.width, cardSize.height)}
+              colors={[BRAND_BLUE, BRAND_PURPLE]}
+            />
+          </RoundedRect>
+        </Canvas>
+      )}
+
       <View style={styles.cardMain}>
         <View style={styles.cardInfo}>
           <Text
-            style={[styles.name, { color: phase === "past" ? mutedTextColor : primaryTextColor }]}
+            style={[
+              styles.name,
+              {
+                color: isActive
+                  ? "#ffffff"
+                  : phase === "past"
+                  ? mutedTextColor
+                  : primaryTextColor,
+              },
+            ]}
             numberOfLines={1}
           >
             {name}
           </Text>
-          <Text style={[styles.dateRange, { color: mutedTextColor }]}>
+          <Text
+            style={[
+              styles.dateRange,
+              { color: isActive ? "rgba(255,255,255,0.85)" : mutedTextColor },
+            ]}
+          >
             {dateRange}
           </Text>
-          <Text style={[styles.showCount, { color: mutedTextColor }]}>
-            {showCount === 0 ? "No shows added" : `${showCount} show${showCount === 1 ? "" : "s"}`}
+          <Text
+            style={[
+              styles.showCount,
+              { color: isActive ? "rgba(255,255,255,0.75)" : mutedTextColor },
+            ]}
+          >
+            {showCount === 0
+              ? "No shows added"
+              : `${showCount} show${showCount === 1 ? "" : "s"}`}
             {!isOwner ? " · Shared" : ""}
           </Text>
         </View>
@@ -77,7 +140,14 @@ export function TripCard({
           </View>
         ) : null}
 
-        <Text style={[styles.chevron, { color: mutedTextColor }]}>›</Text>
+        <Text
+          style={[
+            styles.chevron,
+            { color: isActive ? "rgba(255,255,255,0.7)" : mutedTextColor },
+          ]}
+        >
+          ›
+        </Text>
       </View>
     </Pressable>
   );
@@ -86,8 +156,9 @@ export function TripCard({
 const styles = StyleSheet.create({
   card: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
+    borderRadius: CARD_RADIUS,
     padding: 14,
+    overflow: "hidden",
   },
   cardMain: {
     flexDirection: "row",

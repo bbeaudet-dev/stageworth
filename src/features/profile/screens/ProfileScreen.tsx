@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { BrandGradientTitle } from "@/components/BrandGradientTitle";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { api } from "@/convex/_generated/api";
 import { ProfileHeader } from "@/features/profile/components/ProfileHeader";
@@ -36,7 +37,7 @@ export default function ProfileScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["top"]}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: primaryTextColor }]}>Profile</Text>
+          <BrandGradientTitle text="Profile" fontSize={28} />
         </View>
         <View style={styles.centered}>
           <Text style={[styles.loadingText, { color: mutedTextColor }]}>
@@ -50,7 +51,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: primaryTextColor }]}>Profile</Text>
+        <BrandGradientTitle text="Profile" fontSize={28} />
         <Pressable
           onPress={openDrawer}
           hitSlop={10}
@@ -122,10 +123,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 6,
     paddingBottom: 4,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
   },
   settingsBtn: {
     padding: 2,

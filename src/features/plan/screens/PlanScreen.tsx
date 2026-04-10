@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { BrandGradientTitle } from "@/components/BrandGradientTitle";
 import { EmptyState } from "@/components/empty-state";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
@@ -190,7 +191,7 @@ export default function PlanScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.pageHeader}>
-          <Text style={[styles.pageTitle, { color: primaryTextColor }]}>Plan</Text>
+          <BrandGradientTitle text="Plan" fontSize={28} />
         </View>
 
         {/* Trips section */}
@@ -342,7 +343,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, gap: 20 },
   pageHeader: { marginBottom: 4 },
-  pageTitle: { fontSize: 28, fontWeight: "bold" },
   section: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12, gap: 10 },
   sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   sectionTitle: { fontSize: 18, fontWeight: "700" },

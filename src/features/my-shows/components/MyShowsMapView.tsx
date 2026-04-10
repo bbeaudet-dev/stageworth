@@ -365,7 +365,7 @@ export function MyShowsMapView({
         </View>
       )}
 
-      <View style={{ height: tabBarHeight + 8 }} />
+      <View style={{ height: tabBarHeight }} />
     </View>
   );
 }
@@ -373,8 +373,6 @@ export function MyShowsMapView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 4,
   },
   mapWrap: {
     flex: 1,
