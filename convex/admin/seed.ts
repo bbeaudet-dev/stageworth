@@ -5,7 +5,6 @@ import {
   internalQuery,
 } from "../_generated/server";
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
 import { normalizeShowName, type ShowType } from "../showNormalization";
 import { fetchJson } from "./wikiApi";
 
@@ -897,7 +896,7 @@ function splitUblProductions(raw: string): string[] {
 }
 
 function extractProductionCandidatesFromInfoboxProductions(raw: string) {
-  const out: Array<{
+  const out: {
     district: DistrictType;
     approxStartYear: number | null;
     approxEndYear: number | null;
@@ -905,7 +904,7 @@ function extractProductionCandidatesFromInfoboxProductions(raw: string) {
     city: string | null;
     source: string;
     raw: string;
-  }> = [];
+  }[] = [];
 
   // Handle both simple <br>-separated lists and {{ubl|...}} / {{ubli|...}} templates.
   const baseParts = raw

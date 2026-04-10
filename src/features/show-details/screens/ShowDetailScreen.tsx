@@ -247,7 +247,7 @@ export default function ShowDetailScreen() {
     if (isFresh) return;
     enrichAttempted.current = true;
     enrichShowScore({ showId }).catch(() => {});
-  }, [showId, show]);
+  }, [showId, show, enrichShowScore]);
 
   async function handleAddToList(listId: Id<"userLists">, listName: string) {
     if (!showId || addingToList) return;

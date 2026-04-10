@@ -1,12 +1,13 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { Image, Platform, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
-type MapScope = "mine" | "following" | "all";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+
+type MapScope = "mine" | "following" | "all";
 
 const HAS_NATIVE_MAP =
   Platform.OS !== "web" && Boolean(UIManager.getViewManagerConfig?.("AIRMap"));
@@ -92,6 +93,8 @@ export function MyShowsMapView({
   useEffect(() => {
     if (Platform.OS === "web") return;
     try {
+      // Optional native dependency — dynamic load keeps web/dev without maps working.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const mapsModule = require("react-native-maps");
       setNativeMapView(() => mapsModule.default);
       setNativeMarker(() => mapsModule.Marker);
@@ -146,7 +149,7 @@ export function MyShowsMapView({
       CLUSTER_MIN_DEGREES
     );
 
-    const clusters: Array<{
+    const clusters: {
       latitude: number;
       longitude: number;
       visitCount: number;
@@ -154,7 +157,7 @@ export function MyShowsMapView({
       city?: string;
       count: number;
       previewImages: string[];
-    }> = [];
+    }[] = [];
 
     for (const marker of markers) {
       const existing = clusters.find(

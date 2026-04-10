@@ -31,7 +31,6 @@ export function AddShowToTripSheet({ visible, onClose, alreadyOnTripShowIds, onA
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const backgroundColor = Colors[theme].background;
-  const surfaceColor = Colors[theme].surfaceElevated;
   const borderColor = Colors[theme].border;
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;

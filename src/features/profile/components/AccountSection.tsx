@@ -18,7 +18,6 @@ export function AccountSection({
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const surfaceColor = Colors[theme].surfaceElevated;
-  const borderColor = Colors[theme].border;
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const dangerColor = Colors[theme].danger;

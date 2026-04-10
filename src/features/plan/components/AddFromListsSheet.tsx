@@ -3,7 +3,6 @@ import { Image } from "expo-image";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -77,14 +76,14 @@ export function AddFromListsSheet({
   const systemLists = profileLists?.systemLists ?? [];
   const customLists = profileLists?.customLists ?? [];
 
-  const allLists: Array<{
+  const allLists: {
     id: string;
     name: string;
     showCount: number;
     listId: string | "seen";
     systemKey?: string;
     isSeen?: boolean;
-  }> = [
+  }[] = [
     {
       id: "seen",
       name: "Seen",

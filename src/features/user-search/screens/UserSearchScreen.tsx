@@ -179,6 +179,7 @@ export default function UserSearchScreen() {
       currentUserId,
       isFollowPending,
       mutedTextColor,
+      onAccent,
       openProfile,
       primaryTextColor,
       surfaceColor,

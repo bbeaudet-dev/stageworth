@@ -119,9 +119,9 @@ export const seedUserRankingsAndVisits = internalMutation({
     let rawOnly = 0;
     const errors: string[] = [];
     // Shows resolved via fuzzy match (score < 1.0) — logged for transparency.
-    const fuzzyMatched: Array<{ inputName: string; matchedName: string; score: number }> = [];
+    const fuzzyMatched: { inputName: string; matchedName: string; score: number }[] = [];
     // Shows with no match even after fuzzy — would be created.
-    const wouldCreate: Array<{ name: string; normalizedName: string }> = [];
+    const wouldCreate: { name: string; normalizedName: string }[] = [];
 
     // ── Pass 1: exact normalized-name lookup ──────────────────────────────────
     // Fast index lookup. Collect anything that misses for the fuzzy pass.
@@ -164,7 +164,7 @@ export const seedUserRankingsAndVisits = internalMutation({
     }
 
     // ── Build resolved list ───────────────────────────────────────────────────
-    const resolvedShows: Array<{ showId: Id<"shows">; show: (typeof sortedShows)[0] }> = [];
+    const resolvedShows: { showId: Id<"shows">; show: (typeof sortedShows)[0] }[] = [];
 
     for (const show of sortedShows) {
       const exactId = exactHits.get(show.name);
@@ -387,7 +387,7 @@ export const seedUserRankingsAndVisits = internalMutation({
       showsCreated,
       showsExisting,
       fuzzyMatched,
-      wouldCreate: [] as Array<{ name: string; normalizedName: string }>,
+      wouldCreate: [] as { name: string; normalizedName: string }[],
       visitsCreated,
       venueMatched,
       productionMatched,

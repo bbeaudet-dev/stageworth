@@ -76,12 +76,12 @@ interface SeedShow {
   name: string;
   type: string;
   rank: number;
-  visits: Array<{
+  visits: {
     date: string;
     theatre: string;
     district: ConvexDistrict;
     notes?: string;
-  }>;
+  }[];
 }
 
 function transformShows(list: TheatreShow[]): SeedShow[] {
@@ -262,18 +262,18 @@ async function main() {
     } else {
       console.log(`  Errors                 : none`);
     }
-    const fuzzyMatched = result.fuzzyMatched as Array<{
+    const fuzzyMatched = result.fuzzyMatched as {
       inputName: string;
       matchedName: string;
       score: number;
-    }>;
+    }[];
     if (fuzzyMatched?.length) {
       console.log(`\n  Fuzzy-matched (verify these look right):`);
       fuzzyMatched.forEach(({ inputName, matchedName, score }) =>
         console.log(`    - "${inputName}"  →  "${matchedName}"  (score: ${score})`)
       );
     }
-    const wouldCreate = result.wouldCreate as Array<{ name: string; normalizedName: string }>;
+    const wouldCreate = result.wouldCreate as { name: string; normalizedName: string }[];
     if (wouldCreate?.length) {
       console.log(`\n  No catalog match found — would be created as new shows:`);
       wouldCreate.forEach(({ name, normalizedName }) =>
