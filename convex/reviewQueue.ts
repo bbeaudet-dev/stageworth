@@ -25,6 +25,8 @@ export const PRODUCTION_REVIEWABLE_FIELDS = [
   "previewDate",
   "openingDate",
   "closingDate",
+  "isOpenRun",
+  "isClosed",
   "productionType",
   "hotlinkPosterUrl",
   "runningTime",
@@ -1219,6 +1221,154 @@ export const createEntry = internalMutation({
       status: "pending",
       createdAt: Date.now(),
     });
+  },
+});
+
+// ─── Post-closing grace → review queue (cron) ─────────────────────────────────
+
+function addCalendarDaysUtc(isoDate: string, days: number): string {
+  const dt = new Date(isoDate + "T12:00:00Z");
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().split("T")[0];
+}
+
+function subtractCalendarDaysUtc(isoDate: string, days: number): string {
+  const dt = new Date(isoDate + "T12:00:00Z");
+  dt.setUTCDate(dt.getUTCDate() - days);
+  return dt.toISOString().split("T")[0];
+}
+
+/** Calendar days after `closingDate` before staging `isClosed: true` for review. */
+const POST_CLOSING_IS_CLOSED_GRACE_DAYS = 7;
+
+/**
+ * Stage a single production field suggestion (source `bot`) if there is no
+ * pending row and no approved/edited row that already accepted this value.
+ */
+async function stageProductionFieldSuggestion(
+  ctx: MutationCtx,
+  productionId: Id<"productions">,
+  field: string,
+  proposedValue: string
+): Promise<"created" | "skipped"> {
+  const entityId = productionId as string;
+  const existing = await ctx.db
+    .query("reviewQueue")
+    .withIndex("by_entity_field", (q) =>
+      q
+        .eq("entityType", "production")
+        .eq("entityId", entityId)
+        .eq("field", field)
+    )
+    .collect();
+
+  if (existing.some((e) => e.status === "pending")) return "skipped";
+
+  const alreadyAccepted = existing.some((e) => {
+    if (e.status !== "approved" && e.status !== "edited") return false;
+    const accepted = e.reviewedValue ?? e.currentValue;
+    return accepted === proposedValue;
+  });
+  if (alreadyAccepted) return "skipped";
+
+  await ctx.db.insert("reviewQueue", {
+    entityType: "production",
+    entityId,
+    field,
+    currentValue: proposedValue,
+    source: "bot",
+    status: "pending",
+    createdAt: Date.now(),
+  });
+  return "created";
+}
+
+/**
+ * After closing date + grace period, stage `isClosed: true` on the review queue
+ * for admin approval (does not patch the production directly).
+ *
+ * - Does not skip when `isClosed === false` (still proposes true for review).
+ * - If `isOpenRun === true` but a closing date exists, also stages `isOpenRun: false`
+ *   so the run abides by the closing date once approved.
+ * - Skips productions that already have `isClosed === true` on the document.
+ */
+export const stagePostClosingGraceSuggestions = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const asOf = new Date().toISOString().split("T")[0];
+    const indexUpperBound = subtractCalendarDaysUtc(
+      asOf,
+      POST_CLOSING_IS_CLOSED_GRACE_DAYS
+    );
+
+    const candidates = await ctx.db
+      .query("productions")
+      .withIndex("by_closing_date", (q) => q.lt("closingDate", indexUpperBound))
+      .collect();
+
+    let createdIsClosed = 0;
+    let createdIsOpenRun = 0;
+    let skippedDocAlreadyClosed = 0;
+    let skippedStillInGrace = 0;
+    let noopIsClosed = 0;
+    let noopIsOpenRun = 0;
+
+    for (const p of candidates) {
+      if (!p.closingDate) continue;
+
+      const graceEnd = addCalendarDaysUtc(
+        p.closingDate,
+        POST_CLOSING_IS_CLOSED_GRACE_DAYS
+      );
+      if (asOf <= graceEnd) {
+        skippedStillInGrace++;
+        continue;
+      }
+
+      if (p.isClosed === true) {
+        skippedDocAlreadyClosed++;
+        continue;
+      }
+
+      const openRunContradictsClosing =
+        p.isOpenRun === true && p.closingDate !== undefined;
+
+      if (
+        (await stageProductionFieldSuggestion(ctx, p._id, "isClosed", "true")) ===
+        "created"
+      ) {
+        createdIsClosed++;
+      } else {
+        noopIsClosed++;
+      }
+
+      if (openRunContradictsClosing) {
+        if (
+          (await stageProductionFieldSuggestion(
+            ctx,
+            p._id,
+            "isOpenRun",
+            "false"
+          )) === "created"
+        ) {
+          createdIsOpenRun++;
+        } else {
+          noopIsOpenRun++;
+        }
+      }
+    }
+
+    return {
+      asOf,
+      graceDays: POST_CLOSING_IS_CLOSED_GRACE_DAYS,
+      candidatesScanned: candidates.length,
+      createdIsClosed,
+      createdIsOpenRun,
+      skippedDocAlreadyClosed,
+      skippedStillInGrace,
+      noopIsClosed,
+      noopIsOpenRun,
+    };
   },
 });
 

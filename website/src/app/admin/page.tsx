@@ -2,6 +2,7 @@
 
 import { useMutation, useQueries, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -220,7 +221,9 @@ function AdminDashboardContent() {
     decision: "approved" | "rejected" | "edited" | "direct",
     value?: string,
     /** For production field direct-sets: the production entity ID and type. */
-    directEntity?: { entityType: "show" | "production"; entityId: string }
+    directEntity?: { entityType: "show" | "production"; entityId: string },
+    /** Actual schema field (e.g. isClosed); focusField is a group id and must not be used here. */
+    directField?: string
   ) {
     setFocusBusy((prev) => new Set(prev).add(entryId ?? showId));
     try {
@@ -243,13 +246,21 @@ function AdminDashboardContent() {
           entryDecisions: [{ entryId: entryId as Id<"reviewQueue">, decision: "edited", reviewedValue: value }],
         });
         setFocusEdit(null);
-      } else if (decision === "direct" && value !== undefined && focusField) {
+      } else if (decision === "direct" && value !== undefined && directField) {
         const entity = directEntity ?? { entityType: "show" as const, entityId: showId };
+        const trimmed = value.trim();
         await submitReview({
           showId: showId as Id<"shows">,
           showDataStatus: showDataStatus as "needs_review" | "partial" | "complete",
           entryDecisions: [],
-          directEdits: [{ entityType: entity.entityType, entityId: entity.entityId, field: focusField, newValue: value || undefined }],
+          directEdits: [
+            {
+              entityType: entity.entityType,
+              entityId: entity.entityId,
+              field: directField,
+              newValue: trimmed === "" ? undefined : trimmed,
+            },
+          ],
         });
         setFocusEdit(null);
       }
@@ -605,7 +616,7 @@ function AdminDashboardContent() {
                         if (focusEdit!.entryId) {
                           void handleFocusAction(showId, showDataStatus, focusEdit!.entryId, "edited", val);
                         } else {
-                          void handleFocusAction(showId, showDataStatus, null, "direct", val, { entityType, entityId });
+                          void handleFocusAction(showId, showDataStatus, null, "direct", val, { entityType, entityId }, field);
                         }
                       }}
                     >
@@ -653,8 +664,15 @@ function AdminDashboardContent() {
               const ShowThumbnail = ({ show }: { show: { _id: string; name: string; imageUrl: string | null } }) => (
                 <Link href={`/admin/review/${show._id}?returnTo=${encodeURIComponent(adminPathWithoutSearch)}`} className="flex items-center gap-2.5 group min-w-0">
                   {show.imageUrl ? (
-                    <div className="w-8 shrink-0 rounded overflow-hidden bg-[#f0f0f4]" style={{ aspectRatio: "2/3" }}>
-                      <img src={show.imageUrl} alt={show.name} className="w-full h-full object-contain" />
+                    <div className="relative w-8 shrink-0 rounded overflow-hidden bg-[#f0f0f4]" style={{ aspectRatio: "2/3" }}>
+                      <Image
+                        src={show.imageUrl}
+                        alt={show.name}
+                        fill
+                        sizes="32px"
+                        className="object-contain"
+                        unoptimized
+                      />
                     </div>
                   ) : (
                     <div className="w-8 shrink-0 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs" style={{ aspectRatio: "2/3" }}>?</div>
@@ -802,11 +820,14 @@ function AdminDashboardContent() {
                             className="flex items-center gap-3 group"
                           >
                             {show.imageUrl ? (
-                              <div className="w-9 shrink-0 rounded overflow-hidden bg-[#f0f0f4]" style={{ aspectRatio: "2/3" }}>
-                                <img
+                              <div className="relative w-9 shrink-0 rounded overflow-hidden bg-[#f0f0f4]" style={{ aspectRatio: "2/3" }}>
+                                <Image
                                   src={show.imageUrl}
                                   alt={show.name}
-                                  className="w-full h-full object-contain"
+                                  fill
+                                  sizes="36px"
+                                  className="object-contain"
+                                  unoptimized
                                 />
                               </div>
                             ) : (

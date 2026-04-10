@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/api";
+import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { sanitizeAdminReturnTo } from "../../adminReturnTo";
@@ -117,6 +118,8 @@ function ResolvedImagePreview({
       <span className="text-xs text-gray-400">Loading preview…</span>
     ) : null;
   }
+  // Arbitrary admin preview URLs (storage + hotlinks); className sets dimensions.
+  // eslint-disable-next-line @next/next/no-img-element
   return <img src={src} alt={label} className={className} />;
 }
 
@@ -1172,10 +1175,13 @@ function ShowReviewDetailInner() {
                   >
                     <div className="flex items-center gap-3">
                       {prod.posterUrl ? (
-                        <img
+                        <Image
                           src={prod.posterUrl}
                           alt="poster"
-                          className="h-8 w-8 rounded object-cover bg-gray-100 shrink-0"
+                          width={32}
+                          height={32}
+                          className="rounded object-cover bg-gray-100 shrink-0"
+                          unoptimized
                         />
                       ) : (
                         <div className="h-8 w-8 rounded bg-gray-200 shrink-0" />

@@ -152,6 +152,14 @@ crons.daily(
   {}
 );
 
+// After closing date + grace, stage `isClosed` / `isOpenRun` fixes on reviewQueue (15:05 UTC).
+crons.daily(
+  "post-closing-grace-review-queue",
+  { hourUTC: 15, minuteUTC: 5 },
+  internal.reviewQueue.stagePostClosingGraceSuggestions,
+  {}
+);
+
 // Enrich NYC production images from Ticketmaster daily at 6:00 AM ET (11:00 UTC).
 crons.daily(
   "enrich-production-images",

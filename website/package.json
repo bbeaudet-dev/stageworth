@@ -10,7 +10,7 @@
     "prebuild": "npm run copy-convex",
     "build": "node scripts/copy-convex-generated.js && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

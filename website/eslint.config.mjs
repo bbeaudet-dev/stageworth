@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Copied from ../convex/_generated — full-file eslint-disable trips unused-disable
+    "convex_generated/**",
   ]),
 ]);
 
