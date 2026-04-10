@@ -3,7 +3,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -21,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { EmptyState } from "@/components/empty-state";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { AddToListSheet } from "@/components/AddToListSheet";
+import { UserCard, type UserCardUser } from "@/components/UserCard";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -63,6 +64,11 @@ export default function SearchBrowseScreen() {
   const [query, setQuery] = useState("");
   const [inputFocused, setInputFocused] = useState(false);
 
+  // Load-more limits per search section
+  const [showLimit, setShowLimit] = useState(8);
+  const [peopleLimit, setPeopleLimit] = useState(4);
+  const [venueLimit, setVenueLimit] = useState(4);
+
   // List status sheet state
   const [listSheetShowId, setListSheetShowId] = useState<Id<"shows"> | null>(null);
   const [listSheetShowName, setListSheetShowName] = useState("");
@@ -76,13 +82,24 @@ export default function SearchBrowseScreen() {
   const trimmed = query.trim();
   const isSearchActive = trimmed.length >= MIN_SEARCH_LENGTH;
 
+  // Reset per-section limits whenever the search query changes
+  useEffect(() => {
+    setShowLimit(8);
+    setPeopleLimit(4);
+    setVenueLimit(4);
+  }, [trimmed]);
+
   const showResults = useQuery(
     api.shows.search,
-    isSearchActive ? { q: trimmed, limit: 12 } : "skip",
+    isSearchActive ? { q: trimmed, limit: 24 } : "skip",
   );
   const userResults = useQuery(
     api.social.profiles.searchUsers,
     isSearchActive ? { q: trimmed } : "skip",
+  );
+  const venueResults = useQuery(
+    api.venues.search,
+    isSearchActive ? { query: trimmed } : "skip",
   );
 
   const currentShows = useQuery(api.productions.listCurrent, {});
@@ -90,6 +107,16 @@ export default function SearchBrowseScreen() {
   // The full set is shown in the ShowGrid screen when "See All" is tapped.
   const upcomingShows = useQuery(api.productions.listUpcoming, { days: 60 });
   const closingSoon = useQuery(api.productions.listClosingSoon, { days: 70 });
+
+  // User discovery rails (browse state only)
+  const recentUsers = useQuery(
+    api.social.profiles.searchUsers,
+    !isSearchActive ? { q: "" } : "skip",
+  );
+  const topTheatregoers = useQuery(
+    api.userStats.getTopTheatregoers,
+    !isSearchActive ? { limit: 12 } : "skip",
+  );
 
   // Collect all visible showIds from browse rails to batch-fetch list statuses
   const browseShowIds = useMemo<Id<"shows">[]>(() => {
@@ -166,8 +193,15 @@ export default function SearchBrowseScreen() {
 
   const hasShowResults = showResults && showResults.length > 0;
   const hasUserResults = userResults && userResults.length > 0;
-  const noResults = isSearchActive && showResults !== undefined && userResults !== undefined
-    && !hasShowResults && !hasUserResults;
+  const hasVenueResults = venueResults && venueResults.length > 0;
+  const noResults =
+    isSearchActive &&
+    showResults !== undefined &&
+    userResults !== undefined &&
+    venueResults !== undefined &&
+    !hasShowResults &&
+    !hasUserResults &&
+    !hasVenueResults;
 
   return (
     <KeyboardAvoidingView
@@ -187,7 +221,7 @@ export default function SearchBrowseScreen() {
             onChangeText={setQuery}
             onFocus={() => setInputFocused(true)}
             onBlur={() => setInputFocused(false)}
-            placeholder="Shows, people, productions..."
+            placeholder="Shows, people, venues..."
             placeholderTextColor={muted}
             autoCapitalize="none"
             autoCorrect={false}
@@ -215,7 +249,7 @@ export default function SearchBrowseScreen() {
               <View style={styles.section}>
                 <Text style={[styles.sectionTitle, { color: text }]}>Shows</Text>
                 <View style={styles.grid}>
-                  {chunkRows(showResults.slice(0, 8), GRID_COLUMNS).map((row, ri) => (
+                  {chunkRows(showResults.slice(0, showLimit), GRID_COLUMNS).map((row, ri) => (
                     <View key={ri} style={styles.gridRow}>
                       {row.map((show) => (
                         <SearchShowCard
@@ -233,13 +267,23 @@ export default function SearchBrowseScreen() {
                     </View>
                   ))}
                 </View>
+                {showResults.length > showLimit && (
+                  <Pressable
+                    style={[styles.loadMoreBtn, { borderColor: border }]}
+                    onPress={() => setShowLimit((n) => n + 8)}
+                  >
+                    <Text style={[styles.loadMoreText, { color: accent }]}>
+                      Load more shows
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             )}
 
             {hasUserResults && (
               <View style={styles.section}>
                 <Text style={[styles.sectionTitle, { color: text }]}>People</Text>
-                {userResults.slice(0, 6).map((user) => (
+                {userResults.slice(0, peopleLimit).map((user) => (
                   <Pressable
                     key={user._id}
                     style={[styles.userRow, { backgroundColor: surface, borderColor: border }]}
@@ -269,6 +313,51 @@ export default function SearchBrowseScreen() {
                     <IconSymbol name="chevron.right" size={16} color={muted} />
                   </Pressable>
                 ))}
+                {userResults.length > peopleLimit && (
+                  <Pressable
+                    style={[styles.loadMoreBtn, { borderColor: border }]}
+                    onPress={() => setPeopleLimit((n) => n + 8)}
+                  >
+                    <Text style={[styles.loadMoreText, { color: accent }]}>
+                      Load more people
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+
+            {hasVenueResults && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: text }]}>Venues</Text>
+                {venueResults.slice(0, venueLimit).map((venue) => (
+                  <View
+                    key={venue._id}
+                    style={[styles.venueRow, { backgroundColor: surface, borderColor: border }]}
+                  >
+                    <View style={[styles.venueIcon, { backgroundColor: accent + "18" }]}>
+                      <IconSymbol name="building.2" size={18} color={accent} />
+                    </View>
+                    <View style={styles.venueInfo}>
+                      <Text style={[styles.venueName, { color: text }]} numberOfLines={1}>
+                        {venue.name}
+                      </Text>
+                      <Text style={[styles.venueLocation, { color: muted }]} numberOfLines={1}>
+                        {[venue.city, venue.state].filter(Boolean).join(", ")}
+                        {venue.district ? ` · ${formatDistrict(venue.district)}` : ""}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+                {venueResults.length > venueLimit && (
+                  <Pressable
+                    style={[styles.loadMoreBtn, { borderColor: border }]}
+                    onPress={() => setVenueLimit((n) => n + 8)}
+                  >
+                    <Text style={[styles.loadMoreText, { color: accent }]}>
+                      Load more venues
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             )}
 
@@ -382,6 +471,36 @@ export default function SearchBrowseScreen() {
                 onListIconPress={openListSheet}
               />
             )}
+
+            {/* ─── User discovery rails ─── */}
+            {recentUsers && recentUsers.length > 0 && (
+              <UserRail
+                title="New to the House"
+                users={recentUsers.slice(0, 10) as UserCardUser[]}
+                textColor={text}
+                onPressUser={(username) => pushUserProfile(username)}
+              />
+            )}
+
+            {topTheatregoers && topTheatregoers.length > 0 && (
+              <UserRail
+                title="Top of the Bill"
+                users={topTheatregoers as UserCardUser[]}
+                textColor={text}
+                onPressUser={(username) => pushUserProfile(username)}
+              />
+            )}
+
+            {/* See Leaderboard link */}
+            {(topTheatregoers ?? recentUsers) && (
+              <Pressable
+                style={styles.seeAllButton}
+                onPress={() => router.push("/(tabs)/community/leaderboard")}
+              >
+                <Text style={[styles.seeAllText, { color: accent }]}>See Leaderboard</Text>
+                <IconSymbol name="chevron.right" size={14} color={accent} />
+              </Pressable>
+            )}
           </>
         )}
       </ScrollView>
@@ -397,6 +516,53 @@ export default function SearchBrowseScreen() {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatDistrict(district: string): string {
+  const map: Record<string, string> = {
+    broadway: "Broadway",
+    off_broadway: "Off-Broadway",
+    off_off_broadway: "Off-Off-Broadway",
+    west_end: "West End",
+    touring: "Touring",
+    regional: "Regional",
+    other: "Other",
+  };
+  return map[district] ?? district;
+}
+
+// ─── UserRail ────────────────────────────────────────────────────────────────
+
+function UserRail({
+  title,
+  users,
+  textColor,
+  onPressUser,
+}: {
+  title: string;
+  users: UserCardUser[];
+  textColor: string;
+  onPressUser: (username: string) => void;
+}) {
+  return (
+    <View style={styles.section}>
+      <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.railContent}
+      >
+        {users.map((user) => (
+          <UserCard
+            key={user._id}
+            user={user}
+            width={88}
+            onPress={() => onPressUser(user.username)}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
 
 // ─── BrowseRail ──────────────────────────────────────────────────────────────
 
@@ -763,6 +929,47 @@ const styles = StyleSheet.create({
   },
   userHandle: {
     fontSize: 13,
+  },
+
+  // Venue rows
+  venueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 12,
+  },
+  venueIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  venueInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  venueName: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  venueLocation: {
+    fontSize: 13,
+  },
+
+  // Load more
+  loadMoreBtn: {
+    alignItems: "center",
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
 
 });
