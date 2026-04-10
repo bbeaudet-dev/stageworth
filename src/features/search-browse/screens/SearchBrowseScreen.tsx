@@ -65,8 +65,8 @@ export default function SearchBrowseScreen() {
   const [inputFocused, setInputFocused] = useState(false);
 
   // Load-more limits per search section
-  const [showLimit, setShowLimit] = useState(8);
-  const [peopleLimit, setPeopleLimit] = useState(4);
+  const [showLimit, setShowLimit] = useState(12);
+  const [peopleLimit, setPeopleLimit] = useState(8);
   const [venueLimit, setVenueLimit] = useState(4);
 
   // List status sheet state
@@ -84,8 +84,8 @@ export default function SearchBrowseScreen() {
 
   // Reset per-section limits whenever the search query changes
   useEffect(() => {
-    setShowLimit(8);
-    setPeopleLimit(4);
+    setShowLimit(12);
+    setPeopleLimit(8);
     setVenueLimit(4);
   }, [trimmed]);
 
@@ -487,19 +487,10 @@ export default function SearchBrowseScreen() {
                 title="Top of the Bill"
                 users={topTheatregoers as UserCardUser[]}
                 textColor={text}
+                accentColor={accent}
                 onPressUser={(username) => pushUserProfile(username)}
+                onSeeLeaderboard={() => router.push("/(tabs)/search/leaderboard")}
               />
-            )}
-
-            {/* See Leaderboard link */}
-            {(topTheatregoers ?? recentUsers) && (
-              <Pressable
-                style={styles.seeAllButton}
-                onPress={() => router.push("/(tabs)/community/leaderboard")}
-              >
-                <Text style={[styles.seeAllText, { color: accent }]}>See Leaderboard</Text>
-                <IconSymbol name="chevron.right" size={14} color={accent} />
-              </Pressable>
             )}
           </>
         )}
@@ -536,16 +527,27 @@ function UserRail({
   title,
   users,
   textColor,
+  accentColor,
   onPressUser,
+  onSeeLeaderboard,
 }: {
   title: string;
   users: UserCardUser[];
   textColor: string;
+  accentColor?: string;
   onPressUser: (username: string) => void;
+  onSeeLeaderboard?: () => void;
 }) {
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
+        {onSeeLeaderboard && accentColor && (
+          <Pressable onPress={onSeeLeaderboard} hitSlop={8}>
+            <Text style={[styles.seeMoreText, { color: accentColor }]}>See Leaderboard</Text>
+          </Pressable>
+        )}
+      </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -555,7 +557,7 @@ function UserRail({
           <UserCard
             key={user._id}
             user={user}
-            width={88}
+            width={76}
             onPress={() => onPressUser(user.username)}
           />
         ))}

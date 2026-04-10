@@ -56,15 +56,15 @@ export function UserCard({ user, width = 80, onPress }: UserCardProps) {
   );
 }
 
-const AVATAR_SIZE = 56;
+const AVATAR_SIZE = 52;
 
 const styles = StyleSheet.create({
   card: {
     alignItems: "center",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    gap: 6,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    gap: 5,
   },
   avatarWrapper: {
     width: AVATAR_SIZE,
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   initials: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
   },
   name: {
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   handle: {
-    fontSize: 11,
+    fontSize: 10,
     textAlign: "center",
   },
 });
