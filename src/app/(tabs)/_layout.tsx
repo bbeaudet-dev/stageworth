@@ -1,5 +1,6 @@
 import { Redirect, Tabs } from "expo-router";
 import { useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
@@ -10,8 +11,22 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { usePendingInvite } from "@/hooks/use-pending-invite";
 import { useSession } from "@/lib/auth-client";
 
+function renderTabIcon(focused: boolean, accentColor: string, icon: ReactNode) {
+  return (
+    <View style={styles.tabIconWrap}>
+      {focused ? (
+        <View style={[styles.tabActivePill, { backgroundColor: accentColor }]} />
+      ) : (
+        <View style={styles.tabActivePillPlaceholder} />
+      )}
+      {icon}
+    </View>
+  );
+}
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const accentColor = Colors[colorScheme ?? "light"].accent;
   const { data: session, isPending } = useSession();
   const { claimPendingInvite } = usePendingInvite();
   const didClaimRef = useRef(false);
@@ -47,8 +62,8 @@ export default function TabLayout() {
           position: "absolute",
           backgroundColor:
             colorScheme === "dark"
-              ? "rgba(10, 10, 10, 0.9)"
-              : "rgba(255, 255, 255, 0.82)",
+              ? "rgba(10, 10, 10, 0.96)"
+              : "rgba(255, 255, 255, 0.96)",
           borderTopColor:
             colorScheme === "dark"
               ? "rgba(255, 255, 255, 0.12)"
@@ -62,45 +77,40 @@ export default function TabLayout() {
         name="community"
         options={{
           title: "Community",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="person.2.fill" color={color} />
-          ),
+          tabBarIcon: ({ color, focused }) =>
+            renderTabIcon(focused, accentColor, <IconSymbol size={28} name="person.2.fill" color={color} />),
         }}
       />
       <Tabs.Screen
         name="plan"
         options={{
           title: "Plan",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="map.fill" color={color} />
-          ),
+          tabBarIcon: ({ color, focused }) =>
+            renderTabIcon(focused, accentColor, <IconSymbol size={28} name="map.fill" color={color} />),
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
           title: "Search",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="magnifyingglass" color={color} />
-          ),
+          tabBarIcon: ({ color, focused }) =>
+            renderTabIcon(focused, accentColor, <IconSymbol size={28} name="magnifyingglass" color={color} />),
         }}
       />
       <Tabs.Screen
         name="my-shows"
         options={{
           title: "My Shows",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="theatermasks.fill" color={color} />
-          ),
+          tabBarIcon: ({ color, focused }) =>
+            renderTabIcon(focused, accentColor, <IconSymbol size={28} name="theatermasks.fill" color={color} />),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color }) => (
-            <ProfileTabIcon color={color} size={28} />
-          ),
+          tabBarIcon: ({ color, focused }) =>
+            renderTabIcon(focused, accentColor, <ProfileTabIcon color={color} size={28} />),
         }}
       />
     </Tabs>
@@ -112,5 +122,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  tabIconWrap: {
+    alignItems: "center",
+    gap: 3,
+  },
+  tabActivePill: {
+    width: 22,
+    height: 3,
+    borderRadius: 1.5,
+  },
+  tabActivePillPlaceholder: {
+    width: 22,
+    height: 3,
   },
 });

@@ -199,10 +199,10 @@ export default function PlanScreen() {
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Trips</Text>
             <Pressable
-              style={[styles.iconButton, { backgroundColor: chipBg, borderColor }]}
+              style={[styles.iconButton, { backgroundColor: accentColor + "18", borderColor: accentColor + "55" }]}
               onPress={() => setShowCreateTrip(true)}
             >
-              <IconSymbol size={18} name="plus" color={primaryTextColor} />
+              <IconSymbol size={18} name="plus" color={accentColor} />
             </Pressable>
           </View>
 

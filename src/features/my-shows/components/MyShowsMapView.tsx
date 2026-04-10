@@ -3,7 +3,7 @@ import { useQuery } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { Image, Platform, StyleSheet, Text, TouchableOpacity, UIManager, View } from "react-native";
 
-import { Colors } from "@/constants/theme";
+import { Colors, BRAND_BLUE } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
@@ -84,7 +84,7 @@ export function MyShowsMapView({
   const mutedTextColor = Colors[theme].mutedText;
   const borderColor = Colors[theme].border;
   const chipColor = Colors[theme].surface;
-  const activeChipColor = Colors[theme].surfaceElevated;
+  const accentColor = Colors[theme].accent;
   const overlayBg = theme === "dark" ? "rgba(20,20,24,0.92)" : "rgba(255,255,255,0.94)";
   const overlayText = theme === "dark" ? "#F3F4F6" : "#1F2937";
 
@@ -333,17 +333,17 @@ export function MyShowsMapView({
                       style={[
                         styles.scopeMenuButton,
                         {
-                          borderColor,
-                          backgroundColor: selected ? activeChipColor : chipColor,
+                          borderColor: selected ? accentColor : borderColor,
+                          backgroundColor: selected ? accentColor + "30" : overlayBg,
                         },
                       ]}
                       activeOpacity={0.8}
                     >
-                      <Ionicons name={option.icon} size={15} color={selected ? textColor : mutedTextColor} />
+                      <Ionicons name={option.icon} size={15} color={selected ? accentColor : mutedTextColor} />
                       <Text
                         style={[
                           styles.scopeMenuButtonText,
-                          { color: selected ? textColor : mutedTextColor },
+                          { color: selected ? accentColor : mutedTextColor },
                         ]}
                       >
                         {option.label}
@@ -354,11 +354,14 @@ export function MyShowsMapView({
               </View>
             ) : null}
             <TouchableOpacity
-              style={[styles.scopeFab, { backgroundColor: overlayBg, borderColor }]}
+              style={[styles.scopeFab, {
+                backgroundColor: showScopeMenu ? accentColor + "20" : overlayBg,
+                borderColor: showScopeMenu ? accentColor + "66" : borderColor,
+              }]}
               onPress={() => setShowScopeMenu((prev) => !prev)}
               activeOpacity={0.8}
             >
-              <Ionicons name={selectedScope.icon} size={18} color={overlayText} />
+              <Ionicons name={selectedScope.icon} size={18} color={showScopeMenu ? accentColor : overlayText} />
             </TouchableOpacity>
             </View>
           </View>
@@ -469,7 +472,7 @@ const styles = StyleSheet.create({
     minWidth: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#2563eb",
+    backgroundColor: BRAND_BLUE,
     borderWidth: 1,
     borderColor: "#ffffff",
     alignItems: "center",

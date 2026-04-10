@@ -115,8 +115,8 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
             {trip.owner?.name ? <Text style={[styles.memberName, { color: primaryTextColor }]}>{trip.owner.name}</Text> : null}
             <Text style={[styles.memberUsername, { color: mutedTextColor }]}>@{trip.owner?.username}</Text>
           </View>
-          <View style={[styles.rolePill, { backgroundColor: "#16A34A18", borderColor: "#16A34A55" }]}>
-            <Text style={[styles.rolePillText, { color: "#16A34A" }]}>Organizer</Text>
+          <View style={[styles.rolePill, { backgroundColor: accentColor + "18", borderColor: accentColor + "55" }]}>
+            <Text style={[styles.rolePillText, { color: accentColor }]}>Organizer</Text>
           </View>
         </View>
       </Pressable>
@@ -127,16 +127,16 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
         // Status-aware badge
         const { pillBg, pillBorder, pillText, pillLabel } = (() => {
           if (m.status === "pending") {
-            return { pillBg: "#2563EB18", pillBorder: "#2563EB55", pillText: "#2563EB", pillLabel: "Invited" };
+            return { pillBg: "#F59E0B18", pillBorder: "#F59E0B55", pillText: "#F59E0B", pillLabel: "Invited" };
           }
           if (m.status === "declined") {
-            return { pillBg: "#DC262618", pillBorder: "#DC262655", pillText: "#DC2626", pillLabel: "Declined" };
+            return { pillBg: dangerColor + "18", pillBorder: dangerColor + "55", pillText: dangerColor, pillLabel: "Declined" };
           }
           // accepted
           if (m.role === "edit") {
-            return { pillBg: "#16A34A18", pillBorder: "#16A34A55", pillText: "#16A34A", pillLabel: "Can Edit" };
+            return { pillBg: accentColor + "18", pillBorder: accentColor + "55", pillText: accentColor, pillLabel: "Can Edit" };
           }
-          return { pillBg: "#16A34A18", pillBorder: "#16A34A55", pillText: "#16A34A", pillLabel: "View Only" };
+          return { pillBg: borderColor, pillBorder: borderColor, pillText: mutedTextColor, pillLabel: "View Only" };
         })();
         return (
           <Pressable

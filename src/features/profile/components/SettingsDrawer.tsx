@@ -171,7 +171,7 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
             <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn}>
               <IconSymbol name="xmark" size={18} color={c.mutedText} />
             </Pressable>
-            <Text style={[styles.drawerTitle, { color: c.text }]}>Settings</Text>
+            <Text style={[styles.drawerTitle, { color: c.text }]}>My Account</Text>
           </View>
 
           {/* Account info */}
