@@ -87,7 +87,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
     lineHeight: 15,
-    minHeight: 30,
     width: "100%",
   },
   handle: {
