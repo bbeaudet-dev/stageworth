@@ -22,9 +22,47 @@
  */
 
 import { spawnSync } from "child_process";
-import { theatreShowList } from "../data/shows-ben";
-import { theatreShowListSophia } from "../data/shows-sophia";
-import type { TheatreShow, VisitInfo } from "../data/shows-ben";
+import { createRequire } from "module";
+
+type VisitInfo = {
+  date: string;
+  theatre: string;
+  district: string;
+  notes?: string;
+};
+
+type TheatreShow = {
+  name: string;
+  rank: number;
+  form?: string;
+  visits: VisitInfo[];
+};
+
+const requireFromHere = createRequire(import.meta.url);
+
+function loadDatasetExport<T>(modulePath: string, exportName: string): T {
+  try {
+    const mod = requireFromHere(modulePath) as Record<string, T>;
+    const value = mod[exportName];
+    if (!value) {
+      throw new Error(`Missing export "${exportName}" from ${modulePath}`);
+    }
+    return value;
+  } catch (error) {
+    throw new Error(
+      `Could not load ${modulePath}. Make sure local seed data files exist before running this script.`
+    );
+  }
+}
+
+const theatreShowList = loadDatasetExport<TheatreShow[]>(
+  "../data/shows-ben",
+  "theatreShowList"
+);
+const theatreShowListSophia = loadDatasetExport<TheatreShow[]>(
+  "../data/shows-sophia",
+  "theatreShowListSophia"
+);
 
 // ─── District mapping ────────────────────────────────────────────────────────
 // Converts the district strings used in shows-ben/sophia to the Convex DB literals.
