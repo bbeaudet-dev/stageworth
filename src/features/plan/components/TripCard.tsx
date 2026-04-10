@@ -4,6 +4,7 @@ import {
   RoundedRect,
   vec,
 } from "@shopify/react-native-skia";
+import { Image } from "expo-image";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -13,6 +14,8 @@ import { formatDateRange } from "@/utils/dates";
 import { getTripCountdown } from "@/utils/tripCountdown";
 
 const CARD_RADIUS = 12;
+const AVATAR_SIZE = 20;
+const AVATAR_OVERLAP = 6;
 
 interface TripCardProps {
   name: string;
@@ -20,6 +23,8 @@ interface TripCardProps {
   endDate: string;
   showCount: number;
   isOwner: boolean;
+  memberCount: number;
+  memberAvatars: string[];
   onPress: () => void;
 }
 
@@ -29,6 +34,8 @@ export function TripCard({
   endDate,
   showCount,
   isOwner,
+  memberCount,
+  memberAvatars,
   onPress,
 }: TripCardProps) {
   const colorScheme = useColorScheme();
@@ -38,16 +45,16 @@ export function TripCard({
   const borderColor = Colors[theme].border;
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
+  const accentColor = Colors[theme].accent;
 
   const dateRange = formatDateRange(startDate, endDate);
   const { text: countdownText, phase } = getTripCountdown(startDate, endDate);
 
   const isActive = phase === "active";
+  const isShared = !isOwner || memberCount > 0;
 
-  // Measure the card dimensions so the Skia gradient canvas fills it exactly
   const [cardSize, setCardSize] = useState<{ width: number; height: number } | null>(null);
 
-  // Badge colours — frosted white on active gradient, standard pastels otherwise
   const badgeBg = isActive
     ? "rgba(255,255,255,0.22)"
     : phase === "upcoming"
@@ -59,6 +66,10 @@ export function TripCard({
     : phase === "upcoming"
     ? theme === "dark" ? "#93C5FD" : "#1D4ED8"
     : theme === "dark" ? "#9CA3AF" : "#6B7280";
+
+  const sharedIndicatorColor = isActive ? "rgba(255,255,255,0.7)" : mutedTextColor;
+  const avatarBorderColor = isActive ? "rgba(255,255,255,0.5)" : surfaceColor;
+  const avatarBg = isActive ? "rgba(255,255,255,0.18)" : (theme === "dark" ? "#2a2a33" : "#e5e7eb");
 
   return (
     <Pressable
@@ -75,7 +86,6 @@ export function TripCard({
         if (width > 0 && height > 0) setCardSize({ width, height });
       }}
     >
-      {/* Gradient background for active cards, painted via Skia (no new native modules) */}
       {isActive && cardSize && (
         <Canvas style={[StyleSheet.absoluteFill, { borderRadius: CARD_RADIUS }]}>
           <RoundedRect
@@ -119,17 +129,46 @@ export function TripCard({
           >
             {dateRange}
           </Text>
-          <Text
-            style={[
-              styles.showCount,
-              { color: isActive ? "rgba(255,255,255,0.75)" : mutedTextColor },
-            ]}
-          >
-            {showCount === 0
-              ? "No shows added"
-              : `${showCount} show${showCount === 1 ? "" : "s"}`}
-            {!isOwner ? " · Shared" : ""}
-          </Text>
+          {showCount > 0 && (
+            <Text
+              style={[
+                styles.showCount,
+                { color: isActive ? "rgba(255,255,255,0.75)" : mutedTextColor },
+              ]}
+            >
+              {`${showCount} show${showCount === 1 ? "" : "s"}`}
+            </Text>
+          )}
+
+          {isShared && (
+            <View style={styles.membersRow}>
+              {memberAvatars.length > 0 ? (
+                <View style={[styles.avatarStack, { width: AVATAR_SIZE + (memberAvatars.length - 1) * (AVATAR_SIZE - AVATAR_OVERLAP) }]}>
+                  {memberAvatars.map((uri, i) => (
+                    <View
+                      key={uri + i}
+                      style={[
+                        styles.avatarWrap,
+                        { left: i * (AVATAR_SIZE - AVATAR_OVERLAP), borderColor: avatarBorderColor },
+                      ]}
+                    >
+                      <Image
+                        source={{ uri }}
+                        style={[styles.avatar, { backgroundColor: avatarBg }]}
+                      />
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              <Text style={[styles.membersLabel, { color: sharedIndicatorColor }]}>
+                {memberAvatars.length === 0
+                  ? "Shared"
+                  : memberCount === 1
+                  ? "1 member"
+                  : `${memberCount} members`}
+              </Text>
+            </View>
+          )}
         </View>
 
         {countdownText ? (
@@ -178,6 +217,31 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   showCount: {
+    fontSize: 12,
+  },
+  membersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 1,
+  },
+  avatarStack: {
+    height: AVATAR_SIZE,
+    position: "relative",
+  },
+  avatarWrap: {
+    position: "absolute",
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+    borderWidth: 1.5,
+    overflow: "hidden",
+  },
+  avatar: {
+    width: "100%",
+    height: "100%",
+  },
+  membersLabel: {
     fontSize: 12,
   },
   badge: {

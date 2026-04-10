@@ -265,6 +265,8 @@ export default function PlanScreen() {
                   endDate={trip.endDate}
                   showCount={trip.showCount}
                   isOwner={trip.isOwner}
+                  memberCount={trip.memberCount}
+                  memberAvatars={trip.memberAvatars}
                   onPress={() => openTrip(String(trip._id))}
                 />
               ))}
@@ -303,6 +305,8 @@ export default function PlanScreen() {
                       endDate={trip.endDate}
                       showCount={trip.showCount}
                       isOwner={trip.isOwner}
+                      memberCount={trip.memberCount}
+                      memberAvatars={trip.memberAvatars}
                       onPress={() => openTrip(String(trip._id))}
                     />
                   )) : null}

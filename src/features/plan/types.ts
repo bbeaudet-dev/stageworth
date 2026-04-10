@@ -116,6 +116,8 @@ export interface TripSummary {
   endDate: string;
   showCount: number;
   isOwner: boolean;
+  memberCount: number;
+  memberAvatars: string[];
 }
 
 /** A pending trip invitation from `getMyTrips`. */

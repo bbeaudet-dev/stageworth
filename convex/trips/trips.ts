@@ -197,12 +197,26 @@ export const getMyTrips = query({
     const past = allTrips.filter((trip) => trip.endDate < t);
 
     async function withShowCount(trip: Doc<"trips">) {
-      const tripShows = await ctx.db
-        .query("tripShows")
-        .withIndex("by_trip", (q) => q.eq("tripId", trip._id))
-        .collect();
+      const [tripShows, allMembers] = await Promise.all([
+        ctx.db.query("tripShows").withIndex("by_trip", (q) => q.eq("tripId", trip._id)).collect(),
+        ctx.db.query("tripMembers").withIndex("by_trip", (q) => q.eq("tripId", trip._id)).collect(),
+      ]);
       const isOwner = trip.userId === userId;
-      return { ...trip, showCount: tripShows.length, isOwner };
+      const accepted = allMembers.filter((m) => m.status === "accepted");
+      const memberCount = accepted.length;
+
+      const previewMembers = await Promise.all(
+        accepted.slice(0, 4).map((m) => ctx.db.get(m.userId))
+      );
+      const memberAvatars = (
+        await Promise.all(
+          previewMembers
+            .filter((u): u is NonNullable<typeof u> => u !== null)
+            .map((u) => (u.avatarImage ? ctx.storage.getUrl(u.avatarImage) : Promise.resolve(null)))
+        )
+      ).filter((url): url is string => url !== null);
+
+      return { ...trip, showCount: tripShows.length, isOwner, memberCount, memberAvatars };
     }
 
     // Pending invitations: trips where this user has a "pending" membership

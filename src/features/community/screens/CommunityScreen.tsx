@@ -382,13 +382,7 @@ export default function CommunityScreen() {
                         >
                           Ranked #{post.rankAtPost} of {post.rankingTotal}
                         </Text>
-                      ) : (
-                        <Text
-                          style={[styles.rankText, { color: rankTextColor }]}
-                        >
-                          Not currently ranked
-                        </Text>
-                      )}
+                      ) : null}
                     </View>
                     <Pressable
                       style={[
