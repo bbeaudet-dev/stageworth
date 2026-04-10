@@ -11,23 +11,21 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Colors } from "@/constants/theme";
+import { Colors, BRAND_BLUE, BRAND_PURPLE } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useSocialAuth } from "@/hooks/use-social-auth";
 import { useSession } from "@/lib/auth-client";
 
-const Header = memo(function Header({
-  textColor,
-  subtitleColor,
-}: {
-  textColor: string;
-  subtitleColor: string;
-}) {
+const Header = memo(function Header({ subtitleColor }: { subtitleColor: string }) {
   return (
     <View style={styles.header}>
-      <Text style={[styles.title, { color: textColor }]}>Theatre Diary</Text>
+      {/* Two-tone wordmark: blue + purple mirrors the website brand gradient */}
+      <View style={styles.wordmark}>
+        <Text style={[styles.title, { color: BRAND_BLUE }]}>Centre </Text>
+        <Text style={[styles.title, { color: BRAND_PURPLE }]}>Stage</Text>
+      </View>
       <Text style={[styles.subtitle, { color: subtitleColor }]}>
-        The all-in-one app for theatre nerds
+        Track shows. Plan trips. Discover theatre.
       </Text>
     </View>
   );
@@ -132,7 +130,7 @@ export default function SignInScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
       <View style={styles.content}>
-        <Header textColor={c.text} subtitleColor={c.mutedText} />
+        <Header subtitleColor={c.mutedText} />
         <SocialButtons
           googleLoading={googleLoading}
           appleLoading={appleLoading}
@@ -163,15 +161,21 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     marginBottom: 48,
+    gap: 10,
+  },
+  wordmark: {
+    flexDirection: "row",
+    alignItems: "baseline",
   },
   title: {
-    fontSize: 36,
-    fontWeight: "bold",
-    marginBottom: 8,
+    fontSize: 38,
+    fontWeight: "800",
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
     textAlign: "center",
+    letterSpacing: 0.1,
   },
   buttons: {
     gap: 12,
