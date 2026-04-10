@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { SegmentedControl } from "@/components/SegmentedControl";
 import { BRAND_BLUE, BRAND_PURPLE, Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -377,24 +378,17 @@ export default function LeaderboardScreen() {
             </Pressable>
           ))}
         </ScrollView>
-        <Pressable
-          style={[
-            styles.scopeToggle,
-            { borderColor },
-            scope === "friends" && { borderColor: accentColor + "66", backgroundColor: accentColor + "14" },
+      </View>
+      <View style={styles.scopeRow}>
+        <SegmentedControl
+          options={[
+            { value: "all", label: "All Users" },
+            { value: "friends", label: "Friends" },
           ]}
-          onPress={() => setScope(scope === "all" ? "friends" : "all")}
-        >
-          <Text
-            style={[
-              styles.scopeText,
-              { color: mutedTextColor },
-              scope === "friends" && { color: accentColor },
-            ]}
-          >
-            {scope === "all" ? "All Users" : "Friends"}
-          </Text>
-        </Pressable>
+          value={scope}
+          onChange={(v) => setScope(v as "all" | "friends")}
+          accentColor={accentColor}
+        />
       </View>
 
       <FlatList
@@ -461,8 +455,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: "700" },
   filtersRow: {
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 10,
+    paddingBottom: 4,
   },
   categoryRow: {
     gap: 8,
@@ -475,14 +468,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   chipText: { fontSize: 13, fontWeight: "700" },
-  scopeToggle: {
-    alignSelf: "flex-start",
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+  scopeRow: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
   },
-  scopeText: { fontSize: 12, fontWeight: "600" },
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 32,

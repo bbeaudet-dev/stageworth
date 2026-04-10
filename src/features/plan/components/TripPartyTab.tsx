@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -39,6 +40,7 @@ interface TripPartyTabProps {
 }
 
 export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -72,16 +74,20 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
     q: otherQuery.trim(),
   });
 
-  const tripSearchRows = useMemo(() => {
-    const rows = searchResults ?? [];
-    if (!myUserId) return rows;
-    return rows.filter((u: { _id: Id<"users"> }) => u._id !== myUserId);
-  }, [searchResults, myUserId]);
-
   const { addTripMember, removeTripMember, updateTripMemberRole } = useTripData();
 
   const existingMemberUserIds = new Set((trip?.members ?? []).map((m: TripMember) => String(m.userId)));
   const friendsNotYetMembers = (myFollowing ?? []).filter((f: FollowingUser) => !existingMemberUserIds.has(String(f._id)));
+
+  const tripSearchRows = useMemo(() => {
+    const rows = searchResults ?? [];
+    if (!myUserId) return rows;
+    return rows.filter(
+      (u: { _id: Id<"users"> }) =>
+        u._id !== myUserId && !existingMemberUserIds.has(String(u._id))
+    );
+  }, [searchResults, myUserId, existingMemberUserIds]);
+
 
   // ── handlers ───────────────────────────────────────────────────────────────
 
@@ -204,14 +210,27 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
             {isExpanded && trip.isOwner && (
               <View style={[styles.memberExpanded, { borderTopColor: borderColor }]}>
                 <View style={styles.expandedRow}>
-                  <SegmentedControl
-                    options={ROLE_OPTIONS}
-                    value={m.role}
-                    onChange={(role) => {
-                      if (role !== m.role) updateTripMemberRole({ tripId, memberId: m._id, role: role as "edit" | "view" });
-                    }}
-                    accentColor={accentColor}
-                  />
+                  <View style={styles.expandedSegmentWrap}>
+                    <SegmentedControl
+                      options={ROLE_OPTIONS}
+                      value={m.role}
+                      onChange={(role) => {
+                        const newRole = role as "edit" | "view";
+                        if (newRole === m.role) return;
+                        const roleName = newRole === "edit" ? "Editor" : "Viewer";
+                        const memberName = m.user?.name || m.user?.username || "this member";
+                        Alert.alert(
+                          "Change Permission",
+                          `Change ${memberName} to ${roleName}?`,
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            { text: "Confirm", onPress: () => updateTripMemberRole({ tripId, memberId: m._id, role: newRole }) },
+                          ]
+                        );
+                      }}
+                      accentColor={accentColor}
+                    />
+                  </View>
                   <Pressable
                     style={[styles.removeBtn, { borderColor: dangerColor + "44" }]}
                     onPress={() => {
@@ -407,13 +426,13 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
               </View>
             )}
 
-            {/* Invite to Sign Up placeholder */}
+            {/* Invite to Sign Up */}
             <Pressable
-              style={[styles.inviteToSignUpBtn, { borderColor }]}
-              onPress={() => Alert.alert("Coming soon", "Invite links will let you add people who haven't signed up yet.")}
+              style={[styles.inviteToSignUpBtn, { borderColor: accentColor + "55" }]}
+              onPress={() => router.push("/invite-friend")}
             >
-              <IconSymbol size={14} name="envelope.fill" color={mutedTextColor} />
-              <Text style={[styles.inviteToSignUpText, { color: mutedTextColor }]}>Invite to Sign Up</Text>
+              <IconSymbol size={14} name="person.fill.badge.plus" color={accentColor} />
+              <Text style={[styles.inviteToSignUpText, { color: accentColor }]}>Invite a Friend to Sign Up</Text>
             </Pressable>
           </View>
         </>
@@ -447,8 +466,9 @@ const styles = StyleSheet.create({
   rolePillText: { fontSize: 11, fontWeight: "700" },
 
   // Expanded member row
-  memberExpanded: { paddingHorizontal: 12, paddingBottom: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, gap: 0 },
-  expandedRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  memberExpanded: { paddingHorizontal: 12, paddingBottom: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  expandedRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  expandedSegmentWrap: { minWidth: 148, maxWidth: 180 },
   removeBtn: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7 },
   removeBtnText: { fontSize: 13, fontWeight: "600" },
 
@@ -468,8 +488,8 @@ const styles = StyleSheet.create({
   inCardDivider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
   pendingRolePicker: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, gap: 8 },
   pendingRoleLabel: { fontSize: 14 },
-  pendingRoleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  pendingSegmentWrap: { flex: 1 },
+  pendingRoleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  pendingSegmentWrap: { minWidth: 148, maxWidth: 180 },
 
   // Shared invite button
   inviteBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 9, alignItems: "center", justifyContent: "center" },
@@ -502,7 +522,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  searchSegmentWrap: { flex: 1 },
+  searchSegmentWrap: { minWidth: 148, maxWidth: 180 },
 
   // Invite to sign up (bottom)
   inviteToSignUpBtn: {

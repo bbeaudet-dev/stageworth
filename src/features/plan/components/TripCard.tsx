@@ -87,7 +87,7 @@ export function TripCard({
       }}
     >
       {isActive && cardSize && (
-        <Canvas style={[StyleSheet.absoluteFill, { borderRadius: CARD_RADIUS }]}>
+        <Canvas style={[StyleSheet.absoluteFill, { borderRadius: CARD_RADIUS }]} pointerEvents="none">
           <RoundedRect
             x={0}
             y={0}
