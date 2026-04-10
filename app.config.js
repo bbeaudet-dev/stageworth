@@ -1,6 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 
+const withIconKitchenAssets = require("./plugins/withIconKitchenAssets");
+
 // Write google-services.json from env var during EAS cloud builds
 if (process.env.GOOGLE_SERVICES_JSON) {
   fs.writeFileSync(
@@ -31,14 +33,14 @@ module.exports = {
   slug: "theatre-diary",
   version: "1.2.0",
   orientation: "portrait",
-  icon: "./assets/images/icon.png",
+  icon: "./assets/icon-kitchen/ios/AppIcon~ios-marketing.png",
   scheme: "theatrediary",
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.theatrediary.app",
-    icon: "./assets/images/ios-icon-full-bleed.png",
+    icon: "./assets/icon-kitchen/ios/AppIcon~ios-marketing.png",
     buildNumber: "3",
     usesAppleSignIn: true,
     appleTeamId: "M8M7T576K8",
@@ -55,9 +57,13 @@ module.exports = {
     package: "com.theatrediary.app",
     googleServicesFile: "./google-services.json",
     adaptiveIcon: {
-      foregroundImage: "./assets/images/android-icon-foreground.png",
-      backgroundColor: "#536DFE",
-      monochromeImage: "./assets/images/android-icon-monochrome.png",
+      foregroundImage:
+        "./assets/icon-kitchen/android/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
+      backgroundImage:
+        "./assets/icon-kitchen/android/res/mipmap-xxxhdpi/ic_launcher_background.png",
+      backgroundColor: "#1a0d2e",
+      monochromeImage:
+        "./assets/icon-kitchen/android/res/mipmap-xxxhdpi/ic_launcher_monochrome.png",
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
@@ -95,6 +101,7 @@ module.exports = {
         },
       },
     ],
+    withIconKitchenAssets,
   ],
   experiments: {
     typedRoutes: true,
