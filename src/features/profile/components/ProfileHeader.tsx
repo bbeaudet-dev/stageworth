@@ -43,9 +43,8 @@ interface ProfileHeaderProps {
   streakWeeks?: number | null;
   activitySummary?: {
     showCount: number;
-    typeCount: number;
     percentile: number;
-    locationLabel?: string | null;
+    seasonLabel: string;
   } | null;
 }
 
@@ -242,10 +241,10 @@ export function ProfileHeader({
                 </Text>
               </View>
               <Text style={[styles.activitySub, { color: mutedTextColor }]}>
-                {activitySummary.showCount} {activitySummary.showCount === 1 ? "show" : "shows"}
+                {activitySummary.seasonLabel}
                 {" · "}
-                {activitySummary.typeCount} {activitySummary.typeCount === 1 ? "genre" : "genres"}
-                {activitySummary.locationLabel ? ` in ${activitySummary.locationLabel}` : " this month"}
+                {activitySummary.showCount}{" "}
+                {activitySummary.showCount === 1 ? "show" : "shows"}
               </Text>
             </>
           )}

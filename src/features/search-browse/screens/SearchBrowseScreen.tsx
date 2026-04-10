@@ -551,13 +551,13 @@ function UserRail({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.railContent}
+        contentContainerStyle={styles.userRailContent}
       >
         {users.map((user) => (
           <UserCard
             key={user._id}
             user={user}
-            width={76}
+            width={96}
             onPress={() => onPressUser(user.username)}
           />
         ))}
@@ -896,6 +896,10 @@ const styles = StyleSheet.create({
   // Rail
   railContent: {
     gap: GRID_GAP,
+    paddingRight: SECTION_PADDING,
+  },
+  userRailContent: {
+    gap: 12,
     paddingRight: SECTION_PADDING,
   },
 

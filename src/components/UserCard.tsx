@@ -46,7 +46,11 @@ export function UserCard({ user, width = 80, onPress }: UserCardProps) {
           </Text>
         )}
       </View>
-      <Text style={[styles.name, { color: text }]} numberOfLines={1}>
+      <Text
+        style={[styles.name, { color: text }]}
+        numberOfLines={2}
+        ellipsizeMode="tail"
+      >
         {displayName}
       </Text>
       <Text style={[styles.handle, { color: muted }]} numberOfLines={1}>
@@ -56,14 +60,14 @@ export function UserCard({ user, width = 80, onPress }: UserCardProps) {
   );
 }
 
-const AVATAR_SIZE = 52;
+const AVATAR_SIZE = 54;
 
 const styles = StyleSheet.create({
   card: {
     alignItems: "center",
     borderRadius: 10,
     paddingVertical: 10,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
     gap: 5,
   },
   avatarWrapper: {
@@ -82,6 +86,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     textAlign: "center",
+    lineHeight: 15,
+    minHeight: 30,
+    width: "100%",
   },
   handle: {
     fontSize: 10,

@@ -26,7 +26,7 @@ export const search = query({
 
     const queryWords = normalized.split(" ").filter((w) => w.length > 1);
 
-    type ScoredVenue = {
+    type VenueResult = {
       _id: string;
       name: string;
       city: string;
@@ -34,7 +34,7 @@ export const search = query({
       district: string;
       score: number;
     };
-    const scored: ScoredVenue[] = [];
+    const scored: VenueResult[] = [];
 
     for (const venue of venues) {
       if (!venue.isActive) continue;
