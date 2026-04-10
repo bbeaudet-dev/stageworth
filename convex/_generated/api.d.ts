@@ -14,6 +14,7 @@ import type * as admin_maintenance from "../admin/maintenance.js";
 import type * as admin_migration from "../admin/migration.js";
 import type * as admin_reviewBackfill from "../admin/reviewBackfill.js";
 import type * as admin_seed from "../admin/seed.js";
+import type * as admin_seedUserData from "../admin/seedUserData.js";
 import type * as admin_showScore from "../admin/showScore.js";
 import type * as admin_wikiApi from "../admin/wikiApi.js";
 import type * as auth from "../auth.js";
@@ -68,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   "admin/migration": typeof admin_migration;
   "admin/reviewBackfill": typeof admin_reviewBackfill;
   "admin/seed": typeof admin_seed;
+  "admin/seedUserData": typeof admin_seedUserData;
   "admin/showScore": typeof admin_showScore;
   "admin/wikiApi": typeof admin_wikiApi;
   auth: typeof auth;
