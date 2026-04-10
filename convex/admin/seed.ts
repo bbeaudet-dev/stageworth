@@ -5,7 +5,6 @@ import {
   internalQuery,
 } from "../_generated/server";
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
 import { normalizeShowName, type ShowType } from "../showNormalization";
 import { fetchJson } from "./wikiApi";
 
@@ -491,7 +490,11 @@ function similarityForShowMatch(queryNorm: string, showNorm: string): number {
   }
   const union = wordsQ.size + wordsS.size - inter || 1;
   const jacc = inter / union;
-  return Math.max(lev, jacc > 0.25 ? jacc * 0.97 : 0);
+  // Use raw Jaccard above the noise floor — do not dampen with *0.97, which can push
+  // legitimately strong overlap (e.g. same 3 words, different order + extra words like
+  // "Rockettes Christmas Spectacular" vs "Christmas Spectacular Starring the Rockettes")
+  // just under typical acceptance thresholds (0.6 * 0.97 = 0.582).
+  return Math.max(lev, jacc > 0.25 ? jacc : 0);
 }
 
 // Fuzzy match Playbill / paste names to existing shows (same normalization as applyPlaybillProductionPaste).
@@ -893,7 +896,7 @@ function splitUblProductions(raw: string): string[] {
 }
 
 function extractProductionCandidatesFromInfoboxProductions(raw: string) {
-  const out: Array<{
+  const out: {
     district: DistrictType;
     approxStartYear: number | null;
     approxEndYear: number | null;
@@ -901,7 +904,7 @@ function extractProductionCandidatesFromInfoboxProductions(raw: string) {
     city: string | null;
     source: string;
     raw: string;
-  }> = [];
+  }[] = [];
 
   // Handle both simple <br>-separated lists and {{ubl|...}} / {{ubli|...}} templates.
   const baseParts = raw

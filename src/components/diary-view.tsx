@@ -73,7 +73,6 @@ export function DiaryView() {
   const theme = colorScheme ?? "light";
   const backgroundColor = Colors[theme].background;
   const primaryTextColor = Colors[theme].text;
-  const mutedTextColor = Colors[theme].mutedText;
 
   const groups = useMemo(() => {
     if (!visits) return [];

@@ -42,7 +42,7 @@ export default function InviteTokenScreen() {
     }
 
     setScreen("signed-in");
-  }, [token, session, isPending]);
+  }, [token, session, isPending, router]);
 
   async function handleClaim() {
     setScreen("claiming");

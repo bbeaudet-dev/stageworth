@@ -144,6 +144,7 @@ export default function FollowListScreen() {
       borderColor,
       isFollowPending,
       mutedTextColor,
+      onAccent,
       primaryTextColor,
       pushUserProfile,
       surfaceColor,

@@ -6,7 +6,6 @@ import DraggableFlatList, {
 } from "react-native-draggable-flatlist";
 import { type NativeScrollEvent, type NativeSyntheticEvent, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { ShowRowAccordion, type RankedShow } from "@/components/show-row-accordion";
 import type { Id } from "@/convex/_generated/dataModel";

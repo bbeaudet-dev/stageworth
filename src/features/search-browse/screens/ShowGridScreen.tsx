@@ -142,7 +142,10 @@ export default function ShowGridScreen() {
   }, [config.query, allShows, currentShows, closingSoon, upcomingShows, isDark, todayStr]);
 
   const isLoading = items === null;
-  const visible = items ? items.slice(0, limit) : [];
+  const visible = useMemo(
+    () => (items ? items.slice(0, limit) : []),
+    [items, limit]
+  );
   const remaining = items ? items.length - visible.length : 0;
 
   const visibleShowIds = useMemo<Id<"shows">[]>(

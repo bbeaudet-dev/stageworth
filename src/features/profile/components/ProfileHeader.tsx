@@ -12,7 +12,6 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { shouldUseOauthProfileImageUrl } from "@/utils/oauthProfilePhoto";
-import { getInitials } from "@/utils/user";
 
 export interface ProfileHeaderData {
   username: string;

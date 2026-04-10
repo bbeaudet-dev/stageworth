@@ -155,12 +155,10 @@ export function VisitsList({ showId }: { showId: Id<"shows"> }) {
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
-  const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const surfaceColor = Colors[theme].surface;
   const borderColor = Colors[theme].border;
   const linkColor = Colors[theme].accent;
-  const dangerColor = Colors[theme].danger;
 
   if (visits === undefined) {
     return (

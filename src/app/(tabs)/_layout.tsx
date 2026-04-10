@@ -21,7 +21,7 @@ export default function TabLayout() {
       didClaimRef.current = true;
       claimPendingInvite();
     }
-  }, [session, isPending]);
+  }, [session, isPending, claimPendingInvite]);
 
   // Same as sign-in: don't blank the whole tab shell while session exists but the
   // client is still revalidating (common right after OAuth on Android).
