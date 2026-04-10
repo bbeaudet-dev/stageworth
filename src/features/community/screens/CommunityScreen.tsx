@@ -178,14 +178,6 @@ export default function CommunityScreen() {
               <IconSymbol name="trophy.fill" size={22} color={bellColor} />
             </Pressable>
             <Pressable
-              onPress={() => router.push("/user-search")}
-              style={styles.headerIconButton}
-              hitSlop={10}
-              accessibilityLabel="Search people"
-            >
-              <IconSymbol name="magnifyingglass" size={22} color={bellColor} />
-            </Pressable>
-            <Pressable
               onPress={handleInvite}
               style={styles.headerIconButton}
               hitSlop={10}
