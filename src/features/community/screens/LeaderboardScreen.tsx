@@ -17,7 +17,7 @@ import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getInitials } from "@/utils/user";
 
-type Category = "shows" | "visits" | "theatres" | "signups";
+type Category = "shows" | "visits" | "theatres" | "signups" | "streak" | "score";
 type Scope = "all" | "friends";
 
 const CATEGORIES: { key: Category; label: string }[] = [
@@ -25,6 +25,8 @@ const CATEGORIES: { key: Category; label: string }[] = [
   { key: "visits", label: "Visits" },
   { key: "theatres", label: "Theatres" },
   { key: "signups", label: "Signups" },
+  { key: "streak", label: "Streak" },
+  { key: "score", label: "Score" },
 ];
 
 export default function LeaderboardScreen() {
@@ -63,6 +65,14 @@ export default function LeaderboardScreen() {
     api.leaderboard.getBySignups,
     category === "signups" ? { scope } : "skip",
   );
+  const streakData = useQuery(
+    api.leaderboard.getByStreak,
+    category === "streak" ? { scope } : "skip",
+  );
+  const scoreData = useQuery(
+    api.leaderboard.getByScore,
+    category === "score" ? { scope } : "skip",
+  );
 
   const data =
     category === "shows"
@@ -71,7 +81,11 @@ export default function LeaderboardScreen() {
         ? visitsData
         : category === "theatres"
           ? theatresData
-          : signupsData;
+          : category === "signups"
+            ? signupsData
+            : category === "streak"
+              ? streakData
+              : scoreData;
 
   const countLabel =
     category === "shows"
@@ -80,7 +94,11 @@ export default function LeaderboardScreen() {
         ? "visits"
         : category === "theatres"
           ? "theatres"
-          : "signups";
+          : category === "signups"
+            ? "signups"
+            : category === "streak"
+              ? "wk streak"
+              : "pts";
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["top"]}>

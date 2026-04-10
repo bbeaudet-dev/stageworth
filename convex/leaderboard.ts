@@ -2,6 +2,15 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { getConvexUserId } from "./auth";
 
+async function getFriendIds(ctx: any, viewerUserId: string | null): Promise<string[] | null> {
+  if (!viewerUserId) return null;
+  const followRows = await ctx.db
+    .query("follows")
+    .withIndex("by_follower", (q: any) => q.eq("followerUserId", viewerUserId))
+    .collect();
+  return [viewerUserId, ...followRows.map((r: any) => r.followingUserId)];
+}
+
 const LEADERBOARD_LIMIT = 50;
 
 async function enrichUser(ctx: any, userId: string) {
@@ -223,6 +232,77 @@ export const getBySignups = query({
       sorted.map(async (entry, index) => {
         const user = await enrichUser(ctx, entry.userId);
         return user ? { rank: index + 1, user, count: entry.count } : null;
+      })
+    ).then((rows) => rows.filter((r): r is NonNullable<typeof r> => r !== null));
+  },
+});
+
+/** Ranks users by their current weekly streak (longest active streak first). */
+export const getByStreak = query({
+  args: {
+    scope: v.union(v.literal("all"), v.literal("friends")),
+  },
+  handler: async (ctx, args) => {
+    const viewerUserId = await getConvexUserId(ctx);
+    const targetUserIds =
+      args.scope === "friends" && viewerUserId
+        ? await getFriendIds(ctx, viewerUserId)
+        : null;
+
+    const allStats = await ctx.db.query("userStats").collect();
+    const filtered = targetUserIds
+      ? allStats.filter((s: any) => targetUserIds.includes(s.userId))
+      : allStats;
+
+    const withStreak = filtered
+      .filter((s: any) => (s.currentStreakWeeks ?? 0) > 0)
+      .sort((a: any, b: any) => (b.currentStreakWeeks ?? 0) - (a.currentStreakWeeks ?? 0))
+      .slice(0, LEADERBOARD_LIMIT);
+
+    return Promise.all(
+      withStreak.map(async (stats: any, index: number) => {
+        const user = await enrichUser(ctx, stats.userId);
+        return user
+          ? { rank: index + 1, user, count: stats.currentStreakWeeks as number }
+          : null;
+      })
+    ).then((rows) => rows.filter((r): r is NonNullable<typeof r> => r !== null));
+  },
+});
+
+/** Ranks users by their overall theatre score. */
+export const getByScore = query({
+  args: {
+    scope: v.union(v.literal("all"), v.literal("friends")),
+  },
+  handler: async (ctx, args) => {
+    const viewerUserId = await getConvexUserId(ctx);
+    const targetUserIds =
+      args.scope === "friends" && viewerUserId
+        ? await getFriendIds(ctx, viewerUserId)
+        : null;
+
+    let statsRows;
+    if (targetUserIds) {
+      const allStats = await ctx.db.query("userStats").collect();
+      statsRows = allStats
+        .filter((s: any) => targetUserIds.includes(s.userId))
+        .sort((a: any, b: any) => b.theatreScore - a.theatreScore)
+        .slice(0, LEADERBOARD_LIMIT);
+    } else {
+      statsRows = await ctx.db
+        .query("userStats")
+        .withIndex("by_theatreScore")
+        .order("desc")
+        .take(LEADERBOARD_LIMIT);
+    }
+
+    return Promise.all(
+      statsRows.map(async (stats: any, index: number) => {
+        const user = await enrichUser(ctx, stats.userId);
+        return user
+          ? { rank: index + 1, user, count: stats.theatreScore as number }
+          : null;
       })
     ).then((rows) => rows.filter((r): r is NonNullable<typeof r> => r !== null));
   },
