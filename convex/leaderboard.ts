@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { getConvexUserId } from "./auth";
+import type { Id } from "./_generated/dataModel";
 import { resolveShowImageUrls } from "./helpers";
 
 async function getFriendIds(ctx: any, viewerUserId: string | null): Promise<string[] | null> {
@@ -140,17 +141,17 @@ export const getByVisits = query({
       }
 
       // For each user, find their best show
-      const bestByUser: Array<{ userId: string; count: number; showId: string }> = [];
+      const bestByUser: Array<{ userId: string; count: number; showId: Id<"shows"> }> = [];
       for (const [userId, showMap] of countByUserShow.entries()) {
-        let bestShowId = "";
+        let bestShowId: Id<"shows"> | "" = "";
         let bestCount = 0;
         for (const [showId, count] of showMap.entries()) {
           if (count > bestCount) {
             bestCount = count;
-            bestShowId = showId;
+            bestShowId = showId as Id<"shows">;
           }
         }
-        if (bestCount > 0) {
+        if (bestCount > 0 && bestShowId !== "") {
           bestByUser.push({ userId, count: bestCount, showId: bestShowId });
         }
       }
@@ -162,8 +163,8 @@ export const getByVisits = query({
         top.map(async (entry, index) => {
           const user = await enrichUser(ctx, entry.userId);
           if (!user) return null;
-          const show = await ctx.db.get(entry.showId as any);
-          const showImages = show ? await resolveShowImageUrls(ctx, show as any) : null;
+          const show = await ctx.db.get(entry.showId);
+          const showImages = show ? await resolveShowImageUrls(ctx, show) : null;
           return {
             rank: index + 1,
             user,

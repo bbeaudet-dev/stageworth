@@ -68,6 +68,10 @@ export default function RootLayout() {
                   options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
                 />
                 <Stack.Screen
+                  name="invite-friend"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="modal"
                   options={{ presentation: "modal", title: "Modal" }}
                 />

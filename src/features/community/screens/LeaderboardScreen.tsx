@@ -412,6 +412,17 @@ export default function LeaderboardScreen() {
             <Text style={[styles.emptyText, { color: mutedTextColor }]}>No data yet.</Text>
           )
         }
+        ListFooterComponent={
+          category === "signups" ? (
+            <Pressable
+              style={[styles.inviteFooterBtn, { borderColor: accentColor + "44" }]}
+              onPress={() => router.push("/invite-friend")}
+            >
+              <IconSymbol name="person.fill.badge.plus" size={16} color={accentColor} />
+              <Text style={[styles.inviteFooterText, { color: accentColor }]}>Invite a Friend</Text>
+            </Pressable>
+          ) : null
+        }
         renderItem={renderRow}
       />
     </SafeAreaView>
@@ -580,4 +591,16 @@ const styles = StyleSheet.create({
   countText: { fontSize: 18, fontWeight: "700" },
   countLabel: { fontSize: 11, fontWeight: "500", width: 50 },
   emptyText: { fontSize: 15, textAlign: "center", marginTop: 40 },
+  inviteFooterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 20,
+    marginHorizontal: 16,
+    paddingVertical: 13,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  inviteFooterText: { fontSize: 15, fontWeight: "600" },
 });

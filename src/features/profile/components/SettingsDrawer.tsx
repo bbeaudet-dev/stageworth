@@ -237,6 +237,16 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
               surfaceColor={c.surfaceElevated}
               iconColor={iconColor}
             />
+            <MenuRow
+              icon="person.fill.badge.plus"
+              label="Invite a Friend"
+              onPress={() => navigate("/invite-friend")}
+              textColor={c.text}
+              mutedColor={c.mutedText}
+              borderColor={c.border}
+              surfaceColor={c.surfaceElevated}
+              iconColor={iconColor}
+            />
           </View>
         </Animated.View>
       </View>
