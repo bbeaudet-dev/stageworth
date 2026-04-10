@@ -89,8 +89,11 @@ export default function PlanScreen() {
 
   useEffect(() => {
     if (params.createTrip !== "1") return;
-    setShowCreateTrip(true);
-    router.setParams({ createTrip: undefined });
+    const t = setTimeout(() => {
+      setShowCreateTrip(true);
+      router.setParams({ createTrip: undefined });
+    }, 60);
+    return () => clearTimeout(t);
   }, [params.createTrip, router]);
 
   // ── Sort trips into display buckets ──────────────────────────────────────
