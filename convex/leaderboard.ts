@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { getConvexUserId } from "./auth";
+import { resolveShowImageUrls } from "./helpers";
 
 async function getFriendIds(ctx: any, viewerUserId: string | null): Promise<string[] | null> {
   if (!viewerUserId) return null;
@@ -87,7 +88,7 @@ export const getByShows = query({
 export const getByVisits = query({
   args: {
     scope: v.union(v.literal("all"), v.literal("friends")),
-    mode: v.optional(v.union(v.literal("total"), v.literal("per_show"))),
+    mode: v.optional(v.union(v.literal("total"), v.literal("per_show"), v.literal("single_show"))),
     showId: v.optional(v.id("shows")),
   },
   handler: async (ctx, args) => {
@@ -107,6 +108,7 @@ export const getByVisits = query({
       ? allVisits.filter((v: any) => targetUserIds!.includes(v.userId))
       : allVisits;
 
+    // Per-show leaderboard: rank users by visits to a specific show
     if (args.mode === "per_show" && args.showId) {
       const showVisits = filtered.filter((v: any) => v.showId === args.showId);
       const countByUser = new Map<string, number>();
@@ -120,11 +122,60 @@ export const getByVisits = query({
       return Promise.all(
         sorted.map(async ([userId, count], index) => {
           const user = await enrichUser(ctx, userId);
-          return user ? { rank: index + 1, user, count } : null;
+          return user ? { rank: index + 1, user, count, showId: null, showImages: null } : null;
         })
       ).then((rows) => rows.filter((r): r is NonNullable<typeof r> => r !== null));
     }
 
+    // Single-show leaderboard: rank users by their best single-show visit count
+    if (args.mode === "single_show") {
+      // Build a map of (userId -> Map<showId -> count>)
+      const countByUserShow = new Map<string, Map<string, number>>();
+      for (const visit of filtered) {
+        if (!countByUserShow.has(visit.userId)) {
+          countByUserShow.set(visit.userId, new Map());
+        }
+        const showMap = countByUserShow.get(visit.userId)!;
+        showMap.set(visit.showId, (showMap.get(visit.showId) ?? 0) + 1);
+      }
+
+      // For each user, find their best show
+      const bestByUser: Array<{ userId: string; count: number; showId: string }> = [];
+      for (const [userId, showMap] of countByUserShow.entries()) {
+        let bestShowId = "";
+        let bestCount = 0;
+        for (const [showId, count] of showMap.entries()) {
+          if (count > bestCount) {
+            bestCount = count;
+            bestShowId = showId;
+          }
+        }
+        if (bestCount > 0) {
+          bestByUser.push({ userId, count: bestCount, showId: bestShowId });
+        }
+      }
+
+      bestByUser.sort((a, b) => b.count - a.count);
+      const top = bestByUser.slice(0, LEADERBOARD_LIMIT);
+
+      return Promise.all(
+        top.map(async (entry, index) => {
+          const user = await enrichUser(ctx, entry.userId);
+          if (!user) return null;
+          const show = await ctx.db.get(entry.showId as any);
+          const showImages = show ? await resolveShowImageUrls(ctx, show as any) : null;
+          return {
+            rank: index + 1,
+            user,
+            count: entry.count,
+            showId: entry.showId,
+            showImages,
+          };
+        })
+      ).then((rows) => rows.filter((r): r is NonNullable<typeof r> => r !== null));
+    }
+
+    // Default: total visit count per user
     const countByUser = new Map<string, number>();
     for (const visit of filtered) {
       countByUser.set(visit.userId, (countByUser.get(visit.userId) ?? 0) + 1);
@@ -136,7 +187,7 @@ export const getByVisits = query({
     return Promise.all(
       sorted.map(async ([userId, count], index) => {
         const user = await enrichUser(ctx, userId);
-        return user ? { rank: index + 1, user, count } : null;
+        return user ? { rank: index + 1, user, count, showId: null, showImages: null } : null;
       })
     ).then((rows) => rows.filter((r): r is NonNullable<typeof r> => r !== null));
   },
