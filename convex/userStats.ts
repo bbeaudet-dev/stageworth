@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { getConvexUserId, requireConvexUserId } from "./auth";
+import { computeTheatreScore } from "./scoreUtils";
 
 function getISOWeek(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00Z");
@@ -30,7 +31,7 @@ export const recomputeUserScore = mutation({
   handler: async (ctx, args) => {
     const targetUserId = args.userId ?? (await requireConvexUserId(ctx));
 
-    const [rankings, visits, userShows, followers] = await Promise.all([
+    const [rankings, visits, followers, following] = await Promise.all([
       ctx.db
         .query("userRankings")
         .withIndex("by_user", (q: any) => q.eq("userId", targetUserId))
@@ -40,29 +41,23 @@ export const recomputeUserScore = mutation({
         .withIndex("by_user", (q: any) => q.eq("userId", targetUserId))
         .collect(),
       ctx.db
-        .query("userShows")
-        .withIndex("by_user", (q: any) => q.eq("userId", targetUserId))
+        .query("follows")
+        .withIndex("by_following", (q: any) => q.eq("followingUserId", targetUserId))
         .collect(),
       ctx.db
         .query("follows")
-        .withIndex("by_following", (q: any) => q.eq("followingUserId", targetUserId))
+        .withIndex("by_follower", (q: any) => q.eq("followerUserId", targetUserId))
         .collect(),
     ]);
 
     const uniqueShows = rankings?.showIds?.length ?? 0;
     const totalVisits = visits.length;
     const visitsWithNotes = visits.filter((v: any) => v.notes?.trim()).length;
-    const visitsWithTags = visits.filter(
-      (v: any) => v.taggedUserIds && v.taggedUserIds.length > 0
-    ).length;
+    const visitTagCounts = visits.map(
+      (v: any) => (v.taggedUserIds as string[] | undefined)?.length ?? 0
+    );
     const followerCount = followers.length;
-
-    let baseScore =
-      uniqueShows * 10 +
-      totalVisits * 5 +
-      visitsWithNotes * 3 +
-      visitsWithTags * 2 +
-      followerCount * 1;
+    const followingCount = following.length;
 
     const existingStats = await ctx.db
       .query("userStats")
@@ -98,8 +93,15 @@ export const recomputeUserScore = mutation({
       }
     }
 
-    const streakMultiplier = 1 + Math.min(currentStreakWeeks * 0.05, 0.5);
-    const theatreScore = Math.round(baseScore * streakMultiplier);
+    const theatreScore = computeTheatreScore({
+      uniqueShows,
+      totalVisits,
+      visitsWithNotes,
+      visitTagCounts,
+      followerCount,
+      followingCount,
+      currentStreakWeeks,
+    });
 
     if (existingStats) {
       await ctx.db.patch(existingStats._id, {
@@ -136,6 +138,81 @@ export const recomputeAllRanks = internalMutation({
   },
 });
 
+/** One-shot internal mutation to recompute scores for ALL users using the current formula. */
+export const recomputeAllScores = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const allUsers = await ctx.db.query("users").collect();
+    let updated = 0;
+
+    for (const user of allUsers) {
+      const userId = user._id;
+
+      const [rankings, visits, followers, following] = await Promise.all([
+        ctx.db
+          .query("userRankings")
+          .withIndex("by_user", (q: any) => q.eq("userId", userId))
+          .first(),
+        ctx.db
+          .query("visits")
+          .withIndex("by_user", (q: any) => q.eq("userId", userId))
+          .collect(),
+        ctx.db
+          .query("follows")
+          .withIndex("by_following", (q: any) => q.eq("followingUserId", userId))
+          .collect(),
+        ctx.db
+          .query("follows")
+          .withIndex("by_follower", (q: any) => q.eq("followerUserId", userId))
+          .collect(),
+      ]);
+
+      const existingStats = await ctx.db
+        .query("userStats")
+        .withIndex("by_user", (q: any) => q.eq("userId", userId))
+        .first();
+
+      const uniqueShows = rankings?.showIds?.length ?? 0;
+      const totalVisits = visits.length;
+      const visitsWithNotes = visits.filter((v: any) => v.notes?.trim()).length;
+      const visitTagCounts = visits.map(
+        (v: any) => (v.taggedUserIds as string[] | undefined)?.length ?? 0
+      );
+      const followerCount = followers.length;
+      const followingCount = following.length;
+      const currentStreakWeeks = existingStats?.currentStreakWeeks ?? 0;
+      const longestStreakWeeks = existingStats?.longestStreakWeeks ?? 0;
+      const lastActiveWeek = existingStats?.lastActiveWeek ?? "";
+
+      const theatreScore = computeTheatreScore({
+        uniqueShows,
+        totalVisits,
+        visitsWithNotes,
+        visitTagCounts,
+        followerCount,
+        followingCount,
+        currentStreakWeeks,
+      });
+
+      if (existingStats) {
+        await ctx.db.patch(existingStats._id, { theatreScore, updatedAt: Date.now() });
+      } else if (visits.length > 0) {
+        await ctx.db.insert("userStats", {
+          userId,
+          theatreScore,
+          currentStreakWeeks,
+          longestStreakWeeks,
+          lastActiveWeek,
+          updatedAt: Date.now(),
+        });
+      }
+      updated++;
+    }
+
+    return { updated };
+  },
+});
+
 export const getUserStats = query({
   args: { userId: v.optional(v.id("users")) },
   handler: async (ctx, args) => {
@@ -147,5 +224,39 @@ export const getUserStats = query({
       .query("userStats")
       .withIndex("by_user", (q: any) => q.eq("userId", targetUserId))
       .first();
+  },
+});
+
+/** Returns the top N users by theatre score for the "top theatregoers" discovery rail. */
+export const getTopTheatregoers = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 10;
+
+    const topStats = await ctx.db
+      .query("userStats")
+      .withIndex("by_theatreScore")
+      .order("desc")
+      .take(limit);
+
+    const results = await Promise.all(
+      topStats.map(async (stats) => {
+        const user = await ctx.db.get(stats.userId);
+        if (!user) return null;
+        const avatarUrl = user.avatarImage
+          ? await ctx.storage.getUrl(user.avatarImage)
+          : null;
+        return {
+          _id: user._id,
+          username: user.username,
+          name: user.name,
+          avatarUrl,
+          theatreScore: stats.theatreScore,
+          theatreRank: stats.theatreRank,
+        };
+      })
+    );
+
+    return results.filter((r): r is NonNullable<typeof r> => r !== null);
   },
 });

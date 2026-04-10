@@ -6,6 +6,7 @@ import { requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
 import { removeShowFromSystemLists } from "./listRules";
 import { normalizeShowName, normalizeCityName } from "./showNormalization";
+import { computeTheatreScore } from "./scoreUtils";
 
 const TIER_ORDER = ["loved", "liked", "okay", "disliked", "unranked"] as const;
 type Tier = (typeof TIER_ORDER)[number];
@@ -746,16 +747,19 @@ export const createVisit = mutation({
       .collect();
     const totalVisits = userVisits.length;
     const visitsWithNotes = userVisits.filter((vis) => vis.notes?.trim()).length;
-    const visitsWithTags = userVisits.filter(
-      (vis) => vis.taggedUserIds && vis.taggedUserIds.length > 0
-    ).length;
-    const followerRows = await ctx.db
-      .query("follows")
-      .withIndex("by_following", (q) => q.eq("followingUserId", userId))
-      .collect();
-
-    const baseScore =
-      uniqueShows * 10 + totalVisits * 5 + visitsWithNotes * 3 + visitsWithTags * 2 + followerRows.length;
+    const visitTagCounts = userVisits.map(
+      (vis) => vis.taggedUserIds?.length ?? 0
+    );
+    const [followerRows, followingRows] = await Promise.all([
+      ctx.db
+        .query("follows")
+        .withIndex("by_following", (q) => q.eq("followingUserId", userId))
+        .collect(),
+      ctx.db
+        .query("follows")
+        .withIndex("by_follower", (q) => q.eq("followerUserId", userId))
+        .collect(),
+    ]);
 
     const currentWeekDate = args.date;
     const currentWeekObj = new Date(currentWeekDate + "T00:00:00Z");
@@ -778,8 +782,15 @@ export const createVisit = mutation({
     }
     if (streakWeeks > longestStreak) longestStreak = streakWeeks;
 
-    const streakMultiplier = 1 + Math.min(streakWeeks * 0.05, 0.5);
-    const theatreScore = Math.round(baseScore * streakMultiplier);
+    const theatreScore = computeTheatreScore({
+      uniqueShows,
+      totalVisits,
+      visitsWithNotes,
+      visitTagCounts,
+      followerCount: followerRows.length,
+      followingCount: followingRows.length,
+      currentStreakWeeks: streakWeeks,
+    });
 
     if (existingStats) {
       await ctx.db.patch(existingStats._id, {
