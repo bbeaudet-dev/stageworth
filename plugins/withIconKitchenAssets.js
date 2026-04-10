@@ -5,12 +5,14 @@
  * `finalized` phase and overwrites those outputs with Icon Kitchen’s full
  * per-slot iOS PNGs and per-density Android mipmaps so the OS still picks the
  * best size, but pixels match Kitchen exactly.
+ *
+ * Source folder: `assets/icon-kitchen-v1` (blue/purple). v2 kept as reference.
  */
 const fs = require("fs");
 const path = require("path");
 const { withFinalizedMod } = require("expo/config-plugins");
 
-const KITCHEN_REL = "assets/icon-kitchen";
+const KITCHEN_REL = "assets/icon-kitchen-v1";
 
 function rmRecursive(dir) {
   fs.rmSync(dir, { recursive: true, force: true });

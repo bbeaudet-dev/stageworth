@@ -33,14 +33,14 @@ module.exports = {
   slug: "theatre-diary",
   version: "1.2.0",
   orientation: "portrait",
-  icon: "./assets/icon-kitchen/ios/AppIcon~ios-marketing.png",
+  icon: "./assets/icon-kitchen-v1/ios/AppIcon~ios-marketing.png",
   scheme: "theatrediary",
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.theatrediary.app",
-    icon: "./assets/icon-kitchen/ios/AppIcon~ios-marketing.png",
+    icon: "./assets/icon-kitchen-v1/ios/AppIcon~ios-marketing.png",
     buildNumber: "3",
     usesAppleSignIn: true,
     appleTeamId: "M8M7T576K8",
@@ -58,12 +58,12 @@ module.exports = {
     googleServicesFile: "./google-services.json",
     adaptiveIcon: {
       foregroundImage:
-        "./assets/icon-kitchen/android/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
+        "./assets/icon-kitchen-v1/android/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
       backgroundImage:
-        "./assets/icon-kitchen/android/res/mipmap-xxxhdpi/ic_launcher_background.png",
-      backgroundColor: "#1a0d2e",
+        "./assets/icon-kitchen-v1/android/res/mipmap-xxxhdpi/ic_launcher_background.png",
+      backgroundColor: "#536DFE",
       monochromeImage:
-        "./assets/icon-kitchen/android/res/mipmap-xxxhdpi/ic_launcher_monochrome.png",
+        "./assets/icon-kitchen-v1/android/res/mipmap-xxxhdpi/ic_launcher_monochrome.png",
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
