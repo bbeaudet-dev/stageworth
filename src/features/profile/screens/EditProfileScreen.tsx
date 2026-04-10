@@ -78,7 +78,7 @@ export default function EditProfileScreen() {
         >
           <View style={[styles.card, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
             <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, { color: c.mutedText }]}>Display Name</Text>
+              <Text style={[styles.fieldLabel, { color: c.mutedText }]}>Full Name</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
                 value={nameDraft}
@@ -108,7 +108,7 @@ export default function EditProfileScreen() {
                 style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
                 value={locationDraft}
                 onChangeText={setLocationDraft}
-                placeholder="City, Country"
+                placeholder="City, State"
                 placeholderTextColor={c.mutedText}
                 returnKeyType="done"
                 onSubmitEditing={handleSave}

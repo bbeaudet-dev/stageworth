@@ -41,6 +41,7 @@ import type * as rankings from "../rankings.js";
 import type * as recommendations from "../recommendations.js";
 import type * as recommendationsContext from "../recommendationsContext.js";
 import type * as reviewQueue from "../reviewQueue.js";
+import type * as scoreUtils from "../scoreUtils.js";
 import type * as showNormalization from "../showNormalization.js";
 import type * as shows from "../shows.js";
 import type * as showtimes from "../showtimes.js";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   recommendations: typeof recommendations;
   recommendationsContext: typeof recommendationsContext;
   reviewQueue: typeof reviewQueue;
+  scoreUtils: typeof scoreUtils;
   showNormalization: typeof showNormalization;
   shows: typeof shows;
   showtimes: typeof showtimes;

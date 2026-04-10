@@ -227,6 +227,16 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
               surfaceColor={c.surfaceElevated}
               iconColor={iconColor}
             />
+            <MenuRow
+              icon="clock.arrow.circlepath"
+              label="Recommendation History"
+              onPress={() => navigate("/recommendation-history")}
+              textColor={c.text}
+              mutedColor={c.mutedText}
+              borderColor={c.border}
+              surfaceColor={c.surfaceElevated}
+              iconColor={iconColor}
+            />
           </View>
         </Animated.View>
       </View>

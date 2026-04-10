@@ -24,9 +24,17 @@ export const search = query({
 
     const venues = await ctx.db.query("venues").collect();
 
-    type Scored = { name: string; city: string; state?: string; score: number };
-    const scored: Scored[] = [];
     const queryWords = normalized.split(" ").filter((w) => w.length > 1);
+
+    type VenueResult = {
+      _id: string;
+      name: string;
+      city: string;
+      state?: string;
+      district: string;
+      score: number;
+    };
+    const scored: VenueResult[] = [];
 
     for (const venue of venues) {
       if (!venue.isActive) continue;
@@ -59,14 +67,21 @@ export const search = query({
       }
 
       if (score > 0) {
-        scored.push({ name: venue.name, city: venue.city, state: venue.state, score });
+        scored.push({
+          _id: venue._id as string,
+          name: venue.name,
+          city: venue.city,
+          state: venue.state,
+          district: venue.district,
+          score,
+        });
       }
     }
 
     return scored
       .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
-      .slice(0, 8)
-      .map(({ name, city, state }) => ({ name, city, state }));
+      .slice(0, 30)
+      .map(({ _id, name, city, state, district }) => ({ _id, name, city, state, district }));
   },
 });
 

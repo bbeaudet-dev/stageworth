@@ -88,9 +88,8 @@ export default function PublicProfileScreen() {
               streakWeeks={userStats?.currentStreakWeeks}
               activitySummary={recentActivity?.visitCount ? {
                 showCount: recentActivity.showCount,
-                typeCount: recentActivity.typeCount,
                 percentile: recentActivity.percentile,
-                locationLabel: recentActivity.locationLabel,
+                seasonLabel: recentActivity.seasonLabel,
               } : null}
               onPressFollowers={() => pushFollowList(profile.username, "followers")}
               onPressFollowing={() => pushFollowList(profile.username, "following")}

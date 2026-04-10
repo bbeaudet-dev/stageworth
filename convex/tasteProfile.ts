@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
 import { getConvexUserId } from "./auth";
 
 const TIER_SCORE_RANGES: Record<string, [number, number]> = {
@@ -23,6 +22,50 @@ function deriveScore(
   return Math.round((min + fraction * (max - min)) * 10) / 10;
 }
 
+function isLeapYear(y: number): boolean {
+  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+}
+
+function lastDayOfFebruary(y: number): string {
+  return isLeapYear(y) ? `${y}-02-29` : `${y}-02-28`;
+}
+
+/**
+ * Meteorological seasons (Northern Hemisphere). Winter is Dec–Feb and labeled
+ * by the calendar year of Jan/Feb (e.g. Dec 2025–Feb 2026 is "Winter 2026").
+ */
+function seasonWindowForDate(yyyyMmDd: string): {
+  start: string;
+  end: string;
+  label: string;
+} {
+  const [ys, ms] = yyyyMmDd.split("-");
+  const y = parseInt(ys, 10);
+  const m = parseInt(ms, 10);
+
+  if (m >= 3 && m <= 5) {
+    return { start: `${y}-03-01`, end: `${y}-05-31`, label: `Spring ${y}` };
+  }
+  if (m >= 6 && m <= 8) {
+    return { start: `${y}-06-01`, end: `${y}-08-31`, label: `Summer ${y}` };
+  }
+  if (m >= 9 && m <= 11) {
+    return { start: `${y}-09-01`, end: `${y}-11-30`, label: `Fall ${y}` };
+  }
+  if (m === 12) {
+    return {
+      start: `${y}-12-01`,
+      end: lastDayOfFebruary(y + 1),
+      label: `Winter ${y + 1}`,
+    };
+  }
+  return {
+    start: `${y - 1}-12-01`,
+    end: lastDayOfFebruary(y),
+    label: `Winter ${y}`,
+  };
+}
+
 export const getRecentActivity = query({
   args: { userId: v.optional(v.id("users")) },
   handler: async (ctx, args) => {
@@ -30,25 +73,18 @@ export const getRecentActivity = query({
     const targetUserId = args.userId ?? viewerUserId;
     if (!targetUserId) return null;
 
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const cutoffDate = thirtyDaysAgo.toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    const { start, end, label: seasonLabel } = seasonWindowForDate(today);
 
     const visits = await ctx.db
       .query("visits")
       .withIndex("by_user", (q: any) => q.eq("userId", targetUserId))
       .collect();
 
-    const recentVisits = visits.filter((v: any) => v.date >= cutoffDate);
-    const recentShowIds = new Set(recentVisits.map((v: any) => v.showId));
-
-    const showTypes = new Set<string>();
-    for (const showId of recentShowIds) {
-      const doc = await ctx.db.get(showId as Id<"shows">);
-      if (doc && "type" in doc && typeof doc.type === "string") {
-        showTypes.add((doc as Doc<"shows">).type);
-      }
-    }
+    const seasonVisits = visits.filter(
+      (v: any) => v.date >= start && v.date <= end
+    );
+    const seasonShowIds = new Set(seasonVisits.map((v: any) => v.showId));
 
     const allUsers = await ctx.db.query("users").collect();
     const allVisitCounts = await Promise.all(
@@ -57,26 +93,24 @@ export const getRecentActivity = query({
           .query("visits")
           .withIndex("by_user", (q: any) => q.eq("userId", user._id))
           .collect();
-        return userVisits.filter((v: any) => v.date >= cutoffDate).length;
+        return userVisits.filter(
+          (v: any) => v.date >= start && v.date <= end
+        ).length;
       })
     );
 
-    const targetCount = recentVisits.length;
+    const targetCount = seasonVisits.length;
     const usersLessThan = allVisitCounts.filter((c: number) => c < targetCount).length;
     const percentile =
       allVisitCounts.length > 0
         ? Math.round((usersLessThan / allVisitCounts.length) * 100)
         : 0;
 
-    const targetUser = await ctx.db.get(targetUserId);
-    const locationLabel = targetUser?.location ?? null;
-
     return {
-      visitCount: recentVisits.length,
-      showCount: recentShowIds.size,
-      typeCount: showTypes.size,
+      visitCount: seasonVisits.length,
+      showCount: seasonShowIds.size,
       percentile,
-      locationLabel,
+      seasonLabel,
     };
   },
 });
