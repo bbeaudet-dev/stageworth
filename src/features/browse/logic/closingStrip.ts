@@ -146,25 +146,25 @@ export function fullStatusBadgeForProduction(
   const getColors = (): { bg: string; text: string } => {
     if (status === "closed") return closedColors(isDark);
 
-    // Urgency colors only apply when closing date is known and within 10 weeks.
-    // A closing date > 70 days out is not urgent and falls through to brand tint.
+    // When we know the closing date, let closingStripColors decide the urgency.
+    // ≤7 days = full brand blue (most urgent), ≤14 medium, ≤42 light, else gray.
+    // No upper cap — a show closing in 90 days correctly gets gray (not urgent),
+    // while a show closing in 5 days gets full brand blue.
     if (production.closingDate && production.closingDate >= todayStr) {
-      const d = daysUntil(production.closingDate);
-      if (d <= 70) return closingStripColors(d, isDark);
+      return closingStripColors(daysUntil(production.closingDate), isDark);
     }
 
-    // Brand blue tint: show is currently active in some form (in previews, open, or open run).
-    // Previews count as "running" — the second banner provides the disambiguation.
+    // No closing date known: show is open-ended (open run) or currently active.
+    // Brand blue tint signals "running / worth knowing about".
     if (
       status === "in_previews" ||
       status === "open" ||
       status === "open_run"
     ) {
-      const { bg, text } = openRunStripBadge(isDark);
-      return { bg, text };
+      return openRunStripBadge(isDark);
     }
 
-    // Lighter brand blue: not yet started (announced).
+    // Not yet started (announced) — lighter brand blue: "look forward to this".
     return openingSoonPlaybillColors(isDark);
   };
 
