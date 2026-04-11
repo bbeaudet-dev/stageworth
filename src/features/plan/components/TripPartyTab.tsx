@@ -152,8 +152,8 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
             {trip.owner?.name ? <Text style={[styles.memberName, { color: primaryTextColor }]}>{trip.owner.name}</Text> : null}
             <Text style={[styles.memberUsername, { color: mutedTextColor }]}>@{trip.owner?.username}</Text>
           </View>
-          <View style={[styles.rolePill, { backgroundColor: accentColor + "18", borderColor: accentColor + "55" }]}>
-            <Text style={[styles.rolePillText, { color: accentColor }]}>Organizer</Text>
+          <View style={[styles.rolePill, { backgroundColor: "#536DFE", borderColor: "#3355E0" }]}>
+            <Text style={[styles.rolePillText, { color: "#FFFFFF" }]}>Organizer</Text>
           </View>
         </View>
       </Pressable>
@@ -163,16 +163,18 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
         const isExpanded = expandedMemberId === String(m._id);
 
         const { pillBg, pillBorder, pillText, pillLabel } = (() => {
+          // Same brand blue/purple scale as tier badges — single hue family, no traffic lights.
+          // Intensity signals importance: Organizer > Editor > Viewer > Invited (pending) > Declined.
           if (m.status === "pending") {
-            return { pillBg: "#F59E0B18", pillBorder: "#F59E0B55", pillText: "#F59E0B", pillLabel: "Invited" };
+            return { pillBg: "#ECE8F6", pillBorder: "#C4B8E8", pillText: "#6B51A8", pillLabel: "Invited" };
           }
           if (m.status === "declined") {
-            return { pillBg: dangerColor + "18", pillBorder: dangerColor + "55", pillText: dangerColor, pillLabel: "Declined" };
+            return { pillBg: "#EBEBED", pillBorder: "#D1D5DB", pillText: "#7B7B86", pillLabel: "Declined" };
           }
           if (m.role === "edit") {
-            return { pillBg: accentColor + "18", pillBorder: accentColor + "55", pillText: accentColor, pillLabel: "Can Edit" };
+            return { pillBg: "#7B8EFE", pillBorder: "#536DFE", pillText: "#FFFFFF", pillLabel: "Editor" };
           }
-          return { pillBg: chipBg, pillBorder: borderColor, pillText: mutedTextColor, pillLabel: "View Only" };
+          return { pillBg: "#B9C2FD", pillBorder: "#8B9AFE", pillText: "#1E3399", pillLabel: "Viewer" };
         })();
 
         // Organizer can expand accepted members (role change + remove)

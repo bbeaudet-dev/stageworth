@@ -58,13 +58,13 @@ export function TripCard({
   const badgeBg = isActive
     ? "rgba(255,255,255,0.22)"
     : phase === "upcoming"
-    ? theme === "dark" ? "rgba(59,130,246,0.18)" : "#EFF6FF"
-    : theme === "dark" ? "rgba(156,163,175,0.18)" : "#F3F4F6";
+    ? theme === "dark" ? "rgba(83,109,254,0.22)" : "#EEF2FF"
+    : theme === "dark" ? "rgba(156,163,175,0.14)" : "#F3F4F6";
 
   const badgeTextColor = isActive
     ? "#ffffff"
     : phase === "upcoming"
-    ? theme === "dark" ? "#93C5FD" : "#1D4ED8"
+    ? theme === "dark" ? "#818CF8" : "#536DFE"
     : theme === "dark" ? "#9CA3AF" : "#6B7280";
 
   const sharedIndicatorColor = isActive ? "rgba(255,255,255,0.7)" : mutedTextColor;

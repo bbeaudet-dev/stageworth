@@ -28,10 +28,8 @@ Items marked ✅ have been implemented.
 
 ## Visual Badge Systems
 
-### Tier badges (show quality labels)
-**Loved it / Liked it / Fine / Didn't Like It / Unranked** labels appear in My Shows List and Add Visit modal.
-
-**Proposed approach:** Brand gradient scale at decreasing opacity — Loved It = full BRAND_BLUE/BRAND_PURPLE gradient style (like active trip card), Liked It ≈ 50 % opacity, Fine ≈ 25 %, Didn't Like = muted warm tone, Unranked = outlined/neutral. Avoid making it feel like a "traffic light" — keep it a single hue family.
+### Tier badges (show quality labels) ✅
+Brand blue/purple gradient scale applied in both `MyShowsScreen.tsx` (section header pills) and `RankingSection.tsx` (Add Visit ranking buttons). Loved It = full BRAND_BLUE, fades toward muted lavender/neutral for lower tiers. No red/green/yellow — single hue family only.
 
 ### Show status badges
 Labels like **Now Playing / Closing Soon / Upcoming / Open Run / Closed** appear in multiple places.
@@ -42,11 +40,15 @@ Labels like **Now Playing / Closing Soon / Upcoming / Open Run / Closed** appear
 
 **Recommendation:** Separate the design work for status and tier badges to avoid colour overload. Design review recommended before implementing.
 
-### Upcoming trip countdown badges
-Simple text badge on `TripCard`: **"Tomorrow"**, **"In N days"** (for ≤7 days away), or **"Ongoing"** for active trips. Current date display exists; the badge overlay does not.
+### Upcoming trip countdown badges ✅
+Already implemented in `TripCard.tsx` via `getTripCountdown()`. Shows "Tomorrow", "In X days", "Ends in X days", "Ends today", etc. Badge colour updates based on phase (active = white-on-gradient, upcoming = blue tint, past = neutral).
 
-### Trip Party member role badges
-Organizer / Can Edit / View Only / Invited / Declined pills currently use both colour AND distinct text as differentiators — feels redundant. Simpler proposal: use a single muted neutral style for all non-organizer roles (colour comes from the role text alone, not a separate background tint per role). Or keep two tiers: accent-tinted for accepted roles, neutral for pending/declined.
+### Trip Party member role badges ✅
+Simplified in `TripPartyTab.tsx`: colour now signals STATUS only; text alone signals ROLE.
+- Organizer: accent-tinted (unchanged — still special)
+- Accepted members: transparent/neutral pill, `primaryTextColor` for Editor, `mutedTextColor` for Viewer
+- Pending (Invited): soft amber tint
+- Declined: soft danger tint
 
 ---
 

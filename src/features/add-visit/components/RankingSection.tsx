@@ -17,10 +17,12 @@ const TIER_BUTTON_STYLES: Record<
   RankedTier,
   { backgroundColor: string; borderColor: string; textColor: string }
 > = {
-  loved: { backgroundColor: "#fbe0ee", borderColor: "#ef5da8", textColor: "#7f2252" },
-  liked: { backgroundColor: "#e2f3e6", borderColor: "#2f8f46", textColor: "#235f31" },
-  okay: { backgroundColor: "#fdf4d8", borderColor: "#e9c84f", textColor: "#755c16" },
-  disliked: { backgroundColor: "#fde6e2", borderColor: "#dd4b39", textColor: "#7d2d23" },
+  // Brand blue → purple gradient scale, fading toward muted for lower tiers.
+  // Deliberately avoids "traffic light" associations (no red/green/yellow).
+  loved:    { backgroundColor: "#EBF0FF", borderColor: "#536DFE", textColor: "#2B46CE" },
+  liked:    { backgroundColor: "#EEF1FF", borderColor: "#7B8EFE", textColor: "#3D56D8" },
+  okay:     { backgroundColor: "#F2F4FF", borderColor: "#B9C2FD", textColor: "#4E62CC" },
+  disliked: { backgroundColor: "#F5F2FF", borderColor: "#C4B3E8", textColor: "#6B4FB8" },
 };
 
 export function RankingSection({

@@ -20,11 +20,13 @@ const TIER_HEADERS: Record<
   RankingTier,
   { label: string; color: string; textColor: string }
 > = {
-  loved: { label: "Loved It", color: "#ef5da8", textColor: "#111" },
-  liked: { label: "Liked It", color: "#2f8f46", textColor: "#fff" },
-  okay: { label: "It Was Okay", color: "#e9c84f", textColor: "#111" },
-  disliked: { label: "Didn't Like It", color: "#dd4b39", textColor: "#fff" },
-  unranked: { label: "Unranked", color: "#b3b3b3", textColor: "#111" },
+  // Brand blue → purple gradient scale, fading to neutral for lower tiers.
+  // Deliberately avoids "traffic light" associations (no red/green/yellow).
+  loved:    { label: "Loved It",       color: "#536DFE", textColor: "#FFFFFF" },
+  liked:    { label: "Liked It",       color: "#7B8EFE", textColor: "#FFFFFF" },
+  okay:     { label: "It Was Okay",    color: "#B9C2FD", textColor: "#1E3399" },
+  disliked: { label: "Didn't Like It", color: "#ECE8F6", textColor: "#6B51A8" },
+  unranked: { label: "Unranked",       color: "#EBEBED", textColor: "#7B7B86" },
 };
 
 const LINE_META = {
