@@ -37,8 +37,7 @@ export function closingStripLabel(closingDate: string): string {
  *   ≤7   full BRAND_BLUE (most urgent)
  *   ≤14  medium indigo
  *   ≤42  light periwinkle
- *   ≤70  barely-lavender
- *   else neutral gray
+ *   else neutral gray (no purple text at the low-urgency end)
  */
 export function closingStripColors(days: number, isDark: boolean): { bg: string; text: string } {
   if (days <= 7) {
@@ -55,11 +54,6 @@ export function closingStripColors(days: number, isDark: boolean): { bg: string;
     return isDark
       ? { bg: "rgba(83,109,254,0.28)", text: "#818CF8" }
       : { bg: "#B9C2FD", text: "#1E3399" };
-  }
-  if (days <= 70) {
-    return isDark
-      ? { bg: "rgba(83,109,254,0.14)", text: "#818CF8" }
-      : { bg: "#ECE8F6", text: "#6B51A8" };
   }
   return isDark
     ? { bg: "rgba(156,163,175,0.14)", text: "#D1D5DB" }

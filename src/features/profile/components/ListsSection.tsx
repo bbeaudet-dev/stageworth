@@ -36,10 +36,10 @@ export function ListsSection({
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Lists</Text>
         <Pressable
-          style={[styles.iconButton, { backgroundColor: chipBackground, borderColor }]}
+          style={[styles.iconButton, { backgroundColor: accentColor + "18", borderColor: accentColor + "55" }]}
           onPress={onOpenCreateList}
         >
-          <IconSymbol size={18} name="plus" color={primaryTextColor} />
+          <IconSymbol size={18} name="plus" color={accentColor} />
         </Pressable>
       </View>
 

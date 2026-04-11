@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { DiaryView } from "@/components/diary-view";
+import { TIER_COLORS } from "@/constants/tierColors";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
 import { MyShowsCloudView } from "@/features/my-shows/components/MyShowsCloudView";
@@ -16,18 +17,14 @@ import { useRankedListItems } from "@/features/my-shows/hooks/useRankedListItems
 import type { RankingTier, ViewMode } from "@/features/my-shows/types";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
-const TIER_HEADERS: Record<
-  RankingTier,
-  { label: string; color: string; textColor: string }
-> = {
-  // Brand blue → purple gradient scale, fading to neutral for lower tiers.
-  // Deliberately avoids "traffic light" associations (no red/green/yellow).
-  loved:    { label: "Loved It",       color: "#536DFE", textColor: "#FFFFFF" },
-  liked:    { label: "Liked It",       color: "#7B8EFE", textColor: "#FFFFFF" },
-  okay:     { label: "It Was Okay",    color: "#B9C2FD", textColor: "#1E3399" },
-  disliked: { label: "Didn't Like It", color: "#ECE8F6", textColor: "#6B51A8" },
-  unranked: { label: "Unranked",       color: "#EBEBED", textColor: "#7B7B86" },
-};
+// Map shared TIER_COLORS into the shape MyShowsListView expects.
+const TIER_HEADERS: Record<RankingTier, { label: string; color: string; textColor: string }> =
+  Object.fromEntries(
+    (Object.keys(TIER_COLORS) as RankingTier[]).map((t) => [
+      t,
+      { label: TIER_COLORS[t].label, color: TIER_COLORS[t].bg, textColor: TIER_COLORS[t].text },
+    ])
+  ) as Record<RankingTier, { label: string; color: string; textColor: string }>;
 
 const LINE_META = {
   wouldSeeAgain: { label: "Would See Again", color: "#9ad94f", arrow: "↑" },
