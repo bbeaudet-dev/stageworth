@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,6 +21,7 @@ import { useProfileListsData } from "@/features/profile/hooks/useProfileListsDat
 import type { VisibleProfileList } from "@/features/profile/types";
 import { TripCard } from "@/features/plan/components/TripCard";
 import { CreateTripSheet } from "@/features/plan/components/CreateTripSheet";
+import { CreateListSheet } from "@/features/plan/components/CreateListSheet";
 import { useTripData } from "@/features/plan/hooks/useTripData";
 import type { TripSummary, TripInvitation } from "@/features/plan/types";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -63,17 +63,16 @@ export default function PlanScreen() {
   const chipBg = Colors[theme].surface;
 
   const [showCreateTrip, setShowCreateTrip] = useState(false);
+  const [showCreateList, setShowCreateList] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [showPastTrips, setShowPastTrips] = useState(false);
 
   const { profileLists, visibleLists, initializeSystemLists, createCustomList, toggleVisibility } =
     useProfileListsData();
-  const [newListName, setNewListName] = useState("");
-  const [isCreatingList, setIsCreatingList] = useState(false);
-  const [isShowingCreateInput, setIsShowingCreateInput] = useState(false);
   const [pendingVisibilityIds, setPendingVisibilityIds] = useState<Set<string>>(() => new Set());
-  const [listErrorMessage, setListErrorMessage] = useState<string | null>(null);
-  const inputRef = useRef<TextInput>(null);
+
+  // inputRef kept for scroll-to-lists behaviour (createList param from Search tab)
+  const inputRef = useRef(null);
 
   const { trips, createTrip, respondToTripInvitation } = useTripData();
   const [respondingId, setRespondingId] = useState<string | null>(null);
@@ -82,8 +81,10 @@ export default function PlanScreen() {
 
   useEffect(() => {
     if (params.createList !== "1") return;
-    setIsShowingCreateInput(true);
-    const t = setTimeout(() => { inputRef.current?.focus(); router.setParams({ createList: undefined }); }, 40);
+    const t = setTimeout(() => {
+      setShowCreateList(true);
+      router.setParams({ createList: undefined });
+    }, 60);
     return () => clearTimeout(t);
   }, [params.createList, router]);
 
@@ -139,19 +140,9 @@ export default function PlanScreen() {
   const openTrip = (tripId: string) =>
     router.push({ pathname: "/(tabs)/plan/[tripId]", params: { tripId } });
 
-  const handleCreateCustomList = async () => {
-    const trimmed = newListName.trim();
-    if (!trimmed || isCreatingList) return;
-    setListErrorMessage(null);
-    setIsCreatingList(true);
-    try {
-      const listId = await createCustomList({ name: trimmed, isPublic: false });
-      setNewListName("");
-      setIsShowingCreateInput(false);
-      router.push({ pathname: "/list/[listId]", params: { listId: String(listId), name: trimmed } });
-    } catch (e) {
-      setListErrorMessage(e instanceof Error ? e.message : "Failed to create list");
-    } finally { setIsCreatingList(false); }
+  const handleCreateCustomList = async ({ name, description }: { name: string; description?: string }) => {
+    const listId = await createCustomList({ name, isPublic: false, description });
+    router.push({ pathname: "/list/[listId]", params: { listId: String(listId), name } });
   };
 
   const handleToggleVisibility = async (listId: Id<"userLists">, isPublic: boolean) => {
@@ -324,19 +315,12 @@ export default function PlanScreen() {
 
         {/* Lists section */}
         <ListsSection
-          isShowingCreateInput={isShowingCreateInput}
-          setIsShowingCreateInput={setIsShowingCreateInput}
-          newListName={newListName}
-          setNewListName={setNewListName}
-          isCreatingList={isCreatingList}
-          onCreateCustomList={handleCreateCustomList}
-          inputRef={inputRef}
+          onOpenCreateList={() => setShowCreateList(true)}
           profileListsLoading={profileLists === undefined}
           visibleLists={visibleLists}
           pendingVisibilityIds={pendingVisibilityIds}
           onToggleVisibility={handleToggleVisibility}
           openList={openList}
-          errorMessage={listErrorMessage}
         />
       </ScrollView>
 
@@ -344,6 +328,12 @@ export default function PlanScreen() {
         visible={showCreateTrip}
         onClose={() => setShowCreateTrip(false)}
         onCreate={handleCreateTrip}
+      />
+
+      <CreateListSheet
+        visible={showCreateList}
+        onClose={() => setShowCreateList(false)}
+        onCreate={handleCreateCustomList}
       />
     </SafeAreaView>
   );

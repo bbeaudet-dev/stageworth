@@ -25,6 +25,7 @@ export function useAddVisitData({
     api.productions.listByShow,
     selectedShowId ? { showId: selectedShowId } : "skip"
   );
+  const wantToSeeShowIds = useQuery(api.lists.getWantToSeeShowIds);
   const myFollowing = useQuery(api.social.social.listMyFollowing, {});
   const createVisitMutation = useMutation(api.visits.createVisit);
 
@@ -69,23 +70,29 @@ export function useAddVisitData({
 
   const suggestedShows = useMemo(() => {
     if (!allShows) return [];
-    const rankedIds = new Set<Id<"shows">>();
-    const rankedFirst: typeof allShows = [];
-    const unseenPool: typeof allShows = [];
 
-    for (const entry of (rankedShows ?? []) as UserShowStatus[]) {
-      if (entry.isUnranked || entry.tier === "unranked") continue;
-      rankedIds.add(entry._id);
+    // 1. Shows explicitly on the user's "Want to See" list — most actionable suggestions
+    const wantToSeeSet = new Set(wantToSeeShowIds ?? []);
+    const wantToSeeShows = allShows.filter((s) => wantToSeeSet.has(String(s._id)));
+
+    // 2. Fill remaining slots with unvisited shows that have poster art (proxy for being active/popular).
+    //    Exclude already-visited and already-in-want-to-see shows.
+    const remaining = DEFAULT_SUGGESTION_RESULTS - wantToSeeShows.length;
+    let filler: typeof allShows = [];
+    if (remaining > 0) {
+      filler = allShows
+        .filter(
+          (s) =>
+            !wantToSeeSet.has(String(s._id)) &&
+            !visitedShowIds.has(s._id) &&
+            s.images != null &&
+            s.images.length > 0
+        )
+        .slice(0, remaining);
     }
 
-    for (const show of allShows) {
-      if (rankedIds.has(show._id)) rankedFirst.push(show);
-      else unseenPool.push(show);
-    }
-
-    unseenPool.sort((a, b) => a.name.localeCompare(b.name));
-    return [...rankedFirst, ...unseenPool].slice(0, DEFAULT_SUGGESTION_RESULTS);
-  }, [allShows, rankedShows]);
+    return [...wantToSeeShows, ...filler];
+  }, [allShows, wantToSeeShowIds, visitedShowIds]);
 
   const searchResults = query.trim().length > 0 ? filteredShows : suggestedShows;
 

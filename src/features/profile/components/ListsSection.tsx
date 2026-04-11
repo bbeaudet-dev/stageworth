@@ -1,5 +1,4 @@
-import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
-import type { RefObject } from "react";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import type { Id } from "@/convex/_generated/dataModel";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -9,33 +8,19 @@ import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export function ListsSection({
-  isShowingCreateInput,
-  setIsShowingCreateInput,
-  newListName,
-  setNewListName,
-  isCreatingList,
-  onCreateCustomList,
-  inputRef,
+  onOpenCreateList,
   profileListsLoading,
   visibleLists,
   pendingVisibilityIds,
   onToggleVisibility,
   openList,
-  errorMessage,
 }: {
-  isShowingCreateInput: boolean;
-  setIsShowingCreateInput: (value: boolean) => void;
-  newListName: string;
-  setNewListName: (value: string) => void;
-  isCreatingList: boolean;
-  onCreateCustomList: () => void;
-  inputRef: RefObject<TextInput | null>;
+  onOpenCreateList: () => void;
   profileListsLoading: boolean;
   visibleLists: VisibleProfileList[];
   pendingVisibilityIds: Set<string>;
   onToggleVisibility: (listId: Id<"userLists">, isPublic: boolean) => void;
   openList: (list: VisibleProfileList) => void;
-  errorMessage: string | null;
 }) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -45,7 +30,6 @@ export function ListsSection({
   const borderColor = Colors[theme].border;
   const chipBackground = Colors[theme].surface;
   const accentColor = Colors[theme].accent;
-  const onAccent = Colors[theme].onAccent;
 
   return (
     <View style={[styles.section, { backgroundColor: surfaceColor, borderColor }]}>
@@ -53,42 +37,11 @@ export function ListsSection({
         <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Lists</Text>
         <Pressable
           style={[styles.iconButton, { backgroundColor: chipBackground, borderColor }]}
-          onPress={() => setIsShowingCreateInput(!isShowingCreateInput)}
+          onPress={onOpenCreateList}
         >
-          <IconSymbol
-            size={18}
-            name={isShowingCreateInput ? "xmark" : "plus"}
-            color={primaryTextColor}
-          />
+          <IconSymbol size={18} name="plus" color={primaryTextColor} />
         </Pressable>
       </View>
-
-      {isShowingCreateInput && (
-        <View style={styles.inlineCreateRow}>
-          <TextInput
-            value={newListName}
-            onChangeText={setNewListName}
-            style={[
-              styles.inlineInput,
-              { backgroundColor: chipBackground, borderColor, color: primaryTextColor },
-            ]}
-            placeholder="List name"
-            autoCapitalize="words"
-            ref={inputRef}
-          />
-          <Pressable
-            onPress={onCreateCustomList}
-            style={[
-              styles.inlineCreateButton,
-              (isCreatingList || !newListName.trim()) && styles.disabledButton,
-              { backgroundColor: accentColor },
-            ]}
-            disabled={isCreatingList || !newListName.trim()}
-          >
-            <IconSymbol size={16} name="checkmark" color={onAccent} />
-          </Pressable>
-        </View>
-      )}
 
       {profileListsLoading ? (
         <ActivityIndicator size="small" color={mutedTextColor} />
@@ -125,7 +78,7 @@ export function ListsSection({
                         <IconSymbol
                           size={16}
                           name={list.isPublic ? "globe" : "lock.fill"}
-                            color={primaryTextColor}
+                          color={primaryTextColor}
                         />
                       )}
                     </Pressable>
@@ -140,9 +93,6 @@ export function ListsSection({
           })}
         </>
       )}
-      {errorMessage ? (
-        <Text style={[styles.errorText, { color: Colors[theme].danger }]}>{errorMessage}</Text>
-      ) : null}
     </View>
   );
 }
