@@ -83,7 +83,6 @@ export function MyShowsMapView({
   const textColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const borderColor = Colors[theme].border;
-  const chipColor = Colors[theme].surface;
   const accentColor = Colors[theme].accent;
   const overlayBg = theme === "dark" ? "rgba(20,20,24,0.92)" : "rgba(255,255,255,0.94)";
   const overlayText = theme === "dark" ? "#F3F4F6" : "#1F2937";

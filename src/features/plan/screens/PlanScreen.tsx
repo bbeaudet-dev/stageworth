@@ -1,6 +1,6 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -60,7 +60,6 @@ export default function PlanScreen() {
   const borderColor = Colors[theme].border;
   const accentColor = Colors[theme].accent;
   const onAccent = Colors[theme].onAccent;
-  const chipBg = Colors[theme].surface;
 
   const [showCreateTrip, setShowCreateTrip] = useState(false);
   const [showCreateList, setShowCreateList] = useState(false);
@@ -70,9 +69,6 @@ export default function PlanScreen() {
   const { profileLists, visibleLists, initializeSystemLists, createCustomList, toggleVisibility } =
     useProfileListsData();
   const [pendingVisibilityIds, setPendingVisibilityIds] = useState<Set<string>>(() => new Set());
-
-  // inputRef kept for scroll-to-lists behaviour (createList param from Search tab)
-  const inputRef = useRef(null);
 
   const { trips, createTrip, respondToTripInvitation } = useTripData();
   const [respondingId, setRespondingId] = useState<string | null>(null);

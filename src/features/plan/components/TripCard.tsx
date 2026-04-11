@@ -45,7 +45,6 @@ export function TripCard({
   const borderColor = Colors[theme].border;
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
-  const accentColor = Colors[theme].accent;
 
   const dateRange = formatDateRange(startDate, endDate);
   const { text: countdownText, phase } = getTripCountdown(startDate, endDate);

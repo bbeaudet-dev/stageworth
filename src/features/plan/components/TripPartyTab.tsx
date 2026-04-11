@@ -76,7 +76,10 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
 
   const { addTripMember, removeTripMember, updateTripMemberRole } = useTripData();
 
-  const existingMemberUserIds = new Set((trip?.members ?? []).map((m: TripMember) => String(m.userId)));
+  const existingMemberUserIds = useMemo(
+    () => new Set((trip?.members ?? []).map((m: TripMember) => String(m.userId))),
+    [trip?.members]
+  );
   const friendsNotYetMembers = (myFollowing ?? []).filter((f: FollowingUser) => !existingMemberUserIds.has(String(f._id)));
 
   const tripSearchRows = useMemo(() => {

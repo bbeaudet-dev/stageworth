@@ -41,7 +41,6 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
   const [isSetup, setIsSetup] = useState(false);
   const [goalInput, setGoalInput] = useState("25");
 
-  const surfaceColor = Colors[theme].surfaceElevated;
   const borderColor = Colors[theme].border;
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
