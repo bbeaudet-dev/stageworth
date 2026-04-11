@@ -175,7 +175,9 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
           return { pillBg: chipBg, pillBorder: borderColor, pillText: mutedTextColor, pillLabel: "View Only" };
         })();
 
-        const canExpand = trip.isOwner && m.status === "accepted";
+        // Organizer can expand accepted members (role change + remove)
+        // and pending members (revoke invite). Declined rows are not expandable.
+        const canExpand = trip.isOwner && (m.status === "accepted" || m.status === "pending");
 
         return (
           <Pressable
@@ -209,41 +211,66 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
 
             {isExpanded && trip.isOwner && (
               <View style={[styles.memberExpanded, { borderTopColor: borderColor }]}>
-                <View style={styles.expandedRow}>
-                  <View style={styles.expandedSegmentWrap}>
-                    <SegmentedControl
-                      options={ROLE_OPTIONS}
-                      value={m.role}
-                      onChange={(role) => {
-                        const newRole = role as "edit" | "view";
-                        if (newRole === m.role) return;
-                        const roleName = newRole === "edit" ? "Editor" : "Viewer";
-                        const memberName = m.user?.name || m.user?.username || "this member";
-                        Alert.alert(
-                          "Change Permission",
-                          `Change ${memberName} to ${roleName}?`,
-                          [
-                            { text: "Cancel", style: "cancel" },
-                            { text: "Confirm", onPress: () => updateTripMemberRole({ tripId, memberId: m._id, role: newRole }) },
-                          ]
-                        );
-                      }}
-                      accentColor={accentColor}
-                    />
-                  </View>
+                {m.status === "pending" ? (
+                  /* Pending (invited but not yet accepted) — only option is revoke */
                   <Pressable
-                    style={[styles.removeBtn, { borderColor: dangerColor + "44" }]}
+                    style={[styles.revokeBtn, { borderColor: dangerColor + "44" }]}
                     onPress={() => {
-                      const name = m.user?.name || m.user?.username || "member";
-                      Alert.alert(`Remove ${name}?`, "", [
-                        { text: "Cancel", style: "cancel" },
-                        { text: "Remove", style: "destructive", onPress: () => { removeTripMember({ tripId, memberId: m._id }); setExpandedMemberId(null); } },
-                      ]);
+                      const name = m.user?.name || m.user?.username || "this invite";
+                      Alert.alert(
+                        "Revoke Invite",
+                        `Revoke the invite sent to ${name}?`,
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Revoke",
+                            style: "destructive",
+                            onPress: () => { removeTripMember({ tripId, memberId: m._id }); setExpandedMemberId(null); },
+                          },
+                        ]
+                      );
                     }}
                   >
-                    <Text style={[styles.removeBtnText, { color: dangerColor }]}>Remove</Text>
+                    <Text style={[styles.removeBtnText, { color: dangerColor }]}>Revoke Invite</Text>
                   </Pressable>
-                </View>
+                ) : (
+                  /* Accepted member — role selector + remove */
+                  <View style={styles.expandedRow}>
+                    <View style={styles.expandedSegmentWrap}>
+                      <SegmentedControl
+                        options={ROLE_OPTIONS}
+                        value={m.role}
+                        onChange={(role) => {
+                          const newRole = role as "edit" | "view";
+                          if (newRole === m.role) return;
+                          const roleName = newRole === "edit" ? "Editor" : "Viewer";
+                          const memberName = m.user?.name || m.user?.username || "this member";
+                          Alert.alert(
+                            "Change Permission",
+                            `Change ${memberName} to ${roleName}?`,
+                            [
+                              { text: "Cancel", style: "cancel" },
+                              { text: "Confirm", onPress: () => updateTripMemberRole({ tripId, memberId: m._id, role: newRole }) },
+                            ]
+                          );
+                        }}
+                        accentColor={accentColor}
+                      />
+                    </View>
+                    <Pressable
+                      style={[styles.removeBtn, { borderColor: dangerColor + "44" }]}
+                      onPress={() => {
+                        const name = m.user?.name || m.user?.username || "member";
+                        Alert.alert(`Remove ${name}?`, "", [
+                          { text: "Cancel", style: "cancel" },
+                          { text: "Remove", style: "destructive", onPress: () => { removeTripMember({ tripId, memberId: m._id }); setExpandedMemberId(null); } },
+                        ]);
+                      }}
+                    >
+                      <Text style={[styles.removeBtnText, { color: dangerColor }]}>Remove</Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
             )}
           </Pressable>
@@ -470,6 +497,7 @@ const styles = StyleSheet.create({
   expandedRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   expandedSegmentWrap: { minWidth: 148, maxWidth: 180 },
   removeBtn: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7 },
+  revokeBtn: { alignSelf: "flex-start", borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
   removeBtnText: { fontSize: 13, fontWeight: "600" },
 
   // Friends chips

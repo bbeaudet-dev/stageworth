@@ -1,9 +1,10 @@
 import { useMutation, useQuery } from "convex/react";
 import { Stack, useRouter } from "expo-router";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useNotifyProfileDrawerReopenOnUnmount } from "@/features/profile/reopenSettingsDrawer";
@@ -44,6 +45,22 @@ export default function RecommendationHistoryScreen() {
 
   const history = useQuery(api.recommendations.listRecommendationHistory);
   const clearHistory = useMutation(api.recommendations.clearRecommendationHistory);
+  const deleteRec = useMutation(api.recommendations.deleteRecommendation);
+
+  const handleDeleteOne = (id: Id<"aiRecommendationHistory">, showName: string) => {
+    Alert.alert(
+      "Remove recommendation",
+      `Remove the recommendation for "${showName}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => deleteRec({ id }).catch(() => Alert.alert("Error", "Could not remove. Please try again.")),
+        },
+      ]
+    );
+  };
 
   const handleClearAll = () => {
     Alert.alert(
@@ -110,10 +127,18 @@ export default function RecommendationHistoryScreen() {
                       <Text style={[s.showName, { color: c.text }]} numberOfLines={1}>
                         {item.showNameSnapshot}
                       </Text>
-                      <View style={[s.scoreBadge, { backgroundColor: scoreColors.bg }]}>
-                        <Text style={[s.scoreText, { color: scoreColors.text }]}>
-                          {item.score}/5
-                        </Text>
+                      <View style={s.cardTitleRight}>
+                        <View style={[s.scoreBadge, { backgroundColor: scoreColors.bg }]}>
+                          <Text style={[s.scoreText, { color: scoreColors.text }]}>
+                            {item.score}/5
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={(e) => { e.stopPropagation?.(); handleDeleteOne(item._id, item.showNameSnapshot); }}
+                          hitSlop={8}
+                        >
+                          <Text style={[s.deleteX, { color: c.mutedText }]}>×</Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
                     <Text style={[s.headline, { color: c.text }]}>{item.headline}</Text>
@@ -173,7 +198,9 @@ const s = StyleSheet.create({
   },
   cardHeader: { gap: 3 },
   cardTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  cardTitleRight: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 0 },
   showName: { fontSize: 15, fontWeight: "700", flex: 1 },
+  deleteX: { fontSize: 22, lineHeight: 24, fontWeight: "300" },
   scoreBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   scoreText: { fontSize: 13, fontWeight: "800" },
   headline: { fontSize: 14, fontWeight: "600" },

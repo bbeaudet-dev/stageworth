@@ -726,9 +726,9 @@ function ListStatusIcon({
 }) {
   const icon = (() => {
     switch (status) {
-      case "want_to_see":    return "hand.thumbsup";
-      case "look_into":      return "questionmark.circle";
-      case "not_interested": return "hand.thumbsdown";
+      case "want_to_see":    return "hand.thumbsup.fill";
+      case "look_into":      return "questionmark.circle.fill";
+      case "not_interested": return "hand.thumbsdown.fill";
       case "uncategorized":  return "minus.circle";
       default:               return "bookmark";
     }

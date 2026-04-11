@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { Pressable, Text, TextInput, View } from "react-native";
 
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
@@ -134,7 +135,7 @@ export function ShowPickerSection({
                     <View style={styles.resultMeta}>
                       {hasSeen ? (
                         <View style={[styles.statusBadge, styles.statusBadgeSeen]}>
-                          <Text style={[styles.statusBadgeText, styles.statusBadgeIcon]}>👁</Text>
+                          <IconSymbol name="eye.fill" size={12} color="#0284c7" />
                         </View>
                       ) : null}
                       <Text style={[styles.resultType, { color: c.mutedText }]}>{TYPE_LABELS[show.type]}</Text>

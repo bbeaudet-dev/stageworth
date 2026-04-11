@@ -170,6 +170,16 @@ export const listRecommendationHistory = query({
   },
 });
 
+export const deleteRecommendation = mutation({
+  args: { id: v.id("aiRecommendationHistory") },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+    const rec = await ctx.db.get(args.id);
+    if (!rec || rec.userId !== userId) throw new Error("Not found");
+    await ctx.db.delete(args.id);
+  },
+});
+
 export const clearRecommendationHistory = mutation({
   args: {},
   handler: async (ctx) => {

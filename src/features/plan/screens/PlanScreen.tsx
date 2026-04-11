@@ -89,12 +89,15 @@ export default function PlanScreen() {
 
   useEffect(() => {
     if (params.createTrip !== "1") return;
+    // Gate on trips being loaded — on a cold Plan-tab mount the Convex query
+    // may not have resolved yet and the sheet would open over a blank list.
+    if (trips === undefined) return;
     const t = setTimeout(() => {
       setShowCreateTrip(true);
       router.setParams({ createTrip: undefined });
     }, 60);
     return () => clearTimeout(t);
-  }, [params.createTrip, router]);
+  }, [params.createTrip, router, trips]);
 
   // ── Sort trips into display buckets ──────────────────────────────────────
   const { mainList, olderPast } = useMemo(() => {
