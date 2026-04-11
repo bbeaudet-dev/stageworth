@@ -1,27 +1,25 @@
 import { ActivityIndicator, Image, Pressable, Text, useWindowDimensions, View } from "react-native";
 
+import { RANKED_TIER_COLORS } from "@/constants/tierColors";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { styles } from "@/features/add-visit/styles";
 import { TIER_ORDER } from "@/features/add-visit/logic/ranking";
 import type { RankedShowForRanking, RankedTier } from "@/features/add-visit/types";
 
-const TIER_LABELS: Record<RankedTier, string> = {
-  loved: "Loved it",
-  liked: "Liked it",
-  okay: "It was Okay",
-  disliked: "Didn't Like it",
-};
-
-const TIER_BUTTON_STYLES: Record<
-  RankedTier,
-  { backgroundColor: string; borderColor: string; textColor: string }
-> = {
-  loved: { backgroundColor: "#fbe0ee", borderColor: "#ef5da8", textColor: "#7f2252" },
-  liked: { backgroundColor: "#e2f3e6", borderColor: "#2f8f46", textColor: "#235f31" },
-  okay: { backgroundColor: "#fdf4d8", borderColor: "#e9c84f", textColor: "#755c16" },
-  disliked: { backgroundColor: "#fde6e2", borderColor: "#dd4b39", textColor: "#7d2d23" },
-};
+// Derive button styles directly from the shared tier colour scale.
+// Using solid fills (same as list-view pills) — bolder and consistent.
+const TIER_BUTTON_STYLES: Record<RankedTier, { backgroundColor: string; borderColor: string; textColor: string }> =
+  Object.fromEntries(
+    (Object.keys(RANKED_TIER_COLORS) as RankedTier[]).map((t) => [
+      t,
+      {
+        backgroundColor: RANKED_TIER_COLORS[t].bg,
+        borderColor: RANKED_TIER_COLORS[t].border,
+        textColor: RANKED_TIER_COLORS[t].text,
+      },
+    ])
+  ) as Record<RankedTier, { backgroundColor: string; borderColor: string; textColor: string }>;
 
 export function RankingSection({
   showHasRanking,
@@ -110,7 +108,7 @@ export function RankingSection({
                     { color: TIER_BUTTON_STYLES[selectedTier].textColor },
                   ]}
                 >
-                  {TIER_LABELS[selectedTier]}
+                  {RANKED_TIER_COLORS[selectedTier].label}
                 </Text>
               </View>
               <Pressable onPress={onChangeTier}>
@@ -136,7 +134,7 @@ export function RankingSection({
                   <Text
                     style={[styles.tierButtonText, { color: TIER_BUTTON_STYLES[tier].textColor }]}
                   >
-                    {TIER_LABELS[tier]}
+                    {RANKED_TIER_COLORS[tier].label}
                   </Text>
                 </Pressable>
               ))}

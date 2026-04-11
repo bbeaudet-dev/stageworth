@@ -120,11 +120,34 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingLeft: 8,
+    paddingRight: 12,
+    paddingVertical: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#ededed",
     gap: 8,
+  },
+  resultPoster: {
+    width: 28,
+    height: 42,
+    borderRadius: 3,
+    overflow: "hidden",
+    flexShrink: 0,
+  },
+  resultPosterImg: {
+    width: 28,
+    height: 42,
+  },
+  resultPosterFallback: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 2,
+  },
+  resultPosterFallbackText: {
+    fontSize: 6,
+    textAlign: "center",
+    lineHeight: 8,
   },
   resultRowExactMatch: {
     backgroundColor: "#e2f3e6",
@@ -133,6 +156,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: "#222",
+    flex: 1,
   },
   resultType: {
     fontSize: 12,
@@ -142,6 +166,7 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexShrink: 0,
   },
   statusBadge: {
     borderRadius: 999,

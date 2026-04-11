@@ -1,7 +1,8 @@
 import { useQuery } from "convex/react";
 import { useMemo } from "react";
-import { StyleSheet, useWindowDimensions, View } from "react-native";
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ShowCard } from "@/features/browse/components/ShowCard";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
@@ -25,6 +26,8 @@ export function PublicShowsGrid({ userId, onPressShow }: PublicShowsGridProps) {
 
   const surfaceColor = Colors[theme].surfaceElevated;
   const borderColor = Colors[theme].border;
+  const primaryTextColor = Colors[theme].text;
+  const accentColor = Colors[theme].accent;
 
   const shows = useQuery(api.rankings.getPublicRankedShows, { userId });
 
@@ -44,6 +47,10 @@ export function PublicShowsGrid({ userId, onPressShow }: PublicShowsGridProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: surfaceColor, borderColor }]}>
+      <View style={styles.sectionHeader}>
+        <IconSymbol name="star.fill" size={15} color={accentColor} />
+        <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Top Shows</Text>
+      </View>
       <View style={styles.grid}>
         {rows.map((row, ri) => (
           <View key={ri} style={styles.gridRow}>
@@ -67,6 +74,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     padding: CONTAINER_PADDING,
+    gap: 12,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
   },
   grid: {
     gap: GRID_GAP,

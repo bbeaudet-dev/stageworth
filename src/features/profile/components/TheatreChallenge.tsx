@@ -41,7 +41,6 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
   const [isSetup, setIsSetup] = useState(false);
   const [goalInput, setGoalInput] = useState("25");
 
-  const surfaceColor = Colors[theme].surfaceElevated;
   const borderColor = Colors[theme].border;
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
@@ -63,7 +62,7 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
     );
 
     return (
-      <View style={[styles.container, { backgroundColor: surfaceColor, borderColor }]}>
+      <View style={[styles.container, { backgroundColor: accentColor + "10", borderColor: accentColor + "55" }]}>
         <View style={styles.headerRow}>
           <Text style={[styles.title, { color: primaryTextColor }]}>
             {currentYear} Theatre Challenge
@@ -116,7 +115,7 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
 
   if (isSetup) {
     return (
-      <View style={[styles.container, { backgroundColor: surfaceColor, borderColor }]}>
+      <View style={[styles.container, { backgroundColor: accentColor + "10", borderColor: accentColor + "55" }]}>
         <Text style={[styles.title, { color: primaryTextColor }]}>
           {currentYear} Theatre Challenge
         </Text>
@@ -157,7 +156,7 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
 
   return (
     <Pressable
-      style={[styles.container, { backgroundColor: surfaceColor, borderColor }]}
+      style={[styles.container, { backgroundColor: accentColor + "10", borderColor: accentColor + "55" }]}
       onPress={() => setIsSetup(true)}
     >
       <Text style={[styles.title, { color: primaryTextColor }]}>

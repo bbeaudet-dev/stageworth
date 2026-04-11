@@ -171,7 +171,7 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
             <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn}>
               <IconSymbol name="xmark" size={18} color={c.mutedText} />
             </Pressable>
-            <Text style={[styles.drawerTitle, { color: c.text }]}>Settings</Text>
+            <Text style={[styles.drawerTitle, { color: c.text }]}>My Account</Text>
           </View>
 
           {/* Account info */}
@@ -231,6 +231,16 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
               icon="clock.arrow.circlepath"
               label="Recommendation History"
               onPress={() => navigate("/recommendation-history")}
+              textColor={c.text}
+              mutedColor={c.mutedText}
+              borderColor={c.border}
+              surfaceColor={c.surfaceElevated}
+              iconColor={iconColor}
+            />
+            <MenuRow
+              icon="person.fill.badge.plus"
+              label="Invite a Friend"
+              onPress={() => navigate("/invite-friend")}
               textColor={c.text}
               mutedColor={c.mutedText}
               borderColor={c.border}

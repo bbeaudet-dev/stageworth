@@ -316,6 +316,10 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
         {/* Add: icon toolbar + optional closing-soon grid */}
         {((closingSoon && closingSoon.length > 0) || canEditTrip) ? (
           <View style={[styles.card, { backgroundColor: surfaceColor, borderColor }]}>
+            <View style={styles.suggestedHeader}>
+              <IconSymbol name="sparkles" size={15} color={accentColor} />
+              <Text style={[styles.suggestedHeaderText, { color: primaryTextColor }]}>Suggested Shows</Text>
+            </View>
             {canEditTrip ? (
               <View style={styles.addTripIconRow}>
                 <Pressable
@@ -464,6 +468,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  suggestedHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingBottom: 10,
+  },
+  suggestedHeaderText: {
+    fontSize: 15,
+    fontWeight: "700",
   },
   addTripIconRow: {
     flexDirection: "row",

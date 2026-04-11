@@ -5,8 +5,13 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+/** Pulled from Icon Kitchen artwork — matches the website brand gradient. */
+export const BRAND_BLUE   = '#536DFE';
+export const BRAND_PURPLE = '#673AB7';
+
+const tintColorLight = BRAND_BLUE;
+// indigo-400: same brand family, passes WCAG AA (~4.7:1) on the near-black background
+const tintColorDark = '#818CF8';
 
 export const Colors = {
   light: {

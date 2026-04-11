@@ -90,8 +90,9 @@ export function ProfileHeader({
 
   return (
     <>
-      {/* Hero card */}
-      <View style={[styles.heroCard, { backgroundColor: surfaceColor, borderColor }]}>
+      {/* Combined hero + stats card */}
+      <View style={[styles.profileCard, { backgroundColor: surfaceColor, borderColor }]}>
+        {/* Hero section */}
         <View style={styles.topRow}>
           <View style={[styles.avatar, { backgroundColor: accentColor + "22" }]}>
             {showPhoto && avatarUri ? (
@@ -180,10 +181,11 @@ export function ProfileHeader({
             {profile.location}
           </Text>
         ) : null}
-      </View>
 
-      {/* Stats card */}
-      <View style={[styles.statsCard, { backgroundColor: surfaceColor, borderColor }]}>
+        {/* Divider */}
+        <View style={[styles.heroDivider, { backgroundColor: borderColor }]} />
+
+        {/* Stats grid */}
         <View style={styles.statsGrid}>
           <View style={styles.statsGridItem}>
             <Text style={[styles.statsGridNumber, { color: primaryTextColor }]}>
@@ -207,7 +209,7 @@ export function ProfileHeader({
             <Text
               style={[
                 styles.statsGridNumber,
-                { color: theatreRank != null ? primaryTextColor : mutedTextColor },
+                { color: theatreRank != null ? accentColor : mutedTextColor },
               ]}
             >
               {theatreRank != null ? `#${theatreRank}` : "—"}
@@ -219,19 +221,19 @@ export function ProfileHeader({
         </View>
       </View>
 
-      {/* Combined activity card: streak + percentile snapshot */}
+      {/* Activity card: streak + percentile snapshot */}
       {((streakWeeks != null && streakWeeks > 0) || (activitySummary && activitySummary.showCount > 0)) && (
-        <View style={[styles.activityCard, { backgroundColor: surfaceColor, borderColor }]}>
+        <View style={[styles.activityCard, { backgroundColor: accentColor + "12", borderColor: accentColor + "55" }]}>
           {streakWeeks != null && streakWeeks > 0 && (
             <View style={styles.activityRow}>
-              <Text style={styles.streakEmoji}>🔥</Text>
+              <IconSymbol name="flame.fill" size={17} color={accentColor} />
               <Text style={[styles.activityPrimary, { color: primaryTextColor }]}>
                 {streakWeeks} {streakWeeks === 1 ? "week" : "weeks"} streak
               </Text>
             </View>
           )}
           {streakWeeks != null && streakWeeks > 0 && activitySummary && activitySummary.showCount > 0 && (
-            <View style={[styles.activityDivider, { backgroundColor: borderColor }]} />
+            <View style={[styles.activityDivider, { backgroundColor: accentColor + "33" }]} />
           )}
           {activitySummary && activitySummary.showCount > 0 && (
             <>
@@ -255,13 +257,19 @@ export function ProfileHeader({
 }
 
 const styles = StyleSheet.create({
-  heroCard: {
+  profileCard: {
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 18,
+    paddingBottom: 14,
     gap: 6,
+  },
+  heroDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginTop: 6,
+    marginBottom: 2,
+    marginHorizontal: -16,
   },
   topRow: {
     flexDirection: "row",
@@ -334,12 +342,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
   },
-  statsCard: {
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-  },
   statsGrid: {
     flexDirection: "row",
     alignItems: "center",
@@ -387,9 +389,5 @@ const styles = StyleSheet.create({
   activitySub: {
     fontSize: 13,
     fontWeight: "500",
-  },
-  streakEmoji: {
-    fontSize: 17,
-    fontFamily: undefined,
   },
 });

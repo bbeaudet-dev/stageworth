@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { DiaryView } from "@/components/diary-view";
+import { TIER_COLORS } from "@/constants/tierColors";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
 import { MyShowsCloudView } from "@/features/my-shows/components/MyShowsCloudView";
@@ -16,16 +17,14 @@ import { useRankedListItems } from "@/features/my-shows/hooks/useRankedListItems
 import type { RankingTier, ViewMode } from "@/features/my-shows/types";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
-const TIER_HEADERS: Record<
-  RankingTier,
-  { label: string; color: string; textColor: string }
-> = {
-  loved: { label: "Loved It", color: "#ef5da8", textColor: "#111" },
-  liked: { label: "Liked It", color: "#2f8f46", textColor: "#fff" },
-  okay: { label: "It Was Okay", color: "#e9c84f", textColor: "#111" },
-  disliked: { label: "Didn't Like It", color: "#dd4b39", textColor: "#fff" },
-  unranked: { label: "Unranked", color: "#b3b3b3", textColor: "#111" },
-};
+// Map shared TIER_COLORS into the shape MyShowsListView expects.
+const TIER_HEADERS: Record<RankingTier, { label: string; color: string; textColor: string }> =
+  Object.fromEntries(
+    (Object.keys(TIER_COLORS) as RankingTier[]).map((t) => [
+      t,
+      { label: TIER_COLORS[t].label, color: TIER_COLORS[t].bg, textColor: TIER_COLORS[t].text },
+    ])
+  ) as Record<RankingTier, { label: string; color: string; textColor: string }>;
 
 const LINE_META = {
   wouldSeeAgain: { label: "Would See Again", color: "#9ad94f", arrow: "↑" },

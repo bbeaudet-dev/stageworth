@@ -174,12 +174,12 @@ const styles = StyleSheet.create({
 });
 
 const CARD_ASPECT = 1.5;
-const NUM_COLUMNS = 3;
+const NUM_COLUMNS = 4;
 
 const cardStyles = StyleSheet.create({
   card: {
     width: `${(100 - (NUM_COLUMNS - 1) * 2.2) / NUM_COLUMNS}%` as any,
-    borderRadius: 8,
+    borderRadius: 6,
     overflow: "hidden",
   },
   image: {

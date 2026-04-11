@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { Pressable, Text, TextInput, View } from "react-native";
 
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
@@ -14,6 +15,7 @@ type SearchShow = {
   _id: Id<"shows">;
   name: string;
   type: ShowType;
+  images?: string[];
 };
 
 export function ShowPickerSection({
@@ -120,6 +122,7 @@ export function ShowPickerSection({
                 const status = userShowStatusById.get(show._id);
                 const hasSeen = visitedShowIds.has(show._id) || status !== undefined;
                 const isExact = query.trim().length > 0 && exactMatches.length === 1 && searchResults[0]?._id === show._id && exactMatches[0]?._id === show._id;
+                const posterUrl = show.images?.[0] ?? null;
                 return (
                   <Pressable
                     key={show._id}
@@ -130,14 +133,32 @@ export function ShowPickerSection({
                     ]}
                     onPress={() => selectExistingShow(show._id)}
                   >
-                    <Text style={[styles.resultName, { color: c.text }]}>{show.name}</Text>
+                    {/* Poster thumbnail */}
+                    <View style={[styles.resultPoster, { backgroundColor: c.surface }]}>
+                      {posterUrl ? (
+                        <Image source={{ uri: posterUrl }} style={styles.resultPosterImg} contentFit="contain" />
+                      ) : (
+                        <View style={styles.resultPosterFallback}>
+                          <Text style={[styles.resultPosterFallbackText, { color: c.mutedText }]} numberOfLines={3}>
+                            {show.name}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Name — flex:1 so it truncates before pushing meta off-screen */}
+                    <Text style={[styles.resultName, { color: c.text }]} numberOfLines={1} ellipsizeMode="tail">
+                      {show.name}
+                    </Text>
+
+                    {/* Right-aligned meta: type label then eye icon */}
                     <View style={styles.resultMeta}>
+                      <Text style={[styles.resultType, { color: c.mutedText }]}>{TYPE_LABELS[show.type]}</Text>
                       {hasSeen ? (
                         <View style={[styles.statusBadge, styles.statusBadgeSeen]}>
-                          <Text style={[styles.statusBadgeText, styles.statusBadgeIcon]}>👁</Text>
+                          <IconSymbol name="eye.fill" size={12} color="#0284c7" />
                         </View>
                       ) : null}
-                      <Text style={[styles.resultType, { color: c.mutedText }]}>{TYPE_LABELS[show.type]}</Text>
                     </View>
                   </Pressable>
                 );

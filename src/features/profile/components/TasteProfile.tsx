@@ -2,6 +2,7 @@ import { useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -82,6 +83,12 @@ export function TasteProfile({ userId }: TasteProfileProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: surfaceColor, borderColor }]}>
+      {/* Section header */}
+      <View style={styles.sectionHeader}>
+        <IconSymbol name="chart.bar.fill" size={15} color={accentColor} />
+        <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>More Stats</Text>
+      </View>
+
       {/* Category selector */}
       <View style={styles.categoryRow}>
         {(["type", "city", "district"] as StatsCategory[]).map((cat) => (
@@ -157,6 +164,15 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
     gap: 12,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
   },
   categoryRow: {
     flexDirection: "row",

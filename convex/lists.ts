@@ -374,6 +374,21 @@ export const initializeSystemLists = mutation({
  * Shows not in any system list are omitted (treat as "none").
  * Only checks system lists (want_to_see, look_into, not_interested, uncategorized).
  */
+/** Returns the show IDs in the user's "Want to See" system list. Lightweight — used for Add Visit suggestions. */
+export const getWantToSeeShowIds = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getConvexUserId(ctx);
+    if (!userId) return [] as string[];
+    const wantList = await ctx.db
+      .query("userLists")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter((q) => q.eq(q.field("systemKey"), "want_to_see"))
+      .first();
+    return (wantList?.showIds ?? []).map(String);
+  },
+});
+
 export const getShowListStatuses = query({
   args: { showIds: v.array(v.id("shows")) },
   handler: async (ctx, args) => {

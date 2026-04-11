@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalAction, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireConvexUserId } from "./auth";
+import { getConvexUserId, requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
 
 // ─── Push helpers ────────────────────────────────────────────────────────────
@@ -86,7 +86,8 @@ export const sendPushNotification = internalAction({
 export const listForCurrentUser = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
-    const userId = await requireConvexUserId(ctx);
+    const userId = await getConvexUserId(ctx);
+    if (!userId) return [];
     const limit = Math.max(1, Math.min(args.limit ?? 50, 100));
 
     const notifications = await ctx.db
@@ -161,7 +162,8 @@ export const listForCurrentUser = query({
 export const getUnreadCount = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await requireConvexUserId(ctx);
+    const userId = await getConvexUserId(ctx);
+    if (!userId) return 0;
     const unread = await ctx.db
       .query("notifications")
       .withIndex("by_recipient_isRead", (q) =>

@@ -1,10 +1,11 @@
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { BrandGradientTitle } from "@/components/BrandGradientTitle";
 import { BottomSheet } from "@/components/bottom-sheet";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -88,8 +89,6 @@ function ParticipantsSheet({
 export default function CommunityScreen() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<FeedTab>("global");
-  const [isInviting, setIsInviting] = useState(false);
-  const createInviteLink = useMutation(api.invites.createInviteLink);
 
   const followingFeed = useQuery(
     api.social.community.getFollowingFeed,
@@ -142,22 +141,6 @@ export default function CommunityScreen() {
   const badgeBg = Colors[theme].accent;
   const badgeText = Colors[theme].onAccent;
 
-  async function handleInvite() {
-    if (isInviting) return;
-    setIsInviting(true);
-    try {
-      const { shareableUrl } = await createInviteLink({});
-      await Share.share({
-        message: Platform.OS === "android" ? shareableUrl : "Join me on Theatre Diary — the app for theatre lovers!",
-        url: shareableUrl,
-      });
-    } catch {
-      // user cancelled share or error — no-op
-    } finally {
-      setIsInviting(false);
-    }
-  }
-
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor }]}
@@ -165,9 +148,7 @@ export default function CommunityScreen() {
     >
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={[styles.title, { color: primaryTextColor }]}>
-            Community
-          </Text>
+          <BrandGradientTitle text="Community" fontSize={28} />
           <View style={styles.headerActions}>
             <Pressable
               onPress={() => router.push("/(tabs)/community/leaderboard")}
@@ -176,19 +157,6 @@ export default function CommunityScreen() {
               accessibilityLabel="Leaderboard"
             >
               <IconSymbol name="trophy.fill" size={22} color={bellColor} />
-            </Pressable>
-            <Pressable
-              onPress={handleInvite}
-              style={styles.headerIconButton}
-              hitSlop={10}
-              disabled={isInviting}
-              accessibilityLabel="Invite a friend"
-            >
-              <IconSymbol
-                name="person.fill.badge.plus"
-                size={22}
-                color={isInviting ? (theme === "dark" ? "#555" : "#aaa") : bellColor}
-              />
             </Pressable>
             <Pressable
               onPress={() => router.push("/notifications")}
@@ -414,13 +382,7 @@ export default function CommunityScreen() {
                         >
                           Ranked #{post.rankAtPost} of {post.rankingTotal}
                         </Text>
-                      ) : (
-                        <Text
-                          style={[styles.rankText, { color: rankTextColor }]}
-                        >
-                          Not currently ranked
-                        </Text>
-                      )}
+                      ) : null}
                     </View>
                     <Pressable
                       style={[
@@ -502,11 +464,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111",
-  },
+
   bellButton: {
     position: "relative",
     width: 36,
