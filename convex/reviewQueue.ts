@@ -57,6 +57,17 @@ const sourceValidator = v.union(
   v.literal("playbill")
 );
 
+const SHOW_TYPE_LITERALS = [
+  "musical",
+  "play",
+  "opera",
+  "dance",
+  "revue",
+  "comedy",
+  "magic",
+  "other",
+] as const;
+
 const showTypeValidator = v.union(
   v.literal("musical"),
   v.literal("play"),
@@ -67,6 +78,14 @@ const showTypeValidator = v.union(
   v.literal("magic"),
   v.literal("other")
 );
+
+const SHOW_TYPE_SET = new Set<string>(SHOW_TYPE_LITERALS);
+
+function normalizeShowTypeForPatch(value: string): (typeof SHOW_TYPE_LITERALS)[number] {
+  return SHOW_TYPE_SET.has(value)
+    ? (value as (typeof SHOW_TYPE_LITERALS)[number])
+    : "other";
+}
 
 const productionDistrictValidator = v.union(
   v.literal("broadway"),
@@ -1450,6 +1469,10 @@ async function applyFieldChange(
     const numValue = Number(value);
     await ctx.db.patch(entityId as any, {
       [field]: isNaN(numValue) ? undefined : numValue,
+    });
+  } else if (entityType === "show" && field === "type") {
+    await ctx.db.patch(entityId as any, {
+      type: normalizeShowTypeForPatch(value),
     });
   } else {
     await ctx.db.patch(entityId as any, { [field]: value });

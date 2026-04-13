@@ -57,8 +57,7 @@ module.exports = {
     package: "com.theatrediary.app",
     googleServicesFile: "./google-services.json",
     adaptiveIcon: {
-      foregroundImage:
-        "./assets/icon-kitchen-v1/android/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
+      foregroundImage: "./assets/icon-kitchen-v1/android/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
       backgroundImage:
         "./assets/icon-kitchen-v1/android/res/mipmap-xxxhdpi/ic_launcher_background.png",
       backgroundColor: "#536DFE",
@@ -75,7 +74,7 @@ module.exports = {
   },
   web: {
     output: "static",
-    favicon: "./assets/images/favicon.png",
+    favicon: "./assets/icon-kitchen-v1/web/icon-192.png",
   },
   plugins: [
     "expo-router",
@@ -92,7 +91,7 @@ module.exports = {
     [
       "expo-splash-screen",
       {
-        image: "./assets/images/splash-icon.png",
+        image: "./assets/icon-kitchen-v1/web/icon-512.png",
         imageWidth: 200,
         resizeMode: "contain",
         backgroundColor: "#536DFE",

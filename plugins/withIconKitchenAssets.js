@@ -6,7 +6,9 @@
  * per-slot iOS PNGs and per-density Android mipmaps so the OS still picks the
  * best size, but pixels match Kitchen exactly.
  *
- * Source folder: `assets/icon-kitchen-v1` (blue/purple). v2 kept as reference.
+ * Source folder: `assets/icon-kitchen-v1` — full per-slot iOS + mipmap Android
+ * tree (Icon Kitchen). `icon-kitchen-v0` holds single-file rasters for Expo config
+ * (see app.config.js); v2 is reference only.
  */
 const fs = require("fs");
 const path = require("path");

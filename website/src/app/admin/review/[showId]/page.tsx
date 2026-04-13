@@ -465,7 +465,9 @@ function ShowReviewDetailInner() {
       router.push(adminReturnTo);
       return;
     }
-    router.back();
+    // `router.back()` is a no-op when there is no history (e.g. deep link / new tab),
+    // which made a successful submit look like “nothing happened”.
+    router.push("/admin");
   };
 
   const detail = useQuery(
@@ -720,6 +722,9 @@ function ShowReviewDetailInner() {
       navigateToAdminList();
     } catch (err) {
       console.error("Failed to submit review:", err);
+      window.alert(
+        err instanceof Error ? err.message : "Failed to submit review. Check the console for details."
+      );
     } finally {
       setSubmitting(false);
     }

@@ -53,7 +53,7 @@ export default function InviteFriendScreen() {
         message:
           Platform.OS === "android"
             ? shareableUrl
-            : "Join me on Centre Stage — the app for theatre lovers!",
+            : "Join me on Center Stage — the app for theatre enthusiasts!",
         url: shareableUrl,
       });
     } catch {

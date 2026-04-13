@@ -1,4 +1,5 @@
 import { FontAwesome } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { Redirect } from "expo-router";
 import { memo } from "react";
 import {
@@ -19,9 +20,15 @@ import { useSession } from "@/lib/auth-client";
 const Header = memo(function Header({ subtitleColor }: { subtitleColor: string }) {
   return (
     <View style={styles.header}>
+      <Image
+        source={require("../../../../assets/icon-kitchen-v1/web/icon-512.png")}
+        style={styles.appIcon}
+        contentFit="contain"
+        accessibilityLabel="Theatre Diary app icon"
+      />
       {/* Two-tone wordmark: blue + purple mirrors the website brand gradient */}
       <View style={styles.wordmark}>
-        <Text style={[styles.title, { color: BRAND_BLUE }]}>Centre </Text>
+        <Text style={[styles.title, { color: BRAND_BLUE }]}>Center </Text>
         <Text style={[styles.title, { color: BRAND_PURPLE }]}>Stage</Text>
       </View>
       <Text style={[styles.subtitle, { color: subtitleColor }]}>
@@ -162,6 +169,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 48,
     gap: 10,
+  },
+  appIcon: {
+    width: 88,
+    height: 88,
+    borderRadius: 20,
+    marginBottom: 4,
   },
   wordmark: {
     flexDirection: "row",
