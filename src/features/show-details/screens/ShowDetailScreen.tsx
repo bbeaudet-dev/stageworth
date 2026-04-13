@@ -48,19 +48,6 @@ function districtLabel(d: string): string {
   return map[d] ?? d;
 }
 
-function prodTypeLabel(t: string): string {
-  const map: Record<string, string> = {
-    original: "Original",
-    revival: "Revival",
-    transfer: "Transfer",
-    touring: "Touring",
-    concert: "Concert",
-    workshop: "Workshop",
-    other: "Other",
-  };
-  return map[t] ?? t;
-}
-
 function deriveShowScoreSlug(name: string): string {
   return name
     .toLowerCase()
@@ -208,8 +195,8 @@ export default function ShowDetailScreen() {
 
   const posterUrl = show?.images?.[0] ?? null;
 
-  const showType = show?.type ?? "other";
-  const typeColors = showTypeChip(showType, isDark ? "dark" : "light");
+  const showType = show?.type ?? null;
+  const typeColors = showTypeChip(showType ?? "other", isDark ? "dark" : "light");
 
   const todayStr = today();
 
@@ -350,11 +337,13 @@ export default function ShowDetailScreen() {
             <Text style={[styles.showName, { color: c.text }]} numberOfLines={3}>
               {show?.name ?? (params.name ?? "Loading…")}
             </Text>
-            <View style={[styles.typeBadge, { backgroundColor: typeColors.bg }]}>
-              <Text style={[styles.typeBadgeText, { color: typeColors.text }]}>
-                {showTypeLabel(showType)}
-              </Text>
-            </View>
+            {showType !== null && (
+              <View style={[styles.typeBadge, { backgroundColor: typeColors.bg }]}>
+                <Text style={[styles.typeBadgeText, { color: typeColors.text }]}>
+                  {showTypeLabel(showType)}
+                </Text>
+              </View>
+            )}
             {show?.showScoreRating != null && (
               <Pressable
                 onPress={() => {
@@ -412,55 +401,68 @@ export default function ShowDetailScreen() {
           </Pressable>
         </View>
 
-        {/* ── Productions ──────────────────────────────────────────────────── */}
-        {productions !== undefined && productions.length > 0 ? (
+        {/* ── Productions Rail ─────────────────────────────────────────────── */}
+        {(productions === undefined || productions.length > 0) && (
           <View style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
             <Text style={[styles.sectionTitle, { color: c.mutedText }]}>Productions</Text>
-            {productions.map((p, i) => {
-              const status = getProductionStatus(p, todayStr);
-              const isActive = status !== "closed";
-              const statusLine = productionStatusLine(p, status, todayStr);
-              const warmClosing =
-                isActive && Boolean(p.closingDate) && statusLine.startsWith("Closes");
-              return (
-                <View
-                  key={p._id}
-                  style={[
-                    styles.productionRow,
-                    i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
-                  ]}
-                >
-                  {p.posterUrl ? (
-                    <Image
-                      source={{ uri: p.posterUrl }}
-                      style={[styles.prodThumb, { backgroundColor: playbillMatBackground(theme) }]}
-                      contentFit="contain"
-                    />
-                  ) : (
-                    <View style={[styles.prodThumbFallback, { backgroundColor: c.border }]} />
-                  )}
-                  <View style={styles.prodInfo}>
-                    <Text style={[styles.prodVenue, { color: c.text }]} numberOfLines={1}>
-                      {p.theatre}{p.city ? ` · ${p.city}` : ""}
-                    </Text>
-                    <Text style={[styles.prodMeta, { color: c.mutedText }]} numberOfLines={1}>
-                      {districtLabel(p.district)} · {prodTypeLabel(p.productionType)}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.prodMeta,
-                        { color: warmClosing ? "#E65100" : c.mutedText },
-                      ]}
-                      numberOfLines={2}
-                    >
-                      {statusLine}
-                    </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.prodRailContent}
+            >
+              {productions === undefined ? (
+                [0, 1, 2].map((i) => (
+                  <View key={i} style={[styles.prodCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+                    <View style={[styles.prodThumb, { backgroundColor: c.border }]} />
+                    <View style={[styles.prodInfo, { gap: 6 }]}>
+                      <View style={[styles.prodSkeletonLine, { backgroundColor: c.border, width: 90 }]} />
+                      <View style={[styles.prodSkeletonLine, { backgroundColor: c.border, width: 70 }]} />
+                      <View style={[styles.prodSkeletonLine, { backgroundColor: c.border, width: 80 }]} />
+                    </View>
                   </View>
-                </View>
-              );
-            })}
+                ))
+              ) : (
+                productions.map((p) => {
+                  const status = getProductionStatus(p, todayStr);
+                  const isActive = status !== "closed";
+                  const statusLine = productionStatusLine(p, status, todayStr);
+                  const warmClosing =
+                    isActive && Boolean(p.closingDate) && statusLine.startsWith("Closes");
+                  const locationLine = [p.city, districtLabel(p.district)].filter(Boolean).join(" · ");
+                  return (
+                    <View key={p._id} style={[styles.prodCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+                      {p.posterUrl ? (
+                        <Image
+                          source={{ uri: p.posterUrl }}
+                          style={[styles.prodThumb, { backgroundColor: playbillMatBackground(theme) }]}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <View style={[styles.prodThumb, { backgroundColor: c.border }]} />
+                      )}
+                      <View style={styles.prodInfo}>
+                        <Text style={[styles.prodVenue, { color: c.text }]} numberOfLines={1}>
+                          {p.theatre}
+                        </Text>
+                        {locationLine ? (
+                          <Text style={[styles.prodMeta, { color: c.mutedText }]} numberOfLines={1}>
+                            {locationLine}
+                          </Text>
+                        ) : null}
+                        <Text
+                          style={[styles.prodMeta, { color: warmClosing ? "#E65100" : c.mutedText }]}
+                          numberOfLines={1}
+                        >
+                          {statusLine}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
           </View>
-        ) : null}
+        )}
 
         {broadwayShowtimes ? (
           <View style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
@@ -773,13 +775,24 @@ const styles = StyleSheet.create({
   rowText: { fontSize: 14, fontWeight: "500" },
   rowChevron: { fontSize: 18, fontWeight: "300" },
 
-  // Productions
-  productionRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 11 },
-  prodThumb: { width: 44, height: 62, borderRadius: 6 },
-  prodThumbFallback: { width: 44, height: 62, borderRadius: 6 },
-  prodInfo: { flex: 1, gap: 2 },
-  prodVenue: { fontSize: 14, fontWeight: "600" },
-  prodMeta: { fontSize: 12 },
+  // Productions rail
+  prodRailContent: { paddingHorizontal: 10, paddingBottom: 12, paddingTop: 2, flexDirection: "row", gap: 8 },
+  // Each card: fixed width, row layout with portrait image on left
+  prodCard: {
+    width: 210,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 8,
+  },
+  // Portrait playbill ratio ~9:13
+  prodThumb: { width: 44, height: 62, borderRadius: 5, flexShrink: 0 },
+  prodInfo: { flex: 1, gap: 3, overflow: "hidden" },
+  prodSkeletonLine: { height: 10, borderRadius: 5 },
+  prodVenue: { fontSize: 13, fontWeight: "700" },
+  prodMeta: { fontSize: 11 },
 
   // Buttons
   primaryBtn: { borderRadius: 10, alignItems: "center", justifyContent: "center", paddingVertical: 13 },

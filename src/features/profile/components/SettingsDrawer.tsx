@@ -129,9 +129,9 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
     if (isSigningOut) return;
     setIsSigningOut(true);
     try {
-      onClose();
       await removePushToken().catch(() => {});
       await authClient.signOut();
+      onClose();
     } finally {
       setIsSigningOut(false);
     }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -26,11 +26,17 @@ export function AddToListSheet({ visible, showId, showName, onClose }: Props) {
   const [addingToList, setAddingToList] = useState(false);
   const [optimisticallyInLists, setOptimisticallyInLists] = useState<Set<string>>(new Set());
 
+  // Reset optimistic state whenever the sheet opens for a different show
+  useEffect(() => {
+    setOptimisticallyInLists(new Set());
+  }, [showId]);
+
   const myLists = useQuery(
     api.lists.getProfileLists,
     visible && showId ? { showId } : "skip"
   );
   const addShowToList = useMutation(api.lists.addShowToList);
+  const removeShowFromList = useMutation(api.lists.removeShowFromList);
 
   const allLists = [
     ...(myLists?.systemLists ?? []),
@@ -51,6 +57,23 @@ export function AddToListSheet({ visible, showId, showName, onClose }: Props) {
         next.delete(listId);
         return next;
       });
+    } finally {
+      setAddingToList(false);
+    }
+  }
+
+  async function handleRemoveFromList(listId: Id<"userLists">, listName: string) {
+    if (!showId || addingToList) return;
+    setOptimisticallyInLists((prev) => {
+      const next = new Set(prev);
+      next.delete(listId);
+      return next;
+    });
+    onClose();
+    showToast({ message: `Removed "${showName}" from ${listName}` });
+    setAddingToList(true);
+    try {
+      await removeShowFromList({ listId, showId });
     } finally {
       setAddingToList(false);
     }
@@ -80,9 +103,13 @@ export function AddToListSheet({ visible, showId, showName, onClose }: Props) {
                   key={list._id}
                   style={({ pressed }) => [
                     s.row,
-                    { borderBottomColor: c.border, opacity: pressed && !alreadyIn ? 0.7 : 1 },
+                    { borderBottomColor: c.border, opacity: pressed ? 0.7 : 1 },
                   ]}
-                  onPress={() => !alreadyIn && handleAddToList(list._id as Id<"userLists">, list.name)}
+                  onPress={() =>
+                    alreadyIn
+                      ? handleRemoveFromList(list._id as Id<"userLists">, list.name)
+                      : handleAddToList(list._id as Id<"userLists">, list.name)
+                  }
                   disabled={addingToList}
                 >
                   <Text style={[s.rowText, { color: alreadyIn ? c.mutedText : c.text }]}>

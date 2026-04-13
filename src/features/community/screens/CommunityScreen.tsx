@@ -2,7 +2,7 @@ import { useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BrandGradientTitle } from "@/components/BrandGradientTitle";
@@ -90,6 +90,20 @@ export default function CommunityScreen() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<FeedTab>("global");
 
+  const handlePlusPress = () => {
+    Alert.alert("Create", undefined, [
+      {
+        text: "Add a Visit",
+        onPress: () => router.push("/add-visit"),
+      },
+      {
+        text: "Create Post",
+        onPress: () => Alert.alert("Coming Soon", "Community posts are coming in a future update!"),
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
   const followingFeed = useQuery(
     api.social.community.getFollowingFeed,
     selectedTab === "following" ? { limit: 40 } : "skip",
@@ -171,6 +185,14 @@ export default function CommunityScreen() {
                   </Text>
                 </View>
               )}
+            </Pressable>
+            <Pressable
+              onPress={handlePlusPress}
+              style={styles.headerIconButton}
+              hitSlop={10}
+              accessibilityLabel="Create"
+            >
+              <IconSymbol name="plus.circle.fill" size={26} color={Colors[theme].accent} />
             </Pressable>
           </View>
         </View>

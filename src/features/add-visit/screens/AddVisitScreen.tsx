@@ -3,6 +3,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef } from "react";
 import {
   Alert,
+  InteractionManager,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useToast } from "@/components/Toast";
+import { useCelebration } from "@/components/CelebrationContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getBottomInsertionIndexForTier } from "@/features/add-visit/logic/ranking";
 import { getTodayIsoDate } from "@/features/add-visit/logic/form";
@@ -43,6 +45,7 @@ export default function AddVisitScreen() {
   const navigation = useNavigation();
   const allowRemoveRef = useRef(false);
   const { showToast } = useToast();
+  const { celebrate } = useCelebration();
   const {
     state,
     hasUnsavedChanges,
@@ -200,8 +203,22 @@ export default function AddVisitScreen() {
         taggedUserIds: state.taggedUserIds.length > 0 ? state.taggedUserIds : undefined,
       });
       allowRemoveRef.current = true;
-      showToast({ message: "Visit saved!" });
+      const isNewShow = state.customShowName !== null || !showContext?.hasVisit;
+      const celebrationData = isNewShow
+        ? {
+            showName: selectedShow?.name ?? state.customShowName ?? "",
+            imageUrl: selectedShow?.images?.[0] ?? null,
+          }
+        : null;
       router.replace("/(tabs)");
+      if (celebrationData) {
+        // Wait for all navigation interactions to fully settle before showing overlay
+        InteractionManager.runAfterInteractions(() => {
+          celebrate(celebrationData);
+        });
+      } else {
+        showToast({ message: "Visit saved!" });
+      }
     } finally {
       setIsSaving(false);
     }

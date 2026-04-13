@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { Stack, useRouter } from "expo-router";
+import { useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -46,6 +47,16 @@ export default function RecommendationHistoryScreen() {
   const history = useQuery(api.recommendations.listRecommendationHistory);
   const clearHistory = useMutation(api.recommendations.clearRecommendationHistory);
   const deleteRec = useMutation(api.recommendations.deleteRecommendation);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleDeleteOne = (id: Id<"aiRecommendationHistory">, showName: string) => {
     Alert.alert(
@@ -111,6 +122,7 @@ export default function RecommendationHistoryScreen() {
             {history.map((item) => {
               const scoreColors = (isDark ? SCORE_COLORS_DARK : SCORE_COLORS)[item.score] ??
                 (isDark ? SCORE_COLORS_DARK[3] : SCORE_COLORS[3]);
+              const isExpanded = expandedIds.has(item._id);
               return (
                 <Pressable
                   key={item._id}
@@ -144,9 +156,17 @@ export default function RecommendationHistoryScreen() {
                     <Text style={[s.headline, { color: c.text }]}>{item.headline}</Text>
                     <Text style={[s.date, { color: c.mutedText }]}>{formatDate(item.createdAt)}</Text>
                   </View>
-                  <Text style={[s.reasoning, { color: c.mutedText }]} numberOfLines={3}>
+                  <Text style={[s.reasoning, { color: c.mutedText }]} numberOfLines={isExpanded ? undefined : 3}>
                     {item.reasoning}
                   </Text>
+                  <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation?.(); toggleExpanded(item._id); }}
+                    hitSlop={4}
+                  >
+                    <Text style={[s.expandToggle, { color: c.accent }]}>
+                      {isExpanded ? "Show less" : "Read more"}
+                    </Text>
+                  </TouchableOpacity>
                   {item.matchedElements.length > 0 && (
                     <View style={s.chipRow}>
                       {item.matchedElements.map((el) => (
@@ -206,6 +226,7 @@ const s = StyleSheet.create({
   headline: { fontSize: 14, fontWeight: "600" },
   date: { fontSize: 12 },
   reasoning: { fontSize: 13, lineHeight: 18 },
+  expandToggle: { fontSize: 12, fontWeight: "600", marginTop: 2 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   chip: {
     borderRadius: 8,
