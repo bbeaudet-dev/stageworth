@@ -6,8 +6,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -171,10 +173,13 @@ export function AddDayNoteSheet({ visible, onClose, onAdd, dayLabel }: AddDayNot
 
   return (
     <BottomSheet visible={visible} onClose={handleClose}>
-      <View style={[styles.sheet, { backgroundColor, paddingBottom: insets.bottom + 16 }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={[styles.sheet, { backgroundColor }]}
+      >
         <View style={[styles.handle, { backgroundColor: borderColor }]} />
 
-        {/* Header */}
+        {/* Header — always visible */}
         <View style={[styles.header, { borderBottomColor: borderColor }]}>
           <Pressable onPress={handleClose} hitSlop={12}>
             <Text style={[styles.headerBtn, { color: mutedTextColor }]}>Cancel</Text>
@@ -187,70 +192,77 @@ export function AddDayNoteSheet({ visible, onClose, onAdd, dayLabel }: AddDayNot
           </Pressable>
         </View>
 
-        {/* Day label */}
-        <Text style={[styles.dayLabel, { color: mutedTextColor }]}>{dayLabel}</Text>
+        {/* Scrollable body — ensures time picker doesn't get cut off */}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Day label */}
+          <Text style={[styles.dayLabel, { color: mutedTextColor }]}>{dayLabel}</Text>
 
-        {/* Text input */}
-        <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor }]}>
-          <TextInput
-            style={[styles.input, { color: primaryTextColor }]}
-            value={text}
-            onChangeText={setText}
-            placeholder="What's happening? (flights, dinner, hotel...)"
-            placeholderTextColor={mutedTextColor}
-            multiline
-            maxLength={280}
-            autoFocus
-          />
-        </View>
-
-        {/* Add a Time toggle */}
-        <Pressable style={styles.timeToggleRow} onPress={() => setAddTime((v) => !v)}>
-          <View style={[styles.checkbox, { borderColor: addTime ? accentColor : borderColor, backgroundColor: addTime ? accentColor : "transparent" }]}>
-            {addTime ? <Text style={styles.checkmark}>✓</Text> : null}
+          {/* Text input */}
+          <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor }]}>
+            <TextInput
+              style={[styles.input, { color: primaryTextColor }]}
+              value={text}
+              onChangeText={setText}
+              placeholder="What's happening? (flights, dinner, hotel...)"
+              placeholderTextColor={mutedTextColor}
+              multiline
+              maxLength={280}
+              autoFocus
+            />
           </View>
-          <Text style={[styles.timeToggleLabel, { color: primaryTextColor }]}>Add a Time</Text>
-        </Pressable>
 
-        {/* Time picker wheels */}
-        {addTime ? (
-          <View style={[styles.pickerCard, { backgroundColor: surfaceColor, borderColor }]}>
-            <View style={styles.pickerRow}>
-              <WheelColumn
-                items={HOURS}
-                selectedIndex={hourIdx}
-                onChange={setHourIdx}
-                width={52}
-                textColor={primaryTextColor}
-                mutedColor={mutedTextColor}
-                highlightBg={accentColor + "14"}
-                borderColor={borderColor}
-              />
-              <Text style={[styles.pickerColon, { color: primaryTextColor }]}>:</Text>
-              <WheelColumn
-                items={MINUTES}
-                selectedIndex={minuteIdx}
-                onChange={setMinuteIdx}
-                width={52}
-                textColor={primaryTextColor}
-                mutedColor={mutedTextColor}
-                highlightBg={accentColor + "14"}
-                borderColor={borderColor}
-              />
-              <WheelColumn
-                items={AMPM}
-                selectedIndex={ampmIdx}
-                onChange={setAmpmIdx}
-                width={52}
-                textColor={primaryTextColor}
-                mutedColor={mutedTextColor}
-                highlightBg={accentColor + "14"}
-                borderColor={borderColor}
-              />
+          {/* Add a Time toggle */}
+          <Pressable style={styles.timeToggleRow} onPress={() => setAddTime((v) => !v)}>
+            <View style={[styles.checkbox, { borderColor: addTime ? accentColor : borderColor, backgroundColor: addTime ? accentColor : "transparent" }]}>
+              {addTime ? <Text style={styles.checkmark}>✓</Text> : null}
             </View>
-          </View>
-        ) : null}
-      </View>
+            <Text style={[styles.timeToggleLabel, { color: primaryTextColor }]}>Add a Time</Text>
+          </Pressable>
+
+          {/* Time picker wheels */}
+          {addTime ? (
+            <View style={[styles.pickerCard, { backgroundColor: surfaceColor, borderColor }]}>
+              <View style={styles.pickerRow}>
+                <WheelColumn
+                  items={HOURS}
+                  selectedIndex={hourIdx}
+                  onChange={setHourIdx}
+                  width={52}
+                  textColor={primaryTextColor}
+                  mutedColor={mutedTextColor}
+                  highlightBg={accentColor + "14"}
+                  borderColor={borderColor}
+                />
+                <Text style={[styles.pickerColon, { color: primaryTextColor }]}>:</Text>
+                <WheelColumn
+                  items={MINUTES}
+                  selectedIndex={minuteIdx}
+                  onChange={setMinuteIdx}
+                  width={52}
+                  textColor={primaryTextColor}
+                  mutedColor={mutedTextColor}
+                  highlightBg={accentColor + "14"}
+                  borderColor={borderColor}
+                />
+                <WheelColumn
+                  items={AMPM}
+                  selectedIndex={ampmIdx}
+                  onChange={setAmpmIdx}
+                  width={52}
+                  textColor={primaryTextColor}
+                  mutedColor={mutedTextColor}
+                  highlightBg={accentColor + "14"}
+                  borderColor={borderColor}
+                />
+              </View>
+            </View>
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </BottomSheet>
   );
 }
@@ -275,6 +287,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 8,
+    maxHeight: "85%",
   },
   handle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 8 },
   header: {
