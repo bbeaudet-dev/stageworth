@@ -20,6 +20,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
+import { showTypeChip, showTypeLabel } from "@/constants/showTypeColors";
 import { useToast } from "@/components/Toast";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useSession } from "@/lib/auth-client";
@@ -33,30 +34,6 @@ import { getProductionStatus, type ProductionStatus } from "@/utils/productions"
 import { BroadwayShowtimesGrid } from "@/components/BroadwayShowtimesGrid";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const TYPE_LABEL: Record<string, string> = {
-  musical: "Musical",
-  play: "Play",
-  opera: "Opera",
-  dance: "Dance",
-  other: "Other",
-};
-
-const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  musical: { bg: "#FFF3E0", text: "#E65100" },
-  play:    { bg: "#E8F5E9", text: "#1B5E20" },
-  opera:   { bg: "#EDE7F6", text: "#4A148C" },
-  dance:   { bg: "#FCE4EC", text: "#880E4F" },
-  other:   { bg: "#ECEFF1", text: "#37474F" },
-};
-
-const TYPE_COLORS_DARK: Record<string, { bg: string; text: string }> = {
-  musical: { bg: "rgba(230,81,0,0.18)",  text: "#FFB74D" },
-  play:    { bg: "rgba(27,94,32,0.2)",   text: "#81C784" },
-  opera:   { bg: "rgba(74,20,140,0.2)",  text: "#CE93D8" },
-  dance:   { bg: "rgba(136,14,79,0.2)",  text: "#F48FB1" },
-  other:   { bg: "rgba(55,71,79,0.2)",   text: "#B0BEC5" },
-};
 
 function districtLabel(d: string): string {
   const map: Record<string, string> = {
@@ -232,7 +209,7 @@ export default function ShowDetailScreen() {
   const posterUrl = show?.images?.[0] ?? null;
 
   const showType = show?.type ?? "other";
-  const typeColors = isDark ? TYPE_COLORS_DARK[showType] ?? TYPE_COLORS_DARK.other : TYPE_COLORS[showType] ?? TYPE_COLORS.other;
+  const typeColors = showTypeChip(showType, isDark ? "dark" : "light");
 
   const todayStr = today();
 
@@ -375,7 +352,7 @@ export default function ShowDetailScreen() {
             </Text>
             <View style={[styles.typeBadge, { backgroundColor: typeColors.bg }]}>
               <Text style={[styles.typeBadgeText, { color: typeColors.text }]}>
-                {TYPE_LABEL[showType] ?? "Other"}
+                {showTypeLabel(showType)}
               </Text>
             </View>
             {show?.showScoreRating != null && (

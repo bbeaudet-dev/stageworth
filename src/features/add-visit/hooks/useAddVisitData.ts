@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ShowType, UserShowStatus } from "@/features/add-visit/types";
+import { SHOW_TYPE_COLORS } from "@/constants/showTypeColors";
 
 const MAX_RESULTS = 10;
 const DEFAULT_SUGGESTION_RESULTS = 10;
@@ -137,10 +138,8 @@ export function useAddVisitData({
   };
 }
 
-export const TYPE_LABELS: Record<ShowType, string> = {
-  musical: "Musical",
-  play: "Play",
-  opera: "Opera",
-  dance: "Dance",
-  other: "Other",
-};
+export const TYPE_LABELS: Record<ShowType, string> = Object.fromEntries(
+  (Object.entries(SHOW_TYPE_COLORS) as [ShowType, { label: string }][]).map(
+    ([k, v]) => [k, v.label]
+  )
+) as Record<ShowType, string>;

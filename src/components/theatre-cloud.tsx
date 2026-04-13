@@ -1,4 +1,5 @@
 import { Colors } from "@/constants/theme";
+import { showTypeAccent, showTypeLabel } from "@/constants/showTypeColors";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
@@ -18,7 +19,7 @@ import {
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
-type ShowType = "musical" | "play" | "opera" | "dance" | "other";
+type ShowType = "musical" | "play" | "opera" | "dance" | "revue" | "comedy" | "magic" | "other";
 
 export type CloudShow = {
   _id: Id<"shows">;
@@ -53,21 +54,6 @@ const TIER_WIDTH_RANGE: Record<string, readonly [number, number]> = {
 };
 const CORNER_RADIUS_RATIO = 0.05;
 
-const TYPE_LABELS: Record<string, string> = {
-  musical: "Musical",
-  play: "Play",
-  opera: "Opera",
-  dance: "Dance",
-  other: "Show",
-};
-
-const TYPE_ACCENT: Record<string, { light: string; dark: string }> = {
-  musical: { light: "#E65100", dark: "#FFB74D" },
-  play:    { light: "#1B5E20", dark: "#81C784" },
-  opera:   { light: "#4A148C", dark: "#CE93D8" },
-  dance:   { light: "#880E4F", dark: "#F48FB1" },
-  other:   { light: "#37474F", dark: "#B0BEC5" },
-};
 
 function overlaps(
   placed: Placement[],
@@ -422,8 +408,7 @@ export function TheatreCloud({
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
             {labelPlacements.map((p) => {
               const r = Math.max(2, p.width * CORNER_RADIUS_RATIO);
-              const accent = TYPE_ACCENT[p.showType] ?? TYPE_ACCENT.other;
-              const accentColor = isDark ? accent.dark : accent.light;
+              const accentColor = showTypeAccent(p.showType, isDark ? "dark" : "light");
               return (
                 <View
                   key={p.showId}
@@ -443,7 +428,7 @@ export function TheatreCloud({
                     style={[styles.labelTypeText, { color: accentColor }]}
                     numberOfLines={1}
                   >
-                    {TYPE_LABELS[p.showType] ?? "Show"}
+                    {showTypeLabel(p.showType)}
                   </Text>
                   <Text
                     style={[styles.labelNameText, { color: mutedTextColor }]}

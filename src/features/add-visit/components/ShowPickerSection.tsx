@@ -68,7 +68,7 @@ export function ShowPickerSection({
               ) : (
                 <ShowPlaceholder
                   name={showNameForHeader}
-                  type={selectedShowArt?.type ?? "other"}
+                  type={selectedShowArt?.type}
                   style={{
                     width: 54,
                     height: 81,
