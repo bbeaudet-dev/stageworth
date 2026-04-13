@@ -48,19 +48,6 @@ function districtLabel(d: string): string {
   return map[d] ?? d;
 }
 
-function prodTypeLabel(t: string): string {
-  const map: Record<string, string> = {
-    original: "Original",
-    revival: "Revival",
-    transfer: "Transfer",
-    touring: "Touring",
-    concert: "Concert",
-    workshop: "Workshop",
-    other: "Other",
-  };
-  return map[t] ?? t;
-}
-
 function deriveShowScoreSlug(name: string): string {
   return name
     .toLowerCase()
