@@ -239,7 +239,7 @@ export default function AddVisitScreen() {
       searchResults as {
         _id: any;
         name: string;
-        type: "musical" | "play" | "opera" | "dance" | "other";
+        type: "musical" | "play" | "opera" | "dance" | "revue" | "comedy" | "magic" | "other";
       }[],
     [searchResults]
   );

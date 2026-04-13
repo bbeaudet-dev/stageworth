@@ -2,7 +2,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import type { RankedTier } from "@/types/ranking";
 
 export type { RankedTier };
-export type ShowType = "musical" | "play" | "opera" | "dance" | "other";
+export type ShowType = "musical" | "play" | "opera" | "dance" | "revue" | "comedy" | "magic" | "other";
 
 export type RankedShowForRanking = {
   _id: Id<"shows">;

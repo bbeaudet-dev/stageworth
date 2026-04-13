@@ -154,7 +154,7 @@ const SHOW_FIELDS: FieldDef[] = [
     label: "Type",
     alwaysPresent: true,
     inputType: "select",
-    options: ["musical", "play", "opera", "dance", "other"],
+    options: ["musical", "play", "opera", "dance", "revue", "comedy", "magic", "other"],
   },
   { field: "subtype", label: "Sub-type", inputType: "text" },
   {

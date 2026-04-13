@@ -45,13 +45,16 @@ export function isAcceptableMatch(score: number): boolean {
 
 // ─── Wikipedia title resolution ─────────────────────────────────────────────
 
-type ShowType = "musical" | "play" | "opera" | "dance" | "other";
+type ShowType = "musical" | "play" | "opera" | "dance" | "revue" | "comedy" | "magic" | "other";
 
 const TYPE_DISAMBIGUATORS: Record<ShowType, string[]> = {
   musical: ["(musical)"],
   play: ["(play)"],
   opera: ["(opera)"],
   dance: ["(musical)"],
+  revue: ["(revue)", "(musical)"],
+  comedy: ["(play)", "(comedy)"],
+  magic: [],
   other: ["(musical)", "(play)"],
 };
 

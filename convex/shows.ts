@@ -74,6 +74,9 @@ export const create = mutation({
       v.literal("play"),
       v.literal("opera"),
       v.literal("dance"),
+      v.literal("revue"),
+      v.literal("comedy"),
+      v.literal("magic"),
       v.literal("other")
     ),
     subtype: v.optional(v.string()),

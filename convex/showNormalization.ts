@@ -29,7 +29,7 @@ export function normalizeCityName(raw: string): string {
     .join(" ");
 }
 
-export type ShowType = "musical" | "play" | "opera" | "dance" | "other";
+export type ShowType = "musical" | "play" | "opera" | "dance" | "revue" | "comedy" | "magic" | "other";
 
 export function normalizeShowName(name: string): string {
   return name
@@ -70,6 +70,21 @@ export function mapExternalTypeToShowType(rawType: string): ShowType | null {
   }
   if (normalizedType.includes("dance") || normalizedType.includes("ballet")) {
     return "dance";
+  }
+  // Check revue before comedy so "musical revue" maps to revue, not comedy.
+  if (normalizedType.includes("revue") || normalizedType.includes("cabaret")) {
+    return "revue";
+  }
+  if (
+    normalizedType.includes("comedy") ||
+    normalizedType.includes("stand-up") ||
+    normalizedType.includes("standup") ||
+    normalizedType.includes("improv")
+  ) {
+    return "comedy";
+  }
+  if (normalizedType.includes("magic") || normalizedType.includes("illusion")) {
+    return "magic";
   }
   if (normalizedType) return "other";
   return null;

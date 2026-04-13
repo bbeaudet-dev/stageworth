@@ -38,6 +38,9 @@ export const getByShows = query({
         v.literal("play"),
         v.literal("opera"),
         v.literal("dance"),
+        v.literal("revue"),
+        v.literal("comedy"),
+        v.literal("magic"),
         v.literal("other")
       )
     ),

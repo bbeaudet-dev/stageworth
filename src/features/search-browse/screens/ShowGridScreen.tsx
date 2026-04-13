@@ -25,7 +25,7 @@ type ShowGridItem = {
   _id: Id<"shows">;
   showId: Id<"shows">;
   name: string;
-  type?: "musical" | "play" | "opera" | "dance" | "other";
+  type?: "musical" | "play" | "opera" | "dance" | "revue" | "comedy" | "magic" | "other";
   images: string[];
   badge?: FullStatusBadge;
 };

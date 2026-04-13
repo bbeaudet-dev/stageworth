@@ -80,6 +80,9 @@ const SHOW_TYPES = [
   "play",
   "opera",
   "dance",
+  "revue",
+  "comedy",
+  "magic",
   "other",
 ] as const;
 

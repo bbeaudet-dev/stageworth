@@ -21,7 +21,7 @@ import { playbillMatBackground } from "@/features/browse/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { formatVisitDate } from "@/utils/dates";
 
-type ShowType = "musical" | "play" | "opera" | "dance" | "other";
+type ShowType = "musical" | "play" | "opera" | "dance" | "revue" | "comedy" | "magic" | "other";
 
 type RankedShow = {
   _id: Id<"shows">;

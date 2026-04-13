@@ -20,7 +20,7 @@ export type ProductionType =
   | "workshop"
   | "other";
 
-export type ShowType = "musical" | "play" | "opera" | "dance" | "other";
+export type ShowType = "musical" | "play" | "opera" | "dance" | "revue" | "comedy" | "magic" | "other";
 
 export type EventType =
   | "new_announcement"
@@ -48,7 +48,7 @@ const SYSTEM_PROMPT = `You are a theatre database assistant. Extract structured 
 
 Return a single JSON object with these fields:
 - show_name: the show's title (string)
-- show_type: one of "musical", "play", "opera", "dance", "other"
+- show_type: one of "musical", "play", "opera", "dance", "revue", "comedy", "magic", "other"
 - district: one of "broadway", "off_broadway", "off_off_broadway", "west_end", "touring", "regional", "other"
 - production_type: one of "original", "revival", "transfer", "touring", "concert", "workshop", "other"
 - theatre: venue name or null

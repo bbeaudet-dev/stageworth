@@ -76,7 +76,7 @@ async function searchWikipedia(showName: string): Promise<string | null> {
  */
 async function resolveWikipediaImage(
   showName: string,
-  showType: "musical" | "play" | "opera" | "dance" | "other"
+  showType: "musical" | "play" | "opera" | "dance" | "revue" | "comedy" | "magic" | "other"
 ): Promise<{ imageUrl: string; articleTitle: string } | null> {
   const candidates = wikipediaTitleCandidates(showName, showType);
 
@@ -167,6 +167,9 @@ export const enrichShowWikipedia = internalAction({
       v.literal("play"),
       v.literal("opera"),
       v.literal("dance"),
+      v.literal("revue"),
+      v.literal("comedy"),
+      v.literal("magic"),
       v.literal("other")
     ),
   },
