@@ -9,6 +9,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { CelebrationData } from "@/components/CelebrationContext";
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -42,9 +43,10 @@ export function CelebrationOverlay({ data, onClose }: Props) {
               contentFit="cover"
             />
           ) : (
-            <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
-              <IconSymbol name="theatermasks.fill" size={48} color={c.mutedText} />
-            </View>
+            <ShowPlaceholder
+              name={data.showName ?? ""}
+              style={{ width: "100%", height: "100%", aspectRatio: undefined }}
+            />
           )}
         </View>
 
@@ -98,12 +100,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   playbill: { width: "100%", height: "100%" },
-  playbillFallback: {
-    width: "100%",
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-  },
   textBlock: { alignItems: "center", gap: 6 },
   headline: { fontSize: 22, fontWeight: "800", textAlign: "center" },
   showName: { fontSize: 14, textAlign: "center", lineHeight: 20 },

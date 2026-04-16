@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "convex/react";
 
 import { BottomSheet } from "@/components/bottom-sheet";
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
@@ -129,11 +130,7 @@ export function AddShowToTripSheet({ visible, onClose, alreadyOnTripShowIds, onA
                     {image ? (
                       <Image source={{ uri: image }} style={[styles.thumb, { backgroundColor: chipBg }]} contentFit="contain" />
                     ) : (
-                      <View style={[styles.thumb, styles.thumbFallback, { backgroundColor: chipBg }]}>
-                        <Text style={[styles.thumbFallbackText, { color: mutedTextColor }]} numberOfLines={2}>
-                          {show.name}
-                        </Text>
-                      </View>
+                      <ShowPlaceholder name={show.name} style={styles.thumb} />
                     )}
                     <Text style={[styles.showName, { color: primaryTextColor }]} numberOfLines={2}>
                       {show.name}
@@ -218,12 +215,6 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 4,
   },
-  thumbFallback: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 4,
-  },
-  thumbFallbackText: { fontSize: 9, fontWeight: "600", textAlign: "center" },
   showName: { flex: 1, fontSize: 14, fontWeight: "600" },
   addedBadge: {
     paddingHorizontal: 10,

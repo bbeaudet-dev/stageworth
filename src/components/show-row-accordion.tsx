@@ -17,6 +17,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { playbillMatBackground } from "@/features/browse/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { formatVisitDate } from "@/utils/dates";
@@ -398,11 +399,9 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
                 contentFit="contain"
               />
             ) : (
-              <View
-                style={[
-                  accordionStyles.listThumbImage,
-                  { backgroundColor: isActive ? surfaceColor : surfaceElevated },
-                ]}
+              <ShowPlaceholder
+                name={item.name}
+                style={{ width: "100%", height: "100%", aspectRatio: undefined }}
               />
             )}
           </View>

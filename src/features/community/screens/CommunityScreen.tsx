@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BrandGradientTitle } from "@/components/BrandGradientTitle";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
@@ -148,7 +149,6 @@ export default function CommunityScreen() {
   const notesTextColor = theme === "dark" ? "#e4e4e7" : "#2b2b2b";
   const rankTextColor = mutedTextColor;
   const posterBackground = theme === "dark" ? "#27272f" : "#efefef";
-  const posterFallbackTextColor = theme === "dark" ? "#a1a1aa" : "#888";
   const emptyTextColor = theme === "dark" ? "#9ca3af" : "#808080";
 
   const bellColor = theme === "dark" ? "#d1d5f9" : "#333";
@@ -424,16 +424,10 @@ export default function CommunityScreen() {
                           style={styles.posterImage}
                         />
                       ) : (
-                        <View style={styles.posterFallback}>
-                          <Text
-                            style={[
-                              styles.posterFallbackText,
-                              { color: posterFallbackTextColor },
-                            ]}
-                          >
-                            No art
-                          </Text>
-                        </View>
+                        <ShowPlaceholder
+                          name={post.show.name}
+                          style={{ width: "100%", height: "100%", aspectRatio: undefined }}
+                        />
                       )}
                     </Pressable>
                   </View>
@@ -572,16 +566,6 @@ const styles = StyleSheet.create({
   posterImage: {
     width: "100%",
     height: "100%",
-  },
-  posterFallback: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  posterFallbackText: {
-    fontSize: 11,
-    color: "#888",
-    fontWeight: "600",
   },
   actorText: {
     fontWeight: "700",

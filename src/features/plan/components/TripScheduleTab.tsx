@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BottomSheet } from "@/components/bottom-sheet";
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -239,16 +240,7 @@ export function TripScheduleTab({ trip, tripId }: TripScheduleTabProps) {
                                 {image ? (
                                   <Image source={{ uri: image }} style={[styles.playbillImg, { backgroundColor: chipBg }]} contentFit="contain" />
                                 ) : (
-                                  <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}>
-                                    <Text
-                                      style={[styles.playbillFbText, { color: mutedTextColor }]}
-                                      numberOfLines={5}
-                                      adjustsFontSizeToFit
-                                      minimumFontScale={0.6}
-                                    >
-                                      {item.show?.name}
-                                    </Text>
-                                  </View>
+                                  <ShowPlaceholder name={item.show?.name ?? ""} style={styles.playbillImg} />
                                 )}
                                 {labelMeta ? (
                                   <View style={[styles.myLabelBadge, { backgroundColor: labelMeta.color + "EE", borderColor: surfaceColor }]}>
@@ -386,8 +378,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 2,
   },
-  playbillFb: { alignItems: "center", justifyContent: "center", padding: 8 },
-  playbillFbText: { fontSize: 11, fontWeight: "600", textAlign: "center", lineHeight: 14 },
   closingBadgeBelow: {
     width: "100%",
     paddingVertical: 4,

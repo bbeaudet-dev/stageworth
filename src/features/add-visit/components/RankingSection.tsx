@@ -1,5 +1,6 @@
 import { ActivityIndicator, Image, Pressable, Text, useWindowDimensions, View } from "react-native";
 
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { RANKED_TIER_COLORS } from "@/constants/tierColors";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -163,11 +164,7 @@ export function RankingSection({
                       resizeMode="contain"
                     />
                   ) : (
-                    <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
-                      <Text style={[styles.playbillFallbackText, { color: c.mutedText }]}>
-                        {showNameForHeader}
-                      </Text>
-                    </View>
+                    <ShowPlaceholder name={showNameForHeader} />
                   )}
                   <Text style={[styles.playbillName, { color: c.text }]} numberOfLines={2}>
                     {showNameForHeader}
@@ -192,9 +189,7 @@ export function RankingSection({
                       resizeMode="contain"
                     />
                   ) : (
-                    <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
-                      <Text style={[styles.playbillFallbackText, { color: c.mutedText }]}>{comparisonTarget.name}</Text>
-                    </View>
+                    <ShowPlaceholder name={comparisonTarget.name} />
                   )}
                   <Text style={[styles.playbillName, { color: c.text }]} numberOfLines={2}>
                     {comparisonTarget.name}
