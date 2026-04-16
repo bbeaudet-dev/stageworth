@@ -22,7 +22,6 @@ export function useShowDetail(showId: Id<"shows"> | "") {
 
   const addShowToList = useMutation(api.lists.addShowToList);
   const addShowToTrip = useMutation(api.trips.trips.addShowToTrip);
-  const submitCatalogFeedback = useMutation(api.admin.catalogUserFeedback.submit);
   const enrichShowScore = useAction(api.admin.showScore.enrichShowWithShowScore);
   const getRecommendation = useAction(api.recommendations.getShowRecommendation);
 
@@ -63,7 +62,6 @@ export function useShowDetail(showId: Id<"shows"> | "") {
     broadwayShowtimes,
     addShowToList,
     addShowToTrip,
-    submitCatalogFeedback,
     getRecommendation,
   };
 }
