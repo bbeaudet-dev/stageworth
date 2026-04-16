@@ -257,7 +257,7 @@ export default function ShowDetailScreen() {
           <View style={[styles.sheetHandle, { backgroundColor: c.border }]} />
           <Text style={[styles.sheetTitle, { color: c.text }]}>Suggest a correction</Text>
           <Text style={[styles.feedbackHint, { color: c.mutedText }]}>
-            Tell us what's wrong with this listing. A moderator will review it.
+            Tell us what is wrong with this listing. A moderator will review it.
           </Text>
           <Text style={[styles.feedbackFieldLabel, { color: c.mutedText }]}>Your note</Text>
           <TextInput

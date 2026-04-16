@@ -2,7 +2,7 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import { STATUS_LABELS } from "./AdminStatCards";
-import { ALL_FOCUS_GROUPS, PRODUCTION_FOCUS_GROUPS, SHOW_FOCUS_GROUPS, type FocusEditState, type StatusFilter } from "./useAdminDashboard";
+import { PRODUCTION_FOCUS_GROUPS, SHOW_FOCUS_GROUPS, type FocusEditState, type StatusFilter } from "./useAdminDashboard";
 
 interface AdminFiltersProps {
   statusFilter: StatusFilter;

@@ -110,7 +110,7 @@ export function ShowPickerSection({
             <View style={[styles.resultsCard, { borderColor: c.border }]}>
               {!hasExactMatch && query.trim().length > 0 && (
                 <Pressable style={[styles.customShowRow, { backgroundColor: c.surface }]} onPress={selectCustomShow}>
-                  <Text style={[styles.customShowText, { color: c.accent }]}>Add a visit for"{query.trim()}"</Text>
+                  <Text style={[styles.customShowText, { color: c.accent }]}>Add a visit for “{query.trim()}”</Text>
                 </Pressable>
               )}
               {searchResults.length === 0 && query.trim().length > 0 && hasExactMatch && (

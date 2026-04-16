@@ -24,7 +24,6 @@ export function AdminShowTable({
   totalFiltered,
   truncated,
   hasMore,
-  visibleCount,
   setVisibleCount,
   adminPathWithoutSearch,
 }: AdminShowTableProps) {

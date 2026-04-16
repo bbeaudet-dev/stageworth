@@ -13,7 +13,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { BRAND_BLUE, BRAND_PURPLE, Colors } from "@/constants/theme";
-import type { Id } from "@/convex/_generated/dataModel";
 import { LeaderboardFilters } from "@/features/community/components/LeaderboardFilters";
 import { VisitsModeHeader, type SelectedShow } from "@/features/community/components/VisitsModeHeader";
 import {
