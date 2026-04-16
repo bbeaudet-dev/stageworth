@@ -4,13 +4,14 @@
  * Usage:
  *   npx tsx scripts/seedUserShows.ts --userId <convex_user_id> --dataset ben
  *   npx tsx scripts/seedUserShows.ts --userId <convex_user_id> --dataset sophia
+ *   npx tsx scripts/seedUserShows.ts --userId <convex_user_id> --dataset eric
  *
  * Options:
  *   --userId <id>           Required. The Convex user ID (e.g. "jx7abc123...")
- *   --dataset ben|sophia    Required. Which dataset to seed.
- *   --loved-through <n>     Last rank that counts as "loved"  (default: 21 for ben, 13 for sophia)
- *   --liked-through <n>     Last rank that counts as "liked"  (default: 46 for ben, 30 for sophia)
- *   --okay-through <n>      Last rank that counts as "okay"   (default: 65 for ben, 45 for sophia)
+ *   --dataset ben|sophia|eric  Required. Which dataset to seed.
+ *   --loved-through <n>     Last rank that counts as "loved"  (default: 21 for ben, 13 for sophia, 32 for eric)
+ *   --liked-through <n>     Last rank that counts as "liked"  (default: 46 for ben, 30 for sophia, 52 for eric)
+ *   --okay-through <n>      Last rank that counts as "okay"   (default: 65 for ben, 45 for sophia, 66 for eric)
  *                           Ranks beyond okayThrough are "disliked".
  *   --skip-if-exists        Skip seeding if the user already has ranked shows (default: true)
  *   --no-skip-if-exists     Force-overwrite even if ranked shows already exist
@@ -62,6 +63,10 @@ const theatreShowList = loadDatasetExport<TheatreShow[]>(
 const theatreShowListSophia = loadDatasetExport<TheatreShow[]>(
   "../data/shows-sophia",
   "theatreShowListSophia"
+);
+const theatreShowListEric = loadDatasetExport<TheatreShow[]>(
+  "../data/shows-eric",
+  "theatreShowListEric"
 );
 
 // ─── District mapping ────────────────────────────────────────────────────────
@@ -140,7 +145,7 @@ function transformShows(list: TheatreShow[]): SeedShow[] {
 
 function parseArgs(argv: string[]): {
   userId: string;
-  dataset: "ben" | "sophia";
+  dataset: "ben" | "sophia" | "eric";
   lovedThrough: number;
   likedThrough: number;
   okayThrough: number;
@@ -163,18 +168,20 @@ function parseArgs(argv: string[]): {
     process.exit(1);
   }
 
-  if (datasetRaw !== "ben" && datasetRaw !== "sophia") {
-    console.error('Error: --dataset must be "ben" or "sophia".');
+  if (datasetRaw !== "ben" && datasetRaw !== "sophia" && datasetRaw !== "eric") {
+    console.error('Error: --dataset must be "ben", "sophia", or "eric".');
     process.exit(1);
   }
 
-  const dataset = datasetRaw as "ben" | "sophia";
+  const dataset = datasetRaw as "ben" | "sophia" | "eric";
 
-  // Defaults differ slightly between ben (79 shows) and sophia (53 shows).
-  const defaultBreakpoints =
-    dataset === "ben"
-      ? { lovedThrough: 21, likedThrough: 46, okayThrough: 65 }
-      : { lovedThrough: 13, likedThrough: 30, okayThrough: 45 };
+  // Defaults differ by list shape:
+  // ben: 79 shows, sophia: 53 shows, eric: 85 shows.
+  const defaultBreakpoints = (() => {
+    if (dataset === "ben") return { lovedThrough: 21, likedThrough: 46, okayThrough: 65 };
+    if (dataset === "sophia") return { lovedThrough: 13, likedThrough: 30, okayThrough: 45 };
+    return { lovedThrough: 32, likedThrough: 52, okayThrough: 66 };
+  })();
 
   const lovedThrough = parseInt(get("--loved-through") ?? String(defaultBreakpoints.lovedThrough), 10);
   const likedThrough = parseInt(get("--liked-through") ?? String(defaultBreakpoints.likedThrough), 10);
@@ -206,7 +213,12 @@ async function main() {
   const { userId, dataset, lovedThrough, likedThrough, okayThrough, skipIfExists, dryRun, prod } =
     parseArgs(process.argv);
 
-  const list = dataset === "ben" ? theatreShowList : theatreShowListSophia;
+  const list =
+    dataset === "ben"
+      ? theatreShowList
+      : dataset === "sophia"
+        ? theatreShowListSophia
+        : theatreShowListEric;
   const shows = transformShows(list);
 
   const tierBreakpoints = { lovedThrough, likedThrough, okayThrough };
@@ -214,7 +226,7 @@ async function main() {
   const showCount = shows.length;
   const visitCount = shows.reduce((sum, s) => sum + s.visits.length, 0);
 
-  console.log(`\nTheatre Diary — User Seed`);
+  console.log(`\nStageworth — User Seed`);
   console.log(`${"─".repeat(40)}`);
   console.log(`  Dataset  : ${dataset} (${showCount} shows, ${visitCount} visits)`);
   console.log(`  User ID  : ${userId}`);

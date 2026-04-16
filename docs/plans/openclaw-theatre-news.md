@@ -1,10 +1,10 @@
-# OpenClaw integration: Theatre Diary bot activity (morning summary)
+# OpenClaw integration: Stageworth bot activity (morning summary)
 
 This document is for whoever maintains the Mac Mini / OpenClaw `daily-report.js` (or similar). It describes the Convex HTTP API that exposes **recent news-bot ingestion activity** so you can append a theatre section to Ben’s morning opener.
 
 ## What it is
 
-- The Theatre Diary app receives parsed Broadway/off-Broadway articles from a **news bot** via `POST /bot/ingest` (same deployment, same secret).
+- The Stageworth app receives parsed Broadway/off-Broadway articles from a **news bot** via `POST /bot/ingest` (same deployment, same secret).
 - Each successful parse is recorded in Convex as a **`botActivity`** row (audit log).
 - A **read-only** endpoint returns recent rows as JSON for your script to consume.
 

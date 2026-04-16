@@ -113,7 +113,7 @@ export function SplashScreen() {
         className="rounded-full shadow-2xl shadow-black/25"
       />
       <p className="mt-6 text-sm font-semibold tracking-[0.18em] text-white/95 uppercase">
-        Theatre Diary
+        Stageworth
       </p>
     </div>
   );

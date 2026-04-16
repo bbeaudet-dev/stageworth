@@ -18,7 +18,7 @@ async function fetchShowScorePage(
 ): Promise<{ rating: number; count: string } | null> {
   const url = `https://www.show-score.com/broadway-shows/${slug}`;
   const res = await fetch(url, {
-    headers: { "User-Agent": "TheatreDiary/1.0 (score-enrichment)" },
+    headers: { "User-Agent": "Stageworth/1.0 (score-enrichment)" },
   });
   if (!res.ok) return null;
 

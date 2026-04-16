@@ -33,7 +33,7 @@ export function SiteHeader() {
             backgroundClip: "text",
           }}
         >
-          Theatre Diary
+          Stageworth
         </Link>
 
         {showAdminNav && (

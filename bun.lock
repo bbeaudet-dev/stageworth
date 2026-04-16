@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "theatre-diary-temp",
+      "name": "stageworth-temp",
       "dependencies": {
         "@better-auth/expo": "1.4.9",
         "@convex-dev/better-auth": "0.10.9",

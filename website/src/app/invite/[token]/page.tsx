@@ -17,7 +17,7 @@ export default function InvitePage() {
     if (!token) return;
     if (timerRef.current) clearTimeout(timerRef.current);
 
-    const deepLink = `theatrediary://invite/${token}`;
+    const deepLink = `stageworth://invite/${token}`;
     window.location.href = deepLink;
 
     timerRef.current = setTimeout(() => {
@@ -41,7 +41,7 @@ export default function InvitePage() {
         <div className="flex justify-center mb-6">
           <Image
             src="/icons/icon-192.png"
-            alt="Theatre Diary"
+            alt="Stageworth"
             width={72}
             height={72}
             className="rounded-2xl shadow-lg shadow-black/30 ring-2 ring-white/30"
@@ -49,10 +49,10 @@ export default function InvitePage() {
         </div>
 
         <h1 className="text-3xl font-bold tracking-tight mb-2">
-          Theatre Diary
+          Stageworth
         </h1>
         <p className="text-white/80 text-base mb-8">
-          You&apos;ve been invited to join Theatre Diary — the app for tracking
+          You&apos;ve been invited to join Stageworth — the app for tracking
           every show you see, ranking your favourites, and sharing with friends.
         </p>
 
@@ -82,7 +82,7 @@ export default function InvitePage() {
               className="inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold shadow-md hover:bg-white/90 transition-colors disabled:opacity-70"
               style={{ color: BRAND_BLUE }}
             >
-              {status === "opening" ? "Opening app…" : "Open Theatre Diary"}
+              {status === "opening" ? "Opening app…" : "Open Stageworth"}
             </button>
             <p className="text-xs text-white/60">
               Don&apos;t have the app?{" "}

@@ -29,12 +29,13 @@ if (process.env.EAS_BUILD === "true" || process.env.EAS_BUILD_PROFILE) {
 
 /** @type {import('expo/config').ExpoConfig} */
 module.exports = {
-  name: "Theatre Diary",
+  name: "Stageworth",
+  // Must match the slug of the EAS project linked via extra.eas.projectId (expo.dev/.../theatre-diary).
   slug: "theatre-diary",
   version: "1.2.0",
   orientation: "portrait",
   icon: "./assets/icon-kitchen-v1/ios/AppIcon~ios-marketing.png",
-  scheme: "theatrediary",
+  scheme: "stageworth",
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
   ios: {
@@ -49,7 +50,7 @@ module.exports = {
     },
     infoPlist: {
       NSLocationWhenInUseUsageDescription:
-        "Theatre Diary uses your location to show nearby theatres and venues on the map.",
+        "Stageworth uses your location to show nearby theatres and venues on the map.",
       ITSAppUsesNonExemptEncryption: false,
     },
   },

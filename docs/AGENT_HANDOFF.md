@@ -1,4 +1,4 @@
-# Theatre Diary — context for agents (no codebase access)
+# Stageworth — context for agents (no codebase access)
 
 Single document: data model, product surfaces, stack, bots/crons. Copy the whole file or sections as needed.
 

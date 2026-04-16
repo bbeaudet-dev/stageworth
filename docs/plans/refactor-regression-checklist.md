@@ -1,4 +1,4 @@
-# Theatre Diary Refactor Regression Checklist
+# Stageworth Refactor Regression Checklist
 
 Use this list after each refactor phase to confirm no behavior changes.
 

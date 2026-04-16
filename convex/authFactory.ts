@@ -103,7 +103,7 @@ const getSiteUrl = () => {
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
   const siteUrl = getSiteUrl();
-  const nativeAppUrl = process.env.NATIVE_APP_URL || "theatrediary://";
+  const nativeAppUrl = process.env.NATIVE_APP_URL || "stageworth://";
 
   return betterAuth({
     baseURL: siteUrl,

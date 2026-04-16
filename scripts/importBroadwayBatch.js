@@ -12,7 +12,7 @@ function getJson(url) {
   for (let attempt = 1; attempt <= 5; attempt += 1) {
     try {
       const raw = execSync(
-        `curl -sS --connect-timeout 8 --max-time 20 -H 'User-Agent: theatre-diary-import/1.0 (benbeau dev tooling)' "${full}"`,
+        `curl -sS --connect-timeout 8 --max-time 20 -H 'User-Agent: stageworth-import/1.0 (benbeau dev tooling)' "${full}"`,
         {
           encoding: "utf8",
           maxBuffer: 30 * 1024 * 1024,
