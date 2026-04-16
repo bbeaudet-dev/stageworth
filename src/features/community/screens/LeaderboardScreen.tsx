@@ -1,51 +1,32 @@
 import { Canvas, LinearGradient, RoundedRect, vec } from "@shopify/react-native-skia";
-import { useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { SegmentedControl } from "@/components/SegmentedControl";
 import { BRAND_BLUE, BRAND_PURPLE, Colors } from "@/constants/theme";
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
+import { LeaderboardFilters } from "@/features/community/components/LeaderboardFilters";
+import { VisitsModeHeader, type SelectedShow } from "@/features/community/components/VisitsModeHeader";
+import {
+  useLeaderboardData,
+  type Category,
+  type Scope,
+  type VisitsMode,
+} from "@/features/community/hooks/useLeaderboardData";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getInitials } from "@/utils/user";
 
-// ─── types ────────────────────────────────────────────────────────────────────
-
-type Category = "shows" | "visits" | "theatres" | "signups" | "streak" | "score";
-type Scope = "all" | "friends";
-type VisitsMode = "total" | "single_show" | "select_show";
-
-const CATEGORIES: { key: Category; label: string }[] = [
-  { key: "shows", label: "Shows" },
-  { key: "visits", label: "Visits" },
-  { key: "theatres", label: "Theatres" },
-  { key: "signups", label: "Signups" },
-  { key: "streak", label: "Streak" },
-  { key: "score", label: "Score" },
-];
-
-const VISITS_MODES: { key: VisitsMode; label: string }[] = [
-  { key: "total", label: "Total" },
-  { key: "single_show", label: "Single Show" },
-  { key: "select_show", label: "Select Show" },
-];
+// ─── gradient row background ─────────────────────────────────────────────────
 
 const ROW_RADIUS = 12;
-
-// ─── gradient row background ─────────────────────────────────────────────────
 
 type RowSize = { width: number; height: number };
 
@@ -65,7 +46,23 @@ function GradientRowBg({ rank, size }: { rank: number; size: RowSize }) {
   );
 }
 
-// ─── component ────────────────────────────────────────────────────────────────
+function RowWithGradient({ rank, children }: { rank: number; children: React.ReactNode }) {
+  const [size, setSize] = useState<RowSize>({ width: 0, height: 0 });
+  return (
+    <View
+      style={styles.rowInner}
+      onLayout={(e) => {
+        const { width, height } = e.nativeEvent.layout;
+        if (width > 0 && height > 0) setSize({ width, height });
+      }}
+    >
+      <GradientRowBg rank={rank} size={size} />
+      {children}
+    </View>
+  );
+}
+
+// ─── screen ───────────────────────────────────────────────────────────────────
 
 export default function LeaderboardScreen() {
   const router = useRouter();
@@ -76,11 +73,7 @@ export default function LeaderboardScreen() {
   const [scope, setScope] = useState<Scope>("all");
   const [visitsMode, setVisitsMode] = useState<VisitsMode>("total");
   const [showSearchQuery, setShowSearchQuery] = useState("");
-  const [selectedShow, setSelectedShow] = useState<{
-    _id: Id<"shows">;
-    name: string;
-    images?: string[] | null;
-  } | null>(null);
+  const [selectedShow, setSelectedShow] = useState<SelectedShow | null>(null);
 
   const backgroundColor = Colors[theme].background;
   const primaryTextColor = Colors[theme].text;
@@ -89,93 +82,30 @@ export default function LeaderboardScreen() {
   const borderColor = Colors[theme].border;
   const accentColor = Colors[theme].accent;
 
-  const chipBg = theme === "dark" ? "#111115" : "#fff";
-  const chipBgActive = accentColor + "1f";
-  const chipText = theme === "dark" ? "#b0b4bc" : "#666";
-  const chipTextActive = accentColor;
-  const chipBorderActive = accentColor + "66";
+  const { data, countLabel, showSearchResults } = useLeaderboardData({
+    category,
+    scope,
+    visitsMode,
+    selectedShowId: selectedShow?._id,
+    showSearchQuery,
+  });
 
-  // ── queries ──────────────────────────────────────────────────────────────────
+  const handleCategoryChange = (cat: Category) => {
+    setCategory(cat);
+    if (cat !== "visits") {
+      setVisitsMode("total");
+      setSelectedShow(null);
+      setShowSearchQuery("");
+    }
+  };
 
-  const showsData = useQuery(
-    api.leaderboard.getByShows,
-    category === "shows" ? { scope } : "skip",
-  );
-  const visitsData = useQuery(
-    api.leaderboard.getByVisits,
-    category === "visits" && visitsMode === "total" ? { scope, mode: "total" } : "skip",
-  );
-  const visitsSingleShowData = useQuery(
-    api.leaderboard.getByVisits,
-    category === "visits" && visitsMode === "single_show" ? { scope, mode: "single_show" } : "skip",
-  );
-  const visitsSelectShowData = useQuery(
-    api.leaderboard.getByVisits,
-    category === "visits" && visitsMode === "select_show" && selectedShow
-      ? { scope, mode: "per_show", showId: selectedShow._id }
-      : "skip",
-  );
-  const theatresData = useQuery(
-    api.leaderboard.getByTheatres,
-    category === "theatres" ? { scope } : "skip",
-  );
-  const signupsData = useQuery(
-    api.leaderboard.getBySignups,
-    category === "signups" ? { scope } : "skip",
-  );
-  const streakData = useQuery(
-    api.leaderboard.getByStreak,
-    category === "streak" ? { scope } : "skip",
-  );
-  const scoreData = useQuery(
-    api.leaderboard.getByScore,
-    category === "score" ? { scope } : "skip",
-  );
-  const showSearchResults = useQuery(
-    api.shows.search,
-    visitsMode === "select_show" && showSearchQuery.length >= 1
-      ? { q: showSearchQuery, limit: 8 }
-      : "skip",
-  );
-
-  // ── data resolution ──────────────────────────────────────────────────────────
-
-  const activeVisitsData =
-    visitsMode === "total"
-      ? visitsData
-      : visitsMode === "single_show"
-        ? visitsSingleShowData
-        : visitsSelectShowData;
-
-  const data =
-    category === "shows"
-      ? showsData
-      : category === "visits"
-        ? activeVisitsData
-        : category === "theatres"
-          ? theatresData
-          : category === "signups"
-            ? signupsData
-            : category === "streak"
-              ? streakData
-              : scoreData;
-
-  const countLabel =
-    category === "shows"
-      ? "shows"
-      : category === "visits"
-        ? visitsMode === "single_show"
-          ? "best"
-          : "visits"
-        : category === "theatres"
-          ? "theatres"
-          : category === "signups"
-            ? "signups"
-            : category === "streak"
-              ? "wk streak"
-              : "pts";
-
-  // ── row renderer ─────────────────────────────────────────────────────────────
+  const handleVisitsModeChange = (mode: VisitsMode) => {
+    setVisitsMode(mode);
+    if (mode !== "select_show") {
+      setSelectedShow(null);
+      setShowSearchQuery("");
+    }
+  };
 
   const renderRow = ({ item }: { item: any }) => {
     const rank: number = item.rank;
@@ -191,15 +121,7 @@ export default function LeaderboardScreen() {
     return (
       <Pressable
         style={[styles.row, { backgroundColor: rowBg, borderColor: rowBorderColor, overflow: "hidden" }]}
-        onLayout={(e) => {
-          // size is read inline via onLayout callback in GradientRowBg wrapper below
-        }}
-        onPress={() =>
-          router.push({
-            pathname: "/(tabs)/community/user/[username]",
-            params: { username: item.user.username },
-          })
-        }
+        onPress={() => router.push({ pathname: "/user/[username]", params: { username: item.user.username } })}
       >
         <RowWithGradient rank={rank}>
           <Text style={[styles.rankNum, { color: isTop1 ? "#ffffff" : rank <= 3 ? accentColor : mutedTextColor }]}>
@@ -207,11 +129,7 @@ export default function LeaderboardScreen() {
           </Text>
           <View style={[styles.avatar, { backgroundColor: isTop1 ? "rgba(255,255,255,0.22)" : accentColor + "22" }]}>
             {item.user.avatarUrl ? (
-              <Image
-                source={{ uri: item.user.avatarUrl }}
-                style={StyleSheet.absoluteFillObject}
-                contentFit="cover"
-              />
+              <Image source={{ uri: item.user.avatarUrl }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
             ) : (
               <Text style={[styles.avatarInitials, { color: isTop1 ? "#ffffff" : accentColor }]}>
                 {getInitials(item.user.name, item.user.username)}
@@ -222,11 +140,8 @@ export default function LeaderboardScreen() {
             <Text style={[styles.rowName, { color: rowTextColor }]} numberOfLines={1}>
               {item.user.name?.trim() || item.user.username}
             </Text>
-            <Text style={[styles.rowHandle, { color: rowMutedColor }]}>
-              @{item.user.username}
-            </Text>
+            <Text style={[styles.rowHandle, { color: rowMutedColor }]}>@{item.user.username}</Text>
           </View>
-          {/* Single-show playbill thumbnail */}
           {visitsMode === "single_show" && item.showImages?.[0] ? (
             <Pressable
               onPress={(e) => {
@@ -247,93 +162,18 @@ export default function LeaderboardScreen() {
     );
   };
 
-  // ── list header: visits sub-filter + show search ──────────────────────────────
-
   const visitsHeader =
     category === "visits" ? (
-      <View style={styles.visitsSubFilter}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.visitsModeRow}>
-          {VISITS_MODES.map((mode) => (
-            <Pressable
-              key={mode.key}
-              style={[
-                styles.chip,
-                { backgroundColor: chipBg, borderColor },
-                visitsMode === mode.key && { backgroundColor: chipBgActive, borderColor: chipBorderActive },
-              ]}
-              onPress={() => {
-                setVisitsMode(mode.key);
-                if (mode.key !== "select_show") {
-                  setSelectedShow(null);
-                  setShowSearchQuery("");
-                }
-              }}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  { color: chipText },
-                  visitsMode === mode.key && { color: chipTextActive },
-                ]}
-              >
-                {mode.label}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {visitsMode === "select_show" && (
-          <View style={styles.showSearchContainer}>
-              {selectedShow ? (
-              <View style={[styles.selectedShowRow, { backgroundColor: chipBgActive, borderColor: chipBorderActive }]}>
-                {selectedShow.images?.[0] ? (
-                  <Image source={{ uri: selectedShow.images[0] }} style={styles.selectedShowThumb} contentFit="cover" />
-                ) : null}
-                <Text style={[styles.selectedShowName, { color: accentColor }]} numberOfLines={1}>
-                  {selectedShow.name}
-                </Text>
-                <Pressable onPress={() => { setSelectedShow(null); setShowSearchQuery(""); }} hitSlop={8}>
-                  <IconSymbol name="xmark.circle.fill" size={16} color={accentColor} />
-                </Pressable>
-              </View>
-            ) : (
-              <>
-                <TextInput
-                  style={[styles.showSearchInput, { backgroundColor: surfaceColor, borderColor, color: primaryTextColor }]}
-                  placeholder="Search for a show..."
-                  placeholderTextColor={mutedTextColor}
-                  value={showSearchQuery}
-                  onChangeText={setShowSearchQuery}
-                  autoCorrect={false}
-                />
-                {showSearchResults && showSearchResults.length > 0 && (
-                  <View style={[styles.showSearchResults, { backgroundColor: surfaceColor, borderColor }]}>
-                    {showSearchResults.map((show: any) => (
-                      <Pressable
-                        key={String(show._id)}
-                        style={[styles.showSearchRow, { borderBottomColor: borderColor }]}
-                        onPress={() => {
-                          setSelectedShow({ _id: show._id, name: show.name, images: show.images as string[] });
-                          setShowSearchQuery("");
-                        }}
-                      >
-                        {(show.images as string[])?.[0] ? (
-                          <Image source={{ uri: (show.images as string[])[0] }} style={styles.showSearchThumb} contentFit="cover" />
-                        ) : (
-                          <View style={[styles.showSearchThumb, { backgroundColor: accentColor + "22" }]} />
-                        )}
-                        <Text style={[styles.showSearchName, { color: primaryTextColor }]} numberOfLines={1}>
-                          {show.name}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-              </>
-            )}
-          </View>
-        )}
-      </View>
+      <VisitsModeHeader
+        visitsMode={visitsMode}
+        selectedShow={selectedShow}
+        showSearchQuery={showSearchQuery}
+        showSearchResults={showSearchResults as SelectedShow[] | undefined}
+        onVisitsModeChange={handleVisitsModeChange}
+        onShowSelect={(show) => { setSelectedShow(show); setShowSearchQuery(""); }}
+        onShowQueryChange={setShowSearchQuery}
+        onClearShow={() => { setSelectedShow(null); setShowSearchQuery(""); }}
+      />
     ) : null;
 
   return (
@@ -346,50 +186,12 @@ export default function LeaderboardScreen() {
         <View style={{ width: 20 }} />
       </View>
 
-      {/* Category chips — scrollable */}
-      <View style={styles.filtersRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
-          {CATEGORIES.map((cat) => (
-            <Pressable
-              key={cat.key}
-              style={[
-                styles.chip,
-                { backgroundColor: chipBg, borderColor },
-                category === cat.key && { backgroundColor: chipBgActive, borderColor: chipBorderActive },
-              ]}
-              onPress={() => {
-                setCategory(cat.key);
-                if (cat.key !== "visits") {
-                  setVisitsMode("total");
-                  setSelectedShow(null);
-                  setShowSearchQuery("");
-                }
-              }}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  { color: chipText },
-                  category === cat.key && { color: chipTextActive },
-                ]}
-              >
-                {cat.label}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-      <View style={styles.scopeRow}>
-        <SegmentedControl
-          options={[
-            { value: "all", label: "All Users" },
-            { value: "friends", label: "Friends" },
-          ]}
-          value={scope}
-          onChange={(v) => setScope(v as "all" | "friends")}
-          accentColor={accentColor}
-        />
-      </View>
+      <LeaderboardFilters
+        category={category}
+        scope={scope}
+        onCategoryChange={handleCategoryChange}
+        onScopeChange={setScope}
+      />
 
       <FlatList
         data={data ?? []}
@@ -425,24 +227,6 @@ export default function LeaderboardScreen() {
   );
 }
 
-// ─── gradient row wrapper ─────────────────────────────────────────────────────
-
-function RowWithGradient({ rank, children }: { rank: number; children: React.ReactNode }) {
-  const [size, setSize] = useState<RowSize>({ width: 0, height: 0 });
-  return (
-    <View
-      style={styles.rowInner}
-      onLayout={(e) => {
-        const { width, height } = e.nativeEvent.layout;
-        if (width > 0 && height > 0) setSize({ width, height });
-      }}
-    >
-      <GradientRowBg rank={rank} size={size} />
-      {children}
-    </View>
-  );
-}
-
 // ─── styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -455,145 +239,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   title: { fontSize: 20, fontWeight: "700" },
-  filtersRow: {
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-  },
-  categoryRow: {
-    gap: 8,
-    flexDirection: "row",
-  },
-  chip: {
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  chipText: { fontSize: 13, fontWeight: "700" },
-  scopeRow: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
-    flexGrow: 1,
-  },
-  // visits sub-filter
-  visitsSubFilter: {
-    marginBottom: 12,
-    gap: 10,
-  },
-  visitsModeRow: {
-    gap: 8,
-    flexDirection: "row",
-  },
-  showSearchContainer: {
-    gap: 6,
-  },
-  selectedShowRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  selectedShowThumb: {
-    width: 30,
-    height: 40,
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  selectedShowName: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  showSearchInput: {
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-  },
-  showSearchResults: {
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: "hidden",
-  },
-  showSearchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  showSearchThumb: {
-    width: 28,
-    height: 38,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  showSearchName: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  // row
-  row: {
-    borderRadius: ROW_RADIUS,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: "hidden",
-  },
-  rowInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    gap: 10,
-  },
-  rankNum: {
-    fontSize: 15,
-    fontWeight: "700",
-    width: 28,
-    textAlign: "center",
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  listContent: { paddingHorizontal: 16, paddingBottom: 32, flexGrow: 1 },
+  row: { borderRadius: ROW_RADIUS, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  rowInner: { flexDirection: "row", alignItems: "center", paddingVertical: 10, paddingHorizontal: 12, gap: 10 },
+  rankNum: { fontSize: 15, fontWeight: "700", width: 28, textAlign: "center" },
+  avatar: { width: 40, height: 40, borderRadius: 20, overflow: "hidden", alignItems: "center", justifyContent: "center" },
   avatarInitials: { fontSize: 14, fontWeight: "700" },
   rowText: { flex: 1, minWidth: 0 },
   rowName: { fontSize: 15, fontWeight: "600" },
   rowHandle: { fontSize: 12, marginTop: 1 },
-  playbillThumb: {
-    width: 30,
-    height: 40,
-    borderRadius: 4,
-    overflow: "hidden",
-  },
+  playbillThumb: { width: 30, height: 40, borderRadius: 4, overflow: "hidden" },
   countText: { fontSize: 18, fontWeight: "700" },
   countLabel: { fontSize: 11, fontWeight: "500", width: 50 },
   emptyState: { paddingHorizontal: 32, paddingTop: 40, alignItems: "center" },
   emptyText: { fontSize: 15, textAlign: "center", lineHeight: 22 },
   inviteFooterBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 20,
-    marginHorizontal: 16,
-    paddingVertical: 13,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, marginTop: 20, marginHorizontal: 16,
+    paddingVertical: 13, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth,
   },
   inviteFooterText: { fontSize: 15, fontWeight: "600" },
 });

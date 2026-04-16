@@ -93,7 +93,7 @@ export default function MyShowsScreen() {
             onDragEnd={(payload) => handleDragEnd({ ...payload, listItems })}
             onOpenShowDetails={(show) =>
               router.push({
-                pathname: "/(tabs)/my-shows/show/[showId]",
+                pathname: "/show/[showId]",
                 params: { showId: String(show._id), name: show.name },
               })
             }

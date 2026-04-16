@@ -83,13 +83,13 @@ export default function ProfileScreen() {
           } : null}
           onPressFollowers={() =>
             router.push({
-              pathname: "/(tabs)/profile/user/[username]/[kind]",
+              pathname: "/user/[username]/[kind]",
               params: { username: myProfile.username, kind: "followers" },
             })
           }
           onPressFollowing={() =>
             router.push({
-              pathname: "/(tabs)/profile/user/[username]/[kind]",
+              pathname: "/user/[username]/[kind]",
               params: { username: myProfile.username, kind: "following" },
             })
           }

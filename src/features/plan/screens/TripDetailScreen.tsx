@@ -398,7 +398,7 @@ export default function TripDetailScreen() {
             tripId={typedTripId}
             onViewUser={(username: string) =>
               router.push({
-                pathname: "/(tabs)/plan/user/[username]",
+                pathname: "/user/[username]",
                 params: { username },
               })
             }

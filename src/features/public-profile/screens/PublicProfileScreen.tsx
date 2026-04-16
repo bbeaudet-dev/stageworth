@@ -16,12 +16,9 @@ import { TasteProfile } from "@/features/profile/components/TasteProfile";
 import { TheatreChallenge } from "@/features/profile/components/TheatreChallenge";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useFollowToggle } from "@/hooks/use-follow-toggle";
-import { useTabNav } from "@/hooks/use-tab-nav";
-
 
 export default function PublicProfileScreen() {
   const router = useRouter();
-  const { pushFollowList } = useTabNav();
   const params = useLocalSearchParams<{ username?: string }>();
   const username = typeof params.username === "string" ? params.username : "";
 
@@ -91,8 +88,8 @@ export default function PublicProfileScreen() {
                 percentile: recentActivity.percentile,
                 seasonLabel: recentActivity.seasonLabel,
               } : null}
-              onPressFollowers={() => pushFollowList(profile.username, "followers")}
-              onPressFollowing={() => pushFollowList(profile.username, "following")}
+              onPressFollowers={() => router.push({ pathname: "/user/[username]/[kind]", params: { username: profile.username, kind: "followers" } })}
+              onPressFollowing={() => router.push({ pathname: "/user/[username]/[kind]", params: { username: profile.username, kind: "following" } })}
             />
 
             <TheatreChallenge
