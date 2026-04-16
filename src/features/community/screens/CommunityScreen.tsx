@@ -165,7 +165,7 @@ export default function CommunityScreen() {
           <BrandGradientTitle text="Community" fontSize={28} />
           <View style={styles.headerActions}>
             <Pressable
-              onPress={() => router.push("/(tabs)/community/leaderboard")}
+              onPress={() => router.push("/leaderboard")}
               style={styles.headerIconButton}
               hitSlop={10}
               accessibilityLabel="Leaderboard"
@@ -310,7 +310,7 @@ export default function CommunityScreen() {
                         <Pressable
                           onPress={() =>
                             router.push({
-                              pathname: "/(tabs)/community/user/[username]",
+                              pathname: "/user/[username]",
                               params: { username: post.actor.username },
                             })
                           }
@@ -332,7 +332,7 @@ export default function CommunityScreen() {
                           style={[styles.actorText, { color: actorLinkColor }]}
                           onPress={() =>
                             router.push({
-                              pathname: "/(tabs)/community/user/[username]",
+                              pathname: "/user/[username]",
                               params: { username: post.actor.username },
                             })
                           }
@@ -361,7 +361,7 @@ export default function CommunityScreen() {
                               ]}
                               onPress={() =>
                                 router.push({
-                                  pathname: "/(tabs)/community/user/[username]",
+                                  pathname: "/user/[username]",
                                   params: { username: tagged[0].username },
                                 })
                               }
@@ -449,7 +449,7 @@ export default function CommunityScreen() {
         taggedUsers={participantsModal?.taggedUsers ?? []}
         onNavigate={(username) =>
           router.push({
-            pathname: "/(tabs)/community/user/[username]",
+            pathname: "/user/[username]",
             params: { username },
           })
         }
