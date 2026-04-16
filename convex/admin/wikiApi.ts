@@ -8,7 +8,7 @@ export async function fetchJson(url: string): Promise<any> {
       const res = await fetch(full, {
         headers: {
           "User-Agent":
-            "theatre-diary/1.0 (show/production seeding via Convex; contact: benbeaudet.com)",
+            "stageworth/1.0 (show/production seeding via Convex; contact: benbeaudet.com)",
         },
       });
       const text = await res.text();

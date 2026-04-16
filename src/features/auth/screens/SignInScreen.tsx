@@ -24,15 +24,15 @@ const Header = memo(function Header({ subtitleColor }: { subtitleColor: string }
         source={require("../../../../assets/icon-kitchen-v1/web/icon-512.png")}
         style={styles.appIcon}
         contentFit="contain"
-        accessibilityLabel="Theatre Diary app icon"
+        accessibilityLabel="Stageworth app icon"
       />
       {/* Two-tone wordmark: blue + purple mirrors the website brand gradient */}
       <View style={styles.wordmark}>
-        <Text style={[styles.title, { color: BRAND_BLUE }]}>Center </Text>
-        <Text style={[styles.title, { color: BRAND_PURPLE }]}>Stage</Text>
+        <Text style={[styles.title, { color: BRAND_BLUE }]}>Stage</Text>
+        <Text style={[styles.title, { color: BRAND_PURPLE }]}>worth</Text>
       </View>
       <Text style={[styles.subtitle, { color: subtitleColor }]}>
-        Track shows. Plan trips. Discover theatre.
+        Discover your next show and log your history
       </Text>
     </View>
   );

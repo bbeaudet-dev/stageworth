@@ -41,7 +41,7 @@ const RATE_LIMIT_MS = 1500;
 const PLAYBILL_BASE = "https://playbill.com/production";
 
 const USER_AGENT =
-  "theatre-diary-enrichment-bot/1.0 (+https://github.com/benbeau/theatre-diary)";
+  "stageworth-enrichment-bot/1.0 (+https://github.com/benbeau/stageworth)";
 
 // ─── Logging ──────────────────────────────────────────────────────────────────
 

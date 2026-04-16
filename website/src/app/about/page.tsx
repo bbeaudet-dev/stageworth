@@ -1,24 +1,24 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "About — Theatre Diary",
+  title: "About — Stageworth",
 };
 
 export default function AboutPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
-      <h1 className="text-3xl font-bold mb-6">About Theatre Diary</h1>
+      <h1 className="text-3xl font-bold mb-6">About Stageworth</h1>
 
       <div className="space-y-6 text-gray-700 leading-relaxed">
         <p>
-          Theatre Diary is a mobile app for theatregoers who want to keep track
+          Stageworth is a mobile app for theatregoers who want to keep track
           of every show they see, rank their favorites, and plan upcoming
           theatre trips with friends.
         </p>
 
         <p>
           Whether you&apos;re a Broadway regular, a West End enthusiast, or
-          someone who catches regional and touring productions, Theatre Diary
+          someone who catches regional and touring productions, Stageworth
           gives you a single place to record your theatre life and discover
           what&apos;s playing.
         </p>
@@ -51,10 +51,10 @@ export default function AboutPage() {
         <p>
           Questions, feedback, or partnership inquiries? Reach out at{" "}
           <a
-            href="mailto:hello@theatrediary.app"
+            href="mailto:hello@stageworth.app"
             className="text-gray-900 underline"
           >
-            hello@theatrediary.app
+            hello@stageworth.app
           </a>
           .
         </p>

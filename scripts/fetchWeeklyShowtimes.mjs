@@ -43,7 +43,7 @@ async function fetchPage() {
   const res = await fetch(PLAYBILL_URL, {
     headers: {
       "User-Agent":
-        "theatre-diary-showtimes-bot/1.0 (+https://github.com/benbeau/theatre-diary)",
+        "stageworth-showtimes-bot/1.0 (+https://github.com/benbeau/stageworth)",
       Accept: "text/html",
     },
   });

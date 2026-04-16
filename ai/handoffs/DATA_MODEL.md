@@ -1,4 +1,4 @@
-# Theatre Diary — Data Model
+# Stageworth — Data Model
 
 > This document is the source of truth for schema decisions and how the three core entities (shows, productions, visits) relate to each other. Reference this when building any UI or backend logic that touches these tables.
 

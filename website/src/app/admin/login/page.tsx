@@ -9,7 +9,7 @@ export default function LoginPage() {
           Admin Access
         </h1>
         <p className="text-sm text-gray-500 text-center mb-8">
-          Theatre Diary Review Tool
+          Stageworth Review Tool
         </p>
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
           <Suspense>

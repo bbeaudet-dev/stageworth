@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Theatre Diary",
+  title: "Terms of Service — Stageworth",
 };
 
 export default function TermsPage() {
@@ -14,7 +14,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-lg font-semibold mt-8 mb-3">Agreement to Terms</h2>
           <p>
-            By accessing or using the Theatre Diary mobile application and
+            By accessing or using the Stageworth mobile application and
             related services (collectively, the &quot;Service&quot;), you agree to
             these Terms of Service (&quot;Terms&quot;). If you do not agree, do
             not use the Service.
@@ -24,7 +24,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-lg font-semibold mt-8 mb-3">Description of the Service</h2>
           <p>
-            Theatre Diary lets you browse shows, log and rank performances, use
+            Stageworth lets you browse shows, log and rank performances, use
             social features, plan trips, and receive notifications. We may
             change, suspend, or discontinue features with reasonable notice where
             practical.
@@ -84,7 +84,7 @@ export default function TermsPage() {
           </h2>
           <p>
             THE SERVICE IS PROVIDED &quot;AS IS&quot; WITHOUT WARRANTIES OF ANY
-            KIND. TO THE MAXIMUM EXTENT PERMITTED BY LAW, THEATRE DIARY AND ITS
+            KIND. TO THE MAXIMUM EXTENT PERMITTED BY LAW, STAGEWORTH AND ITS
             OPERATORS WILL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL,
             CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF DATA, PROFITS, OR
             GOODWILL. OUR TOTAL LIABILITY FOR CLAIMS ARISING FROM THE SERVICE
@@ -96,7 +96,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-lg font-semibold mt-8 mb-3">Indemnity</h2>
           <p>
-            You will defend and hold harmless Theatre Diary and its operators
+            You will defend and hold harmless Stageworth and its operators
             from claims arising out of your use of the Service, your content, or
             your violation of these Terms.
           </p>
@@ -136,10 +136,10 @@ export default function TermsPage() {
           <p>
             Questions about these Terms:{" "}
             <a
-              href="mailto:hello@theatrediary.app"
+              href="mailto:hello@stageworth.app"
               className="text-gray-900 underline"
             >
-              hello@theatrediary.app
+              hello@stageworth.app
             </a>
             . Our{" "}
             <a href="/privacy" className="text-gray-900 underline">

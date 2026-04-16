@@ -6,8 +6,8 @@ import {
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Theatre Diary",
-    short_name: "Theatre Diary",
+    name: "Stageworth",
+    short_name: "Stageworth",
     description:
       "Never miss a show, rank your favorites, and plan your next theatre trip.",
     start_url: "/",

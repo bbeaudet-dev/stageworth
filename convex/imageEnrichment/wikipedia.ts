@@ -8,7 +8,7 @@ import {
   isAcceptableMatch,
 } from "./nameMatch";
 
-const USER_AGENT = "TheatreDiaryApp/1.0 (https://github.com/theatre-diary)";
+const USER_AGENT = "StageworthApp/1.0 (https://github.com/stageworth)";
 const BATCH_SIZE = 100;
 const DELAY_MS = 150; // ~6–7 req/s, well within Wikipedia's 200 req/s guidance
 const MAX_RETRIES = 3;

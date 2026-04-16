@@ -18,10 +18,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Theatre Diary",
+  title: "Stageworth",
   description:
     "Never miss a show, rank your favorites, and plan your next theatre trip.",
-  applicationName: "Theatre Diary",
+  applicationName: "Stageworth",
   icons: {
     icon: [
       { url: "/favicon.ico", type: "image/x-icon" },
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "Theatre Diary",
+    title: "Stageworth",
     statusBarStyle: "default",
   },
 };

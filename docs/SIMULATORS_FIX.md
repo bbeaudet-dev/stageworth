@@ -6,12 +6,12 @@ Use this when iOS shows missing URL schemes, `invalid_audience`, or simulators/e
 
 - **`bun run dev:expo`** serves JS only. It does **not** update native config (URL schemes, OAuth wiring, `google-services.json`).
 - **`npx expo run:ios` / `npx expo run:android`** rebuild and **install** the native dev client on a specific device.
-- **iOS:** `GoogleSignin.configure({ iosClientId, webClientId })` must match **one Google Cloud project**. The **reversed** iOS URL scheme must match `iosClientId` and appear in native `Info.plist` (see `app.config.js` plugin + `ios/TheatreDiary/Info.plist` after prebuild).
+- **iOS:** `GoogleSignin.configure({ iosClientId, webClientId })` must match **one Google Cloud project**. The **reversed** iOS URL scheme must match `iosClientId` and appear in native `Info.plist` (see `app.config.js` plugin + `ios/Stageworth/Info.plist` after prebuild).
 - **Android:** same `webClientId` in JS; package `com.theatrediary.app` + **SHA-1** must match an Android OAuth client in Google Cloud.
 
 ## iOS simulator
 
-1. Uninstall **Theatre Diary** on the simulator (or wipe if needed).
+1. Uninstall **Stageworth** on the simulator (or wipe if needed).
 2. Boot **one** simulator if you want predictable installs.
 3. From repo root:
    ```bash
@@ -23,7 +23,7 @@ Use this when iOS shows missing URL schemes, `invalid_audience`, or simulators/e
    ```
 5. Open the app on the simulator; connect to your dev server. If the CLI errors on “open” but the app installed, launching manually is fine.
 
-**Drift:** If `app.config.js` has the right `iosUrlScheme` but sign-in still complains, check `ios/TheatreDiary/Info.plist` `CFBundleURLTypes` for `com.googleusercontent.apps....` and align with your current iOS client ID, then rebuild with step 3.
+**Drift:** If `app.config.js` has the right `iosUrlScheme` but sign-in still complains, check `ios/Stageworth/Info.plist` `CFBundleURLTypes` for `com.googleusercontent.apps....` and align with your current iOS client ID, then rebuild with step 3.
 
 ## Android emulator / device
 

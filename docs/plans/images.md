@@ -1,6 +1,6 @@
 # Show Images — Implementation Handoff
 
-This document covers the strategy and technical details for sourcing, storing, and displaying show/production images in the Theatre Diary app.
+This document covers the strategy and technical details for sourcing, storing, and displaying show/production images in the Stageworth app.
 
 ---
 
@@ -112,7 +112,7 @@ The implementing agent should store whichever URL the API returns, but **must no
 ### Rate Limits & Etiquette
 - No hard rate limit, but Wikipedia requests a maximum of **200 requests/second** and recommends a **User-Agent header** identifying your app:
   ```
-  User-Agent: TheatreDiaryApp/1.0 (contact@yourdomain.com)
+  User-Agent: StageworthApp/1.0 (contact@yourdomain.com)
   ```
 - For a backfill of 2,500 shows, run at ~5–10 requests/second with a small delay. The whole job should complete in well under 10 minutes.
 

@@ -9,23 +9,23 @@ const SHOT_HEIGHT = 714;
 const FEATURES = [
   {
     title: "Browse what’s on",
-    imageSrc: "/screenshots/theatrediary2.jpg",
-    imageAlt: "Show detail screen in Theatre Diary",
+    imageSrc: "/screenshots/stageworth2.jpg",
+    imageAlt: "Show detail screen in Stageworth",
   },
   {
     title: "Log & rank every show",
-    imageSrc: "/screenshots/theatrediary4.jpg",
-    imageAlt: "Logging and tracking shows you have seen in Theatre Diary",
+    imageSrc: "/screenshots/stageworth4.jpg",
+    imageAlt: "Logging and tracking shows you have seen in Stageworth",
   },
   {
     title: "Follow friends & share",
-    imageSrc: "/screenshots/theatrediary1.jpg",
-    imageAlt: "Theatre Diary community feed with posts from friends",
+    imageSrc: "/screenshots/stageworth1.jpg",
+    imageAlt: "Stageworth community feed with posts from friends",
   },
   {
     title: "Plan theatre trips",
-    imageSrc: "/screenshots/theatrediary5.jpg",
-    imageAlt: "Trip planning in Theatre Diary",
+    imageSrc: "/screenshots/stageworth5.jpg",
+    imageAlt: "Trip planning in Stageworth",
   },
 ] as const;
 
@@ -61,7 +61,7 @@ export default function HomePage() {
             <span className="text-white/90">all in one place.</span>
           </h1>
           <p className="text-lg sm:text-xl text-white/85 max-w-2xl mx-auto mb-10">
-            Theatre Diary helps you track every show you see, rank your
+            Stageworth helps you track every show you see, rank your
             favorites, plan trips with friends, and stay on top of what&apos;s
             playing.
           </p>
@@ -117,7 +117,7 @@ export default function HomePage() {
           <p className="text-gray-600 mb-2 max-w-xl mx-auto">
             Install Apple&apos;s{" "}
             <span className="font-medium text-gray-800">TestFlight</span> app,
-            then tap the button below to install Theatre Diary.
+            then tap the button below to install Stageworth.
           </p>
           <a
             href={TESTFLIGHT_PUBLIC_URL}

@@ -4,7 +4,7 @@ import { getConvexUserId, requireConvexUserId } from "./auth";
 
 const INVITE_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const WEBSITE_URL =
-  process.env.WEBSITE_URL || "https://theatre-diary.vercel.app";
+  process.env.WEBSITE_URL || "https://stageworth.vercel.app";
 
 export const createInviteLink = mutation({
   args: {},

@@ -1,4 +1,4 @@
-# Theatre Diary — Project Planning
+# Stageworth — Project Planning
 
 ## Vision & Tagline
 
