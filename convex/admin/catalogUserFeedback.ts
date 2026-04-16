@@ -6,12 +6,15 @@ const MAX_NOTE_LEN = 4000;
 
 /**
  * Logged-in users only. Stores a snapshot of show name and optional production label.
+ * showId is optional to support "missing show" reports from search / add-visit screens.
  */
 export const submit = mutation({
   args: {
-    showId: v.id("shows"),
+    showId: v.optional(v.id("shows")),
     productionId: v.optional(v.id("productions")),
     note: v.string(),
+    /** Where the report originated: "show_detail" | "search" | "add_visit" */
+    source: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
@@ -23,13 +26,20 @@ export const submit = mutation({
       throw new Error("Note is too long.");
     }
 
-    const show = await ctx.db.get(args.showId);
-    if (!show) {
-      throw new Error("Show not found.");
+    let showNameSnapshot: string | undefined;
+    if (args.showId) {
+      const show = await ctx.db.get(args.showId);
+      if (!show) {
+        throw new Error("Show not found.");
+      }
+      showNameSnapshot = show.name;
     }
 
     let productionLabelSnapshot: string | undefined;
     if (args.productionId) {
+      if (!args.showId) {
+        throw new Error("productionId requires showId.");
+      }
       const prod = await ctx.db.get(args.productionId);
       if (!prod || prod.showId !== args.showId) {
         throw new Error("Production does not belong to this show.");
@@ -41,10 +51,11 @@ export const submit = mutation({
     return await ctx.db.insert("catalogUserFeedback", {
       userId,
       showId: args.showId,
-      showNameSnapshot: show.name,
+      showNameSnapshot,
       productionId: args.productionId,
       productionLabelSnapshot,
       note,
+      source: args.source,
       createdAt: Date.now(),
     });
   },
@@ -73,6 +84,7 @@ export const listForAdmin = query({
           showNameSnapshot: r.showNameSnapshot,
           productionId: r.productionId,
           productionLabelSnapshot: r.productionLabelSnapshot,
+          source: r.source ?? null,
           userId: r.userId,
           userUsername: user?.username ?? null,
           userEmail: user?.email ?? null,
