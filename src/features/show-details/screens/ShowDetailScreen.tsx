@@ -1,8 +1,7 @@
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -29,7 +28,6 @@ import { ShowRecommendationBlock } from "@/features/show-details/components/Show
 const today = () => new Date().toISOString().split("T")[0];
 
 export default function ShowDetailScreen() {
-  const router = useRouter();
   const params = useLocalSearchParams<{ showId?: string; name?: string }>();
   const showId = (params.showId ?? "") as Id<"shows">;
 

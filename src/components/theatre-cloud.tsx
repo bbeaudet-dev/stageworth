@@ -279,7 +279,6 @@ export function TheatreCloud({
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
-  const isDark = theme === "dark";
   const backgroundColor = Colors[theme].background;
   const surfaceColor = Colors[theme].surface;
   const mutedTextColor = Colors[theme].mutedText;

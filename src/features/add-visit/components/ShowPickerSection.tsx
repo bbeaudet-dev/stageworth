@@ -172,7 +172,7 @@ export function ShowPickerSection({
                     onPress={selectCustomShow}
                   >
                     <Text style={[styles.customShowText, { color: c.accent }]}>
-                      Add a visit for "{query.trim()}"
+                      {`Add a visit for "${query.trim()}"`}
                     </Text>
                   </Pressable>
                 )}
