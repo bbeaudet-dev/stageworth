@@ -8,7 +8,8 @@ import type { VisitsMode } from "@/features/community/hooks/useLeaderboardData";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const VISITS_MODES: { key: VisitsMode; label: string }[] = [
-  { key: "total", label: "Total" },
+  { key: "shows", label: "Shows" },
+  { key: "visits", label: "Visits" },
   { key: "single_show", label: "Single Show" },
   { key: "select_show", label: "Select Show" },
 ];

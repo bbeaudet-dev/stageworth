@@ -7,8 +7,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const CATEGORIES: { key: Category; label: string }[] = [
   { key: "shows", label: "Shows" },
-  { key: "visits", label: "Visits" },
-  { key: "theatres", label: "Theatres" },
+  { key: "theatres", label: "Venues" },
   { key: "signups", label: "Signups" },
   { key: "streak", label: "Streak" },
   { key: "score", label: "Score" },

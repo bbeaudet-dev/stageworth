@@ -71,7 +71,7 @@ export default function LeaderboardScreen() {
 
   const [category, setCategory] = useState<Category>("shows");
   const [scope, setScope] = useState<Scope>("all");
-  const [visitsMode, setVisitsMode] = useState<VisitsMode>("total");
+  const [visitsMode, setVisitsMode] = useState<VisitsMode>("shows");
   const [showSearchQuery, setShowSearchQuery] = useState("");
   const [selectedShow, setSelectedShow] = useState<SelectedShow | null>(null);
 
@@ -92,8 +92,8 @@ export default function LeaderboardScreen() {
 
   const handleCategoryChange = (cat: Category) => {
     setCategory(cat);
-    if (cat !== "visits") {
-      setVisitsMode("total");
+    if (cat !== "shows") {
+      setVisitsMode("shows");
       setSelectedShow(null);
       setShowSearchQuery("");
     }
@@ -142,7 +142,7 @@ export default function LeaderboardScreen() {
             </Text>
             <Text style={[styles.rowHandle, { color: rowMutedColor }]}>@{item.user.username}</Text>
           </View>
-          {visitsMode === "single_show" && item.showImages?.[0] ? (
+          {category === "shows" && visitsMode === "single_show" && item.showImages?.[0] ? (
             <Pressable
               onPress={(e) => {
                 e.stopPropagation?.();
@@ -162,8 +162,8 @@ export default function LeaderboardScreen() {
     );
   };
 
-  const visitsHeader =
-    category === "visits" ? (
+  const showsHeader =
+    category === "shows" ? (
       <VisitsModeHeader
         visitsMode={visitsMode}
         selectedShow={selectedShow}
@@ -198,9 +198,9 @@ export default function LeaderboardScreen() {
         keyExtractor={(item) => String(item.user._id)}
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-        ListHeaderComponent={visitsHeader}
+        ListHeaderComponent={showsHeader}
         ListEmptyComponent={
-          visitsMode === "select_show" && !selectedShow ? (
+          category === "shows" && visitsMode === "select_show" && !selectedShow ? (
             <View style={styles.emptyState}>
               <Text style={[styles.emptyText, { color: mutedTextColor }]}>Search for a show above to see who&apos;s seen it the most.</Text>
             </View>
