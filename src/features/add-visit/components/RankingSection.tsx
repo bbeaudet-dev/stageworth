@@ -144,7 +144,7 @@ export function RankingSection({
 
           {selectedTier && rankingPhase === "comparison" && comparisonTarget && (
             <View style={styles.comparisonBlock}>
-              <Text style={[styles.placeholderTitle, { color: c.text }]}>Which show do you prefer?</Text>
+              <Text style={[styles.placeholderTitle, { color: c.text }]}>If you had to pick one...</Text>
               <View style={styles.comparisonCards}>
                 <Pressable
                   style={[
