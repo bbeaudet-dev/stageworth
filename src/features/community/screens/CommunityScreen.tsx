@@ -94,7 +94,7 @@ export default function CommunityScreen() {
   const [selectedTab, setSelectedTab] = useState<FeedTab>("global");
 
   const handlePlusPress = () => {
-    Alert.alert("Create", undefined, [
+    Alert.alert("Quick Actions", undefined, [
       { text: "Add a Visit", onPress: () => router.push("/add-visit") },
       {
         text: "Create Post",
@@ -150,15 +150,6 @@ export default function CommunityScreen() {
   const bellColor          = theme === "dark" ? "#d1d5f9" : "#333";
   const badgeBg            = Colors[theme].accent;
   const badgeText          = Colors[theme].onAccent;
-
-  const challengeCompletePill = {
-    color: theme === "dark" ? "#5cb85c" : "#1a7a3a",
-    bg:    theme === "dark" ? "#1a3a1a" : "#e6f7ee",
-  };
-  const challengeMilestonePill = {
-    color: theme === "dark" ? "#d4a84b" : "#8a6a00",
-    bg:    theme === "dark" ? "#2a1e08" : "#fdf3dc",
-  };
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -276,7 +267,6 @@ export default function CommunityScreen() {
 
             // ── challenge_started ───────────────────────────────────────────
             if (post.type === "challenge_started") {
-              const year     = post.challengeYear ?? "";
               const target   = post.challengeTarget ?? 0;
               const progress = post.challengeProgress ?? 0;
               return (
@@ -285,11 +275,10 @@ export default function CommunityScreen() {
                   backgroundColor={cardBackground}
                   borderColor={cardBorder}
                   onPress={() => router.push("/challenges")}
-                  pill={{ label: "Theatre Challenge", color: actorLinkColor, bg: actorLinkColor + "18" }}
                   header={headerNode}
                   title={
                     <Text style={[styles.postTitle, { color: primaryTextColor }]}>
-                      {actorInline}{" "}started a {year} Theatre Challenge!
+                      {actorInline}{" "}has started a new Theatre Challenge!
                     </Text>
                   }
                   body={
@@ -319,7 +308,6 @@ export default function CommunityScreen() {
                   backgroundColor={cardBackground}
                   borderColor={cardBorder}
                   onPress={() => router.push("/challenges")}
-                  pill={{ label: "Challenge Complete", ...challengeCompletePill }}
                   header={headerNode}
                   title={
                     <Text style={[styles.postTitle, { color: primaryTextColor }]}>
@@ -381,10 +369,6 @@ export default function CommunityScreen() {
                   backgroundColor={cardBackground}
                   borderColor={cardBorder}
                   onPress={() => router.push("/challenges")}
-                  pill={{
-                    label: pct === 50 ? "Halfway There" : `${pct}% Milestone`,
-                    ...challengeMilestonePill,
-                  }}
                   header={headerNode}
                   title={
                     <Text style={[styles.postTitle, { color: primaryTextColor }]}>

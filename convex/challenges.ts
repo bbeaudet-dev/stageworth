@@ -93,6 +93,25 @@ export const getForUser = query({
   },
 });
 
+export const getMyYearSeenCount = query({
+  args: { year: v.number() },
+  handler: async (ctx, args) => {
+    const userId = await getConvexUserId(ctx);
+    if (!userId) return 0;
+
+    const allVisits = await ctx.db
+      .query("visits")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const uniqueShowsThisYear = new Set(
+      allVisits
+        .filter((v) => new Date(v.date + "T00:00:00Z").getUTCFullYear() === args.year)
+        .map((v) => String(v.showId))
+    );
+    return uniqueShowsThisYear.size;
+  },
+});
+
 export const incrementProgress = mutation({
   args: { userId: v.id("users"), year: v.number() },
   handler: async (ctx, args) => {

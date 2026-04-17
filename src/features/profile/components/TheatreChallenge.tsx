@@ -1,9 +1,13 @@
 import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Canvas, LinearGradient, RoundedRect, vec } from "@shopify/react-native-skia";
+import type { GestureResponderEvent } from "react-native";
 import {
   ActivityIndicator,
+  Animated,
   Alert,
+  Easing,
   Pressable,
   StyleSheet,
   Text,
@@ -11,10 +15,11 @@ import {
   View,
 } from "react-native";
 
-import { Colors } from "@/constants/theme";
+import { BRAND_BLUE, BRAND_PURPLE, Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 
 interface TheatreChallengeProps {
   userId?: Id<"users">;
@@ -38,12 +43,19 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
   );
 
   const challenge = isSelf ? selfChallenge : otherChallenge;
+  const yearSeenCount = useQuery(
+    api.challenges.getMyYearSeenCount,
+    isSelf ? { year: currentYear } : "skip"
+  );
   const createChallenge = useMutation(api.challenges.create);
   const deleteChallenge = useMutation(api.challenges.deleteChallenge);
 
-  const [isSetup, setIsSetup] = useState(false);
-  const [goalInput, setGoalInput] = useState("25");
+  const [setupMode, setSetupMode] = useState<"create" | "edit" | null>(null);
+  const [goalInput, setGoalInput] = useState("15");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [completedCardSize, setCompletedCardSize] = useState<{ width: number; height: number } | null>(null);
+  const [completedProgressBarWidth, setCompletedProgressBarWidth] = useState(0);
+  const shineAnim = useRef(new Animated.Value(0)).current;
 
   const borderColor = Colors[theme].border;
   const primaryTextColor = Colors[theme].text;
@@ -51,6 +63,34 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
   const accentColor = Colors[theme].accent;
   const onAccent = Colors[theme].onAccent;
   const progressBg = theme === "dark" ? "#1e1e24" : "#f0f0f2";
+  const shouldAnimateShine =
+    setupMode === null &&
+    Boolean(challenge && challenge.currentCount >= challenge.targetCount && completedProgressBarWidth > 0);
+
+  useEffect(() => {
+    if (!shouldAnimateShine) {
+      shineAnim.stopAnimation();
+      shineAnim.setValue(0);
+      return;
+    }
+
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shineAnim, {
+          toValue: 1,
+          duration: 735,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.delay(1500),
+      ])
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      shineAnim.stopAnimation();
+    };
+  }, [shouldAnimateShine, shineAnim]);
 
   // Loading state
   if (challenge === undefined) {
@@ -71,92 +111,7 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
 
   if (!isSelf && !challenge) return null;
 
-  if (challenge) {
-    const rawProgress = challenge.targetCount > 0
-      ? challenge.currentCount / challenge.targetCount
-      : 0;
-    const barProgress = Math.min(rawProgress, 1);
-    const displayPct = Math.round(rawProgress * 100);
-    const isCompleted = challenge.currentCount >= challenge.targetCount;
-
-    const now = new Date();
-    const endOfYear = new Date(currentYear, 11, 31);
-    const daysLeft = Math.max(
-      0,
-      Math.ceil((endOfYear.getTime() - now.getTime()) / 86400000)
-    );
-
-    // Wrap in a Pressable only for self — tapping the card navigates to the
-    // challenges comparison screen. The inner ✕ Pressable captures its own
-    // tap and prevents the outer press from firing.
-    const CardWrapper = isSelf ? Pressable : View;
-    const cardWrapperProps = isSelf
-      ? { onPress: () => router.push("/challenges"), style: [styles.container, { backgroundColor: accentColor + "10", borderColor: accentColor + "55" }] as any }
-      : { style: [styles.container, { backgroundColor: accentColor + "10", borderColor: accentColor + "55" }] as any };
-
-    return (
-      <CardWrapper {...cardWrapperProps}>
-        <View style={styles.headerRow}>
-          <Text style={[styles.title, { color: primaryTextColor }]}>
-            {currentYear} Theatre Challenge
-          </Text>
-          {isSelf && (
-            <Pressable
-              onPress={() =>
-                Alert.alert("Remove Challenge?", "This will delete your challenge.", [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Remove",
-                    style: "destructive",
-                    onPress: () => deleteChallenge({ year: currentYear }),
-                  },
-                ])
-              }
-              hitSlop={8}
-            >
-              <Text style={[styles.removeText, { color: mutedTextColor }]}>✕</Text>
-            </Pressable>
-          )}
-        </View>
-
-        <Text style={[styles.progressLabel, { color: primaryTextColor }]}>
-          {challenge.currentCount} of {challenge.targetCount} shows
-        </Text>
-
-        <View style={[styles.progressBar, { backgroundColor: progressBg }]}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                backgroundColor: isCompleted ? (theme === "dark" ? "#5cb85c" : "#1a7a3a") : accentColor,
-                width: `${Math.round(barProgress * 100)}%`,
-              },
-            ]}
-          />
-        </View>
-
-        {isCompleted ? (
-          <View style={[styles.completedBadge, { backgroundColor: theme === "dark" ? "#1a3a1a" : "#e6f7ee", borderColor: theme === "dark" ? "#3a6e3a" : "#7dcea0" }]}>
-            <Text style={[styles.completedText, { color: theme === "dark" ? "#5cb85c" : "#1a7a3a" }]}>
-              Challenge complete! {challenge.currentCount > challenge.targetCount
-                ? `You went ${challenge.currentCount - challenge.targetCount} show${challenge.currentCount - challenge.targetCount === 1 ? "" : "s"} over your goal!`
-                : "You did it — goal reached!"}
-            </Text>
-          </View>
-        ) : (
-          <Text style={[styles.daysLeft, { color: mutedTextColor }]}>
-            {daysLeft} {daysLeft === 1 ? "day" : "days"} left
-            {" · "}
-            {displayPct}% complete
-          </Text>
-        )}
-      </CardWrapper>
-    );
-  }
-
-  if (!isSelf) return null;
-
-  if (isSetup) {
+  if (setupMode !== null) {
     return (
       <View style={[styles.container, { backgroundColor: accentColor + "10", borderColor: accentColor + "55" }]}>
         <Text style={[styles.title, { color: primaryTextColor }]}>
@@ -164,6 +119,9 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
         </Text>
         <Text style={[styles.setupPrompt, { color: mutedTextColor }]}>
           How many shows do you want to see this year?
+        </Text>
+        <Text style={[styles.setupNote, { color: mutedTextColor }]}>
+          Already seen this year: {yearSeenCount ?? 0} show{(yearSeenCount ?? 0) === 1 ? "" : "s"}
         </Text>
         <View style={styles.setupRow}>
           <TextInput
@@ -183,7 +141,7 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
               setIsSubmitting(true);
               try {
                 await createChallenge({ year: currentYear, targetCount: target });
-                setIsSetup(false);
+                setSetupMode(null);
               } finally {
                 setIsSubmitting(false);
               }
@@ -192,13 +150,15 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
             {isSubmitting ? (
               <ActivityIndicator size="small" color={onAccent} />
             ) : (
-              <Text style={[styles.startBtnText, { color: onAccent }]}>Start</Text>
+              <Text style={[styles.startBtnText, { color: onAccent }]}>
+                {setupMode === "edit" ? "Save" : "Start"}
+              </Text>
             )}
           </Pressable>
           <Pressable
             style={[styles.cancelBtn, { borderColor }]}
             disabled={isSubmitting}
-            onPress={() => setIsSetup(false)}
+            onPress={() => setSetupMode(null)}
           >
             <Text style={[styles.cancelBtnText, { color: mutedTextColor }]}>
               Cancel
@@ -209,10 +169,173 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
     );
   }
 
+  if (challenge) {
+    const rawProgress = challenge.targetCount > 0
+      ? challenge.currentCount / challenge.targetCount
+      : 0;
+    const barProgress = Math.min(rawProgress, 1);
+    const displayPct = Math.round(rawProgress * 100);
+    const isCompleted = challenge.currentCount >= challenge.targetCount;
+    const animatedShineTranslateX = shineAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [-24, completedProgressBarWidth + 24],
+    });
+
+    const now = new Date();
+    const endOfYear = new Date(currentYear, 11, 31);
+    const daysLeft = Math.max(
+      0,
+      Math.ceil((endOfYear.getTime() - now.getTime()) / 86400000)
+    );
+
+    // Wrap in a Pressable only for self — tapping the card navigates to the
+    // challenges comparison screen. The inner ✕ Pressable captures its own
+    // tap and prevents the outer press from firing.
+    const CardWrapper = isSelf ? Pressable : View;
+    const completedTextColor = isCompleted ? "#ffffff" : primaryTextColor;
+    const completedMutedTextColor = isCompleted ? "rgba(255,255,255,0.85)" : mutedTextColor;
+    const completedBorderColor = isCompleted ? "transparent" : accentColor + "55";
+    const cardWrapperProps = isSelf
+      ? {
+          onPress: () => router.push("/challenges"),
+          style: [styles.container, isCompleted ? styles.completedCardContainer : null, { backgroundColor: isCompleted ? "transparent" : accentColor + "10", borderColor: completedBorderColor }] as any,
+          onLayout: (e: any) => {
+            if (!isCompleted) return;
+            const { width, height } = e.nativeEvent.layout;
+            if (width > 0 && height > 0) setCompletedCardSize({ width, height });
+          },
+        }
+      : {
+          style: [styles.container, isCompleted ? styles.completedCardContainer : null, { backgroundColor: isCompleted ? "transparent" : accentColor + "10", borderColor: completedBorderColor }] as any,
+          onLayout: (e: any) => {
+            if (!isCompleted) return;
+            const { width, height } = e.nativeEvent.layout;
+            if (width > 0 && height > 0) setCompletedCardSize({ width, height });
+          },
+        };
+
+    return (
+      <CardWrapper {...cardWrapperProps}>
+        {isCompleted && completedCardSize && (
+          <Canvas style={[StyleSheet.absoluteFillObject, { borderRadius: styles.container.borderRadius }]} pointerEvents="none">
+            <RoundedRect
+              x={0}
+              y={0}
+              width={completedCardSize.width}
+              height={completedCardSize.height}
+              r={styles.container.borderRadius}
+            >
+              <LinearGradient
+                start={vec(0, 0)}
+                end={vec(completedCardSize.width, completedCardSize.height)}
+                colors={[BRAND_BLUE, BRAND_PURPLE]}
+              />
+            </RoundedRect>
+          </Canvas>
+        )}
+        <View style={styles.headerRow}>
+          <Text style={[styles.title, { color: completedTextColor }]}>
+            {currentYear} Theatre Challenge
+          </Text>
+          {isSelf && (
+            <View style={styles.challengeActions}>
+              <Pressable
+                onPress={(e: GestureResponderEvent) => {
+                  e.stopPropagation();
+                  setGoalInput(String(challenge.targetCount));
+                  setSetupMode("edit");
+                }}
+                hitSlop={8}
+              >
+                <IconSymbol name="pencil" size={16} color={completedMutedTextColor} />
+              </Pressable>
+              <Pressable
+                onPress={(e: GestureResponderEvent) => {
+                  e.stopPropagation();
+                  Alert.alert("Remove Challenge?", "This will delete your challenge.", [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Remove",
+                      style: "destructive",
+                      onPress: () => deleteChallenge({ year: currentYear }),
+                    },
+                  ]);
+                }}
+                hitSlop={8}
+              >
+                <Text style={[styles.removeText, { color: completedMutedTextColor }]}>✕</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+
+        <Text style={[styles.progressLabel, { color: completedTextColor }]}>
+          {challenge.currentCount} of {challenge.targetCount} shows
+        </Text>
+
+        <View
+          style={[styles.progressBar, { backgroundColor: isCompleted ? "rgba(255,255,255,0.24)" : progressBg }]}
+          onLayout={(e) => {
+            if (!isCompleted) return;
+            const width = e.nativeEvent.layout.width;
+            if (width > 0 && width !== completedProgressBarWidth) {
+              setCompletedProgressBarWidth(width);
+            }
+          }}
+        >
+          <View
+            style={[
+              styles.progressFill,
+              {
+                backgroundColor: isCompleted ? "#f7f9ff" : accentColor,
+                width: `${Math.round(barProgress * 100)}%`,
+              },
+            ]}
+          >
+            {isCompleted ? (
+              <>
+                <View style={styles.progressGloss} />
+                <Animated.View
+                  style={[
+                    styles.progressShineAnimated,
+                    {
+                      transform: [
+                        { translateX: animatedShineTranslateX },
+                      ],
+                    },
+                  ]}
+                />
+              </>
+            ) : null}
+          </View>
+        </View>
+
+        {isCompleted ? (
+          <Text style={styles.completedText}>
+            Challenge complete! {challenge.currentCount > challenge.targetCount
+              ? `You went ${challenge.currentCount - challenge.targetCount} show${challenge.currentCount - challenge.targetCount === 1 ? "" : "s"} over your goal!`
+              : "You did it — goal reached!"}
+          </Text>
+        ) : (
+          <Text style={[styles.daysLeft, { color: completedMutedTextColor }]}>
+            {daysLeft} {daysLeft === 1 ? "day" : "days"} left
+            {" · "}
+            {displayPct}% complete
+          </Text>
+        )}
+      </CardWrapper>
+    );
+  }
+
+  if (!isSelf) return null;
+
   return (
     <Pressable
       style={[styles.container, { backgroundColor: accentColor + "10", borderColor: accentColor + "55" }]}
-      onPress={() => setIsSetup(true)}
+      onPress={() => {
+        setGoalInput("25");
+        setSetupMode("create");
+      }}
     >
       <Text style={[styles.title, { color: primaryTextColor }]}>
         {currentYear} Theatre Challenge
@@ -236,10 +359,18 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
   },
+  completedCardContainer: {
+    overflow: "hidden",
+  },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  challengeActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   title: {
     fontSize: 16,
@@ -262,25 +393,43 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     borderRadius: 5,
+    overflow: "hidden",
+  },
+  progressGloss: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    height: "48%",
+    backgroundColor: "rgba(255,255,255,0.45)",
+  },
+  progressShineAnimated: {
+    position: "absolute",
+    top: -2,
+    bottom: -2,
+    width: 24,
+    borderRadius: 8,
+    backgroundColor: "rgba(83,109,254,0.28)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
   },
   daysLeft: {
     fontSize: 12,
     fontWeight: "500",
   },
-  completedBadge: {
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
   completedText: {
     fontSize: 13,
     fontWeight: "600",
     lineHeight: 18,
+    color: "#fff",
   },
   setupPrompt: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  setupNote: {
+    fontSize: 12,
+    fontWeight: "500",
   },
   setupRow: {
     flexDirection: "row",
