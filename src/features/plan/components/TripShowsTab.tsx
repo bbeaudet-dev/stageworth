@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -284,7 +285,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                         <View style={styles.playbillTapArea}>
                           {image
                             ? <Image source={{ uri: image }} style={[styles.playbillImg, { backgroundColor: chipBg }]} contentFit="contain" />
-                            : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}><Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.6}>{item.show?.name}</Text></View>}
+                            : <ShowPlaceholder name={item.show?.name ?? ""} style={styles.playbillImg} />}
                           {labelMeta ? (
                             <View style={[styles.myLabelBadge, { backgroundColor: labelMeta.color + "EE", borderColor: surfaceColor }]}>
                               <IconSymbol name={labelMeta.icon} size={11} color="#fff" />
@@ -372,9 +373,7 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                           <Pressable onPress={() => router.push({ pathname: "/show/[showId]", params: { showId: sid, name: show.name } })}>
                             {image
                               ? <Image source={{ uri: image }} style={[styles.playbillImg, { backgroundColor: chipBg }]} contentFit="contain" />
-                              : <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: chipBg }]}>
-                                  <Text style={[styles.playbillFbText, { color: mutedTextColor }]} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.6}>{show.name}</Text>
-                                </View>}
+                              : <ShowPlaceholder name={show.name} style={styles.playbillImg} />}
                           </Pressable>
                           {badge ? (
                             <View style={[styles.closingBadgeBelow, { backgroundColor: badge.bg }]}>
@@ -525,8 +524,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 2,
   },
-  playbillFb: { alignItems: "center", justifyContent: "center", padding: 8 },
-  playbillFbText: { fontSize: 11, fontWeight: "600", textAlign: "center", lineHeight: 14 },
   badgeOverlay: {
     position: "absolute",
     bottom: 0,

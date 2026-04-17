@@ -1,13 +1,15 @@
-import { Colors } from "@/constants/theme";
-import { showTypeAccent, showTypeLabel } from "@/constants/showTypeColors";
+import { BRAND_BLUE, BRAND_PURPLE, Colors } from "@/constants/theme";
+import { showTypeLabel } from "@/constants/showTypeColors";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
   Canvas,
   Group,
+  LinearGradient,
   RoundedRect,
   Image as SkiaImage,
   useImage,
+  vec,
 } from "@shopify/react-native-skia";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -197,7 +199,17 @@ function PlaybillItem({
 
   return (
     <Group>
-      <RoundedRect x={x} y={y} width={width} height={height} r={r} color="#e0e0e0" />
+      {imageUrl ? (
+        <RoundedRect x={x} y={y} width={width} height={height} r={r} color="#e0e0e0" />
+      ) : (
+        <RoundedRect x={x} y={y} width={width} height={height} r={r} color={BRAND_BLUE}>
+          <LinearGradient
+            start={vec(x, y)}
+            end={vec(x + width, y + height)}
+            colors={[BRAND_BLUE, BRAND_PURPLE]}
+          />
+        </RoundedRect>
+      )}
       {imageUrl && (
         <PlaybillImage
           url={imageUrl}
@@ -267,7 +279,6 @@ export function TheatreCloud({
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
-  const isDark = theme === "dark";
   const backgroundColor = Colors[theme].background;
   const surfaceColor = Colors[theme].surface;
   const mutedTextColor = Colors[theme].mutedText;
@@ -351,6 +362,11 @@ export function TheatreCloud({
     [placements, visibleCount, loadedShowIds],
   );
 
+  const noImagePlacements = useMemo(
+    () => new Set(placements.filter((p) => !p.imageUrl).map((p) => p.showId)),
+    [placements],
+  );
+
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     setSize((prev) =>
@@ -408,7 +424,7 @@ export function TheatreCloud({
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
             {labelPlacements.map((p) => {
               const r = Math.max(2, p.width * CORNER_RADIUS_RATIO);
-              const accentColor = showTypeAccent(p.showType, isDark ? "dark" : "light");
+              const hasBrandBg = noImagePlacements.has(p.showId);
               return (
                 <View
                   key={p.showId}
@@ -420,18 +436,24 @@ export function TheatreCloud({
                       width: p.width,
                       height: p.height,
                       borderRadius: r,
-                      backgroundColor: surfaceColor,
+                      backgroundColor: hasBrandBg ? "transparent" : surfaceColor,
                     },
                   ]}
                 >
                   <Text
-                    style={[styles.labelTypeText, { color: accentColor }]}
+                    style={[
+                      styles.labelTypeText,
+                      { color: hasBrandBg ? "rgba(255,255,255,0.65)" : mutedTextColor },
+                    ]}
                     numberOfLines={1}
                   >
                     {showTypeLabel(p.showType)}
                   </Text>
                   <Text
-                    style={[styles.labelNameText, { color: mutedTextColor }]}
+                    style={[
+                      styles.labelNameText,
+                      { color: hasBrandBg ? "#ffffff" : mutedTextColor },
+                    ]}
                     numberOfLines={4}
                     adjustsFontSizeToFit
                     minimumFontScale={0.6}

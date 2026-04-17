@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -259,7 +260,7 @@ function ExpandedList({
             {image ? (
               <Image source={{ uri: image }} style={[styles.showThumb, { backgroundColor: chipBg }]} contentFit="contain" />
             ) : (
-              <View style={[styles.showThumbFallback, { backgroundColor: chipBg }]} />
+              <ShowPlaceholder name={show.name} style={{ width: 36, height: 36, aspectRatio: undefined, borderRadius: 4 }} />
             )}
             <Text
               style={[styles.showName, { color: primaryTextColor }]}

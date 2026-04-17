@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { playbillMatBackground } from "@/features/browse/styles";
@@ -303,11 +304,7 @@ export default function ListDetailScreen() {
                         contentFit="contain"
                       />
                     ) : (
-                      <View style={[styles.playbillFb, { backgroundColor: c.surface }]}>
-                        <Text style={[styles.playbillFbText, { color: c.mutedText }]} numberOfLines={4}>
-                          {show.name}
-                        </Text>
-                      </View>
+                      <ShowPlaceholder name={show.name} style={styles.playbillImg} />
                     )}
                   </Pressable>
                 );
@@ -411,12 +408,4 @@ const styles = StyleSheet.create({
   gridRow: { flexDirection: "row", gap: GAP, marginBottom: GAP },
   playbillCard: { borderRadius: 10, overflow: "hidden" },
   playbillImg: { width: "100%", aspectRatio: 2 / 3 },
-  playbillFb: {
-    width: "100%",
-    aspectRatio: 2 / 3,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 8,
-  },
-  playbillFbText: { fontSize: 11, fontWeight: "600", textAlign: "center" },
 });

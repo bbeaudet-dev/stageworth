@@ -1,16 +1,14 @@
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  useWindowDimensions,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -18,6 +16,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useToast } from "@/components/Toast";
 import { BroadwayShowtimesGrid } from "@/components/BroadwayShowtimesGrid";
+import { CatalogFeedbackLink } from "@/components/CatalogFeedbackLink";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { formatDate } from "@/features/browse/logic/date";
 import { useShowDetail } from "@/features/show-details/hooks/useShowDetail";
@@ -29,7 +28,6 @@ import { ShowRecommendationBlock } from "@/features/show-details/components/Show
 const today = () => new Date().toISOString().split("T")[0];
 
 export default function ShowDetailScreen() {
-  const router = useRouter();
   const params = useLocalSearchParams<{ showId?: string; name?: string }>();
   const showId = (params.showId ?? "") as Id<"shows">;
 
@@ -43,7 +41,6 @@ export default function ShowDetailScreen() {
     broadwayShowtimes,
     addShowToList,
     addShowToTrip,
-    submitCatalogFeedback,
   } = useShowDetail(showId);
 
   const colorScheme = useColorScheme();
@@ -61,11 +58,6 @@ export default function ShowDetailScreen() {
   // Add to Trip sheet state
   const [tripSheetOpen, setTripSheetOpen] = useState(false);
   const [addingToTrip, setAddingToTrip] = useState<Id<"trips"> | null>(null);
-
-  // Catalog feedback state
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [feedbackNote, setFeedbackNote] = useState("");
-  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
 
   const todayStr = today();
 
@@ -103,40 +95,6 @@ export default function ShowDetailScreen() {
     }
   }
 
-  function openFeedbackSheet() {
-    if (!session) {
-      Alert.alert("Sign in required", "Sign in to suggest a correction.", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Sign in", onPress: () => router.push("/sign-in") },
-      ]);
-      return;
-    }
-    if (!showId || !show) return;
-    setFeedbackNote("");
-    setFeedbackOpen(true);
-  }
-
-  async function handleSubmitFeedback() {
-    if (!showId || !show || feedbackSubmitting) return;
-    const note = feedbackNote.trim();
-    if (note.length < 3) {
-      Alert.alert("Add more detail", "Please write at least a few characters.");
-      return;
-    }
-    setFeedbackSubmitting(true);
-    try {
-      await submitCatalogFeedback({ showId, note });
-      setFeedbackOpen(false);
-      setFeedbackNote("");
-      Alert.alert("Thanks", "We have received your note and will review it.");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Could not send feedback.";
-      Alert.alert("Something went wrong", msg);
-    } finally {
-      setFeedbackSubmitting(false);
-    }
-  }
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={["bottom"]}>
       <Stack.Screen options={{ title: show?.name ?? (params.name ?? "Show"), headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
@@ -171,15 +129,15 @@ export default function ShowDetailScreen() {
 
         <ShowRecommendationBlock showId={showId} showName={show?.name} isSignedIn={!!session} />
 
-        <Pressable
-          onPress={openFeedbackSheet}
+        <CatalogFeedbackLink
+          source="show_detail"
+          showId={showId || undefined}
           disabled={!show}
-          style={({ pressed }) => [styles.feedbackLinkWrap, { opacity: !show ? 0.45 : pressed ? 0.7 : 1 }]}
-        >
-          <Text style={[styles.feedbackLinkText, { color: c.mutedText }]}>
-            Something wrong? Suggest a correction
-          </Text>
-        </Pressable>
+          linkText="Something wrong? Suggest a correction"
+          title="Suggest a correction"
+          hint="Tell us what is wrong with this listing. A moderator will review it."
+          placeholder="What should we fix?"
+        />
       </ScrollView>
 
       {/* ── Add to List Sheet ──────────────────────────────────────────────── */}
@@ -245,52 +203,6 @@ export default function ShowDetailScreen() {
         </View>
       </Modal>
 
-      {/* ── Suggest correction ────────────────────────────────────────────── */}
-      <Modal
-        visible={feedbackOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => !feedbackSubmitting && setFeedbackOpen(false)}
-      >
-        <Pressable style={styles.sheetOverlay} onPress={() => !feedbackSubmitting && setFeedbackOpen(false)} />
-        <View style={[styles.sheet, styles.feedbackSheet, { backgroundColor: c.background, paddingBottom: insets.bottom + 12 }]}>
-          <View style={[styles.sheetHandle, { backgroundColor: c.border }]} />
-          <Text style={[styles.sheetTitle, { color: c.text }]}>Suggest a correction</Text>
-          <Text style={[styles.feedbackHint, { color: c.mutedText }]}>
-            Tell us what is wrong with this listing. A moderator will review it.
-          </Text>
-          <Text style={[styles.feedbackFieldLabel, { color: c.mutedText }]}>Your note</Text>
-          <TextInput
-            value={feedbackNote}
-            onChangeText={setFeedbackNote}
-            placeholder="What should we fix?"
-            placeholderTextColor={c.mutedText}
-            multiline
-            editable={!feedbackSubmitting}
-            style={[styles.feedbackInput, { color: c.text, borderColor: c.border, backgroundColor: c.surfaceElevated }]}
-            textAlignVertical="top"
-          />
-          <View style={styles.feedbackActions}>
-            <Pressable
-              onPress={() => !feedbackSubmitting && setFeedbackOpen(false)}
-              style={[styles.feedbackCancelBtn, { borderColor: c.border }]}
-            >
-              <Text style={{ color: c.text, fontWeight: "600" }}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              onPress={handleSubmitFeedback}
-              disabled={feedbackSubmitting || feedbackNote.trim().length < 3}
-              style={[styles.feedbackSendBtn, { backgroundColor: c.accent, opacity: feedbackSubmitting || feedbackNote.trim().length < 3 ? 0.45 : 1 }]}
-            >
-              {feedbackSubmitting ? (
-                <ActivityIndicator color={c.onAccent} />
-              ) : (
-                <Text style={[styles.feedbackSendBtnText, { color: c.onAccent }]}>Send</Text>
-              )}
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -299,8 +211,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, gap: 12 },
   section: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, overflow: "hidden" },
-  feedbackLinkWrap: { alignSelf: "center", paddingVertical: 8, paddingHorizontal: 12 },
-  feedbackLinkText: { fontSize: 13, fontWeight: "500", textDecorationLine: "underline" },
   sheetOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)" },
   sheet: { maxHeight: "65%", borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12 },
   sheetHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 12 },
@@ -312,12 +222,4 @@ const styles = StyleSheet.create({
   sheetRowCount: { fontSize: 14, fontWeight: "500" },
   sheetRowCheck: { fontSize: 19, fontWeight: "700" },
   sheetRowChevron: { fontSize: 18, fontWeight: "300" },
-  feedbackSheet: { maxHeight: "85%" },
-  feedbackHint: { fontSize: 13, lineHeight: 18, paddingHorizontal: 18, marginBottom: 12 },
-  feedbackFieldLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", paddingHorizontal: 18, marginBottom: 8 },
-  feedbackInput: { marginHorizontal: 18, minHeight: 100, maxHeight: 160, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, padding: 12, fontSize: 15, marginBottom: 16 },
-  feedbackActions: { flexDirection: "row", gap: 10, paddingHorizontal: 18, justifyContent: "flex-end" },
-  feedbackCancelBtn: { borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, paddingVertical: 11, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
-  feedbackSendBtn: { borderRadius: 10, paddingVertical: 11, paddingHorizontal: 22, minWidth: 100, alignItems: "center", justifyContent: "center" },
-  feedbackSendBtnText: { fontWeight: "700", fontSize: 15 },
 });

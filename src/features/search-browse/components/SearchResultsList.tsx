@@ -2,6 +2,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { CatalogFeedbackLink } from "@/components/CatalogFeedbackLink";
 import { EmptyState } from "@/components/empty-state";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
@@ -169,7 +170,16 @@ export function SearchResultsList({
       )}
 
       {noResults && (
-        <EmptyState icon="magnifyingglass" iconSize={36} title="No results" subtitle={`Nothing found for "${trimmed}"`} />
+        <>
+          <EmptyState icon="magnifyingglass" iconSize={36} title="No results" subtitle={`Nothing found for "${trimmed}"`} />
+          <CatalogFeedbackLink
+            source="search"
+            linkText="Show or production missing? Let us know"
+            title="Suggest a missing show"
+            hint="Tell us which show or production is missing and we'll look into adding it."
+            placeholder="Which show is missing?"
+          />
+        </>
       )}
     </>
   );

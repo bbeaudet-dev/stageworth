@@ -509,13 +509,16 @@ export default defineSchema({
   // Kept separate from reviewQueue, which is field-level ingest/admin workflow.
   catalogUserFeedback: defineTable({
     userId: v.id("users"),
-    showId: v.id("shows"),
+    /** Omitted when the report is about a missing show (no showId to reference). */
+    showId: v.optional(v.id("shows")),
     /** Denormalized at submit time for admin list if the show is renamed. */
-    showNameSnapshot: v.string(),
+    showNameSnapshot: v.optional(v.string()),
     productionId: v.optional(v.id("productions")),
     /** e.g. theatre · city, for admin context when production exists. */
     productionLabelSnapshot: v.optional(v.string()),
     note: v.string(),
+    /** Where the report was submitted from: "show_detail" | "search" | "add_visit" */
+    source: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_show", ["showId"])

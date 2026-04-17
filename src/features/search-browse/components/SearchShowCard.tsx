@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import type { FullStatusBadge } from "@/features/browse/components/ProductionCard";
 
@@ -65,16 +66,7 @@ export function SearchShowCard({
           contentFit="contain"
         />
       ) : (
-        <View style={[styles.playbillImg, styles.playbillFb, { backgroundColor: posterBg }]}>
-          <Text
-            style={[styles.playbillFbText, { color: mutedColor }]}
-            numberOfLines={4}
-            adjustsFontSizeToFit
-            minimumFontScale={0.6}
-          >
-            {show.name}
-          </Text>
-        </View>
+        <ShowPlaceholder name={show.name} />
       )}
       {show.badge ? (
         <View style={show.badge.secondary ? styles.railBadgeOverlay : undefined}>
@@ -102,8 +94,6 @@ export function SearchShowCard({
 const styles = StyleSheet.create({
   playbillCard: { borderRadius: 10, overflow: "hidden" },
   playbillImg: { width: "100%", aspectRatio: 2 / 3 },
-  playbillFb: { alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
-  playbillFbText: { fontSize: 13, fontWeight: "600", textAlign: "center" },
   railBadgeOverlay: { position: "absolute", bottom: 0, left: 0, right: 0 },
   railBadgeStrip: { width: "100%", paddingVertical: 4, alignItems: "center" },
   railBadgeSecondary: { opacity: 0.85, paddingVertical: 3 },

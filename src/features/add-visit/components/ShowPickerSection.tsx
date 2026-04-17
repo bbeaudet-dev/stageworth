@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { Pressable, Text, TextInput, View } from "react-native";
 
+import { CatalogFeedbackLink } from "@/components/CatalogFeedbackLink";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -107,63 +108,85 @@ export function ShowPickerSection({
             }}
           />
           {allShowsLoaded && (
-            <View style={[styles.resultsCard, { borderColor: c.border }]}>
-              {!hasExactMatch && query.trim().length > 0 && (
-                <Pressable style={[styles.customShowRow, { backgroundColor: c.surface }]} onPress={selectCustomShow}>
-                  <Text style={[styles.customShowText, { color: c.accent }]}>Add a visit for “{query.trim()}”</Text>
-                </Pressable>
-              )}
-              {searchResults.length === 0 && query.trim().length > 0 && hasExactMatch && (
-                <View style={styles.noResultsRow}>
-                  <Text style={[styles.noResultsText, { color: c.mutedText }]}>No matching shows</Text>
-                </View>
-              )}
-              {searchResults.map((show) => {
-                const status = userShowStatusById.get(show._id);
-                const hasSeen = visitedShowIds.has(show._id) || status !== undefined;
-                const isExact = query.trim().length > 0 && exactMatches.length === 1 && searchResults[0]?._id === show._id && exactMatches[0]?._id === show._id;
-                const posterUrl = show.images?.[0] ?? null;
-                return (
+            <>
+              <View style={[styles.resultsCard, { borderColor: c.border }]}>
+                {searchResults.length === 0 && query.trim().length > 0 && hasExactMatch && (
+                  <View style={styles.noResultsRow}>
+                    <Text style={[styles.noResultsText, { color: c.mutedText }]}>No matching shows</Text>
+                  </View>
+                )}
+                {searchResults.map((show) => {
+                  const status = userShowStatusById.get(show._id);
+                  const hasSeen = visitedShowIds.has(show._id) || status !== undefined;
+                  const isExact =
+                    query.trim().length > 0 &&
+                    exactMatches.length === 1 &&
+                    searchResults[0]?._id === show._id &&
+                    exactMatches[0]?._id === show._id;
+                  const posterUrl = show.images?.[0] ?? null;
+                  return (
+                    <Pressable
+                      key={show._id}
+                      style={[
+                        styles.resultRow,
+                        { borderTopColor: c.border },
+                        isExact
+                          ? { backgroundColor: theme === "dark" ? "#1a2e1a" : "#e2f3e6" }
+                          : { backgroundColor: c.surfaceElevated },
+                      ]}
+                      onPress={() => selectExistingShow(show._id)}
+                    >
+                      {/* Poster thumbnail */}
+                      <View style={[styles.resultPoster, { backgroundColor: c.surface }]}>
+                        {posterUrl ? (
+                          <Image source={{ uri: posterUrl }} style={styles.resultPosterImg} contentFit="contain" />
+                        ) : (
+                          <ShowPlaceholder
+                            name={show.name}
+                            style={{ width: 28, height: 42, aspectRatio: undefined }}
+                          />
+                        )}
+                      </View>
+
+                      {/* Name — flex:1 so it truncates before pushing meta off-screen */}
+                      <Text style={[styles.resultName, { color: c.text }]} numberOfLines={1} ellipsizeMode="tail">
+                        {show.name}
+                      </Text>
+
+                      {/* Right-aligned meta: type label then eye icon */}
+                      <View style={styles.resultMeta}>
+                        <Text style={[styles.resultType, { color: c.mutedText }]}>{TYPE_LABELS[show.type]}</Text>
+                        {hasSeen ? (
+                          <View style={[styles.statusBadge, styles.statusBadgeSeen]}>
+                            <IconSymbol name="eye.fill" size={12} color="#0284c7" />
+                          </View>
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+                {/* "Add a visit for ..." is now at the bottom of results, above the feedback link */}
+                {!hasExactMatch && query.trim().length > 0 && (
                   <Pressable
-                    key={show._id}
-                    style={[
-                      styles.resultRow,
-                      { borderTopColor: c.border },
-                      isExact ? { backgroundColor: theme === "dark" ? "#1a2e1a" : "#e2f3e6" } : { backgroundColor: c.surfaceElevated },
-                    ]}
-                    onPress={() => selectExistingShow(show._id)}
+                    style={[styles.customShowRow, { backgroundColor: c.surface }]}
+                    onPress={selectCustomShow}
                   >
-                    {/* Poster thumbnail */}
-                    <View style={[styles.resultPoster, { backgroundColor: c.surface }]}>
-                      {posterUrl ? (
-                        <Image source={{ uri: posterUrl }} style={styles.resultPosterImg} contentFit="contain" />
-                      ) : (
-                        <View style={styles.resultPosterFallback}>
-                          <Text style={[styles.resultPosterFallbackText, { color: c.mutedText }]} numberOfLines={3}>
-                            {show.name}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Name — flex:1 so it truncates before pushing meta off-screen */}
-                    <Text style={[styles.resultName, { color: c.text }]} numberOfLines={1} ellipsizeMode="tail">
-                      {show.name}
+                    <Text style={[styles.customShowText, { color: c.accent }]}>
+                      {`Add a visit for "${query.trim()}"`}
                     </Text>
-
-                    {/* Right-aligned meta: type label then eye icon */}
-                    <View style={styles.resultMeta}>
-                      <Text style={[styles.resultType, { color: c.mutedText }]}>{TYPE_LABELS[show.type]}</Text>
-                      {hasSeen ? (
-                        <View style={[styles.statusBadge, styles.statusBadgeSeen]}>
-                          <IconSymbol name="eye.fill" size={12} color="#0284c7" />
-                        </View>
-                      ) : null}
-                    </View>
                   </Pressable>
-                );
-              })}
-            </View>
+                )}
+              </View>
+              {query.trim().length > 0 && (
+                <CatalogFeedbackLink
+                  source="add_visit"
+                  linkText="Show missing from our database? Let us know"
+                  title="Suggest a missing show"
+                  hint="Tell us which show or production is missing and we'll look into adding it."
+                  placeholder="Which show is missing?"
+                />
+              )}
+            </>
           )}
         </>
       )}

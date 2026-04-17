@@ -2,6 +2,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { Colors } from "@/constants/theme";
 import { showTypeChip, showTypeLabel } from "@/constants/showTypeColors";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -64,16 +65,10 @@ export function ShowHeroSection({
               contentFit="contain"
             />
           ) : (
-            <View style={[styles.playbillFallback, { backgroundColor: c.surface }]}>
-              <Text
-                style={[styles.playbillFallbackText, { color: c.mutedText }]}
-                numberOfLines={5}
-                adjustsFontSizeToFit
-                minimumFontScale={0.6}
-              >
-                {show?.name ?? ""}
-              </Text>
-            </View>
+            <ShowPlaceholder
+              name={show?.name ?? (placeholderName ?? "")}
+              style={{ width: "100%", height: "100%", aspectRatio: undefined }}
+            />
           )}
         </View>
 
@@ -152,8 +147,6 @@ const styles = StyleSheet.create({
   heroRow: { flexDirection: "row", gap: 14, alignItems: "flex-start" },
   playbillWrap: { borderRadius: 8, overflow: "hidden" },
   playbillImg: { width: "100%", height: "100%" },
-  playbillFallback: { flex: 1, alignItems: "center", justifyContent: "center", padding: 6 },
-  playbillFallbackText: { fontSize: 11, textAlign: "center", fontWeight: "600" },
   heroInfo: { flex: 1, gap: 8, paddingTop: 4 },
   showName: { fontSize: 22, fontWeight: "800", lineHeight: 26 },
   typeBadge: { alignSelf: "flex-start", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
