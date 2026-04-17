@@ -358,17 +358,24 @@ export default defineSchema({
     actorUserId: v.id("users"),
     type: v.union(
       v.literal("visit_created"),
-      v.literal("challenge_milestone")
+      v.literal("challenge_started"),
+      v.literal("challenge_milestone"),
+      v.literal("challenge_completed")
     ),
-    visitId: v.id("visits"),
-    showId: v.id("shows"),
+    // Absent for challenge_started posts (no associated visit/show).
+    visitId: v.optional(v.id("visits")),
+    showId: v.optional(v.id("shows")),
     productionId: v.optional(v.id("productions")),
-    visitDate: v.string(),
+    visitDate: v.optional(v.string()),
     notes: v.optional(v.string()),
     city: v.optional(v.string()),
     theatre: v.optional(v.string()),
     rankAtPost: v.optional(v.number()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    // Challenge-specific metadata (present on challenge_started / challenge_milestone / challenge_completed).
+    challengeYear: v.optional(v.number()),
+    challengeTarget: v.optional(v.number()),
+    challengeProgress: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_createdAt", ["createdAt"])

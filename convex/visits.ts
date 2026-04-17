@@ -836,13 +836,16 @@ export const createVisit = mutation({
         const prevProgress = (newCount - 1) / challenge.targetCount;
         for (const milestone of milestones) {
           if (prevProgress < milestone && progress >= milestone) {
+            const isCompleted = milestone === 1.0;
             await ctx.db.insert("activityPosts", {
               actorUserId: userId,
-              type: "challenge_milestone",
+              type: isCompleted ? "challenge_completed" : "challenge_milestone",
               visitId,
               showId,
               visitDate: args.date,
-              notes: `Reached ${Math.round(milestone * 100)}% of their ${visitYear} Theatre Challenge (${newCount}/${challenge.targetCount} shows)!`,
+              challengeYear: visitYear,
+              challengeTarget: challenge.targetCount,
+              challengeProgress: newCount,
               createdAt: Date.now(),
             });
             break;

@@ -34,7 +34,7 @@ async function hydratePosts(ctx: any, posts: any[], viewerUserId: string) {
     posts.map(async (post) => {
       const [actor, show, rankings, viewerFollowRow] = await Promise.all([
         resolveActor(ctx, post.actorUserId),
-        resolveShow(ctx, post.showId),
+        post.showId ? resolveShow(ctx, post.showId) : Promise.resolve(null),
         ctx.db
           .query("userRankings")
           .withIndex("by_user", (q: any) => q.eq("userId", post.actorUserId))
@@ -48,7 +48,10 @@ async function hydratePosts(ctx: any, posts: any[], viewerUserId: string) {
               )
               .first(),
       ]);
-      if (!actor || !show) return null;
+
+      if (!actor) return null;
+      // visit_created posts always need a show; challenge posts may not have one.
+      if (post.type === "visit_created" && !show) return null;
 
       const taggedUsers: { _id: string; username: string; name?: string | null }[] = [];
       for (const uid of post.taggedUserIds ?? []) {
@@ -60,13 +63,16 @@ async function hydratePosts(ctx: any, posts: any[], viewerUserId: string) {
         _id: post._id,
         createdAt: post.createdAt,
         type: post.type,
-        visitDate: post.visitDate,
-        notes: post.notes,
-        city: post.city,
-        theatre: post.theatre,
-        rankAtPost: post.rankAtPost,
+        visitDate: post.visitDate ?? null,
+        notes: post.notes ?? null,
+        city: post.city ?? null,
+        theatre: post.theatre ?? null,
+        rankAtPost: post.rankAtPost ?? null,
         rankingTotal: rankings?.showIds.length ?? 0,
         viewerFollowsActor: viewerFollowRow !== null,
+        challengeYear: post.challengeYear ?? null,
+        challengeTarget: post.challengeTarget ?? null,
+        challengeProgress: post.challengeProgress ?? null,
         actor,
         show,
         taggedUsers,
