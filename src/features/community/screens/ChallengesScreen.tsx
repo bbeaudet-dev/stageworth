@@ -193,9 +193,7 @@ export default function ChallengesScreen() {
     selectedTab === "friends" ? friendsChallenges : globalChallenges;
 
   const backgroundColor = Colors[theme].background;
-  const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
-  const accentColor = Colors[theme].accent;
   const segmentBorder = theme === "dark" ? "#3a3a44" : "#d6d6d6";
   const segmentBackground = theme === "dark" ? "#111115" : "#fff";
   const segmentBackgroundActive = theme === "dark" ? "#fff" : "#1f1f1f";
