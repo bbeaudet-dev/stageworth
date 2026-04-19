@@ -313,7 +313,7 @@ export function TheatreChallenge({ userId, isSelf = true }: TheatreChallengeProp
         {isCompleted ? (
           <Text style={styles.completedText}>
             Challenge complete! {challenge.currentCount > challenge.targetCount
-              ? `You went ${challenge.currentCount - challenge.targetCount} show${challenge.currentCount - challenge.targetCount === 1 ? "" : "s"} over your goal!`
+              ? `You are ${challenge.currentCount - challenge.targetCount} show${challenge.currentCount - challenge.targetCount === 1 ? "" : "s"} over your goal!`
               : "You did it — goal reached!"}
           </Text>
         ) : (
