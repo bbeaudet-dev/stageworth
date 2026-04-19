@@ -168,7 +168,7 @@ export default function ProfileSetupScreen() {
         >
           <Text style={[styles.title, { color: c.text }]}>Welcome!</Text>
           <Text style={[styles.subtitle, { color: c.mutedText }]}>
-            Let's set up your profile.
+            {"Let's set up your profile."}
           </Text>
 
           <View style={styles.avatarSection}>
