@@ -69,7 +69,7 @@ export const search = query({
 export const popular = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
-    const max = Math.min(args.limit ?? 8, 20);
+    const max = Math.min(args.limit ?? 8, 100);
 
     const allVisits = await ctx.db.query("visits").collect();
     const countByShow = new Map<string, number>();

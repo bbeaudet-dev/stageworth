@@ -35,6 +35,7 @@ import type * as leaderboard from "../leaderboard.js";
 import type * as listRules from "../listRules.js";
 import type * as lists from "../lists.js";
 import type * as notifications from "../notifications.js";
+import type * as onboarding from "../onboarding.js";
 import type * as playbill from "../playbill.js";
 import type * as productions from "../productions.js";
 import type * as rankings from "../rankings.js";
@@ -91,6 +92,7 @@ declare const fullApi: ApiFromModules<{
   listRules: typeof listRules;
   lists: typeof lists;
   notifications: typeof notifications;
+  onboarding: typeof onboarding;
   playbill: typeof playbill;
   productions: typeof productions;
   rankings: typeof rankings;
