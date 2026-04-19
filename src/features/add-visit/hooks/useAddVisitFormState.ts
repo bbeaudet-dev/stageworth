@@ -24,6 +24,7 @@ type Action =
   | { type: "SELECT_EXISTING_SHOW"; showId: Id<"shows"> }
   | { type: "SELECT_CUSTOM_SHOW"; name: string }
   | { type: "CLEAR_SELECTION" }
+  | { type: "RESET_FORM" }
   | { type: "TOGGLE_TAGGED_USER"; userId: Id<"users"> };
 
 function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
@@ -108,6 +109,8 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
         searchHigh: 0,
         rankingResultIndex: null,
       };
+    case "RESET_FORM":
+      return getInitialAddVisitFormState();
     case "TOGGLE_TAGGED_USER": {
       const isTagged = state.taggedUserIds.includes(action.userId);
       return {
@@ -149,6 +152,7 @@ export function useAddVisitFormState() {
     selectExistingShow: (showId: Id<"shows">) => dispatch({ type: "SELECT_EXISTING_SHOW", showId }),
     selectCustomShow: (name: string) => dispatch({ type: "SELECT_CUSTOM_SHOW", name }),
     clearSelection: () => dispatch({ type: "CLEAR_SELECTION" }),
+    resetForm: () => dispatch({ type: "RESET_FORM" }),
     toggleTaggedUser: (userId: Id<"users">) => dispatch({ type: "TOGGLE_TAGGED_USER", userId }),
   };
 }

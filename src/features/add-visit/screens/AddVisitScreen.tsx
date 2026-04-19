@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import {
   Alert,
   InteractionManager,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -202,7 +203,6 @@ export default function AddVisitScreen() {
             : undefined,
         taggedUserIds: state.taggedUserIds.length > 0 ? state.taggedUserIds : undefined,
       });
-      allowRemoveRef.current = true;
       const isNewShow = state.customShowName !== null || !showContext?.hasVisit;
       const celebrationData = isNewShow
         ? {
@@ -210,9 +210,10 @@ export default function AddVisitScreen() {
             imageUrl: selectedShow?.images?.[0] ?? null,
           }
         : null;
-      router.replace("/(tabs)");
+      allowRemoveRef.current = true;
+      Keyboard.dismiss();
+      router.back();
       if (celebrationData) {
-        // Wait for all navigation interactions to fully settle before showing overlay
         InteractionManager.runAfterInteractions(() => {
           celebrate(celebrationData);
         });
