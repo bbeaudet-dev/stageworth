@@ -71,7 +71,7 @@ export default function LeaderboardScreen() {
 
   const [category, setCategory] = useState<Category>("shows");
   const [scope, setScope] = useState<Scope>("all");
-  const [visitsMode, setVisitsMode] = useState<VisitsMode>("total");
+  const [visitsMode, setVisitsMode] = useState<VisitsMode>("shows");
   const [showSearchQuery, setShowSearchQuery] = useState("");
   const [selectedShow, setSelectedShow] = useState<SelectedShow | null>(null);
 
@@ -82,7 +82,7 @@ export default function LeaderboardScreen() {
   const borderColor = Colors[theme].border;
   const accentColor = Colors[theme].accent;
 
-  const { data, countLabel, showSearchResults } = useLeaderboardData({
+  const { data, countLabel, showSearchResults, popularShows } = useLeaderboardData({
     category,
     scope,
     visitsMode,
@@ -92,8 +92,8 @@ export default function LeaderboardScreen() {
 
   const handleCategoryChange = (cat: Category) => {
     setCategory(cat);
-    if (cat !== "visits") {
-      setVisitsMode("total");
+    if (cat !== "shows") {
+      setVisitsMode("shows");
       setSelectedShow(null);
       setShowSearchQuery("");
     }
@@ -142,7 +142,7 @@ export default function LeaderboardScreen() {
             </Text>
             <Text style={[styles.rowHandle, { color: rowMutedColor }]}>@{item.user.username}</Text>
           </View>
-          {visitsMode === "single_show" && item.showImages?.[0] ? (
+          {category === "shows" && visitsMode === "single_show" && item.showImages?.[0] ? (
             <Pressable
               onPress={(e) => {
                 e.stopPropagation?.();
@@ -162,13 +162,14 @@ export default function LeaderboardScreen() {
     );
   };
 
-  const visitsHeader =
-    category === "visits" ? (
+  const showsHeader =
+    category === "shows" ? (
       <VisitsModeHeader
         visitsMode={visitsMode}
         selectedShow={selectedShow}
         showSearchQuery={showSearchQuery}
         showSearchResults={showSearchResults as SelectedShow[] | undefined}
+        popularShows={popularShows as SelectedShow[] | undefined}
         onVisitsModeChange={handleVisitsModeChange}
         onShowSelect={(show) => { setSelectedShow(show); setShowSearchQuery(""); }}
         onShowQueryChange={setShowSearchQuery}
@@ -198,13 +199,9 @@ export default function LeaderboardScreen() {
         keyExtractor={(item) => String(item.user._id)}
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-        ListHeaderComponent={visitsHeader}
+        ListHeaderComponent={showsHeader}
         ListEmptyComponent={
-          visitsMode === "select_show" && !selectedShow ? (
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptyText, { color: mutedTextColor }]}>Search for a show above to see who&apos;s seen it the most.</Text>
-            </View>
-          ) : data === undefined ? (
+          category === "shows" && visitsMode === "select_show" && !selectedShow ? null : data === undefined ? (
             <Text style={[styles.emptyText, { color: mutedTextColor }]}>Loading...</Text>
           ) : (
             <Text style={[styles.emptyText, { color: mutedTextColor }]}>No data yet.</Text>
@@ -251,7 +248,6 @@ const styles = StyleSheet.create({
   playbillThumb: { width: 30, height: 40, borderRadius: 4, overflow: "hidden" },
   countText: { fontSize: 18, fontWeight: "700" },
   countLabel: { fontSize: 11, fontWeight: "500", width: 50 },
-  emptyState: { paddingHorizontal: 32, paddingTop: 40, alignItems: "center" },
   emptyText: { fontSize: 15, textAlign: "center", lineHeight: 22 },
   inviteFooterBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",

@@ -3,9 +3,9 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
-export type Category = "shows" | "visits" | "theatres" | "signups" | "streak" | "score";
+export type Category = "shows" | "theatres" | "signups" | "score";
 export type Scope = "all" | "friends";
-export type VisitsMode = "total" | "single_show" | "select_show";
+export type VisitsMode = "shows" | "visits" | "single_show" | "select_show";
 
 interface UseLeaderboardDataArgs {
   category: Category;
@@ -24,19 +24,19 @@ export function useLeaderboardData({
 }: UseLeaderboardDataArgs) {
   const showsData = useQuery(
     api.leaderboard.getByShows,
-    category === "shows" ? { scope } : "skip",
+    category === "shows" && visitsMode === "shows" ? { scope } : "skip",
   );
   const visitsData = useQuery(
     api.leaderboard.getByVisits,
-    category === "visits" && visitsMode === "total" ? { scope, mode: "total" } : "skip",
+    category === "shows" && visitsMode === "visits" ? { scope, mode: "total" } : "skip",
   );
   const visitsSingleShowData = useQuery(
     api.leaderboard.getByVisits,
-    category === "visits" && visitsMode === "single_show" ? { scope, mode: "single_show" } : "skip",
+    category === "shows" && visitsMode === "single_show" ? { scope, mode: "single_show" } : "skip",
   );
   const visitsSelectShowData = useQuery(
     api.leaderboard.getByVisits,
-    category === "visits" && visitsMode === "select_show" && selectedShowId
+    category === "shows" && visitsMode === "select_show" && selectedShowId
       ? { scope, mode: "per_show", showId: selectedShowId }
       : "skip",
   );
@@ -48,55 +48,53 @@ export function useLeaderboardData({
     api.leaderboard.getBySignups,
     category === "signups" ? { scope } : "skip",
   );
-  const streakData = useQuery(
-    api.leaderboard.getByStreak,
-    category === "streak" ? { scope } : "skip",
-  );
   const scoreData = useQuery(
     api.leaderboard.getByScore,
     category === "score" ? { scope } : "skip",
   );
   const showSearchResults = useQuery(
     api.shows.search,
-    visitsMode === "select_show" && showSearchQuery.length >= 1
+    category === "shows" && visitsMode === "select_show" && showSearchQuery.length >= 1
       ? { q: showSearchQuery, limit: 8 }
       : "skip",
   );
+  const popularShows = useQuery(
+    api.shows.popular,
+    category === "shows" && visitsMode === "select_show" && showSearchQuery.length === 0
+      ? { limit: 8 }
+      : "skip",
+  );
 
-  const activeVisitsData =
-    visitsMode === "total"
-      ? visitsData
-      : visitsMode === "single_show"
-        ? visitsSingleShowData
-        : visitsSelectShowData;
+  const showsCategoryData =
+    visitsMode === "shows"
+      ? showsData
+      : visitsMode === "visits"
+        ? visitsData
+        : visitsMode === "single_show"
+          ? visitsSingleShowData
+          : visitsSelectShowData;
 
   const data =
     category === "shows"
-      ? showsData
-      : category === "visits"
-        ? activeVisitsData
-        : category === "theatres"
-          ? theatresData
-          : category === "signups"
-            ? signupsData
-            : category === "streak"
-              ? streakData
-              : scoreData;
+      ? showsCategoryData
+      : category === "theatres"
+        ? theatresData
+        : category === "signups"
+          ? signupsData
+          : scoreData;
 
   const countLabel =
     category === "shows"
-      ? "shows"
-      : category === "visits"
-        ? visitsMode === "single_show"
+      ? visitsMode === "shows"
+        ? "shows"
+        : visitsMode === "single_show"
           ? "best"
           : "visits"
-        : category === "theatres"
-          ? "theatres"
-          : category === "signups"
-            ? "signups"
-            : category === "streak"
-              ? "wk streak"
-              : "pts";
+      : category === "theatres"
+        ? "theatres"
+        : category === "signups"
+          ? "signups"
+          : "pts";
 
-  return { data, countLabel, showSearchResults };
+  return { data, countLabel, showSearchResults, popularShows };
 }

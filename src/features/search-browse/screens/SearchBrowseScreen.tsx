@@ -1,7 +1,6 @@
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -51,13 +50,6 @@ export default function SearchBrowseScreen() {
   // List status sheet state
   const [listSheetShowId, setListSheetShowId] = useState<Id<"shows"> | null>(null);
   const [listSheetShowName, setListSheetShowName] = useState("");
-
-  useFocusEffect(
-    useCallback(() => {
-      const t = setTimeout(() => inputRef.current?.focus(), 100);
-      return () => clearTimeout(t);
-    }, []),
-  );
 
   const {
     trimmed,

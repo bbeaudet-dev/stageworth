@@ -8,10 +8,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { BrandGradientTitle } from "@/components/BrandGradientTitle";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
-
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
+import { FeedPostCard } from "@/features/community/components/FeedPostCard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { formatRelativeVisitDate } from "@/utils/dates";
 import { getDisplayName } from "@/utils/user";
@@ -19,7 +19,7 @@ import { getDisplayName } from "@/utils/user";
 type FeedTab = "following" | "global";
 
 function formatVisitLocation(
-  dateStr: string,
+  _dateStr: string,
   theatre?: string | null,
   city?: string | null,
 ) {
@@ -27,6 +27,8 @@ function formatVisitLocation(
 }
 
 type TaggedUser = { _id: string; username: string; name?: string | null };
+
+// ─── Participants bottom sheet ─────────────────────────────────────────────────
 
 type ParticipantsSheetProps = {
   visible: boolean;
@@ -56,9 +58,7 @@ function ParticipantsSheet({
     <BottomSheet visible={visible} onClose={onClose}>
       <View style={[styles.sheetContainer, { backgroundColor: bg }]}>
         <View style={[styles.sheetHandle, { backgroundColor: border }]} />
-        <Text style={[styles.sheetTitle, { color: muted }]}>
-          Attended together
-        </Text>
+        <Text style={[styles.sheetTitle, { color: muted }]}>Attended together</Text>
         {all.map((user, i) => (
           <Pressable
             key={user._id}
@@ -87,19 +87,19 @@ function ParticipantsSheet({
   );
 }
 
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 export default function CommunityScreen() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<FeedTab>("global");
 
   const handlePlusPress = () => {
-    Alert.alert("Create", undefined, [
-      {
-        text: "Add a Visit",
-        onPress: () => router.push("/add-visit"),
-      },
+    Alert.alert("Quick Actions", undefined, [
+      { text: "Add a Visit", onPress: () => router.push("/add-visit") },
       {
         text: "Create Post",
-        onPress: () => Alert.alert("Coming Soon", "Community posts are coming in a future update!"),
+        onPress: () =>
+          Alert.alert("Coming Soon", "Community posts are coming in a future update!"),
       },
       { text: "Cancel", style: "cancel" },
     ]);
@@ -120,46 +120,42 @@ export default function CommunityScreen() {
   } | null>(null);
 
   const posts = useMemo(
-    () =>
-      selectedTab === "following" ? (followingFeed ?? []) : (globalFeed ?? []),
+    () => (selectedTab === "following" ? (followingFeed ?? []) : (globalFeed ?? [])),
     [followingFeed, globalFeed, selectedTab],
   );
 
   const isLoading =
-    selectedTab === "following"
-      ? followingFeed === undefined
-      : globalFeed === undefined;
+    selectedTab === "following" ? followingFeed === undefined : globalFeed === undefined;
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
-  const backgroundColor = Colors[theme].background;
-  const primaryTextColor = Colors[theme].text;
-  const mutedTextColor = theme === "dark" ? "#a0a4aa" : "#666";
-  const cardBackground = theme === "dark" ? "#18181b" : "#fff";
-  const cardBorder = theme === "dark" ? "#27272f" : "#ddd";
-  const segmentBorder = theme === "dark" ? "#3a3a44" : "#d6d6d6";
-  const segmentBackground = theme === "dark" ? "#111115" : "#fff";
-  const segmentBackgroundActive = theme === "dark" ? "#fff" : "#1f1f1f";
-  const segmentTextColor = theme === "dark" ? "#b0b4bc" : "#444";
-  const segmentTextActiveColor = theme === "dark" ? "#111" : "#fff";
-  const actorHandleColor = theme === "dark" ? "#d1d5f9" : "#4d4d4d";
-  const actorLinkColor = theme === "dark" ? "#7ea2ff" : "#2f62d8";
-  const showTextColor = theme === "dark" ? "#f5f5f5" : "#111";
-  const subTextColor = mutedTextColor;
-  const notesTextColor = theme === "dark" ? "#e4e4e7" : "#2b2b2b";
-  const rankTextColor = mutedTextColor;
-  const posterBackground = theme === "dark" ? "#27272f" : "#efefef";
-  const emptyTextColor = theme === "dark" ? "#9ca3af" : "#808080";
 
-  const bellColor = theme === "dark" ? "#d1d5f9" : "#333";
-  const badgeBg = Colors[theme].accent;
-  const badgeText = Colors[theme].onAccent;
+  // ─── Derived theme tokens ───────────────────────────────────────────────────
+  const backgroundColor    = Colors[theme].background;
+  const primaryTextColor   = Colors[theme].text;
+  const mutedTextColor     = theme === "dark" ? "#a0a4aa" : "#666";
+  const cardBackground     = theme === "dark" ? "#18181b" : "#fff";
+  const cardBorder         = theme === "dark" ? "#27272f" : "#ddd";
+  const segmentBorder      = theme === "dark" ? "#3a3a44" : "#d6d6d6";
+  const segmentBackground  = theme === "dark" ? "#111115" : "#fff";
+  const segmentBgActive    = theme === "dark" ? "#fff" : "#1f1f1f";
+  const segmentTextColor   = theme === "dark" ? "#b0b4bc" : "#444";
+  const segmentTextActive  = theme === "dark" ? "#111" : "#fff";
+  const actorHandleColor   = theme === "dark" ? "#d1d5f9" : "#4d4d4d";
+  const actorLinkColor     = theme === "dark" ? "#7ea2ff" : "#2f62d8";
+  const showTextColor      = theme === "dark" ? "#f5f5f5" : "#111";
+  const notesTextColor     = theme === "dark" ? "#e4e4e7" : "#2b2b2b";
+  const posterBackground   = theme === "dark" ? "#27272f" : "#efefef";
+  const emptyTextColor     = theme === "dark" ? "#9ca3af" : "#808080";
+  const bellColor          = theme === "dark" ? "#d1d5f9" : "#333";
+  const badgeBg            = Colors[theme].accent;
+  const badgeText          = Colors[theme].onAccent;
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor }]}
-      edges={["top"]}
-    >
+    <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["top"]}>
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <BrandGradientTitle text="Community" fontSize={28} />
@@ -196,256 +192,328 @@ export default function CommunityScreen() {
             </Pressable>
           </View>
         </View>
+
+        {/* Segment tabs */}
         <View style={styles.segmentRow}>
-          <Pressable
-            style={[
-              styles.segmentButton,
-              {
-                borderColor: segmentBorder,
-                backgroundColor: segmentBackground,
-              },
-              selectedTab === "global" && [
-                styles.segmentButtonActive,
-                {
-                  backgroundColor: segmentBackgroundActive,
-                  borderColor: segmentBackgroundActive,
-                },
-              ],
-            ]}
-            onPress={() => setSelectedTab("global")}
-          >
-            <Text
-              style={[
-                styles.segmentButtonText,
-                { color: segmentTextColor },
-                selectedTab === "global" && [
-                  styles.segmentButtonTextActive,
-                  { color: segmentTextActiveColor },
-                ],
-              ]}
-            >
-              Global
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.segmentButton,
-              {
-                borderColor: segmentBorder,
-                backgroundColor: segmentBackground,
-              },
-              selectedTab === "following" && [
-                styles.segmentButtonActive,
-                {
-                  backgroundColor: segmentBackgroundActive,
-                  borderColor: segmentBackgroundActive,
-                },
-              ],
-            ]}
-            onPress={() => setSelectedTab("following")}
-          >
-            <Text
-              style={[
-                styles.segmentButtonText,
-                { color: segmentTextColor },
-                selectedTab === "following" && [
-                  styles.segmentButtonTextActive,
-                  { color: segmentTextActiveColor },
-                ],
-              ]}
-            >
-              Following
-            </Text>
-          </Pressable>
+          {(["global", "following"] as FeedTab[]).map((tab) => {
+            const active = selectedTab === tab;
+            return (
+              <Pressable
+                key={tab}
+                style={[
+                  styles.segmentButton,
+                  { borderColor: segmentBorder, backgroundColor: segmentBackground },
+                  active && { backgroundColor: segmentBgActive, borderColor: segmentBgActive },
+                ]}
+                onPress={() => setSelectedTab(tab)}
+              >
+                <Text
+                  style={[
+                    styles.segmentButtonText,
+                    { color: segmentTextColor },
+                    active && { color: segmentTextActive },
+                  ]}
+                >
+                  {tab === "global" ? "Global" : "Friends"}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
+      {/* Feed */}
       <ScrollView contentContainerStyle={styles.content}>
-        {isLoading ? (
-          <Text style={[styles.emptyText, { color: emptyTextColor }]}>
-            Loading posts...
-          </Text>
-        ) : null}
-        {!isLoading && posts.length === 0 ? (
+        {isLoading && (
+          <Text style={[styles.emptyText, { color: emptyTextColor }]}>Loading posts…</Text>
+        )}
+        {!isLoading && posts.length === 0 && (
           <Text style={[styles.emptyText, { color: emptyTextColor }]}>
             {selectedTab === "following"
-              ? "No posts yet from people you follow."
+              ? "No posts yet from your friends."
               : "No community posts yet."}
           </Text>
-        ) : null}
-        {!isLoading
-          ? posts.map((post) => {
-              const actorLabel = getDisplayName(
-                post.actor.name,
-                post.actor.username,
-              );
-              const isGlobal = selectedTab === "global";
-              const tagged: TaggedUser[] = post.taggedUsers ?? [];
-              const location = formatVisitLocation(
-                post.visitDate,
-                post.theatre,
-                post.city,
-              );
+        )}
 
-              const openParticipants = () =>
-                setParticipantsModal({
-                  actor: post.actor,
-                  taggedUsers: tagged,
-                });
+        {!isLoading &&
+          posts.map((post) => {
+            const actorLabel = getDisplayName(post.actor.name, post.actor.username);
+            const isGlobal = selectedTab === "global";
+            const tagged: TaggedUser[] = post.taggedUsers ?? [];
 
+            // ── Shared inline elements ──────────────────────────────────────
+            const actorInline = (
+              <Text
+                style={[styles.actorText, { color: actorLinkColor }]}
+                onPress={() =>
+                  router.push({ pathname: "/user/[username]", params: { username: post.actor.username } })
+                }
+              >
+                {actorLabel}
+              </Text>
+            );
+
+            const headerNode = isGlobal ? (
+              <Pressable
+                onPress={() =>
+                  router.push({ pathname: "/user/[username]", params: { username: post.actor.username } })
+                }
+              >
+                <Text style={[styles.actorHandleText, { color: actorHandleColor }]}>
+                  @{post.actor.username}
+                </Text>
+              </Pressable>
+            ) : undefined;
+
+            // ── challenge_started ───────────────────────────────────────────
+            if (post.type === "challenge_started") {
+              const target   = post.challengeTarget ?? 0;
+              const progress = post.challengeProgress ?? 0;
               return (
-                <View
+                <FeedPostCard
                   key={post._id}
-                  style={[
-                    styles.postCard,
-                    {
-                      backgroundColor: cardBackground,
-                      borderColor: cardBorder,
-                    },
-                  ]}
-                >
-                  <View style={styles.postRow}>
-                    <View style={styles.postMain}>
-                      {isGlobal && (
-                        <Pressable
-                          onPress={() =>
-                            router.push({
-                              pathname: "/user/[username]",
-                              params: { username: post.actor.username },
-                            })
-                          }
-                        >
+                  backgroundColor={cardBackground}
+                  borderColor={cardBorder}
+                  onPress={() => router.push("/challenges")}
+                  header={headerNode}
+                  title={
+                    <Text style={[styles.postTitle, { color: primaryTextColor }]}>
+                      {actorInline}{" "}has started a new Theatre Challenge!
+                    </Text>
+                  }
+                  body={
+                    <>
+                      <Text style={[styles.challengeGoalText, { color: mutedTextColor }]}>
+                        Goal: {target} show{target !== 1 ? "s" : ""}
+                        {progress > 0 ? ` · ${progress} already logged` : ""}
+                      </Text>
+                      <Text style={[styles.subText, { color: mutedTextColor }]}>
+                        {formatRelativeVisitDate(new Date(post.createdAt).toISOString().slice(0, 10))}
+                      </Text>
+                    </>
+                  }
+                />
+              );
+            }
+
+            // ── challenge_completed ─────────────────────────────────────────
+            if (post.type === "challenge_completed") {
+              const year     = post.challengeYear ?? "";
+              const target   = post.challengeTarget ?? 0;
+              const progress = post.challengeProgress ?? 0;
+              const show     = post.show;
+              return (
+                <FeedPostCard
+                  key={post._id}
+                  backgroundColor={cardBackground}
+                  borderColor={cardBorder}
+                  onPress={() => router.push("/challenges")}
+                  header={headerNode}
+                  title={
+                    <Text style={[styles.postTitle, { color: primaryTextColor }]}>
+                      {actorInline}{" "}completed their {year} Theatre Challenge!
+                    </Text>
+                  }
+                  body={
+                    <>
+                      <Text style={[styles.challengeGoalText, { color: mutedTextColor }]}>
+                        {progress}/{target} shows
+                      </Text>
+                      {show && post.visitDate && (
+                        <Text style={[styles.subText, { color: mutedTextColor }]}>
+                          {"Final show: "}
                           <Text
-                            style={[
-                              styles.actorHandleText,
-                              { color: actorHandleColor },
-                            ]}
+                            style={[styles.showText, { color: showTextColor }]}
+                            onPress={() =>
+                              router.push({ pathname: "/show/[showId]", params: { showId: show._id } })
+                            }
                           >
-                            @{post.actor.username}
+                            {show.name}
                           </Text>
-                        </Pressable>
+                          {" · "}{formatRelativeVisitDate(post.visitDate)}
+                        </Text>
                       )}
-                      <Text
-                        style={[styles.postTitle, { color: primaryTextColor }]}
+                    </>
+                  }
+                  poster={
+                    show ? (
+                      <Pressable
+                        style={StyleSheet.absoluteFillObject}
+                        onPress={() =>
+                          router.push({ pathname: "/show/[showId]", params: { showId: show._id } })
+                        }
                       >
+                        {show.images[0] ? (
+                          <Image source={{ uri: show.images[0] }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
+                        ) : (
+                          <ShowPlaceholder name={show.name} style={{ width: "100%", height: "100%", aspectRatio: undefined }} />
+                        )}
+                      </Pressable>
+                    ) : undefined
+                  }
+                  posterBackground={posterBackground}
+                />
+              );
+            }
+
+            // ── challenge_milestone ─────────────────────────────────────────
+            if (post.type === "challenge_milestone") {
+              const year     = post.challengeYear ?? "";
+              const target   = post.challengeTarget ?? 0;
+              const progress = post.challengeProgress ?? 0;
+              const pct      = target > 0 ? Math.round((progress / target) * 100) : 0;
+              const show     = post.show;
+              return (
+                <FeedPostCard
+                  key={post._id}
+                  backgroundColor={cardBackground}
+                  borderColor={cardBorder}
+                  onPress={() => router.push("/challenges")}
+                  header={headerNode}
+                  title={
+                    <Text style={[styles.postTitle, { color: primaryTextColor }]}>
+                      {actorInline}{" "}is{" "}
+                      {pct === 50 ? "halfway" : `${pct}%`}{" "}
+                      through their {year} Theatre Challenge!
+                    </Text>
+                  }
+                  body={
+                    <>
+                      <Text style={[styles.challengeGoalText, { color: mutedTextColor }]}>
+                        {progress} of {target} shows
+                      </Text>
+                      {show && post.visitDate && (
+                        <Text style={[styles.subText, { color: mutedTextColor }]}>
+                          {"Latest: "}
+                          <Text
+                            style={[styles.showText, { color: showTextColor }]}
+                            onPress={() =>
+                              router.push({ pathname: "/show/[showId]", params: { showId: show._id } })
+                            }
+                          >
+                            {show.name}
+                          </Text>
+                          {" · "}{formatRelativeVisitDate(post.visitDate)}
+                        </Text>
+                      )}
+                    </>
+                  }
+                  poster={
+                    show ? (
+                      <Pressable
+                        style={StyleSheet.absoluteFillObject}
+                        onPress={() =>
+                          router.push({ pathname: "/show/[showId]", params: { showId: show._id } })
+                        }
+                      >
+                        {show.images[0] ? (
+                          <Image source={{ uri: show.images[0] }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
+                        ) : (
+                          <ShowPlaceholder name={show.name} style={{ width: "100%", height: "100%", aspectRatio: undefined }} />
+                        )}
+                      </Pressable>
+                    ) : undefined
+                  }
+                  posterBackground={posterBackground}
+                />
+              );
+            }
+
+            // ── visit_created ───────────────────────────────────────────────
+            const visitShow = post.show;
+            if (!visitShow) return null;
+            const location = formatVisitLocation(post.visitDate ?? "", post.theatre, post.city);
+            const openParticipants = () =>
+              setParticipantsModal({ actor: post.actor, taggedUsers: tagged });
+
+            return (
+              <FeedPostCard
+                key={post._id}
+                backgroundColor={cardBackground}
+                borderColor={cardBorder}
+                header={headerNode}
+                title={
+                  <Text style={[styles.postTitle, { color: primaryTextColor }]}>
+                    {actorInline}{" "}saw{" "}
+                    <Text
+                      style={[styles.showText, { color: showTextColor }]}
+                      onPress={() =>
+                        router.push({ pathname: "/show/[showId]", params: { showId: visitShow._id } })
+                      }
+                    >
+                      {visitShow.name}
+                    </Text>
+                    {tagged.length === 1 && (
+                      <>
+                        {" with "}
                         <Text
                           style={[styles.actorText, { color: actorLinkColor }]}
                           onPress={() =>
-                            router.push({
-                              pathname: "/user/[username]",
-                              params: { username: post.actor.username },
-                            })
+                            router.push({ pathname: "/user/[username]", params: { username: tagged[0].username } })
                           }
                         >
-                          {actorLabel}
-                        </Text>{" "}
-                        saw{" "}
-                        <Text
-                          style={[styles.showText, { color: showTextColor }]}
-                          onPress={() =>
-                            router.push({
-                              pathname: "/show/[showId]",
-                              params: { showId: post.show._id },
-                            })
-                          }
-                        >
-                          {post.show.name}
+                          {getDisplayName(tagged[0].name, tagged[0].username)}
                         </Text>
-                        {tagged.length === 1 && (
-                          <>
-                            {" with "}
-                            <Text
-                              style={[
-                                styles.actorText,
-                                { color: actorLinkColor },
-                              ]}
-                              onPress={() =>
-                                router.push({
-                                  pathname: "/user/[username]",
-                                  params: { username: tagged[0].username },
-                                })
-                              }
-                            >
-                              {getDisplayName(tagged[0].name, tagged[0].username)}
-                            </Text>
-                          </>
-                        )}
-                        {tagged.length >= 2 && (
-                          <>
-                            {" with "}
-                            <Text
-                              style={[
-                                styles.actorText,
-                                { color: actorLinkColor },
-                              ]}
-                              onPress={openParticipants}
-                            >
-                              {tagged.length} others
-                            </Text>
-                          </>
-                        )}{" "}
-                        {formatRelativeVisitDate(post.visitDate)}
-                      </Text>
-                      {location ? (
-                        <Text style={[styles.subText, { color: subTextColor }]}>
-                          {location}
-                        </Text>
-                      ) : null}
-                      {post.notes ? (
+                      </>
+                    )}
+                    {tagged.length >= 2 && (
+                      <>
+                        {" with "}
                         <Text
-                          style={[styles.notesText, { color: notesTextColor }]}
+                          style={[styles.actorText, { color: actorLinkColor }]}
+                          onPress={openParticipants}
                         >
-                          {post.notes}
+                          {tagged.length} others
                         </Text>
-                      ) : null}
-                      {post.rankAtPost ? (
-                        <Text
-                          style={[styles.rankText, { color: rankTextColor }]}
-                        >
+                      </>
+                    )}
+                    {" "}{post.visitDate ? formatRelativeVisitDate(post.visitDate) : ""}
+                  </Text>
+                }
+                body={
+                  (location || post.notes || post.rankAtPost) ? (
+                    <>
+                      {!!location && (
+                        <Text style={[styles.subText, { color: mutedTextColor }]}>{location}</Text>
+                      )}
+                      {!!post.notes && (
+                        <Text style={[styles.notesText, { color: notesTextColor }]}>{post.notes}</Text>
+                      )}
+                      {!!post.rankAtPost && (
+                        <Text style={[styles.rankText, { color: mutedTextColor }]}>
                           Ranked #{post.rankAtPost} of {post.rankingTotal}
                         </Text>
-                      ) : null}
-                    </View>
-                    <Pressable
-                      style={[
-                        styles.posterWrap,
-                        { backgroundColor: posterBackground },
-                      ]}
-                      onPress={() =>
-                        router.push({
-                          pathname: "/show/[showId]",
-                          params: { showId: post.show._id },
-                        })
-                      }
-                    >
-                      {post.show.images[0] ? (
-                        <Image
-                          source={{ uri: post.show.images[0] }}
-                          style={styles.posterImage}
-                        />
-                      ) : (
-                        <ShowPlaceholder
-                          name={post.show.name}
-                          style={{ width: "100%", height: "100%", aspectRatio: undefined }}
-                        />
                       )}
-                    </Pressable>
-                  </View>
-                </View>
-              );
-            })
-          : null}
+                    </>
+                  ) : undefined
+                }
+                poster={
+                  <Pressable
+                    style={StyleSheet.absoluteFillObject}
+                    onPress={() =>
+                      router.push({ pathname: "/show/[showId]", params: { showId: visitShow._id } })
+                    }
+                  >
+                    {visitShow.images[0] ? (
+                      <Image source={{ uri: visitShow.images[0] }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
+                    ) : (
+                      <ShowPlaceholder name={visitShow.name} style={{ width: "100%", height: "100%", aspectRatio: undefined }} />
+                    )}
+                  </Pressable>
+                }
+                posterBackground={posterBackground}
+              />
+            );
+          })}
       </ScrollView>
+
       <ParticipantsSheet
         visible={participantsModal !== null}
         onClose={() => setParticipantsModal(null)}
         actor={participantsModal?.actor ?? { _id: "", username: "" }}
         taggedUsers={participantsModal?.taggedUsers ?? []}
         onNavigate={(username) =>
-          router.push({
-            pathname: "/user/[username]",
-            params: { username },
-          })
+          router.push({ pathname: "/user/[username]", params: { username } })
         }
         theme={theme}
       />
@@ -453,11 +521,10 @@ export default function CommunityScreen() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
+  container: { flex: 1 },
   header: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -480,7 +547,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   bellButton: {
     position: "relative",
     width: 36,
@@ -505,101 +571,58 @@ const styles = StyleSheet.create({
     color: "#fff",
     lineHeight: 12,
   },
-  segmentRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
+  segmentRow: { flexDirection: "row", gap: 8 },
   segmentButton: {
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#d6d6d6",
     paddingHorizontal: 14,
     paddingVertical: 8,
-    backgroundColor: "#fff",
-  },
-  segmentButtonActive: {
-    backgroundColor: "#1f1f1f",
-    borderColor: "#1f1f1f",
   },
   segmentButtonText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#444",
-  },
-  segmentButtonTextActive: {
-    color: "#fff",
   },
   content: {
     paddingHorizontal: 16,
     paddingBottom: 24,
     gap: 10,
   },
-  postCard: {
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#ddd",
-    backgroundColor: "#fff",
-    padding: 12,
-    gap: 6,
+  emptyText: {
+    fontSize: 15,
+    textAlign: "center",
+    marginTop: 40,
   },
-  postRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  postMain: {
-    flex: 1,
-    gap: 6,
-  },
+  // ── Text styles shared across post types ───────────────────────────────────
   postTitle: {
     fontSize: 16,
     lineHeight: 22,
-    color: "#222",
-  },
-  posterWrap: {
-    width: 64,
-    height: 92,
-    borderRadius: 8,
-    overflow: "hidden",
-    backgroundColor: "#efefef",
-  },
-  posterImage: {
-    width: "100%",
-    height: "100%",
   },
   actorText: {
     fontWeight: "700",
-    color: "#2f62d8",
   },
   actorHandleText: {
     fontSize: 11,
     fontWeight: "500",
-    color: "#4d4d4d",
   },
   showText: {
     fontWeight: "700",
-    color: "#111",
   },
   subText: {
-    color: "#666",
     fontSize: 13,
   },
   notesText: {
     fontSize: 14,
-    color: "#2b2b2b",
     lineHeight: 20,
   },
   rankText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#666",
   },
-  emptyText: {
-    fontSize: 15,
-    color: "#808080",
-    textAlign: "center",
-    marginTop: 40,
+  challengeGoalText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
+  // ── Bottom sheet ───────────────────────────────────────────────────────────
   sheetContainer: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -634,16 +657,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  sheetRowText: {
-    flex: 1,
-    gap: 2,
-  },
-  sheetRowName: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  sheetRowHandle: {
-    fontSize: 13,
-    fontWeight: "500",
-  },
+  sheetRowText: { flex: 1, gap: 2 },
+  sheetRowName: { fontSize: 16, fontWeight: "600" },
+  sheetRowHandle: { fontSize: 13, fontWeight: "500" },
 });

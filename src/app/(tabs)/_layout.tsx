@@ -92,7 +92,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: "Search",
+          title: "Discovery",
           tabBarIcon: ({ color, focused }) =>
             renderTabIcon(focused, accentColor, <IconSymbol size={28} name="magnifyingglass" color={color} />),
         }}

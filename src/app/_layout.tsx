@@ -89,6 +89,10 @@ export default function RootLayout() {
                     options={{ headerShown: false }}
                   />
                   <Stack.Screen
+                    name="challenges"
+                    options={{ headerShown: true, title: "Theatre Challenges", headerBackButtonDisplayMode: "minimal" }}
+                  />
+                  <Stack.Screen
                     name="modal"
                     options={{ presentation: "modal", title: "Modal" }}
                   />
