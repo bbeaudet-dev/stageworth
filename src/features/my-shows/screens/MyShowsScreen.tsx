@@ -34,7 +34,13 @@ const LINE_META = {
 } as const;
 
 /** Minimum number of ranked shows before the per-category Back/Next nav unlocks. */
-const CATEGORY_NAV_UNLOCK_THRESHOLD = 30;
+const CATEGORY_NAV_UNLOCK_THRESHOLD = 20;
+/**
+ * Minimum number of ranked shows before the "Would See Again" / "Should've
+ * Stayed Home" divider lines start appearing in the List view. Below this we
+ * keep the list a single uninterrupted ranking.
+ */
+const RANKING_LINES_UNLOCK_THRESHOLD = 40;
 
 export default function MyShowsScreen() {
   const router = useRouter();
@@ -53,10 +59,12 @@ export default function MyShowsScreen() {
     handleRemoveShow,
   } = useMyShowsData();
 
+  const showRankingLines = (displayShows?.length ?? 0) >= RANKING_LINES_UNLOCK_THRESHOLD;
+
   const listItems = useRankedListItems({
     displayShows,
-    wouldSeeAgainLineIndex,
-    stayedHomeLineIndex,
+    wouldSeeAgainLineIndex: showRankingLines ? wouldSeeAgainLineIndex : -1,
+    stayedHomeLineIndex: showRankingLines ? stayedHomeLineIndex : -1,
     getShowTier,
   });
 
