@@ -16,9 +16,21 @@ export function useSearchBrowse(query: string) {
   const venueResults = useQuery(api.venues.search, isSearchActive ? { query: trimmed } : "skip");
 
   // Browse queries (always loaded)
-  const currentShows = useQuery(api.productions.listCurrent, {});
+  const currentShowsRaw = useQuery(api.productions.listCurrent, {});
   const upcomingShows = useQuery(api.productions.listUpcoming, { days: 60 });
   const closingSoon = useQuery(api.productions.listClosingSoon, { days: 70 });
+
+  // Shuffle "Now Playing" each time the data refreshes so the rail rotates
+  // across visits instead of always surfacing the first few productions.
+  const currentShows = useMemo(() => {
+    if (!currentShowsRaw) return currentShowsRaw;
+    const copy = currentShowsRaw.slice();
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }, [currentShowsRaw]);
 
   // User discovery rails (browse state only)
   const recentUsers = useQuery(api.social.profiles.searchUsers, !isSearchActive ? { q: "" } : "skip");

@@ -1,15 +1,27 @@
-import { useCallback } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import DraggableFlatList, {
   type RenderItemParams,
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
-import { type NativeScrollEvent, type NativeSyntheticEvent, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  FlatList,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ViewToken,
+} from "react-native";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { ShowRowAccordion, type RankedShow } from "@/components/show-row-accordion";
 import type { Id } from "@/convex/_generated/dataModel";
+import { CategoryNavBar } from "@/features/my-shows/components/CategoryNavBar";
 import type { LineMeta, ListItem, RankingTier, TierHeaderMeta } from "@/features/my-shows/types";
+
+const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 10 } as const;
 
 export function MyShowsListView({
   listItems,
@@ -25,6 +37,7 @@ export function MyShowsListView({
   lineMeta,
   listHeaderComponent,
   onScroll,
+  showCategoryNav = false,
 }: {
   listItems: ListItem[];
   expandedShowId: Id<"shows"> | null;
@@ -39,7 +52,60 @@ export function MyShowsListView({
   lineMeta: Record<"wouldSeeAgain" | "stayedHome", LineMeta>;
   listHeaderComponent?: React.ReactNode;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  showCategoryNav?: boolean;
 }) {
+  const flatListRef = useRef<FlatList<ListItem> | null>(null);
+
+  const tierIndices = useMemo(() => {
+    const indices: { listIndex: number; tier: RankingTier }[] = [];
+    listItems.forEach((item, idx) => {
+      if (item.kind === "tier") indices.push({ listIndex: idx, tier: item.tier });
+    });
+    return indices;
+  }, [listItems]);
+
+  const tierIndicesRef = useRef(tierIndices);
+  tierIndicesRef.current = tierIndices;
+
+  const [activeCategory, setActiveCategory] = useState(0);
+
+  const scrollLockUntilRef = useRef(0);
+
+  const handleViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (Date.now() < scrollLockUntilRef.current) return;
+      const idx = tierIndicesRef.current;
+      if (idx.length === 0 || viewableItems.length === 0) return;
+      let topmostIndex: number | null = null;
+      for (const v of viewableItems) {
+        if (v.index == null) continue;
+        if (topmostIndex == null || v.index < topmostIndex) topmostIndex = v.index;
+      }
+      if (topmostIndex == null) return;
+      let nextActive = 0;
+      for (let i = 0; i < idx.length; i += 1) {
+        if (idx[i].listIndex <= topmostIndex) nextActive = i;
+        else break;
+      }
+      setActiveCategory((prev) => (prev === nextActive ? prev : nextActive));
+    }
+  ).current;
+
+  const scrollToCategory = useCallback(
+    (newIndex: number) => {
+      const target = tierIndicesRef.current[newIndex];
+      if (!target) return;
+      scrollLockUntilRef.current = Date.now() + 1200;
+      setActiveCategory(newIndex);
+      flatListRef.current?.scrollToIndex({
+        index: target.listIndex,
+        animated: true,
+        viewPosition: 0,
+      });
+    },
+    []
+  );
+
   const renderItem = useCallback(
     ({ item, drag, isActive, getIndex }: RenderItemParams<ListItem>) => {
       const listIndex = getIndex() ?? 0;
@@ -118,6 +184,7 @@ export function MyShowsListView({
   return (
     <View style={styles.listWrapper}>
       <DraggableFlatList
+        ref={flatListRef as unknown as React.RefObject<any>}
         data={listItems}
         onDragEnd={(payload) => onDragEnd(payload)}
         keyExtractor={(item) => item.key}
@@ -129,10 +196,31 @@ export function MyShowsListView({
             <Text style={[styles.emptyText, { color: emptyTextColor }]}>No shows ranked yet.</Text>
           </View>
         }
-        contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 24 }]}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: (showCategoryNav ? 0 : tabBarHeight) + 24 },
+        ]}
         onScroll={onScroll}
         scrollEventThrottle={16}
+        onViewableItemsChanged={handleViewableItemsChanged}
+        viewabilityConfig={VIEWABILITY_CONFIG}
+        onScrollToIndexFailed={(info) => {
+          flatListRef.current?.scrollToOffset({
+            offset: info.averageItemLength * info.index,
+            animated: true,
+          });
+        }}
       />
+      {showCategoryNav && tierIndices.length > 1 ? (
+        <CategoryNavBar
+          canPrev={activeCategory > 0}
+          canNext={activeCategory < tierIndices.length - 1}
+          onPrev={() => scrollToCategory(activeCategory - 1)}
+          onNext={() => scrollToCategory(activeCategory + 1)}
+          currentLabel={tierHeaders[tierIndices[activeCategory]?.tier]?.label ?? null}
+          bottomInset={tabBarHeight}
+        />
+      ) : null}
     </View>
   );
 }

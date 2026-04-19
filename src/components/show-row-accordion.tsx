@@ -255,6 +255,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
   onViewShowDetails,
   drag,
   isActive,
+  hideDragHandle,
 }: {
   item: RankedShow;
   index: number;
@@ -267,6 +268,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
   onViewShowDetails: () => void;
   drag: () => void;
   isActive: boolean;
+  hideDragHandle?: boolean;
 }) {
   const swipeableRef = useRef<Swipeable>(null);
 
@@ -419,9 +421,11 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
               {isExpanded ? "▾" : "▸"}
             </Text>
           </Pressable>
-          <Pressable onLongPress={drag} disabled={isActive} hitSlop={8}>
-            <Text style={[accordionStyles.dragHandle, { color: mutedTextColor }]}>☰</Text>
-          </Pressable>
+          {hideDragHandle ? null : (
+            <Pressable onPressIn={drag} disabled={isActive} hitSlop={8}>
+              <Text style={[accordionStyles.dragHandle, { color: mutedTextColor }]}>☰</Text>
+            </Pressable>
+          )}
         </View>
       </Swipeable>
 

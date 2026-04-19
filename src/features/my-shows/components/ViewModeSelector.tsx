@@ -1,14 +1,14 @@
 import { StyleSheet, View } from "react-native";
 
 import { SegmentedControl } from "@/components/SegmentedControl";
-import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { ViewMode } from "@/features/my-shows/types";
 
 const VIEW_MODE_OPTIONS = [
-  { value: "cloud", label: "Cloud" },
   { value: "list",  label: "List"  },
+  { value: "genre", label: "Genre" },
   { value: "diary", label: "Diary" },
+  { value: "cloud", label: "Cloud" },
 ] as const;
 
 interface ViewModeSelectorProps {
@@ -19,11 +19,10 @@ interface ViewModeSelectorProps {
 export function ViewModeSelector({ viewMode, onChangeViewMode }: ViewModeSelectorProps) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
-  const borderColor = Colors[theme].border;
   const containerBg = theme === "dark" ? "rgba(18,18,18,0.97)" : "rgba(255,255,255,0.97)";
 
   return (
-    <View style={[styles.bar, { backgroundColor: containerBg, borderTopColor: borderColor }]}>
+    <View style={[styles.bar, { backgroundColor: containerBg }]}>
       <SegmentedControl
         options={VIEW_MODE_OPTIONS as unknown as { value: string; label: string }[]}
         value={viewMode}
@@ -35,8 +34,8 @@ export function ViewModeSelector({ viewMode, onChangeViewMode }: ViewModeSelecto
 
 const styles = StyleSheet.create({
   bar: {
-    borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
 });
