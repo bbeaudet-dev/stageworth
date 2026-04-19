@@ -191,11 +191,6 @@ export function BrowseSections({
         </Pressable>
       </View>
 
-      <Pressable style={styles.seeAllButton} onPress={() => navigateToCategory("all")}>
-        <Text style={[styles.seeAllText, { color: accent }]}>See All Shows</Text>
-        <IconSymbol name="chevron.right" size={14} color={accent} />
-      </Pressable>
-
       {currentShows && currentShows.length > 0 && (
         <BrowseRail
           title="Now Playing"
@@ -246,6 +241,11 @@ export function BrowseSections({
           onListIconPress={openListSheet}
         />
       )}
+
+      <Pressable style={styles.seeAllButton} onPress={() => navigateToCategory("all")}>
+        <Text style={[styles.seeAllText, { color: accent }]}>See All Shows</Text>
+        <IconSymbol name="chevron.right" size={14} color={accent} />
+      </Pressable>
 
       {recentUsers && recentUsers.length > 0 && (
         <UserRail
