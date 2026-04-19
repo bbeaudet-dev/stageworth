@@ -60,15 +60,15 @@ export function UserCard({ user, width = 80, onPress }: UserCardProps) {
   );
 }
 
-const AVATAR_SIZE = 54;
+const AVATAR_SIZE = 50;
 
 const styles = StyleSheet.create({
   card: {
     alignItems: "center",
     borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    gap: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    gap: 4,
   },
   avatarWrapper: {
     width: AVATAR_SIZE,

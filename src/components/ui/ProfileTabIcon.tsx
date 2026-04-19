@@ -30,11 +30,22 @@ export function ProfileTabIcon({ color, size = 28 }: ProfileTabIconProps) {
     setImageFailed(false);
   }, [avatarUrl]);
 
-  const iconSize = Math.max(14, Math.round(size * 0.55));
+  const avatarSize = Math.round(size * 0.82);
+  const iconSize = Math.max(14, Math.round(avatarSize * 0.65));
 
-  if (avatarUrl && !imageFailed) {
-    return (
-      <View style={[styles.avatarWrap, { width: size, height: size, borderRadius: size / 2, borderColor: color }]}>
+  const avatar =
+    avatarUrl && !imageFailed ? (
+      <View
+        style={[
+          styles.avatarWrap,
+          {
+            width: avatarSize,
+            height: avatarSize,
+            borderRadius: avatarSize / 2,
+            borderColor: color,
+          },
+        ]}
+      >
         <Image
           source={{ uri: avatarUrl }}
           style={styles.avatarImg}
@@ -42,29 +53,34 @@ export function ProfileTabIcon({ color, size = 28 }: ProfileTabIconProps) {
           onError={() => setImageFailed(true)}
         />
       </View>
+    ) : (
+      <View
+        style={[
+          styles.avatarWrap,
+          styles.iconWrap,
+          {
+            width: avatarSize,
+            height: avatarSize,
+            borderRadius: avatarSize / 2,
+            borderColor: color,
+            backgroundColor: color + "18",
+          },
+        ]}
+      >
+        <IconSymbol name="person.fill" size={iconSize} color={color} />
+      </View>
     );
-  }
 
   return (
-    <View
-      style={[
-        styles.avatarWrap,
-        styles.iconWrap,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderColor: color,
-          backgroundColor: color + "18",
-        },
-      ]}
-    >
-      <IconSymbol name="person.fill" size={iconSize} color={color} />
-    </View>
+    <View style={[styles.outer, { width: size, height: size }]}>{avatar}</View>
   );
 }
 
 const styles = StyleSheet.create({
+  outer: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
   avatarWrap: {
     overflow: "hidden",
     borderWidth: 1.5,
