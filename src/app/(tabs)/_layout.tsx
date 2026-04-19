@@ -1,3 +1,4 @@
+import { useQuery } from "convex/react";
 import { Redirect, Tabs } from "expo-router";
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
@@ -7,6 +8,7 @@ import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ProfileTabIcon } from "@/components/ui/ProfileTabIcon";
 import { Colors } from "@/constants/theme";
+import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { usePendingInvite } from "@/hooks/use-pending-invite";
 import { useSession } from "@/lib/auth-client";
@@ -28,6 +30,10 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const accentColor = Colors[colorScheme ?? "light"].accent;
   const { data: session, isPending } = useSession();
+  const onboardingState = useQuery(
+    api.onboarding.getOnboardingState,
+    session ? {} : "skip"
+  );
   const { claimPendingInvite } = usePendingInvite();
   const didClaimRef = useRef(false);
 
@@ -49,6 +55,23 @@ export default function TabLayout() {
     );
   }
   if (!session) return <Redirect href="/sign-in" />;
+
+  // Wait for onboarding state to resolve before deciding whether to show tabs
+  // or redirect into onboarding (avoids a flash of the tab UI for new users).
+  if (session && onboardingState === undefined) {
+    const c = Colors[colorScheme ?? "light"];
+    return (
+      <View style={[styles.authGate, { backgroundColor: c.background }]}>
+        <ActivityIndicator size="large" color={c.accent} />
+      </View>
+    );
+  }
+  if (onboardingState && onboardingState.phase === "profile") {
+    return <Redirect href="/(onboarding)/profile" />;
+  }
+  if (onboardingState && onboardingState.phase === "shows") {
+    return <Redirect href="/(onboarding)/shows" />;
+  }
 
   return (
     <Tabs
