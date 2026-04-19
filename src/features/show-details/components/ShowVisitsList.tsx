@@ -32,9 +32,7 @@ export function ShowVisitsList({ visits }: ShowVisitsListProps) {
           style={[styles.row, { borderTopColor: c.border }]}
           onPress={() => router.push({ pathname: "/visit/[visitId]", params: { visitId: String(visit._id) } })}
         >
-          <Text style={[styles.rowText, { color: c.text }]}>
-            {formatDate(visit.date) ?? visit.date}
-          </Text>
+          <Text style={[styles.rowText, { color: c.text }]}>{formatDate(visit.date)}</Text>
           <Text style={[styles.rowChevron, { color: c.mutedText }]}>›</Text>
         </Pressable>
       ))}

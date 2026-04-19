@@ -20,7 +20,6 @@ import { useToast } from "@/components/Toast";
 import { useCelebration } from "@/components/CelebrationContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getBottomInsertionIndexForTier } from "@/features/add-visit/logic/ranking";
-import { getTodayIsoDate } from "@/features/add-visit/logic/form";
 import { useAddVisitData } from "@/features/add-visit/hooks/useAddVisitData";
 import { useAddVisitFormState } from "@/features/add-visit/hooks/useAddVisitFormState";
 import { useAddVisitRankingFlow } from "@/features/add-visit/hooks/useAddVisitRankingFlow";
@@ -185,7 +184,7 @@ export default function AddVisitScreen() {
       await createVisit({
         showId: state.selectedShowId ?? undefined,
         customShowName: state.customShowName ?? undefined,
-        date: state.date.trim() || getTodayIsoDate(),
+        date: state.date,
         productionId:
           state.useOtherProduction || !state.selectedProductionId
             ? undefined
