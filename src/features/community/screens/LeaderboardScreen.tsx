@@ -82,7 +82,7 @@ export default function LeaderboardScreen() {
   const borderColor = Colors[theme].border;
   const accentColor = Colors[theme].accent;
 
-  const { data, countLabel, showSearchResults } = useLeaderboardData({
+  const { data, countLabel, showSearchResults, popularShows } = useLeaderboardData({
     category,
     scope,
     visitsMode,
@@ -169,6 +169,7 @@ export default function LeaderboardScreen() {
         selectedShow={selectedShow}
         showSearchQuery={showSearchQuery}
         showSearchResults={showSearchResults as SelectedShow[] | undefined}
+        popularShows={popularShows as SelectedShow[] | undefined}
         onVisitsModeChange={handleVisitsModeChange}
         onShowSelect={(show) => { setSelectedShow(show); setShowSearchQuery(""); }}
         onShowQueryChange={setShowSearchQuery}
@@ -200,11 +201,7 @@ export default function LeaderboardScreen() {
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         ListHeaderComponent={showsHeader}
         ListEmptyComponent={
-          category === "shows" && visitsMode === "select_show" && !selectedShow ? (
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptyText, { color: mutedTextColor }]}>Search for a show above to see who&apos;s seen it the most.</Text>
-            </View>
-          ) : data === undefined ? (
+          category === "shows" && visitsMode === "select_show" && !selectedShow ? null : data === undefined ? (
             <Text style={[styles.emptyText, { color: mutedTextColor }]}>Loading...</Text>
           ) : (
             <Text style={[styles.emptyText, { color: mutedTextColor }]}>No data yet.</Text>
@@ -251,7 +248,6 @@ const styles = StyleSheet.create({
   playbillThumb: { width: 30, height: 40, borderRadius: 4, overflow: "hidden" },
   countText: { fontSize: 18, fontWeight: "700" },
   countLabel: { fontSize: 11, fontWeight: "500", width: 50 },
-  emptyState: { paddingHorizontal: 32, paddingTop: 40, alignItems: "center" },
   emptyText: { fontSize: 15, textAlign: "center", lineHeight: 22 },
   inviteFooterBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",

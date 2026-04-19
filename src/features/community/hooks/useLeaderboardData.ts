@@ -3,7 +3,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
-export type Category = "shows" | "theatres" | "signups" | "streak" | "score";
+export type Category = "shows" | "theatres" | "signups" | "score";
 export type Scope = "all" | "friends";
 export type VisitsMode = "shows" | "visits" | "single_show" | "select_show";
 
@@ -48,10 +48,6 @@ export function useLeaderboardData({
     api.leaderboard.getBySignups,
     category === "signups" ? { scope } : "skip",
   );
-  const streakData = useQuery(
-    api.leaderboard.getByStreak,
-    category === "streak" ? { scope } : "skip",
-  );
   const scoreData = useQuery(
     api.leaderboard.getByScore,
     category === "score" ? { scope } : "skip",
@@ -60,6 +56,12 @@ export function useLeaderboardData({
     api.shows.search,
     category === "shows" && visitsMode === "select_show" && showSearchQuery.length >= 1
       ? { q: showSearchQuery, limit: 8 }
+      : "skip",
+  );
+  const popularShows = useQuery(
+    api.shows.popular,
+    category === "shows" && visitsMode === "select_show" && showSearchQuery.length === 0
+      ? { limit: 8 }
       : "skip",
   );
 
@@ -79,9 +81,7 @@ export function useLeaderboardData({
         ? theatresData
         : category === "signups"
           ? signupsData
-          : category === "streak"
-            ? streakData
-            : scoreData;
+          : scoreData;
 
   const countLabel =
     category === "shows"
@@ -94,9 +94,7 @@ export function useLeaderboardData({
         ? "theatres"
         : category === "signups"
           ? "signups"
-          : category === "streak"
-            ? "wk streak"
-            : "pts";
+          : "pts";
 
-  return { data, countLabel, showSearchResults };
+  return { data, countLabel, showSearchResults, popularShows };
 }

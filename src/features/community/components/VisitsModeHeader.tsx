@@ -25,6 +25,7 @@ interface VisitsModeHeaderProps {
   selectedShow: SelectedShow | null;
   showSearchQuery: string;
   showSearchResults: SelectedShow[] | undefined;
+  popularShows: SelectedShow[] | undefined;
   onVisitsModeChange: (mode: VisitsMode) => void;
   onShowSelect: (show: SelectedShow) => void;
   onShowQueryChange: (q: string) => void;
@@ -36,6 +37,7 @@ export function VisitsModeHeader({
   selectedShow,
   showSearchQuery,
   showSearchResults,
+  popularShows,
   onVisitsModeChange,
   onShowSelect,
   onShowQueryChange,
@@ -106,7 +108,30 @@ export function VisitsModeHeader({
                 onChangeText={onShowQueryChange}
                 autoCorrect={false}
               />
-              {showSearchResults && showSearchResults.length > 0 && (
+              {showSearchQuery.length === 0 && popularShows && popularShows.length > 0 && (
+                <>
+                  <Text style={[styles.suggestionLabel, { color: mutedTextColor }]}>Popular shows</Text>
+                  <View style={[styles.showSearchResults, { backgroundColor: surfaceColor, borderColor }]}>
+                    {popularShows.map((show) => (
+                      <Pressable
+                        key={String(show._id)}
+                        style={[styles.showSearchRow, { borderBottomColor: borderColor }]}
+                        onPress={() => onShowSelect({ _id: show._id, name: show.name, images: show.images })}
+                      >
+                        {show.images?.[0] ? (
+                          <Image source={{ uri: show.images[0] }} style={styles.showSearchThumb} contentFit="cover" />
+                        ) : (
+                          <View style={[styles.showSearchThumb, { backgroundColor: accentColor + "22" }]} />
+                        )}
+                        <Text style={[styles.showSearchName, { color: primaryTextColor }]} numberOfLines={1}>
+                          {show.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              )}
+              {showSearchQuery.length > 0 && showSearchResults && showSearchResults.length > 0 && (
                 <View style={[styles.showSearchResults, { backgroundColor: surfaceColor, borderColor }]}>
                   {showSearchResults.map((show) => (
                     <Pressable
@@ -184,4 +209,11 @@ const styles = StyleSheet.create({
   },
   showSearchThumb: { width: 28, height: 38, borderRadius: 3, overflow: "hidden" },
   showSearchName: { flex: 1, fontSize: 14, fontWeight: "500" },
+  suggestionLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
 });

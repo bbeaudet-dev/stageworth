@@ -66,6 +66,43 @@ export const search = query({
   },
 });
 
+export const popular = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const max = Math.min(args.limit ?? 8, 20);
+
+    const allVisits = await ctx.db.query("visits").collect();
+    const countByShow = new Map<string, number>();
+    for (const visit of allVisits) {
+      const id = visit.showId as unknown as string;
+      countByShow.set(id, (countByShow.get(id) ?? 0) + 1);
+    }
+
+    const sortedIds = Array.from(countByShow.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => id);
+
+    const results: Array<{
+      _id: string;
+      name: string;
+      images: string[];
+    }> = [];
+    for (const id of sortedIds) {
+      if (results.length >= max) break;
+      const show = await ctx.db.get(id as any);
+      if (!show) continue;
+      if (!isCatalogPublished((show as any).dataStatus)) continue;
+      const images = await resolveShowImageUrls(ctx, show as any);
+      results.push({
+        _id: (show as any)._id,
+        name: (show as any).name,
+        images,
+      });
+    }
+    return results;
+  },
+});
+
 export const create = mutation({
   args: {
     name: v.string(),
