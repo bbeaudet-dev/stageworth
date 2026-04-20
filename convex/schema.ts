@@ -169,6 +169,10 @@ export default defineSchema({
         unmatched: v.array(v.string()),
       })
     ),
+    // Playbill titles from `shows` that have been written to their productions
+    // via per-show approval. Used so a proposal can be partially approved and
+    // auto-flipped to "approved" once every applicable title is applied.
+    appliedTitles: v.optional(v.array(v.string())),
   })
     .index("by_status", ["status"])
     .index("by_weekOf", ["weekOf"]),

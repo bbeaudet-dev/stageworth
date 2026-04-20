@@ -221,6 +221,45 @@ function parseShowtimesTable(html: string): PlaybillShow[] {
   return shows;
 }
 
+// ─── Matching helpers ────────────────────────────────────────────────────────
+
+/**
+ * Build { playbillTitleLookupKey → productionId } for all currently-open
+ * Broadway productions. Shared by sync + diff + per-show approval so we apply
+ * identical matching rules everywhere.
+ */
+async function buildBroadwayTitleIndex(ctx: any): Promise<Map<string, string>> {
+  const today = new Date().toISOString().slice(0, 10);
+  const broadwayProductions = await ctx.db
+    .query("productions")
+    .withIndex("by_district", (q: any) => q.eq("district", "broadway"))
+    .collect();
+
+  const titleToProductionId = new Map<string, string>();
+  for (const prod of broadwayProductions) {
+    if (prod.isClosed) continue;
+    if (prod.closingDate && prod.closingDate < today) continue;
+    const show = await ctx.db.get(prod.showId);
+    if (!show) continue;
+    titleToProductionId.set(show.normalizedName, prod._id);
+    for (const key of indexKeysForPlaybillTitle(show.name)) {
+      if (!titleToProductionId.has(key)) titleToProductionId.set(key, prod._id);
+    }
+  }
+  return titleToProductionId;
+}
+
+function findProductionIdForPlaybillTitle(
+  index: Map<string, string>,
+  playbillTitle: string
+): string | undefined {
+  for (const key of indexKeysForPlaybillTitle(playbillTitle)) {
+    const id = index.get(key);
+    if (id) return id;
+  }
+  return undefined;
+}
+
 // ─── Internal mutation ────────────────────────────────────────────────────────
 
 export const syncWeeklyShowtimes = internalMutation({
@@ -229,64 +268,20 @@ export const syncWeeklyShowtimes = internalMutation({
     shows: v.array(playbillShowValidator),
   },
   handler: async (ctx, { weekOf, shows }) => {
-    // Fetch all open Broadway productions joined to their show's normalizedName.
-    // "Open" = no closingDate OR closingDate >= today AND not explicitly closed.
-    const today = new Date().toISOString().slice(0, 10);
-
-    const broadwayProductions = await ctx.db
-      .query("productions")
-      .withIndex("by_district", (q) => q.eq("district", "broadway"))
-      .collect();
-
-    // Build a map: normalizedShowName → productionId for currently-open Broadway shows
-    const normalizedToProductionId = new Map<string, string>();
-
-    for (const prod of broadwayProductions) {
-      if (prod.isClosed) continue;
-      if (prod.closingDate && prod.closingDate < today) continue;
-
-      const show = await ctx.db.get(prod.showId);
-      if (!show) continue;
-
-      // Index using the show's stored normalizedName
-      normalizedToProductionId.set(show.normalizedName, prod._id);
-
-      // Also index extra variants of the show name in case Playbill uses a
-      // slightly different title than what's stored in our DB
-      for (const key of indexKeysForPlaybillTitle(show.name)) {
-        if (!normalizedToProductionId.has(key)) {
-          normalizedToProductionId.set(key, prod._id);
-        }
-      }
-    }
+    const titleIndex = await buildBroadwayTitleIndex(ctx);
 
     const matched: string[] = [];
     const unmatched: string[] = [];
 
     for (const playbillShow of shows as PlaybillShow[]) {
-      const lookupKeys = indexKeysForPlaybillTitle(playbillShow.title);
-      let productionId: string | undefined;
-
-      for (const key of lookupKeys) {
-        const id = normalizedToProductionId.get(key);
-        if (id) {
-          productionId = id;
-          break;
-        }
-      }
-
+      const productionId = findProductionIdForPlaybillTitle(titleIndex, playbillShow.title);
       if (!productionId) {
         unmatched.push(playbillShow.title);
         continue;
       }
-
       await ctx.db.patch(productionId as never, {
-        weeklySchedule: {
-          weekOf,
-          ...playbillShow.schedule,
-        },
+        weeklySchedule: { weekOf, ...playbillShow.schedule },
       });
-
       matched.push(playbillShow.title);
     }
 
@@ -305,28 +300,11 @@ async function estimateShowtimeMatches(
   ctx: any,
   shows: PlaybillShow[]
 ): Promise<{ matchedCount: number; unmatchedTitles: string[] }> {
-  const today = new Date().toISOString().slice(0, 10);
-  const broadwayProductions = await ctx.db
-    .query("productions")
-    .withIndex("by_district", (q: any) => q.eq("district", "broadway"))
-    .collect();
-
-  const normalizedKeys = new Set<string>();
-  for (const prod of broadwayProductions) {
-    if (prod.isClosed) continue;
-    if (prod.closingDate && prod.closingDate < today) continue;
-    const show = await ctx.db.get(prod.showId);
-    if (!show) continue;
-    normalizedKeys.add(show.normalizedName);
-    for (const k of indexKeysForPlaybillTitle(show.name)) normalizedKeys.add(k);
-  }
-
+  const titleIndex = await buildBroadwayTitleIndex(ctx);
   const unmatchedTitles: string[] = [];
   let matchedCount = 0;
   for (const row of shows) {
-    const keys = indexKeysForPlaybillTitle(row.title);
-    const matched = keys.some((k) => normalizedKeys.has(k));
-    if (matched) matchedCount += 1;
+    if (findProductionIdForPlaybillTitle(titleIndex, row.title)) matchedCount += 1;
     else unmatchedTitles.push(row.title);
   }
   return { matchedCount, unmatchedTitles };
@@ -423,6 +401,200 @@ export const rejectProposal = mutation({
       reviewNote: args.note?.trim() || undefined,
     });
     return { ok: true, status: "rejected" };
+  },
+});
+
+// ─── Diff + per-show approval ────────────────────────────────────────────────
+
+type DiffStatus = "new" | "updated" | "unchanged" | "unmatched";
+
+export type ShowDiff = {
+  title: string;
+  status: DiffStatus;
+  productionId?: string;
+  showName?: string;
+  showId?: string;
+  applied: boolean;
+  current: Omit<WeeklySchedule, "weekOf"> | null;
+  currentWeekOf: string | null;
+  proposed: Omit<WeeklySchedule, "weekOf">;
+  // Days where proposed differs from current (ignoring weekOf). Empty for
+  // unchanged/new/unmatched.
+  dayDiffs: Array<{ day: (typeof DAYS)[number]; from: string[]; to: string[] }>;
+};
+
+function arraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+export const getProposalDiff = query({
+  args: { proposalId: v.id("showtimesReviews") },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    proposalId: string;
+    weekOf: string;
+    status: string;
+    fetchedAt: number;
+    counts: { new: number; updated: number; unchanged: number; unmatched: number };
+    diffs: ShowDiff[];
+  }> => {
+    const proposal = await ctx.db.get(args.proposalId);
+    if (!proposal) throw new Error("Showtimes proposal not found");
+
+    const titleIndex = await buildBroadwayTitleIndex(ctx);
+    const applied = new Set(proposal.appliedTitles ?? []);
+    const diffs: ShowDiff[] = [];
+    const counts = { new: 0, updated: 0, unchanged: 0, unmatched: 0 };
+
+    for (const row of proposal.shows as PlaybillShow[]) {
+      const productionId = findProductionIdForPlaybillTitle(titleIndex, row.title);
+      if (!productionId) {
+        diffs.push({
+          title: row.title,
+          status: "unmatched",
+          applied: false,
+          current: null,
+          currentWeekOf: null,
+          proposed: row.schedule,
+          dayDiffs: [],
+        });
+        counts.unmatched += 1;
+        continue;
+      }
+
+      const production = await ctx.db.get(productionId as never);
+      const show = production ? await ctx.db.get((production as any).showId) : null;
+      const current = (production as any)?.weeklySchedule ?? null;
+
+      if (!current) {
+        diffs.push({
+          title: row.title,
+          status: "new",
+          productionId,
+          showName: (show as any)?.name,
+          showId: (show as any)?._id,
+          applied: applied.has(row.title),
+          current: null,
+          currentWeekOf: null,
+          proposed: row.schedule,
+          dayDiffs: [],
+        });
+        counts.new += 1;
+        continue;
+      }
+
+      const dayDiffs: ShowDiff["dayDiffs"] = [];
+      for (const day of DAYS) {
+        const from = (current[day] ?? []) as string[];
+        const to = row.schedule[day] ?? [];
+        if (!arraysEqual(from, to)) dayDiffs.push({ day, from, to });
+      }
+      const status: DiffStatus = dayDiffs.length === 0 ? "unchanged" : "updated";
+      const currentCopy: Omit<WeeklySchedule, "weekOf"> = {
+        mon: current.mon,
+        tue: current.tue,
+        wed: current.wed,
+        thu: current.thu,
+        fri: current.fri,
+        sat: current.sat,
+        sun: current.sun,
+      };
+      diffs.push({
+        title: row.title,
+        status,
+        productionId,
+        showName: (show as any)?.name,
+        showId: (show as any)?._id,
+        applied: applied.has(row.title),
+        current: currentCopy,
+        currentWeekOf: current.weekOf ?? null,
+        proposed: row.schedule,
+        dayDiffs,
+      });
+      counts[status] += 1;
+    }
+
+    return {
+      proposalId: proposal._id,
+      weekOf: proposal.weekOf,
+      status: proposal.status,
+      fetchedAt: proposal.fetchedAt,
+      counts,
+      diffs,
+    };
+  },
+});
+
+/**
+ * Apply a subset of a proposal's shows and record them on appliedTitles. When
+ * every non-unmatched Playbill title has been applied, the proposal status
+ * auto-flips to "approved".
+ */
+export const approveShows = mutation({
+  args: {
+    proposalId: v.id("showtimesReviews"),
+    titles: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const proposal = await ctx.db.get(args.proposalId);
+    if (!proposal) throw new Error("Showtimes proposal not found");
+    if (proposal.status !== "pending") {
+      return { ok: true, status: proposal.status, applied: [], skipped: [] };
+    }
+
+    const selected = new Set(args.titles);
+    const titleIndex = await buildBroadwayTitleIndex(ctx);
+    const applied = new Set(proposal.appliedTitles ?? []);
+    const newlyApplied: string[] = [];
+    const skipped: string[] = [];
+
+    for (const row of proposal.shows as PlaybillShow[]) {
+      if (!selected.has(row.title)) continue;
+      if (applied.has(row.title)) {
+        skipped.push(row.title);
+        continue;
+      }
+      const productionId = findProductionIdForPlaybillTitle(titleIndex, row.title);
+      if (!productionId) {
+        skipped.push(row.title);
+        continue;
+      }
+      await ctx.db.patch(productionId as never, {
+        weeklySchedule: { weekOf: proposal.weekOf, ...row.schedule },
+      });
+      applied.add(row.title);
+      newlyApplied.push(row.title);
+    }
+
+    // Does every matchable (non-unmatched) title now have a schedule applied?
+    const allMatchedTitles = (proposal.shows as PlaybillShow[])
+      .map((s) => s.title)
+      .filter((t) => findProductionIdForPlaybillTitle(titleIndex, t));
+    const fullyApplied = allMatchedTitles.every((t) => applied.has(t));
+
+    const patch: Record<string, unknown> = {
+      appliedTitles: [...applied],
+    };
+    if (fullyApplied) {
+      patch.status = "approved";
+      patch.reviewedAt = Date.now();
+      patch.applyResult = {
+        matched: [...applied],
+        unmatched: proposal.unmatchedTitles,
+      };
+    }
+    await ctx.db.patch(args.proposalId, patch as never);
+
+    return {
+      ok: true,
+      status: fullyApplied ? "approved" : "pending",
+      applied: newlyApplied,
+      skipped,
+    };
   },
 });
 
