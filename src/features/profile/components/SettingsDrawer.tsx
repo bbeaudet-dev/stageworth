@@ -128,8 +128,9 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
     setIsSigningOut(true);
     try {
       await removePushToken().catch(() => {});
-      await authClient.signOut();
       onClose();
+      await new Promise((resolve) => setTimeout(resolve, 220));
+      await authClient.signOut();
     } finally {
       setIsSigningOut(false);
     }
@@ -176,7 +177,7 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
             <View style={styles.menuList}>
               <MenuRow
                 icon="person.fill"
-                label="Account"
+                label="Account Info"
                 onPress={() => navigate("/edit-profile")}
                 textColor={c.text}
                 mutedColor={c.mutedText}
