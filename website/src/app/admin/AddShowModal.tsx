@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from "react";
 import { SHOW_TYPES, type ShowFormType } from "./useAdminDashboard";
 
@@ -8,7 +7,6 @@ interface AddShowModalProps {
   open: boolean;
   busy: boolean;
   error: string | null;
-  successId: string | null;
   showName: string;
   setShowName: Dispatch<SetStateAction<string>>;
   showType: ShowFormType;
@@ -17,14 +15,12 @@ interface AddShowModalProps {
   setShowImage: Dispatch<SetStateAction<File | null>>;
   onSubmit: (e: FormEvent) => void;
   onClose: () => void;
-  adminPathWithoutSearch: string;
 }
 
 export function AddShowModal({
   open,
   busy,
   error,
-  successId,
   showName,
   setShowName,
   showType,
@@ -33,7 +29,6 @@ export function AddShowModal({
   setShowImage,
   onSubmit,
   onClose,
-  adminPathWithoutSearch,
 }: AddShowModalProps) {
   if (!open) return null;
 
@@ -67,31 +62,11 @@ export function AddShowModal({
           </button>
         </div>
 
-        {successId ? (
-          <div className="space-y-4">
-            <p className="text-sm text-green-800">Show created. You can open it in the review queue now.</p>
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href={`/admin/review/${successId}?returnTo=${encodeURIComponent(adminPathWithoutSearch)}`}
-                className="inline-flex rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-              >
-                Open review
-              </Link>
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <p className="text-xs text-gray-500 mb-4">
-              Creates an unpublished show with pending review entries. Name and type are always queued; an uploaded image is queued too.
-            </p>
-            <form onSubmit={onSubmit} className="space-y-4">
+        <>
+          <p className="text-xs text-gray-500 mb-4">
+            Creates a show immediately and opens its admin page. Entered values are saved directly.
+          </p>
+          <form onSubmit={onSubmit} className="space-y-4">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600">Show name</label>
                 <input
@@ -146,9 +121,8 @@ export function AddShowModal({
                   {busy ? "Submitting…" : "Submit"}
                 </button>
               </div>
-            </form>
-          </>
-        )}
+          </form>
+        </>
       </div>
     </div>
   );

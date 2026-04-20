@@ -120,7 +120,6 @@ export function useAdminDashboard() {
   const [newShowImage, setNewShowImage] = useState<File | null>(null);
   const [addShowBusy, setAddShowBusy] = useState(false);
   const [addShowError, setAddShowError] = useState<string | null>(null);
-  const [addShowSuccessId, setAddShowSuccessId] = useState<string | null>(null);
   const [imageInputKey, setImageInputKey] = useState(0);
   const [addShowModalOpen, setAddShowModalOpen] = useState(false);
 
@@ -143,7 +142,6 @@ export function useAdminDashboard() {
   async function handleAddMissingShow(e: FormEvent) {
     e.preventDefault();
     setAddShowError(null);
-    setAddShowSuccessId(null);
     const name = newShowName.trim();
     if (!name) { setAddShowError("Enter a show name."); return; }
     setAddShowBusy(true);
@@ -162,11 +160,12 @@ export function useAdminDashboard() {
         imageStorageId = data.storageId;
       }
       const showId = await createShowFromForm({ name, type: newShowType, imageStorageId });
-      setAddShowSuccessId(showId);
       setNewShowName("");
       setNewShowType("musical");
       setNewShowImage(null);
       setImageInputKey((k) => k + 1);
+      setAddShowModalOpen(false);
+      router.push(`/admin/review/${showId}?returnTo=${encodeURIComponent(adminPathWithoutSearch)}`);
     } catch (err) {
       setAddShowError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -177,14 +176,12 @@ export function useAdminDashboard() {
   function openAddShowModal() {
     setAddShowModalOpen(true);
     setAddShowError(null);
-    setAddShowSuccessId(null);
   }
 
   function closeAddShowModal() {
     if (addShowBusy) return;
     setAddShowModalOpen(false);
     setAddShowError(null);
-    setAddShowSuccessId(null);
   }
 
   // ── Property Focus mode ───────────────────────────────────────────────────
@@ -364,7 +361,6 @@ export function useAdminDashboard() {
     newShowImage, setNewShowImage,
     addShowBusy,
     addShowError,
-    addShowSuccessId,
     imageInputKey,
     handleAddMissingShow,
     openAddShowModal,

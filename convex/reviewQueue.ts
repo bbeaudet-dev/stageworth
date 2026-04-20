@@ -674,7 +674,7 @@ export const generateShowImageUploadUrl = mutation({
   },
 });
 
-/** Create a new unpublished show, optional key art on `images[]`, and pending queue rows for name, type, and image URL when uploaded. */
+/** Create a new unpublished show from admin input and apply values immediately. */
 export const createShowFromAdminForm = mutation({
   args: {
     name: v.string(),
@@ -709,46 +709,13 @@ export const createShowFromAdminForm = mutation({
       dataStatus: "needs_review",
     });
 
-    const entityId = showId as string;
-    const now = Date.now();
-
-    for (const [field, currentValue] of [
-      ["name", name],
-      ["type", args.type],
-    ] as const) {
-      await ctx.db.insert("reviewQueue", {
-        entityType: "show",
-        entityId,
-        field,
-        currentValue,
-        source: "manual",
-        status: "pending",
-        createdAt: now,
-      });
-    }
-
-    if (args.imageStorageId) {
-      const imageUrl = await ctx.storage.getUrl(args.imageStorageId);
-      if (imageUrl) {
-        await ctx.db.insert("reviewQueue", {
-          entityType: "show",
-          entityId,
-          field: "hotlinkImageUrl",
-          currentValue: imageUrl,
-          source: "manual",
-          status: "pending",
-          createdAt: now,
-        });
-      }
-    }
-
     return showId;
   },
 });
 
 /**
- * Create a new production for an existing show (admin). `dataStatus` starts as
- * `needs_review`; pending review-queue rows are added for filled fields.
+ * Create a new production for an existing show (admin) and apply values
+ * immediately (no review-queue staging for manual create flow).
  */
 export const createProductionFromAdminForm = mutation({
   args: {
@@ -797,57 +764,6 @@ export const createProductionFromAdminForm = mutation({
       isUserCreated: false,
       dataStatus: "needs_review",
     });
-
-    const entityId = productionId as string;
-    const now = Date.now();
-
-    const queuePairs: [string, string][] = [
-      ["theatre", theatre],
-      ["city", city ?? ""],
-      ["district", args.district],
-      ["previewDate", previewDate ?? ""],
-      ["openingDate", openingDate ?? ""],
-      ["closingDate", closingDate ?? ""],
-      ["productionType", args.productionType],
-    ];
-    if (args.isOpenRun !== undefined) {
-      queuePairs.push(["isOpenRun", args.isOpenRun ? "true" : "false"]);
-    }
-    if (args.isClosed !== undefined) {
-      queuePairs.push(["isClosed", args.isClosed ? "true" : "false"]);
-    }
-    if (notes) queuePairs.push(["notes", notes]);
-    if (ticketmasterEventUrl) {
-      queuePairs.push(["ticketmasterEventUrl", ticketmasterEventUrl]);
-    }
-
-    for (const [field, currentValue] of queuePairs) {
-      if (currentValue === "") continue;
-      await ctx.db.insert("reviewQueue", {
-        entityType: "production",
-        entityId,
-        field,
-        currentValue,
-        source: "manual",
-        status: "pending",
-        createdAt: now,
-      });
-    }
-
-    if (args.posterStorageId) {
-      const posterUrl = await ctx.storage.getUrl(args.posterStorageId);
-      if (posterUrl) {
-        await ctx.db.insert("reviewQueue", {
-          entityType: "production",
-          entityId,
-          field: "hotlinkPosterUrl",
-          currentValue: posterUrl,
-          source: "manual",
-          status: "pending",
-          createdAt: now,
-        });
-      }
-    }
 
     return productionId;
   },

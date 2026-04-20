@@ -39,7 +39,6 @@ function AdminDashboardContent() {
     setNewShowImage,
     addShowBusy,
     addShowError,
-    addShowSuccessId,
     imageInputKey,
     handleAddMissingShow,
     openAddShowModal,
@@ -128,7 +127,6 @@ function AdminDashboardContent() {
         open={addShowModalOpen}
         busy={addShowBusy}
         error={addShowError}
-        successId={addShowSuccessId}
         showName={newShowName}
         setShowName={setNewShowName}
         showType={newShowType}
@@ -137,7 +135,6 @@ function AdminDashboardContent() {
         setShowImage={setNewShowImage}
         onSubmit={handleAddMissingShow}
         onClose={closeAddShowModal}
-        adminPathWithoutSearch={adminPathWithoutSearch}
       />
     </>
   );
