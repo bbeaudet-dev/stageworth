@@ -14,12 +14,15 @@ function formatFocusValue(field: string, value: string | null): string {
   if (field === "intermissionCount") return value === "0" ? "None" : value;
   if (field === "intermissionMinutes") return `${value} min`;
   if (field === "isOpenRun" || field === "isClosed") return value === "true" ? "Yes" : "No";
-  if (field === "description") return value.length > 80 ? value.slice(0, 80) + "…" : value;
   return value;
 }
 
 function isImageField(field: string): boolean {
   return field === "hotlinkImageUrl" || field === "hotlinkPosterUrl";
+}
+
+function isLongTextField(field: string): boolean {
+  return field === "description";
 }
 
 type PendingEntry = { _id: string; proposedValue: string; source: string };
@@ -107,6 +110,7 @@ export function PropertyFocusTable({
     const isEditing = focusEdit?.entityId === editKey;
 
     const imageField = isImageField(field);
+    const longTextField = isLongTextField(field);
 
     const renderImageValue = (value: string | null, alt: string) => {
       if (!value) {
@@ -160,6 +164,10 @@ export function PropertyFocusTable({
       <div className={`flex flex-col gap-0.5 ${busy ? "opacity-50" : ""}`}>
         {imageField ? (
           renderImageValue(currentValue, `${field} current value`)
+        ) : longTextField ? (
+          <div className="text-xs text-gray-800 whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-2 max-h-48 overflow-y-auto">
+            {formatFocusValue(field, currentValue)}
+          </div>
         ) : (
           <span className={currentValue !== null ? "text-gray-800 text-sm" : "text-gray-400 text-xs italic"}>
             {formatFocusValue(field, currentValue)}
@@ -175,6 +183,10 @@ export function PropertyFocusTable({
                     pendingEntry.proposedValue,
                     `${field} proposed value`
                   )
+                ) : longTextField ? (
+                  <div className="text-xs text-gray-800 whitespace-pre-wrap break-words rounded border border-amber-200 bg-amber-50 p-2 max-h-48 overflow-y-auto">
+                    {formatFocusValue(field, pendingEntry.proposedValue)}
+                  </div>
                 ) : (
                   <span>{formatFocusValue(field, pendingEntry.proposedValue)}</span>
                 )}
