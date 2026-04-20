@@ -18,6 +18,10 @@ function formatFocusValue(field: string, value: string | null): string {
   return value;
 }
 
+function isImageField(field: string): boolean {
+  return field === "hotlinkImageUrl" || field === "hotlinkPosterUrl";
+}
+
 type PendingEntry = { _id: string; proposedValue: string; source: string };
 
 interface PropertyFocusTableProps {
@@ -102,6 +106,26 @@ export function PropertyFocusTable({
     const busy = focusBusy.has(pendingEntry?._id ?? editKey);
     const isEditing = focusEdit?.entityId === editKey;
 
+    const imageField = isImageField(field);
+
+    const renderImageValue = (value: string | null, alt: string) => {
+      if (!value) {
+        return <span className="text-gray-400 text-xs italic">—</span>;
+      }
+      return (
+        <div className="flex items-start gap-2">
+          <div className="h-14 w-10 shrink-0 rounded border border-gray-200 bg-gray-50 overflow-hidden">
+            {/* Arbitrary admin hotlink preview URL. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={value} alt={alt} className="h-full w-full object-contain" />
+          </div>
+          <span className="text-[11px] text-gray-500 break-all leading-4">
+            {formatFocusValue(field, value)}
+          </span>
+        </div>
+      );
+    };
+
     if (isEditing) {
       return (
         <form
@@ -134,18 +158,31 @@ export function PropertyFocusTable({
 
     return (
       <div className={`flex flex-col gap-0.5 ${busy ? "opacity-50" : ""}`}>
-        <span className={currentValue !== null ? "text-gray-800 text-sm" : "text-gray-400 text-xs italic"}>
-          {formatFocusValue(field, currentValue)}
-        </span>
+        {imageField ? (
+          renderImageValue(currentValue, `${field} current value`)
+        ) : (
+          <span className={currentValue !== null ? "text-gray-800 text-sm" : "text-gray-400 text-xs italic"}>
+            {formatFocusValue(field, currentValue)}
+          </span>
+        )}
         {pendingEntry ? (
           <>
-            <span className="text-xs text-gray-500 flex items-center gap-1">
-              <span className="text-amber-700 font-medium">→</span>
-              {formatFocusValue(field, pendingEntry.proposedValue)}
-              <span className="rounded-full bg-amber-100 px-1.5 py-px text-xs font-medium text-amber-800 ml-0.5">
-                {SOURCE_LABELS[pendingEntry.source] ?? pendingEntry.source}
-              </span>
-            </span>
+            <div className="text-xs text-gray-500 flex items-start gap-1">
+              <span className="text-amber-700 font-medium mt-0.5">→</span>
+              <div className="min-w-0">
+                {imageField ? (
+                  renderImageValue(
+                    pendingEntry.proposedValue,
+                    `${field} proposed value`
+                  )
+                ) : (
+                  <span>{formatFocusValue(field, pendingEntry.proposedValue)}</span>
+                )}
+                <span className="inline-block rounded-full bg-amber-100 px-1.5 py-px text-xs font-medium text-amber-800 mt-1">
+                  {SOURCE_LABELS[pendingEntry.source] ?? pendingEntry.source}
+                </span>
+              </div>
+            </div>
             <div className="flex gap-1 mt-0.5">
               <button type="button" disabled={busy} onClick={() => handleFocusAction(showId, showDataStatus, pendingEntry._id, "approved")} className="rounded bg-green-700 px-1.5 py-px text-xs font-medium text-white hover:bg-green-800 disabled:opacity-50">✓</button>
               <button type="button" disabled={busy} onClick={() => setFocusEdit({ showId, entryId: pendingEntry._id, entityId: editKey, value: pendingEntry.proposedValue })} className="rounded border border-gray-300 px-1.5 py-px text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50">✏</button>

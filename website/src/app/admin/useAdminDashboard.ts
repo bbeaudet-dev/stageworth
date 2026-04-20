@@ -20,7 +20,7 @@ export type FocusGroup = {
 
 export const SHOW_FOCUS_GROUPS: FocusGroup[] = [
   { value: "show_type", label: "Type", entityType: "show", fields: ["type", "subtype"], fieldLabels: ["Type", "Subtype"] },
-  { value: "show_image", label: "Image", entityType: "show", fields: ["hotlinkImageUrl"], fieldLabels: ["Image URL"] },
+  { value: "show_image", label: "Image", entityType: "show", fields: ["hotlinkImageUrl"], fieldLabels: ["Image"] },
 ];
 
 export const PRODUCTION_FOCUS_GROUPS: FocusGroup[] = [
@@ -29,7 +29,7 @@ export const PRODUCTION_FOCUS_GROUPS: FocusGroup[] = [
   { value: "prod_venue", label: "Venue", entityType: "production", fields: ["theatre", "city"], fieldLabels: ["Theatre", "City"] },
   { value: "prod_running_time", label: "Running Time", entityType: "production", fields: ["runningTime", "intermissionCount", "intermissionMinutes"], fieldLabels: ["Running Time (min)", "Intermissions", "Intermission (min)"] },
   { value: "prod_description", label: "Description", entityType: "production", fields: ["description"], fieldLabels: ["Description"] },
-  { value: "prod_poster", label: "Poster Image", entityType: "production", fields: ["hotlinkPosterUrl"], fieldLabels: ["Poster URL"] },
+  { value: "prod_poster", label: "Poster Image", entityType: "production", fields: ["hotlinkPosterUrl"], fieldLabels: ["Poster"] },
 ];
 
 export const ALL_FOCUS_GROUPS = [...SHOW_FOCUS_GROUPS, ...PRODUCTION_FOCUS_GROUPS];
@@ -86,7 +86,7 @@ export function useAdminDashboard() {
   });
   const [onlyWithPending, setOnlyWithPending] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "recentQueue">(() =>
-    searchParams.get("sort") === "recentQueue" ? "recentQueue" : "name"
+    searchParams.get("sort") === "name" ? "name" : "recentQueue"
   );
 
   const adminPathWithoutSearch = useMemo(() => {
@@ -96,7 +96,7 @@ export function useAdminDashboard() {
     if (!showUpcoming) params.set("upcoming", "0");
     if (!showClosed) params.set("closed", "0");
     if (focusField) params.set("focus", focusField);
-    if (sortBy !== "name") params.set("sort", sortBy);
+    if (sortBy !== "recentQueue") params.set("sort", sortBy);
     const qs = params.toString();
     return qs ? `/admin?${qs}` : "/admin";
   }, [statusFilter, showRunning, showUpcoming, showClosed, focusField, sortBy]);
@@ -109,7 +109,7 @@ export function useAdminDashboard() {
     if (!showClosed) params.set("closed", "0");
     if (search) params.set("q", search);
     if (focusField) params.set("focus", focusField);
-    if (sortBy !== "name") params.set("sort", sortBy);
+    if (sortBy !== "recentQueue") params.set("sort", sortBy);
     const qs = params.toString();
     router.replace(qs ? `/admin?${qs}` : "/admin");
   // eslint-disable-next-line react-hooks/exhaustive-deps
