@@ -33,7 +33,6 @@ export function PublicShowsGrid({ userId, onPressShow }: PublicShowsGridProps) {
   const borderColor = Colors[theme].border;
   const primaryTextColor = Colors[theme].text;
   const accentColor = Colors[theme].accent;
-  const mutedTextColor = Colors[theme].mutedText;
 
   const shows = useQuery(api.rankings.getPublicRankedShows, { userId });
 
