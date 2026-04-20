@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as account from "../account.js";
 import type * as admin_catalogUserFeedback from "../admin/catalogUserFeedback.js";
 import type * as admin_legacyWikidata from "../admin/legacyWikidata.js";
 import type * as admin_maintenance from "../admin/maintenance.js";
@@ -65,6 +66,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  account: typeof account;
   "admin/catalogUserFeedback": typeof admin_catalogUserFeedback;
   "admin/legacyWikidata": typeof admin_legacyWikidata;
   "admin/maintenance": typeof admin_maintenance;
