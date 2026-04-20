@@ -46,13 +46,6 @@ function truncateForPreview(full: string, limit: number): string {
   return slice.trim();
 }
 
-const SYSTEM_LIST_NAMES: Record<string, string> = {
-  want_to_see: "Want to See",
-  look_into: "Look Into",
-  not_interested: "Not Interested",
-  uncategorized: "Uncategorized",
-};
-
 type ListMembership = {
   _id: string;
   name: string;
@@ -61,18 +54,13 @@ type ListMembership = {
 };
 
 // Uncategorized is auto-populated for everyone, so it's excluded from the count.
-function buildAddToListLabel(lists: ListMembership[] | undefined): string {
-  if (!lists) return "+ Add to List";
-  const inLists = lists.filter(
-    (l) => l.containsShow && l.systemKey !== "uncategorized"
-  );
-  if (inLists.length === 0) return "+ Add to List";
-  if (inLists.length === 1) {
-    const only = inLists[0];
-    const systemName = only.systemKey ? SYSTEM_LIST_NAMES[only.systemKey] : null;
-    return systemName ? `In ${systemName}` : "In 1 list";
-  }
-  return `In ${inLists.length} lists`;
+function countNonUncategorizedMemberships(
+  lists: ListMembership[] | undefined,
+): number {
+  if (!lists) return 0;
+  return lists.filter(
+    (l) => l.containsShow && l.systemKey !== "uncategorized",
+  ).length;
 }
 
 interface ShowHeroSectionProps {
@@ -199,24 +187,57 @@ export function ShowHeroSection({
       </Pressable>
 
       <View style={styles.secondaryBtnRow}>
-        <Pressable
-          style={[styles.secondaryBtn, { backgroundColor: c.accent + "18", borderColor: c.accent + "40" }]}
-          onPress={onOpenListSheet}
-        >
-          <Text style={[styles.secondaryBtnText, { color: c.accent }]}>
-            {buildAddToListLabel(listMemberships)}
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.secondaryBtn, { backgroundColor: c.accent + "18", borderColor: c.accent + "40" }]}
-          onPress={onOpenTripSheet}
-        >
-          <Text style={[styles.secondaryBtnText, { color: c.accent }]}>
-            {tripsContainingShowCount > 0
-              ? `Add to Trip (in ${tripsContainingShowCount} upcoming)`
-              : "+ Add to Trip"}
-          </Text>
-        </Pressable>
+        {(() => {
+          const listCount = countNonUncategorizedMemberships(listMemberships);
+          const inList = listCount > 0;
+          return (
+            <Pressable
+              style={[
+                styles.secondaryBtn,
+                inList
+                  ? { backgroundColor: c.accent, borderColor: c.accent }
+                  : { backgroundColor: c.accent + "18", borderColor: c.accent + "40" },
+              ]}
+              onPress={onOpenListSheet}
+            >
+              <Text
+                style={[
+                  styles.secondaryBtnText,
+                  { color: inList ? c.onAccent : c.accent },
+                ]}
+              >
+                {inList
+                  ? `In ${listCount} ${listCount === 1 ? "list" : "lists"}`
+                  : "+ Add to List"}
+              </Text>
+            </Pressable>
+          );
+        })()}
+        {(() => {
+          const inTrip = tripsContainingShowCount > 0;
+          return (
+            <Pressable
+              style={[
+                styles.secondaryBtn,
+                inTrip
+                  ? { backgroundColor: c.accent, borderColor: c.accent }
+                  : { backgroundColor: c.accent + "18", borderColor: c.accent + "40" },
+              ]}
+              onPress={onOpenTripSheet}
+            >
+              <Text
+                style={[
+                  styles.secondaryBtnText,
+                  { color: inTrip ? c.onAccent : c.accent },
+                ]}
+              >
+                {inTrip
+                  ? `In ${tripsContainingShowCount} ${tripsContainingShowCount === 1 ? "trip" : "trips"}`
+                  : "+ Add to Trip"}
+              </Text>
+            </Pressable>
+          );
+        })()}
       </View>
 
       {description && preview && (

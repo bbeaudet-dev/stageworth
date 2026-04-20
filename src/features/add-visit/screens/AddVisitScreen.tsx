@@ -317,24 +317,26 @@ export default function AddVisitScreen() {
                 theatre={state.theatre}
                 setTheatre={setTheatre}
               />
-              <RankingSection
-                showHasRanking={Boolean(showContext?.hasRanking)}
-                showHasVisit={Boolean(showContext?.hasVisit)}
-                keepCurrentRanking={state.keepCurrentRanking}
-                setKeepCurrentRanking={setKeepCurrentRanking}
-                shouldShowRankingSection={shouldShowRankingSection}
-                selectedTier={state.selectedTier}
-                onChangeTier={resetRankingFlow}
-                isRankingsLoading={isRankingsLoading}
-                startTierRanking={startTierRanking}
-                rankingPhase={rankingPhase}
-                comparisonTarget={comparisonTarget}
-                showNameForHeader={showNameForHeader}
-                showImageForHeader={selectedShowArt?.imageUrl ?? null}
-                onComparisonAnswer={handleComparisonAnswer}
-                predictedResultIndex={predictedResultIndex}
-                rankedShowsForRanking={rankedShowsForRanking}
-              />
+              {!isVisitInFuture && (
+                <RankingSection
+                  showHasRanking={Boolean(showContext?.hasRanking)}
+                  showHasVisit={Boolean(showContext?.hasVisit)}
+                  keepCurrentRanking={state.keepCurrentRanking}
+                  setKeepCurrentRanking={setKeepCurrentRanking}
+                  shouldShowRankingSection={shouldShowRankingSection}
+                  selectedTier={state.selectedTier}
+                  onChangeTier={resetRankingFlow}
+                  isRankingsLoading={isRankingsLoading}
+                  startTierRanking={startTierRanking}
+                  rankingPhase={rankingPhase}
+                  comparisonTarget={comparisonTarget}
+                  showNameForHeader={showNameForHeader}
+                  showImageForHeader={selectedShowArt?.imageUrl ?? null}
+                  onComparisonAnswer={handleComparisonAnswer}
+                  predictedResultIndex={predictedResultIndex}
+                  rankedShowsForRanking={rankedShowsForRanking}
+                />
+              )}
               <NotesSection notes={state.notes} setNotes={setNotes} />
               <TagFriendsSection
                 following={myFollowing}
