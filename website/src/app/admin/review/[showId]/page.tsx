@@ -176,6 +176,7 @@ const SHOW_FIELDS: FieldDef[] = [
     label: "Ticketmaster ID",
     inputType: "text",
   },
+  { field: "description", label: "Description", inputType: "textarea" },
 ];
 
 const PRODUCTION_FIELDS: FieldDef[] = [
