@@ -19,18 +19,38 @@ export type FocusGroup = {
 };
 
 export const SHOW_FOCUS_GROUPS: FocusGroup[] = [
-  { value: "show_type", label: "Type", entityType: "show", fields: ["type", "subtype"], fieldLabels: ["Type", "Subtype"] },
-  { value: "show_image", label: "Image", entityType: "show", fields: ["hotlinkImageUrl"], fieldLabels: ["Image"] },
+  {
+    value: "show_details",
+    label: "Show Details",
+    entityType: "show",
+    fields: ["name", "type", "hotlinkImageUrl"],
+    fieldLabels: ["Name", "Type", "Image"],
+  },
   { value: "show_description", label: "Show Description", entityType: "show", fields: ["description"], fieldLabels: ["Description"] },
 ];
 
 export const PRODUCTION_FOCUS_GROUPS: FocusGroup[] = [
-  { value: "prod_preview_opening", label: "Preview & Opening Dates", entityType: "production", fields: ["previewDate", "openingDate"], fieldLabels: ["Preview Date", "Opening Date"] },
-  { value: "prod_closing", label: "Closing Info", entityType: "production", fields: ["closingDate", "isOpenRun", "isClosed"], fieldLabels: ["Closing Date", "Open Run", "Is Closed"] },
-  { value: "prod_venue", label: "Venue", entityType: "production", fields: ["theatre", "city"], fieldLabels: ["Theatre", "City"] },
-  { value: "prod_running_time", label: "Running Time", entityType: "production", fields: ["runningTime", "intermissionCount", "intermissionMinutes"], fieldLabels: ["Running Time (min)", "Intermissions", "Intermission (min)"] },
-  { value: "prod_description", label: "Production Description", entityType: "production", fields: ["description"], fieldLabels: ["Description"] },
-  { value: "prod_poster", label: "Poster Image", entityType: "production", fields: ["hotlinkPosterUrl"], fieldLabels: ["Poster"] },
+  {
+    value: "prod_dates_and_closing",
+    label: "Dates & Closing",
+    entityType: "production",
+    fields: ["previewDate", "openingDate", "closingDate", "isOpenRun", "isClosed"],
+    fieldLabels: ["Preview Date", "Opening Date", "Closing Date", "Open Run", "Is Closed"],
+  },
+  {
+    value: "prod_venue_and_description",
+    label: "Venue & Description",
+    entityType: "production",
+    fields: ["theatre", "city", "description"],
+    fieldLabels: ["Theatre", "City", "Description"],
+  },
+  {
+    value: "prod_poster_and_running_time",
+    label: "Poster & Running Time",
+    entityType: "production",
+    fields: ["hotlinkPosterUrl", "runningTime", "intermissionCount", "intermissionMinutes"],
+    fieldLabels: ["Poster", "Running Time (min)", "Intermissions", "Intermission (min)"],
+  },
 ];
 
 export const ALL_FOCUS_GROUPS = [...SHOW_FOCUS_GROUPS, ...PRODUCTION_FOCUS_GROUPS];
