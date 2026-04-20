@@ -2,7 +2,7 @@ import { FontAwesome } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { Image } from "expo-image";
 import { Redirect } from "expo-router";
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -91,8 +91,6 @@ const SocialButtons = memo(function SocialButtons({
       {Platform.OS === "ios" && (
         <View
           style={[styles.appleButtonContainer, anyLoading && styles.buttonDisabled]}
-          // Prevent taps while another auth flow is mid-flight. Apple's native
-          // button has no `disabled` prop, so we block at the container level.
           pointerEvents={anyLoading ? "none" : "auto"}
         >
           <AppleAuthentication.AppleAuthenticationButton
@@ -123,12 +121,16 @@ export default function SignInScreen() {
   const { googleLoading, appleLoading, signInWithGoogle, signInWithApple } =
     useSocialAuth();
 
-  // Redirect as soon as `session` exists. Only show the initial gate spinner when
-  // we have no session yet and auth is still hydrating — not during background
-  // revalidation (`isPending` can stay true after Google sign-in and was flashing
-  // Android users with a second full-screen spinner after redirect).
+  const [hasResolvedOnce, setHasResolvedOnce] = useState(!isPending);
+  useEffect(() => {
+    if (!isPending && !hasResolvedOnce) setHasResolvedOnce(true);
+  }, [isPending, hasResolvedOnce]);
+
   if (session) return <Redirect href="/" />;
-  if (isPending) {
+
+  const showInitialGate =
+    isPending && !hasResolvedOnce && !googleLoading && !appleLoading;
+  if (showInitialGate) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
         <View style={[styles.content, styles.centered]}>

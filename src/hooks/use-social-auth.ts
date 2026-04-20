@@ -35,11 +35,13 @@ export function useSocialAuth() {
         return { success: true, email: data.user?.email };
       }
 
-      Alert.alert("Sign in cancelled");
       return null;
     } catch (error: unknown) {
       if (error instanceof Error && "code" in error) {
         const code = (error as { code: string }).code;
+        if (code === statusCodes.SIGN_IN_CANCELLED) {
+          return null;
+        }
         if (code === statusCodes.IN_PROGRESS) {
           Alert.alert("Sign-in already in progress");
         } else if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
