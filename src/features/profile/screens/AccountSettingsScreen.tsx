@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { Redirect, Stack, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
@@ -17,12 +17,14 @@ export default function AccountSettingsScreen() {
   const myProfile = useQuery(api.social.profiles.getMyProfile);
   const updateMyProfile = useMutation(api.social.profiles.updateMyProfile);
   const removePushToken = useMutation(api.notifications.removePushToken);
+  const deleteMyAccount = useMutation(api.account.deleteMyAccount);
 
   const [nameDraft, setNameDraft] = useState("");
   const [bioDraft, setBioDraft] = useState("");
   const [locationDraft, setLocationDraft] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   useEffect(() => {
     if (!myProfile) return;
@@ -56,6 +58,55 @@ export default function AccountSettingsScreen() {
     }
   };
 
+  const runAccountDeletion = async () => {
+    setIsDeletingAccount(true);
+    try {
+      // Clear the push token first — after the auth record is gone we'd no
+      // longer be able to authenticate the mutation.
+      await removePushToken().catch(() => {});
+      await deleteMyAccount();
+      await authClient.signOut().catch(() => {});
+    } catch (error) {
+      setIsDeletingAccount(false);
+      const message =
+        error instanceof Error
+          ? error.message
+          : "We couldn't delete your account. Please try again or contact support.";
+      Alert.alert("Account deletion failed", message);
+    }
+  };
+
+  const confirmAccountDeletion = () => {
+    if (isDeletingAccount) return;
+    Alert.alert(
+      "Delete Account",
+      "This permanently removes your profile, visits, rankings, lists, trips, and activity. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Are you sure?",
+              "Last chance — your account and all associated data will be permanently deleted.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Permanently Delete",
+                  style: "destructive",
+                  onPress: () => {
+                    void runAccountDeletion();
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const backgroundColor = Colors[theme].background;
@@ -65,6 +116,8 @@ export default function AccountSettingsScreen() {
   const inputBorder = Colors[theme].border;
   const primaryButtonBg = Colors[theme].accent;
   const primaryButtonText = Colors[theme].onAccent;
+  const dangerColor = Colors[theme].danger;
+  const mutedTextColor = Colors[theme].mutedText;
 
   if (!isPending && !session) {
     return <Redirect href="/sign-in" />;
@@ -163,6 +216,39 @@ export default function AccountSettingsScreen() {
           onSignOut={handleSignOut}
           isSigningOut={isSigningOut}
         />
+
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: surfaceColor, borderColor: dangerColor },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: dangerColor }]}>Delete Account</Text>
+          <Text style={{ fontSize: 13, lineHeight: 18, color: mutedTextColor }}>
+            Permanently delete your account and all associated data, including
+            your visits, rankings, lists, trips, and activity. This cannot be
+            undone.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Delete account"
+            style={[
+              styles.secondaryButton,
+              { borderColor: dangerColor },
+              isDeletingAccount && styles.disabledButton,
+            ]}
+            onPress={confirmAccountDeletion}
+            disabled={isDeletingAccount}
+          >
+            {isDeletingAccount ? (
+              <ActivityIndicator size="small" color={dangerColor} />
+            ) : (
+              <Text style={[styles.secondaryButtonText, { color: dangerColor }]}>
+                Delete Account
+              </Text>
+            )}
+          </Pressable>
+        </View>
       </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
