@@ -76,6 +76,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           name: displayName,
           username,
           betterAuthUserId: betterAuthUserId,
+          onboardingPhase: "profile",
           createdAt: now,
           updatedAt: now,
         });

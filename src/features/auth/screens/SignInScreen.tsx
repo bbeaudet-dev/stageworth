@@ -1,7 +1,8 @@
 import { FontAwesome } from "@expo/vector-icons";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { Image } from "expo-image";
 import { Redirect } from "expo-router";
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -32,7 +33,7 @@ const Header = memo(function Header({ subtitleColor }: { subtitleColor: string }
         <Text style={[styles.title, { color: BRAND_PURPLE }]}>worth</Text>
       </View>
       <Text style={[styles.subtitle, { color: subtitleColor }]}>
-        Discover your next show and log your history
+        Discover your next show. Track your history.
       </Text>
     </View>
   );
@@ -53,10 +54,12 @@ const SocialButtons = memo(function SocialButtons({
   googleButtonTextColor,
   googleBorderColor,
   googleButtonBackground,
+  appleButtonStyle,
 }: SocialButtonsProps & {
   googleButtonTextColor: string;
   googleBorderColor: string;
   googleButtonBackground: string;
+  appleButtonStyle: AppleAuthentication.AppleAuthenticationButtonStyle;
 }) {
   const anyLoading = googleLoading || appleLoading;
 
@@ -78,34 +81,33 @@ const SocialButtons = memo(function SocialButtons({
       >
         {googleLoading ? (
           <ActivityIndicator size="small" color="#4285F4" />
-        ) : (
-          <FontAwesome name="google" size={18} color="#4285F4" />
-        )}
+        ) : null}
+        {!googleLoading ? <FontAwesome name="google" size={18} color="#4285F4" /> : null}
         <Text style={[styles.googleButtonText, { color: googleButtonTextColor }]}>
           {googleLoading ? "Signing in..." : "Continue with Google"}
         </Text>
       </Pressable>
 
       {Platform.OS === "ios" && (
-        <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            styles.appleButton,
-            pressed && !anyLoading && styles.buttonPressed,
-            anyLoading && styles.buttonDisabled,
-          ]}
-          onPress={onApplePress}
-          disabled={anyLoading}
+        <View
+          style={[styles.appleButtonContainer, anyLoading && styles.buttonDisabled]}
+          pointerEvents={anyLoading ? "none" : "auto"}
         >
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={
+              AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+            }
+            buttonStyle={appleButtonStyle}
+            cornerRadius={12}
+            style={styles.appleButton}
+            onPress={onApplePress}
+          />
           {appleLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <FontAwesome name="apple" size={20} color="#fff" />
-          )}
-          <Text style={styles.appleButtonText}>
-            {appleLoading ? "Signing in..." : "Continue with Apple"}
-          </Text>
-        </Pressable>
+            <View style={styles.appleLoadingOverlay} pointerEvents="none">
+              <ActivityIndicator size="small" color="#fff" />
+            </View>
+          ) : null}
+        </View>
       )}
     </View>
   );
@@ -119,12 +121,16 @@ export default function SignInScreen() {
   const { googleLoading, appleLoading, signInWithGoogle, signInWithApple } =
     useSocialAuth();
 
-  // Redirect as soon as `session` exists. Only show the initial gate spinner when
-  // we have no session yet and auth is still hydrating — not during background
-  // revalidation (`isPending` can stay true after Google sign-in and was flashing
-  // Android users with a second full-screen spinner after redirect).
+  const [hasResolvedOnce, setHasResolvedOnce] = useState(!isPending);
+  useEffect(() => {
+    if (!isPending && !hasResolvedOnce) setHasResolvedOnce(true);
+  }, [isPending, hasResolvedOnce]);
+
   if (session) return <Redirect href="/" />;
-  if (isPending) {
+
+  const showInitialGate =
+    isPending && !hasResolvedOnce && !googleLoading && !appleLoading;
+  if (showInitialGate) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
         <View style={[styles.content, styles.centered]}>
@@ -133,6 +139,11 @@ export default function SignInScreen() {
       </SafeAreaView>
     );
   }
+
+  const appleButtonStyle =
+    theme === "dark"
+      ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+      : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
@@ -146,6 +157,7 @@ export default function SignInScreen() {
           googleButtonTextColor={c.text}
           googleBorderColor={c.border}
           googleButtonBackground={c.surfaceElevated}
+          appleButtonStyle={appleButtonStyle}
         />
       </View>
     </SafeAreaView>
@@ -214,15 +226,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   googleButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
+  },
+  appleButtonContainer: {
+    position: "relative",
+    minHeight: 52,
   },
   appleButton: {
-    backgroundColor: "#000",
+    width: "100%",
+    height: 52,
   },
-  appleButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
+  appleLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderRadius: 12,
   },
 });

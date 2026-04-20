@@ -1,39 +1,42 @@
 "use client";
 
-import Link from "next/link";
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from "react";
-import { SHOW_TYPES, type ShowFormType } from "./useAdminDashboard";
+import { SHOW_TYPES, type ShowDataStatus, type ShowFormType } from "./useAdminDashboard";
 
 interface AddShowModalProps {
   open: boolean;
   busy: boolean;
   error: string | null;
-  successId: string | null;
   showName: string;
   setShowName: Dispatch<SetStateAction<string>>;
   showType: ShowFormType;
   setShowType: Dispatch<SetStateAction<ShowFormType>>;
+  showDataStatus: ShowDataStatus;
+  setShowDataStatus: Dispatch<SetStateAction<ShowDataStatus>>;
   imageInputKey: number;
   setShowImage: Dispatch<SetStateAction<File | null>>;
+  onSaveClick: () => void;
+  onSaveExitClick: () => void;
   onSubmit: (e: FormEvent) => void;
   onClose: () => void;
-  adminPathWithoutSearch: string;
 }
 
 export function AddShowModal({
   open,
   busy,
   error,
-  successId,
   showName,
   setShowName,
   showType,
   setShowType,
+  showDataStatus,
+  setShowDataStatus,
   imageInputKey,
   setShowImage,
+  onSaveClick,
+  onSaveExitClick,
   onSubmit,
   onClose,
-  adminPathWithoutSearch,
 }: AddShowModalProps) {
   if (!open) return null;
 
@@ -67,31 +70,11 @@ export function AddShowModal({
           </button>
         </div>
 
-        {successId ? (
-          <div className="space-y-4">
-            <p className="text-sm text-green-800">Show created. You can open it in the review queue now.</p>
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href={`/admin/review/${successId}?returnTo=${encodeURIComponent(adminPathWithoutSearch)}`}
-                className="inline-flex rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-              >
-                Open review
-              </Link>
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <p className="text-xs text-gray-500 mb-4">
-              Creates an unpublished show with pending review entries. Name and type are always queued; an uploaded image is queued too.
-            </p>
-            <form onSubmit={onSubmit} className="space-y-4">
+        <>
+          <p className="text-xs text-gray-500 mb-4">
+            Creates a show immediately and opens its admin page. Entered values are saved directly.
+          </p>
+          <form onSubmit={onSubmit} className="space-y-4">
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600">Show name</label>
                 <input
@@ -118,6 +101,19 @@ export function AddShowModal({
                 </select>
               </div>
               <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-600">Data status</label>
+                <select
+                  value={showDataStatus}
+                  onChange={(e) => setShowDataStatus(e.target.value as ShowDataStatus)}
+                  className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                  disabled={busy}
+                >
+                  <option value="needs_review">Unpublished</option>
+                  <option value="partial">Partial</option>
+                  <option value="complete">Complete</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600">Image — optional</label>
                 <input
                   key={imageInputKey}
@@ -140,15 +136,23 @@ export function AddShowModal({
                 </button>
                 <button
                   type="submit"
+                  onClick={onSaveExitClick}
+                  disabled={busy}
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {busy ? "Saving…" : "Save & Exit"}
+                </button>
+                <button
+                  type="submit"
+                  onClick={onSaveClick}
                   disabled={busy}
                   className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
                 >
-                  {busy ? "Submitting…" : "Submit"}
+                  {busy ? "Saving…" : "Save"}
                 </button>
               </div>
-            </form>
-          </>
-        )}
+          </form>
+        </>
       </div>
     </div>
   );

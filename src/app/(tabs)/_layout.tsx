@@ -1,5 +1,6 @@
+import { useQuery } from "convex/react";
 import { Redirect, Tabs } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
@@ -7,6 +8,7 @@ import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ProfileTabIcon } from "@/components/ui/ProfileTabIcon";
 import { Colors } from "@/constants/theme";
+import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { usePendingInvite } from "@/hooks/use-pending-invite";
 import { useSession } from "@/lib/auth-client";
@@ -28,6 +30,10 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const accentColor = Colors[colorScheme ?? "light"].accent;
   const { data: session, isPending } = useSession();
+  const onboardingState = useQuery(
+    api.onboarding.getOnboardingState,
+    session ? {} : "skip"
+  );
   const { claimPendingInvite } = usePendingInvite();
   const didClaimRef = useRef(false);
 
@@ -38,17 +44,31 @@ export default function TabLayout() {
     }
   }, [session, isPending, claimPendingInvite]);
 
-  // Same as sign-in: don't blank the whole tab shell while session exists but the
-  // client is still revalidating (common right after OAuth on Android).
+  const [hasAuthResolvedOnce, setHasAuthResolvedOnce] = useState(!isPending);
+  useEffect(() => {
+    if (!isPending && !hasAuthResolvedOnce) setHasAuthResolvedOnce(true);
+  }, [isPending, hasAuthResolvedOnce]);
+
+  const c = Colors[colorScheme ?? "light"];
+
   if (!session && isPending) {
-    const c = Colors[colorScheme ?? "light"];
-    return (
-      <View style={[styles.authGate, { backgroundColor: c.background }]}>
-        <ActivityIndicator size="large" color={c.accent} />
-      </View>
-    );
+    if (!hasAuthResolvedOnce) {
+      return (
+        <View style={[styles.authGate, { backgroundColor: c.background }]}>
+          <ActivityIndicator size="large" color={c.accent} />
+        </View>
+      );
+    }
+    return <View style={[styles.authGate, { backgroundColor: c.background }]} />;
   }
   if (!session) return <Redirect href="/sign-in" />;
+
+  if (onboardingState?.phase === "profile") {
+    return <Redirect href="/(onboarding)/profile" />;
+  }
+  if (onboardingState?.phase === "shows") {
+    return <Redirect href="/(onboarding)/shows" />;
+  }
 
   return (
     <Tabs

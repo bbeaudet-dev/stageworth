@@ -286,12 +286,38 @@ function runQualityChecks(snapshot) {
 // ---------------------------------------------------------------------------
 
 async function syncToConvex(weekOf, shows) {
-  const convexUrl = process.env.CONVEX_HTTP_URL;
-  const secret = process.env.SHOWTIMES_SYNC_SECRET;
+  const rawUrl = process.env.CONVEX_HTTP_URL;
+  const rawSecret = process.env.SHOWTIMES_SYNC_SECRET;
 
-  if (!convexUrl || !secret) {
+  if (!rawUrl || !rawSecret) {
     throw new Error(
       "Missing required env vars: CONVEX_HTTP_URL and SHOWTIMES_SYNC_SECRET must be set"
+    );
+  }
+
+  // Normalize: GitHub Actions secrets often pick up trailing whitespace/newlines
+  // on paste, and a missing scheme will make fetch() fail with "URL is invalid".
+  let convexUrl = rawUrl.trim();
+  const secret = rawSecret.trim();
+  if (!/^https?:\/\//i.test(convexUrl)) {
+    warn(`CONVEX_HTTP_URL is missing scheme — prepending https://`);
+    convexUrl = `https://${convexUrl}`;
+  }
+
+  let parsedBase;
+  try {
+    parsedBase = new URL(convexUrl);
+  } catch {
+    // Don't echo the full value — it's a secret — but hint at what's wrong.
+    throw new Error(
+      `CONVEX_HTTP_URL is not a valid URL (length=${rawUrl.length}, starts-with="${rawUrl.slice(0, 8)}…"). ` +
+        `Expected something like "https://your-deployment.convex.site".`
+    );
+  }
+  if (!parsedBase.hostname.endsWith(".convex.site")) {
+    warn(
+      `CONVEX_HTTP_URL host "${parsedBase.hostname}" does not end in .convex.site — ` +
+        `HTTP actions live on .convex.site, not .convex.cloud. Continuing anyway.`
     );
   }
 

@@ -18,7 +18,6 @@ import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { authClient, useSession } from "@/lib/auth-client";
-import { markReopenSettingsDrawerAfterPop } from "@/features/profile/reopenSettingsDrawer";
 
 const DRAWER_WIDTH = Dimensions.get("window").width * 0.82;
 
@@ -120,7 +119,6 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
   }, [visible, translateX, overlayOpacity]);
 
   const navigate = (path: string) => {
-    markReopenSettingsDrawerAfterPop();
     onClose();
     router.push(path as any);
   };
@@ -130,8 +128,9 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
     setIsSigningOut(true);
     try {
       await removePushToken().catch(() => {});
-      await authClient.signOut();
       onClose();
+      await new Promise((resolve) => setTimeout(resolve, 220));
+      await authClient.signOut();
     } finally {
       setIsSigningOut(false);
     }
@@ -171,36 +170,25 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
             <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn}>
               <IconSymbol name="xmark" size={18} color={c.mutedText} />
             </Pressable>
-            <Text style={[styles.drawerTitle, { color: c.text }]}>My Account</Text>
+            <Text style={[styles.drawerTitle, { color: c.text }]}>Settings</Text>
           </View>
 
-          {/* Account info */}
-          <View style={[styles.accountCard, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
-            <Text style={[styles.signedInLabel, { color: c.mutedText }]}>Signed in as</Text>
-            {myProfile?.username ? (
-              <Text style={[styles.accountUsername, { color: c.text }]}>@{myProfile.username}</Text>
-            ) : null}
-            <Text style={[styles.accountEmail, { color: c.mutedText }]}>
-              {session?.user?.email ?? ""}
-            </Text>
-            <Pressable
-              style={[styles.signOutBtn, { borderColor: c.danger, opacity: isSigningOut ? 0.6 : 1 }]}
-              onPress={handleSignOut}
-              disabled={isSigningOut}
-            >
-              {isSigningOut ? (
-                <ActivityIndicator size="small" color={c.danger} />
-              ) : (
-                <Text style={[styles.signOutBtnText, { color: c.danger }]}>Sign Out</Text>
-              )}
-            </Pressable>
-          </View>
-
-          <View style={styles.menuList}>
+          <View style={styles.drawerBody}>
+            <View style={styles.menuList}>
+              <MenuRow
+                icon="person.fill"
+                label="Account Info"
+                onPress={() => navigate("/edit-profile")}
+                textColor={c.text}
+                mutedColor={c.mutedText}
+                borderColor={c.border}
+                surfaceColor={c.surfaceElevated}
+                iconColor={iconColor}
+              />
             <MenuRow
-              icon="person.fill"
-              label="Edit Profile"
-              onPress={() => navigate("/edit-profile")}
+              icon="bell.fill"
+              label="Notifications"
+              onPress={() => navigate("/notification-preferences")}
               textColor={c.text}
               mutedColor={c.mutedText}
               borderColor={c.border}
@@ -211,16 +199,6 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
               icon="theatermasks.fill"
               label="Theatre Preferences"
               onPress={() => navigate("/preferences")}
-              textColor={c.text}
-              mutedColor={c.mutedText}
-              borderColor={c.border}
-              surfaceColor={c.surfaceElevated}
-              iconColor={iconColor}
-            />
-            <MenuRow
-              icon="bell.fill"
-              label="Notifications"
-              onPress={() => navigate("/notification-preferences")}
               textColor={c.text}
               mutedColor={c.mutedText}
               borderColor={c.border}
@@ -247,6 +225,29 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
               surfaceColor={c.surfaceElevated}
               iconColor={iconColor}
             />
+            </View>
+
+            {/* Account info */}
+            <View style={[styles.accountCard, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
+              <Text style={[styles.signedInLabel, { color: c.mutedText }]}>Signed in as</Text>
+              {myProfile?.username ? (
+                <Text style={[styles.accountUsername, { color: c.text }]}>@{myProfile.username}</Text>
+              ) : null}
+              <Text style={[styles.accountEmail, { color: c.mutedText }]}>
+                {session?.user?.email ?? ""}
+              </Text>
+              <Pressable
+                style={[styles.signOutBtn, { borderColor: c.danger, opacity: isSigningOut ? 0.6 : 1 }]}
+                onPress={handleSignOut}
+                disabled={isSigningOut}
+              >
+                {isSigningOut ? (
+                  <ActivityIndicator size="small" color={c.danger} />
+                ) : (
+                  <Text style={[styles.signOutBtnText, { color: c.danger }]}>Sign Out</Text>
+                )}
+              </Pressable>
+            </View>
           </View>
         </Animated.View>
       </View>
@@ -283,6 +284,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 10,
   },
+  drawerBody: {
+    flex: 1,
+    justifyContent: "space-between",
+  },
   closeBtn: {
     padding: 4,
   },
@@ -291,7 +296,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   accountCard: {
-    margin: 16,
+    marginHorizontal: 16,
+    marginBottom: 8,
     borderRadius: 14,
     padding: 16,
     borderWidth: StyleSheet.hairlineWidth,
@@ -327,7 +333,7 @@ const styles = StyleSheet.create({
   menuList: {
     paddingHorizontal: 16,
     gap: 8,
-    marginBottom: 20,
+    marginTop: 16,
   },
   menuRow: {
     flexDirection: "row",

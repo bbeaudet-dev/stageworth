@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as account from "../account.js";
 import type * as admin_catalogUserFeedback from "../admin/catalogUserFeedback.js";
 import type * as admin_legacyWikidata from "../admin/legacyWikidata.js";
 import type * as admin_maintenance from "../admin/maintenance.js";
@@ -35,6 +36,7 @@ import type * as leaderboard from "../leaderboard.js";
 import type * as listRules from "../listRules.js";
 import type * as lists from "../lists.js";
 import type * as notifications from "../notifications.js";
+import type * as onboarding from "../onboarding.js";
 import type * as playbill from "../playbill.js";
 import type * as productions from "../productions.js";
 import type * as rankings from "../rankings.js";
@@ -64,6 +66,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  account: typeof account;
   "admin/catalogUserFeedback": typeof admin_catalogUserFeedback;
   "admin/legacyWikidata": typeof admin_legacyWikidata;
   "admin/maintenance": typeof admin_maintenance;
@@ -91,6 +94,7 @@ declare const fullApi: ApiFromModules<{
   listRules: typeof listRules;
   lists: typeof lists;
   notifications: typeof notifications;
+  onboarding: typeof onboarding;
   playbill: typeof playbill;
   productions: typeof productions;
   rankings: typeof rankings;

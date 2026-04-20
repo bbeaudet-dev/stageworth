@@ -1,7 +1,9 @@
 import { useMutation, useQuery } from "convex/react";
-import { Stack } from "expo-router";
+import { Redirect, Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -18,18 +20,21 @@ import { api } from "@/convex/_generated/api";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useToast } from "@/components/Toast";
-import { useNotifyProfileDrawerReopenOnUnmount } from "@/features/profile/reopenSettingsDrawer";
+import { authClient, useSession } from "@/lib/auth-client";
 
 export default function EditProfileScreen() {
-  useNotifyProfileDrawerReopenOnUnmount();
+  const { data: session, isPending } = useSession();
   const myProfile = useQuery(api.social.profiles.getMyProfile);
   const updateMyProfile = useMutation(api.social.profiles.updateMyProfile);
+  const removePushToken = useMutation(api.notifications.removePushToken);
+  const deleteMyAccount = useMutation(api.account.deleteMyAccount);
   const { showToast } = useToast();
 
   const [nameDraft, setNameDraft] = useState("");
   const [bioDraft, setBioDraft] = useState("");
   const [locationDraft, setLocationDraft] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -59,12 +64,63 @@ export default function EditProfileScreen() {
     }
   };
 
+  const runAccountDeletion = async () => {
+    setIsDeletingAccount(true);
+    try {
+      await removePushToken().catch(() => {});
+      await deleteMyAccount();
+      await authClient.signOut().catch(() => {});
+    } catch (error) {
+      setIsDeletingAccount(false);
+      const message =
+        error instanceof Error
+          ? error.message
+          : "We couldn't delete your account. Please try again or contact support.";
+      Alert.alert("Account deletion failed", message);
+    }
+  };
+
+  const confirmAccountDeletion = () => {
+    if (isDeletingAccount) return;
+    Alert.alert(
+      "Delete Account",
+      "This permanently removes your profile, visits, rankings, lists, trips, and activity. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Are you sure?",
+              "Last chance — your account and all associated data will be permanently deleted.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Permanently Delete",
+                  style: "destructive",
+                  onPress: () => {
+                    void runAccountDeletion();
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  if (!isPending && !session) {
+    return <Redirect href="/sign-in" />;
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={["bottom"]}>
       <Stack.Screen
         options={{
           headerShown: true,
-          title: "Edit Profile",
+          title: "Account",
           headerBackButtonDisplayMode: "minimal",
         }}
       />
@@ -125,6 +181,32 @@ export default function EditProfileScreen() {
               {isSaving ? "Saving…" : "Save Profile"}
             </Text>
           </Pressable>
+
+          <View style={[styles.dangerSection, { borderColor: c.danger }]}>
+            <Text style={[styles.dangerTitle, { color: c.danger }]}>Delete Account</Text>
+            <Text style={[styles.dangerBody, { color: c.mutedText }]}>
+              Permanently delete your account and all associated data, including your visits, rankings, lists, trips, and activity. This cannot be undone.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete account"
+              style={[
+                styles.deleteBtn,
+                { borderColor: c.danger },
+                isDeletingAccount && { opacity: 0.6 },
+              ]}
+              onPress={confirmAccountDeletion}
+              disabled={isDeletingAccount}
+            >
+              {isDeletingAccount ? (
+                <ActivityIndicator size="small" color={c.danger} />
+              ) : (
+                <Text style={[styles.deleteBtnText, { color: c.danger }]}>
+                  Delete Account
+                </Text>
+              )}
+            </Pressable>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -173,5 +255,32 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 15,
     fontWeight: "700",
+  },
+  dangerSection: {
+    marginTop: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    padding: 16,
+    gap: 10,
+  },
+  dangerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  dangerBody: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  deleteBtn: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
+  },
+  deleteBtnText: {
+    fontSize: 15,
+    fontWeight: "600",
   },
 });

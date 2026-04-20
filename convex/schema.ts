@@ -169,6 +169,10 @@ export default defineSchema({
         unmatched: v.array(v.string()),
       })
     ),
+    // Playbill titles from `shows` that have been written to their productions
+    // via per-show approval. Used so a proposal can be partially approved and
+    // auto-flipped to "approved" once every applicable title is applied.
+    appliedTitles: v.optional(v.array(v.string())),
   })
     .index("by_status", ["status"])
     .index("by_weekOf", ["weekOf"]),
@@ -217,6 +221,14 @@ export default defineSchema({
     avatarImage: v.optional(v.id("_storage")),
     betterAuthUserId: v.string(),
     expoPushToken: v.optional(v.string()),
+    onboardingPhase: v.optional(
+      v.union(
+        v.literal("profile"),
+        v.literal("shows"),
+        v.literal("complete")
+      )
+    ),
+    onboardingCompletedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

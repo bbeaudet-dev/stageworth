@@ -957,9 +957,8 @@ function ShowReviewDetailInner() {
         {newProductionOpen ? (
           <div className="border border-gray-200 rounded-lg p-4 mb-4 bg-gray-50 space-y-3">
             <p className="text-xs text-gray-600">
-              Creates a run with status <strong>needs review</strong>. Use
-              Submit Review when you are ready to approve queue entries and set
-              catalog status.
+              Creates a run immediately with the values below. You can continue
+              editing it after creation.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block sm:col-span-2">

@@ -14,7 +14,6 @@ import { api } from "@/convex/_generated/api";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useToast } from "@/components/Toast";
-import { useNotifyProfileDrawerReopenOnUnmount } from "@/features/profile/reopenSettingsDrawer";
 
 const THEATRE_ELEMENTS = [
   "Story & Writing",
@@ -49,7 +48,6 @@ const ELEMENT_DESCRIPTIONS: Record<string, string> = {
 type Ratings = Record<string, number>;
 
 export default function PreferencesScreen() {
-  useNotifyProfileDrawerReopenOnUnmount();
   const prefs = useQuery(api.userPreferences.getUserPreferences, {});
   const updatePrefs = useMutation(api.userPreferences.updateUserPreferences);
   const { showToast } = useToast();

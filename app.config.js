@@ -83,6 +83,15 @@ module.exports = {
     "expo-secure-store",
     "expo-apple-authentication",
     [
+      "expo-image-picker",
+      {
+        photosPermission:
+          "Stageworth needs access to your photos so you can set a profile picture.",
+        cameraPermission: false,
+        microphonePermission: false,
+      },
+    ],
+    [
       "@react-native-google-signin/google-signin",
       {
         iosUrlScheme:

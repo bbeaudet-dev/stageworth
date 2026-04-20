@@ -118,7 +118,7 @@ function UserRail({
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.userRailContent}>
         {users.map((user) => (
-          <UserCard key={user._id} user={user} width={96} onPress={() => onPressUser(user.username)} />
+          <UserCard key={user._id} user={user} width={76} onPress={() => onPressUser(user.username)} />
         ))}
       </ScrollView>
     </View>
@@ -281,5 +281,5 @@ const styles = StyleSheet.create({
   seeAllButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 2, marginVertical: -6 },
   seeAllText: { fontSize: 15, fontWeight: "600" },
   railContent: { gap: GRID_GAP, paddingRight: SECTION_PADDING },
-  userRailContent: { gap: 12, paddingRight: SECTION_PADDING },
+  userRailContent: { gap: 6, paddingRight: SECTION_PADDING },
 });

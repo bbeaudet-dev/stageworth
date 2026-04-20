@@ -19,18 +19,27 @@ export function useSearchBrowse(query: string) {
   const currentShowsRaw = useQuery(api.productions.listCurrent, {});
   const upcomingShows = useQuery(api.productions.listUpcoming, { days: 60 });
   const closingSoon = useQuery(api.productions.listClosingSoon, { days: 70 });
+  const popularShows = useQuery(api.shows.popular, { limit: 100 });
 
-  // Shuffle "Now Playing" each time the data refreshes so the rail rotates
-  // across visits instead of always surfacing the first few productions.
+  // Sort "Now Playing" by visit-based popularity. Productions whose show
+  // doesn't appear in the popularity list fall to the end (in their original
+  // order). This is a minimal, lightweight signal — a real "popularity index"
+  // is deferred to a separate project.
   const currentShows = useMemo(() => {
     if (!currentShowsRaw) return currentShowsRaw;
+    if (!popularShows) return currentShowsRaw;
+    const popularityRank = new Map<string, number>();
+    popularShows.forEach((show, idx) => {
+      popularityRank.set(String(show._id), idx);
+    });
     const copy = currentShowsRaw.slice();
-    for (let i = copy.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-    }
+    copy.sort((a, b) => {
+      const ra = popularityRank.get(String(a.show._id)) ?? Number.MAX_SAFE_INTEGER;
+      const rb = popularityRank.get(String(b.show._id)) ?? Number.MAX_SAFE_INTEGER;
+      return ra - rb;
+    });
     return copy;
-  }, [currentShowsRaw]);
+  }, [currentShowsRaw, popularShows]);
 
   // User discovery rails (browse state only)
   const recentUsers = useQuery(api.social.profiles.searchUsers, !isSearchActive ? { q: "" } : "skip");

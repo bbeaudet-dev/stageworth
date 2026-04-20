@@ -93,9 +93,22 @@ export const getPublicProfileByUserId = query({
   },
 });
 
+const MIN_USERNAME_LENGTH = 3;
+const MAX_USERNAME_LENGTH = 20;
+const USERNAME_REGEX = /^[a-z0-9_]+$/;
+
+function sanitizeUsername(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9_]/g, "")
+    .substring(0, MAX_USERNAME_LENGTH);
+}
+
 export const updateMyProfile = mutation({
   args: {
     name: v.optional(v.string()),
+    username: v.optional(v.string()),
     bio: v.optional(v.string()),
     location: v.optional(v.string()),
     avatarImage: v.optional(v.union(v.id("_storage"), v.null())),
@@ -117,13 +130,38 @@ export const updateMyProfile = mutation({
       throw new Error("Location is too long");
     }
 
-    await ctx.db.patch(userId, {
+    const patch: Record<string, unknown> = {
       name: nextName,
       bio: nextBio,
       location: nextLocation,
       avatarImage: args.avatarImage === null ? undefined : args.avatarImage,
       updatedAt: Date.now(),
-    });
+    };
+
+    if (args.username !== undefined) {
+      const candidate = sanitizeUsername(args.username);
+      if (candidate.length < MIN_USERNAME_LENGTH) {
+        throw new Error("Username must be at least 3 characters");
+      }
+      if (!USERNAME_REGEX.test(candidate)) {
+        throw new Error(
+          "Username may only contain lowercase letters, numbers, and underscores"
+        );
+      }
+      const currentUser = await ctx.db.get(userId);
+      if (currentUser && candidate !== currentUser.username) {
+        const conflict = await ctx.db
+          .query("users")
+          .withIndex("by_username", (q) => q.eq("username", candidate))
+          .first();
+        if (conflict && conflict._id !== userId) {
+          throw new Error("Username is taken");
+        }
+        patch.username = candidate;
+      }
+    }
+
+    await ctx.db.patch(userId, patch);
   },
 });
 

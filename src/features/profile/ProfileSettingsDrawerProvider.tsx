@@ -1,7 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
 import { SettingsDrawer } from "@/features/profile/components/SettingsDrawer";
-import { subscribeProfileDrawerReopen } from "@/features/profile/reopenSettingsDrawer";
 
 type ProfileSettingsDrawerContextValue = {
   openDrawer: () => void;
@@ -10,17 +9,12 @@ type ProfileSettingsDrawerContextValue = {
 
 const ProfileSettingsDrawerContext = createContext<ProfileSettingsDrawerContextValue | null>(null);
 
-/**
- * Renders the profile settings drawer at the root so the Modal stacks above pushed routes.
- * That way the drawer can open as soon as the user hits back, instead of after the pop reveals the tab.
- */
+/** Renders the profile settings drawer at the root so the Modal stacks above pushed routes. */
 export function ProfileSettingsDrawerProvider({ children }: { children: ReactNode }) {
   const [visible, setVisible] = useState(false);
 
   const openDrawer = useCallback(() => setVisible(true), []);
   const closeDrawer = useCallback(() => setVisible(false), []);
-
-  useEffect(() => subscribeProfileDrawerReopen(openDrawer), [openDrawer]);
 
   const value = useMemo(
     () => ({ openDrawer, closeDrawer }),
