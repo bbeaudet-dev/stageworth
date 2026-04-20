@@ -1,4 +1,6 @@
-import { FontAwesome } from "@expo/vector-icons";
+import {
+  GoogleSigninButton,
+} from "@react-native-google-signin/google-signin";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { Image } from "expo-image";
 import { Redirect } from "expo-router";
@@ -51,43 +53,32 @@ const SocialButtons = memo(function SocialButtons({
   appleLoading,
   onGooglePress,
   onApplePress,
-  googleButtonTextColor,
-  googleBorderColor,
-  googleButtonBackground,
   appleButtonStyle,
+  googleButtonColor,
 }: SocialButtonsProps & {
-  googleButtonTextColor: string;
-  googleBorderColor: string;
-  googleButtonBackground: string;
   appleButtonStyle: AppleAuthentication.AppleAuthenticationButtonStyle;
+  googleButtonColor: "light" | "dark";
 }) {
   const anyLoading = googleLoading || appleLoading;
 
   return (
     <View style={styles.buttons}>
-      <Pressable
-        style={({ pressed }) => [
-          styles.button,
-          styles.googleButton,
-          {
-            borderColor: googleBorderColor,
-            backgroundColor: googleButtonBackground,
-          },
-          pressed && !anyLoading && styles.buttonPressed,
-          anyLoading && styles.buttonDisabled,
-        ]}
-        onPress={onGooglePress}
-        disabled={anyLoading}
+      <View
+        style={[styles.googleButtonContainer, anyLoading && styles.buttonDisabled]}
+        pointerEvents={anyLoading ? "none" : "auto"}
       >
+        <GoogleSigninButton
+          style={styles.googleButton}
+          size={GoogleSigninButton.Size.Wide}
+          color={googleButtonColor}
+          onPress={onGooglePress}
+        />
         {googleLoading ? (
-          <ActivityIndicator size="small" color="#4285F4" />
-        ) : (
-          <FontAwesome name="google" size={18} color="#4285F4" />
-        )}
-        <Text style={[styles.googleButtonText, { color: googleButtonTextColor }]}>
-          {googleLoading ? "Signing in..." : "Continue with Google"}
-        </Text>
-      </Pressable>
+          <View style={styles.googleLoadingOverlay} pointerEvents="none">
+            <ActivityIndicator size="small" color="#4285F4" />
+          </View>
+        ) : null}
+      </View>
 
       {Platform.OS === "ios" && (
         <View
@@ -143,6 +134,7 @@ export default function SignInScreen() {
     theme === "dark"
       ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
       : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK;
+  const googleButtonColor = theme === "dark" ? "dark" : "light";
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
@@ -153,10 +145,8 @@ export default function SignInScreen() {
           appleLoading={appleLoading}
           onGooglePress={signInWithGoogle}
           onApplePress={signInWithApple}
-          googleButtonTextColor={c.text}
-          googleBorderColor={c.border}
-          googleButtonBackground={c.surfaceElevated}
           appleButtonStyle={appleButtonStyle}
+          googleButtonColor={googleButtonColor}
         />
       </View>
     </SafeAreaView>
@@ -204,6 +194,12 @@ const styles = StyleSheet.create({
   buttons: {
     gap: 12,
   },
+  googleButtonContainer: {
+    position: "relative",
+    minHeight: 52,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
   button: {
     flexDirection: "row",
     alignItems: "center",
@@ -222,11 +218,14 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   googleButton: {
-    borderWidth: 1,
+    width: "100%",
+    height: 52,
   },
-  googleButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
+  googleLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.55)",
   },
   appleButtonContainer: {
     position: "relative",

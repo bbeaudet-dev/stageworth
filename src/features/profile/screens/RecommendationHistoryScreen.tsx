@@ -8,7 +8,6 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { useNotifyProfileDrawerReopenOnUnmount } from "@/features/profile/reopenSettingsDrawer";
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, {
@@ -40,9 +39,6 @@ export default function RecommendationHistoryScreen() {
   const theme = colorScheme ?? "light";
   const isDark = theme === "dark";
   const c = Colors[theme];
-
-  // Matches pattern of other drawer-navigated screens; ensures correct back-stack behaviour
-  useNotifyProfileDrawerReopenOnUnmount();
 
   const history = useQuery(api.recommendations.listRecommendationHistory);
   const clearHistory = useMutation(api.recommendations.clearRecommendationHistory);

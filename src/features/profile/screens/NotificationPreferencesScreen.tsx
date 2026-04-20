@@ -17,7 +17,6 @@ import { useToast } from "@/components/Toast";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { useNotifyProfileDrawerReopenOnUnmount } from "@/features/profile/reopenSettingsDrawer";
 
 type NotifSettings = {
   follows: boolean;
@@ -85,7 +84,6 @@ function ToggleRow({
 }
 
 export default function NotificationPreferencesScreen() {
-  useNotifyProfileDrawerReopenOnUnmount();
   const prefs = useQuery(api.userPreferences.getUserPreferences, {});
   const updateNotifSettings = useMutation(api.userPreferences.updateNotificationSettings);
   const { showToast } = useToast();
