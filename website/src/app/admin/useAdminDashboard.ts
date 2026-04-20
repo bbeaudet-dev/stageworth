@@ -258,10 +258,11 @@ export function useAdminDashboard() {
   const [focusEdit, setFocusEdit] = useState<FocusEditState | null>(null);
   const [focusBusy, setFocusBusy] = useState<Set<string>>(new Set());
   const focusEditRef = useRef<HTMLInputElement>(null) as RefObject<HTMLInputElement>;
+  const editingEntityId = focusEdit?.entityId;
 
   useEffect(() => {
-    if (focusEdit) focusEditRef.current?.focus();
-  }, [focusEdit]);
+    if (editingEntityId) focusEditRef.current?.focus();
+  }, [editingEntityId]);
 
   async function handleFocusAction(
     showId: string,
