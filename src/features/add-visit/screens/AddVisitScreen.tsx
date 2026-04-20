@@ -19,6 +19,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useToast } from "@/components/Toast";
 import { useCelebration } from "@/components/CelebrationContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { isFutureDate } from "@/utils/dates";
 import { getBottomInsertionIndexForTier } from "@/features/add-visit/logic/ranking";
 import { useAddVisitData } from "@/features/add-visit/hooks/useAddVisitData";
 import { useAddVisitFormState } from "@/features/add-visit/hooks/useAddVisitFormState";
@@ -133,7 +134,11 @@ export default function AddVisitScreen() {
     }
     return null;
   }, [hasSelectedShow, state.customShowName, state.selectedShowId, selectedShow]);
-  const shouldShowRankingSection = hasSelectedShow && !(showContext?.hasRanking && state.keepCurrentRanking);
+  const isVisitInFuture = isFutureDate(state.date);
+  const shouldShowRankingSection =
+    hasSelectedShow &&
+    !isVisitInFuture &&
+    !(showContext?.hasRanking && state.keepCurrentRanking);
 
   useEffect(() => {
     if (shouldShowRankingSection) return;

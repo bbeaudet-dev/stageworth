@@ -772,6 +772,10 @@ export const createVisit = mutation({
         .collect(),
     ]);
 
+    // Future-dated visits shouldn't bump streaks or challenges.
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const visitIsInFuture = args.date > todayIso;
+
     const currentWeekDate = args.date;
     const currentWeekObj = new Date(currentWeekDate + "T00:00:00Z");
     const thursday = new Date(currentWeekObj);
@@ -784,14 +788,16 @@ export const createVisit = mutation({
     let longestStreak = existingStats?.longestStreakWeeks ?? 0;
     let lastActiveWeek = existingStats?.lastActiveWeek ?? "";
 
-    if (lastActiveWeek === "") {
-      streakWeeks = 1;
-      lastActiveWeek = currentWeek;
-    } else if (currentWeek !== lastActiveWeek && currentWeek > lastActiveWeek) {
-      streakWeeks = currentWeek <= lastActiveWeek ? streakWeeks : 1;
-      lastActiveWeek = currentWeek;
+    if (!visitIsInFuture) {
+      if (lastActiveWeek === "") {
+        streakWeeks = 1;
+        lastActiveWeek = currentWeek;
+      } else if (currentWeek !== lastActiveWeek && currentWeek > lastActiveWeek) {
+        streakWeeks = currentWeek <= lastActiveWeek ? streakWeeks : 1;
+        lastActiveWeek = currentWeek;
+      }
+      if (streakWeeks > longestStreak) longestStreak = streakWeeks;
     }
-    if (streakWeeks > longestStreak) longestStreak = streakWeeks;
 
     const theatreScore = computeTheatreScore({
       uniqueShows,
@@ -828,7 +834,7 @@ export const createVisit = mutation({
       const visYear = new Date(vis.date + "T00:00:00Z").getUTCFullYear();
       return visYear === visitYear && vis.showId === showId;
     });
-    if (yearVisits.length === 1) {
+    if (!visitIsInFuture && yearVisits.length === 1) {
       const challenge = await ctx.db
         .query("theatreChallenges")
         .withIndex("by_user_year", (q) =>
