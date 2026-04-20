@@ -1,4 +1,5 @@
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
+import { useQuery } from "convex/react";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
@@ -10,8 +11,9 @@ import "react-native-reanimated";
 import { ToastProvider } from "@/components/Toast";
 import { CelebrationContext, type CelebrationData } from "@/components/CelebrationContext";
 import { CelebrationOverlay } from "@/components/CelebrationModal";
+import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { authClient } from "@/lib/auth-client";
+import { authClient, useSession } from "@/lib/auth-client";
 import { convex } from "@/lib/convex";
 import { ProfileSettingsDrawerProvider } from "@/features/profile/ProfileSettingsDrawerProvider";
 
@@ -25,6 +27,12 @@ GoogleSignin.configure({
 export const unstable_settings = {
   anchor: "(tabs)",
 };
+
+function OnboardingPrefetcher() {
+  const { data: session } = useSession();
+  useQuery(api.onboarding.getOnboardingState, session ? {} : "skip");
+  return null;
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -41,6 +49,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+        <OnboardingPrefetcher />
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
           <ToastProvider>
             <CelebrationContext.Provider value={{ celebrate }}>

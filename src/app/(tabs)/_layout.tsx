@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
 import { Redirect, Tabs } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
@@ -44,32 +44,29 @@ export default function TabLayout() {
     }
   }, [session, isPending, claimPendingInvite]);
 
-  // Same as sign-in: don't blank the whole tab shell while session exists but the
-  // client is still revalidating (common right after OAuth on Android).
+  const [hasAuthResolvedOnce, setHasAuthResolvedOnce] = useState(!isPending);
+  useEffect(() => {
+    if (!isPending && !hasAuthResolvedOnce) setHasAuthResolvedOnce(true);
+  }, [isPending, hasAuthResolvedOnce]);
+
+  const c = Colors[colorScheme ?? "light"];
+
   if (!session && isPending) {
-    const c = Colors[colorScheme ?? "light"];
-    return (
-      <View style={[styles.authGate, { backgroundColor: c.background }]}>
-        <ActivityIndicator size="large" color={c.accent} />
-      </View>
-    );
+    if (!hasAuthResolvedOnce) {
+      return (
+        <View style={[styles.authGate, { backgroundColor: c.background }]}>
+          <ActivityIndicator size="large" color={c.accent} />
+        </View>
+      );
+    }
+    return <View style={[styles.authGate, { backgroundColor: c.background }]} />;
   }
   if (!session) return <Redirect href="/sign-in" />;
 
-  // Wait for onboarding state to resolve before deciding whether to show tabs
-  // or redirect into onboarding (avoids a flash of the tab UI for new users).
-  if (session && onboardingState === undefined) {
-    const c = Colors[colorScheme ?? "light"];
-    return (
-      <View style={[styles.authGate, { backgroundColor: c.background }]}>
-        <ActivityIndicator size="large" color={c.accent} />
-      </View>
-    );
-  }
-  if (onboardingState && onboardingState.phase === "profile") {
+  if (onboardingState?.phase === "profile") {
     return <Redirect href="/(onboarding)/profile" />;
   }
-  if (onboardingState && onboardingState.phase === "shows") {
+  if (onboardingState?.phase === "shows") {
     return <Redirect href="/(onboarding)/shows" />;
   }
 
