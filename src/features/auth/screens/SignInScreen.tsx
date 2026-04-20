@@ -1,4 +1,5 @@
 import { FontAwesome } from "@expo/vector-icons";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { Image } from "expo-image";
 import { Redirect } from "expo-router";
 import { memo } from "react";
@@ -53,10 +54,12 @@ const SocialButtons = memo(function SocialButtons({
   googleButtonTextColor,
   googleBorderColor,
   googleButtonBackground,
+  appleButtonStyle,
 }: SocialButtonsProps & {
   googleButtonTextColor: string;
   googleBorderColor: string;
   googleButtonBackground: string;
+  appleButtonStyle: AppleAuthentication.AppleAuthenticationButtonStyle;
 }) {
   const anyLoading = googleLoading || appleLoading;
 
@@ -87,25 +90,27 @@ const SocialButtons = memo(function SocialButtons({
       </Pressable>
 
       {Platform.OS === "ios" && (
-        <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            styles.appleButton,
-            pressed && !anyLoading && styles.buttonPressed,
-            anyLoading && styles.buttonDisabled,
-          ]}
-          onPress={onApplePress}
-          disabled={anyLoading}
+        <View
+          style={[styles.appleButtonContainer, anyLoading && styles.buttonDisabled]}
+          // Prevent taps while another auth flow is mid-flight. Apple's native
+          // button has no `disabled` prop, so we block at the container level.
+          pointerEvents={anyLoading ? "none" : "auto"}
         >
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={
+              AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+            }
+            buttonStyle={appleButtonStyle}
+            cornerRadius={12}
+            style={styles.appleButton}
+            onPress={onApplePress}
+          />
           {appleLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <FontAwesome name="apple" size={20} color="#fff" />
-          )}
-          <Text style={styles.appleButtonText}>
-            {appleLoading ? "Signing in..." : "Continue with Apple"}
-          </Text>
-        </Pressable>
+            <View style={styles.appleLoadingOverlay} pointerEvents="none">
+              <ActivityIndicator size="small" color="#fff" />
+            </View>
+          ) : null}
+        </View>
       )}
     </View>
   );
@@ -134,6 +139,11 @@ export default function SignInScreen() {
     );
   }
 
+  const appleButtonStyle =
+    theme === "dark"
+      ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+      : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK;
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
       <View style={styles.content}>
@@ -146,6 +156,7 @@ export default function SignInScreen() {
           googleButtonTextColor={c.text}
           googleBorderColor={c.border}
           googleButtonBackground={c.surfaceElevated}
+          appleButtonStyle={appleButtonStyle}
         />
       </View>
     </SafeAreaView>
@@ -217,12 +228,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  appleButton: {
-    backgroundColor: "#000",
+  appleButtonContainer: {
+    position: "relative",
+    minHeight: 52,
   },
-  appleButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
+  appleButton: {
+    width: "100%",
+    height: 52,
+  },
+  appleLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderRadius: 12,
   },
 });
