@@ -156,6 +156,20 @@ export const submitFindings = internalMutation({
         continue;
       }
 
+      // Rule 3 (descriptions only): if admins have already rejected this exact
+      // text for this show, don't keep re-staging the same proposal on every
+      // import run. They can still accept a different future value.
+      if (
+        finding.entityType === "show" &&
+        finding.field === "description" &&
+        existing.some(
+          (e) => e.status === "rejected" && e.currentValue === finding.value
+        )
+      ) {
+        skipped++;
+        continue;
+      }
+
       await ctx.db.insert("reviewQueue", {
         entityType: finding.entityType,
         entityId: finding.entityId,
