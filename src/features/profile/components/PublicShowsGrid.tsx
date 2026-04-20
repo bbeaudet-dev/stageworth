@@ -95,11 +95,6 @@ export function PublicShowsGrid({ userId, onPressShow }: PublicShowsGridProps) {
           <Text style={[styles.toggleText, { color: accentColor }]}>
             {hasMore ? `See ${nextPageCount} more` : "Show less"}
           </Text>
-          {hasMore && (
-            <Text style={[styles.toggleCount, { color: mutedTextColor }]}>
-              {visibleCount} of {shows.length}
-            </Text>
-          )}
         </Pressable>
       )}
     </View>
