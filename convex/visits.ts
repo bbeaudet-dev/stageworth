@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireConvexUserId } from "./auth";
+import { getConvexUserId, requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
 import { removeShowFromSystemLists } from "./listRules";
 import { normalizeShowName, normalizeCityName } from "./showNormalization";
@@ -223,7 +223,10 @@ export const listAllWithShows = query({
 export const listMapPins = query({
   args: { scope: mapScopeValidator },
   handler: async (ctx, args) => {
-    const userId = await requireConvexUserId(ctx);
+    const userId = await getConvexUserId(ctx);
+    if (!userId) {
+      return [];
+    }
     let visits: Doc<"visits">[] = [];
 
     if (args.scope === "mine") {
@@ -357,7 +360,15 @@ export const listMapPins = query({
 export const getMapCoverageStats = query({
   args: { scope: mapScopeValidator },
   handler: async (ctx, args) => {
-    const userId = await requireConvexUserId(ctx);
+    const userId = await getConvexUserId(ctx);
+    if (!userId) {
+      return {
+        totalVisits: 0,
+        visitsWithValidLocation: 0,
+        visitsMissingLocation: 0,
+        uniqueShowsMissingLocation: 0,
+      };
+    }
     let visits: Array<{
       userId: string;
       showId: Id<"shows">;
