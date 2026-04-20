@@ -62,6 +62,7 @@ export type ListRow = {
 
 export const SHOW_TYPES = ["musical", "play", "opera", "dance", "revue", "comedy", "magic", "other"] as const;
 export type ShowFormType = (typeof SHOW_TYPES)[number];
+export type ShowDataStatus = "needs_review" | "partial" | "complete";
 
 export type FocusEditState = { showId: string; entryId: string | null; entityId?: string; value: string };
 
@@ -117,11 +118,13 @@ export function useAdminDashboard() {
   // ── Add show modal ────────────────────────────────────────────────────────
   const [newShowName, setNewShowName] = useState("");
   const [newShowType, setNewShowType] = useState<ShowFormType>("musical");
+  const [newShowDataStatus, setNewShowDataStatus] = useState<ShowDataStatus>("needs_review");
   const [newShowImage, setNewShowImage] = useState<File | null>(null);
   const [addShowBusy, setAddShowBusy] = useState(false);
   const [addShowError, setAddShowError] = useState<string | null>(null);
   const [imageInputKey, setImageInputKey] = useState(0);
   const [addShowModalOpen, setAddShowModalOpen] = useState(false);
+  const [addShowSubmitIntent, setAddShowSubmitIntent] = useState<"open" | "exit">("open");
 
   const generateUploadUrl = useMutation(api.reviewQueue.generateShowImageUploadUrl);
   const createShowFromForm = useMutation(api.reviewQueue.createShowFromAdminForm);
@@ -159,11 +162,21 @@ export function useAdminDashboard() {
         if (!data.storageId) throw new Error("Upload did not return a storage id.");
         imageStorageId = data.storageId;
       }
-      const showId = await createShowFromForm({ name, type: newShowType, imageStorageId });
+      const showId = await createShowFromForm({
+        name,
+        type: newShowType,
+        dataStatus: newShowDataStatus,
+        imageStorageId,
+      });
       setNewShowName("");
       setNewShowType("musical");
+      setNewShowDataStatus("needs_review");
       setNewShowImage(null);
       setImageInputKey((k) => k + 1);
+      if (addShowSubmitIntent === "exit") {
+        setAddShowModalOpen(false);
+        return;
+      }
       setAddShowModalOpen(false);
       router.push(`/admin/review/${showId}?returnTo=${encodeURIComponent(adminPathWithoutSearch)}`);
     } catch (err) {
@@ -176,6 +189,7 @@ export function useAdminDashboard() {
   function openAddShowModal() {
     setAddShowModalOpen(true);
     setAddShowError(null);
+    setAddShowSubmitIntent("open");
   }
 
   function closeAddShowModal() {
@@ -358,10 +372,12 @@ export function useAdminDashboard() {
     addShowModalOpen,
     newShowName, setNewShowName,
     newShowType, setNewShowType,
+    newShowDataStatus, setNewShowDataStatus,
     newShowImage, setNewShowImage,
     addShowBusy,
     addShowError,
     imageInputKey,
+    setAddShowSubmitIntent,
     handleAddMissingShow,
     openAddShowModal,
     closeAddShowModal,

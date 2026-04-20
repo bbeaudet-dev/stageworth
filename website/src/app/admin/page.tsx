@@ -36,10 +36,12 @@ function AdminDashboardContent() {
     addShowModalOpen,
     newShowName, setNewShowName,
     newShowType, setNewShowType,
+    newShowDataStatus, setNewShowDataStatus,
     setNewShowImage,
     addShowBusy,
     addShowError,
     imageInputKey,
+    setAddShowSubmitIntent,
     handleAddMissingShow,
     openAddShowModal,
     closeAddShowModal,
@@ -131,8 +133,12 @@ function AdminDashboardContent() {
         setShowName={setNewShowName}
         showType={newShowType}
         setShowType={setNewShowType}
+        showDataStatus={newShowDataStatus}
+        setShowDataStatus={setNewShowDataStatus}
         imageInputKey={imageInputKey}
         setShowImage={setNewShowImage}
+        onSaveClick={() => setAddShowSubmitIntent("open")}
+        onSaveExitClick={() => setAddShowSubmitIntent("exit")}
         onSubmit={handleAddMissingShow}
         onClose={closeAddShowModal}
       />

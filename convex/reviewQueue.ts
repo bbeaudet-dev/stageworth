@@ -679,6 +679,7 @@ export const createShowFromAdminForm = mutation({
   args: {
     name: v.string(),
     type: showTypeValidator,
+    dataStatus: dataStatusValidator,
     imageStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
@@ -706,7 +707,7 @@ export const createShowFromAdminForm = mutation({
       type: args.type,
       images,
       isUserCreated: false,
-      dataStatus: "needs_review",
+      dataStatus: args.dataStatus,
     });
 
     return showId;
