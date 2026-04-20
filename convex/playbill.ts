@@ -44,10 +44,12 @@ const findingValidator = v.object({
  * to build its work list without downloading the whole DB.
  *
  * "Missing" means:
- *   - Show fields: undefined/null on the show doc.
- *   - Production date fields: undefined/null AND no approved reviewQueue entry
- *     for that field already exists (avoids re-proposing data we already have
- *     queued for review).
+ *   - Show-level `description`: empty on the linked `shows` doc (per
+ *     docs/plans/show-descriptions-pipeline; production.description is legacy
+ *     and no longer scraped).
+ *   - Production-level numeric/date fields: undefined/null on the production.
+ *     Dates additionally skip when a pending reviewQueue entry already exists
+ *     via the dedupe in submitFindings.
  */
 export const getProductionsNeedingEnrichment = internalQuery({
   args: {},
@@ -59,6 +61,7 @@ export const getProductionsNeedingEnrichment = internalQuery({
       playbillProductionId: string;
       showId: string;
       showName: string;
+      missingShowFields: string[];
       missingProductionFields: string[];
     }> = [];
 
@@ -68,26 +71,32 @@ export const getProductionsNeedingEnrichment = internalQuery({
       const show = await ctx.db.get(production.showId);
       if (!show) continue;
 
-      // All enrichable fields are production-level.
+      const missingShowFields: string[] = [];
+      if (!show.description) missingShowFields.push("description");
+
       const missingProductionFields: string[] = [];
       if (production.runningTime === undefined || production.runningTime === null)
         missingProductionFields.push("runningTime");
       if (production.intermissionCount === undefined || production.intermissionCount === null)
         missingProductionFields.push("intermissionCount");
-      if (!production.description) missingProductionFields.push("description");
       if (!production.previewDate) missingProductionFields.push("previewDate");
       if (!production.openingDate) missingProductionFields.push("openingDate");
       // Only flag closingDate if we don't already know it's an open run.
       if (!production.closingDate && !production.isOpenRun)
         missingProductionFields.push("closingDate");
 
-      if (missingProductionFields.length === 0) continue;
+      if (
+        missingShowFields.length === 0 &&
+        missingProductionFields.length === 0
+      )
+        continue;
 
       rows.push({
         productionId: production._id as string,
         playbillProductionId: production.playbillProductionId,
         showId: production.showId as string,
         showName: show.name,
+        missingShowFields,
         missingProductionFields,
       });
     }
@@ -154,6 +163,143 @@ export const submitFindings = internalMutation({
         currentValue: finding.value,
         source: "playbill",
         status: "pending",
+        createdAt: now,
+      });
+      created++;
+    }
+
+    return { created, skipped };
+  },
+});
+
+// ─── Playbill ID mapping backfill ─────────────────────────────────────────────
+// Unlocks Playbill enrichment (descriptions, dates, running time) for historical
+// productions that predate the existing playbillProductionId seeding. Ships as
+// a separate workflow so a wrong guess stays gated behind admin review.
+
+/**
+ * Productions missing `playbillProductionId`. Returns enough context for the
+ * mapping script to search Playbill and score candidates (name, theatre,
+ * district, opening year). Kept minimal to avoid shipping the whole DB.
+ */
+export const getProductionsNeedingPlaybillMapping = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const productions = await ctx.db.query("productions").collect();
+
+    const rows: Array<{
+      productionId: string;
+      showId: string;
+      showName: string;
+      theatre: string | null;
+      city: string | null;
+      district: string;
+      previewDate: string | null;
+      openingDate: string | null;
+      closingDate: string | null;
+    }> = [];
+
+    for (const production of productions) {
+      if (production.playbillProductionId) continue;
+
+      const show = await ctx.db.get(production.showId);
+      if (!show) continue;
+
+      // Skip productions whose mapping is already pending review — stops the
+      // script from stacking duplicate entries across runs.
+      const existing = await ctx.db
+        .query("reviewQueue")
+        .withIndex("by_entity_field", (q) =>
+          q
+            .eq("entityType", "production")
+            .eq("entityId", production._id as string)
+            .eq("field", "playbillProductionId")
+        )
+        .collect();
+      if (existing.some((e) => e.status === "pending")) continue;
+
+      rows.push({
+        productionId: production._id as string,
+        showId: production.showId as string,
+        showName: show.name,
+        theatre: production.theatre ?? null,
+        city: production.city ?? null,
+        district: production.district,
+        previewDate: production.previewDate ?? null,
+        openingDate: production.openingDate ?? null,
+        closingDate: production.closingDate ?? null,
+      });
+    }
+
+    return rows;
+  },
+});
+
+/**
+ * Stage playbillProductionId mapping proposals as pending reviewQueue entries.
+ *
+ * Each finding carries the top candidate plus optional confidence / alternate
+ * slugs (flattened into the `note` field so admins can see the shortlist
+ * without a separate table). Idempotency mirrors submitFindings: skip if a
+ * pending entry exists, skip if the exact value has already been approved.
+ */
+export const submitMappingFindings = internalMutation({
+  args: {
+    findings: v.array(
+      v.object({
+        productionId: v.string(),
+        playbillProductionId: v.string(),
+        confidence: v.number(),
+        alternateIds: v.optional(v.array(v.string())),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    let created = 0;
+    let skipped = 0;
+    const now = Date.now();
+
+    for (const finding of args.findings) {
+      const existing = await ctx.db
+        .query("reviewQueue")
+        .withIndex("by_entity_field", (q) =>
+          q
+            .eq("entityType", "production")
+            .eq("entityId", finding.productionId)
+            .eq("field", "playbillProductionId")
+        )
+        .collect();
+
+      if (existing.some((e) => e.status === "pending")) {
+        skipped++;
+        continue;
+      }
+
+      const alreadyApproved = existing.some((e) => {
+        if (e.status !== "approved" && e.status !== "edited") return false;
+        const accepted = e.reviewedValue ?? e.currentValue;
+        return accepted === finding.playbillProductionId;
+      });
+      if (alreadyApproved) {
+        skipped++;
+        continue;
+      }
+
+      const noteParts: string[] = [
+        `confidence=${finding.confidence.toFixed(2)}`,
+      ];
+      if (finding.alternateIds && finding.alternateIds.length > 0) {
+        noteParts.push(`alternates=${finding.alternateIds.join(",")}`);
+      }
+
+      await ctx.db.insert("reviewQueue", {
+        entityType: "production",
+        entityId: finding.productionId,
+        field: "playbillProductionId",
+        currentValue: finding.playbillProductionId,
+        source: "playbill",
+        status: "pending",
+        note: noteParts.join(" | "),
         createdAt: now,
       });
       created++;
