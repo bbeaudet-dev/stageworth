@@ -9,6 +9,7 @@ import {
 import { resolveShowImageUrls, resolveProductionPosterUrl } from "./helpers";
 import { normalizeShowName } from "./showNormalization";
 import { getProductionStatus } from "../src/utils/productions";
+import { addShowToAllUsersUncategorizedIfEligible } from "./listRules";
 
 // Fields we track in the review queue for each entity type.
 export const SHOW_REVIEWABLE_FIELDS = [
@@ -16,6 +17,7 @@ export const SHOW_REVIEWABLE_FIELDS = [
   "type",
   "subtype",
   "hotlinkImageUrl",
+  "description",
 ] as const;
 
 export const PRODUCTION_REVIEWABLE_FIELDS = [
@@ -33,6 +35,7 @@ export const PRODUCTION_REVIEWABLE_FIELDS = [
   "intermissionCount",
   "intermissionMinutes",
   "description",
+  "playbillProductionId",
 ] as const;
 
 const dataStatusValidator = v.union(
@@ -766,6 +769,15 @@ export const createProductionFromAdminForm = mutation({
       dataStatus: "needs_review",
     });
 
+    const today = new Date().toISOString().split("T")[0];
+    const status = getProductionStatus(
+      { previewDate, openingDate, closingDate, isOpenRun: args.isOpenRun },
+      today
+    );
+    if (status !== "closed") {
+      await addShowToAllUsersUncategorizedIfEligible(ctx, args.showId);
+    }
+
     return productionId;
   },
 });
@@ -1020,7 +1032,8 @@ export const submitShowReview = mutation({
             entry.entityType,
             entry.entityId,
             entry.field,
-            entry.currentValue
+            entry.currentValue,
+            entry.source
           );
         }
       } else if (decision.decision === "rejected") {
@@ -1029,8 +1042,30 @@ export const submitShowReview = mutation({
           entry.entityType,
           entry.entityId,
           entry.field,
-          undefined
+          undefined,
+          entry.source
         );
+        // Cascade rejection so the image doesn't sneak back in via a production
+        // poster fallback or a leftover stored poster file.
+        if (entry.field === "hotlinkImageUrl" && entry.currentValue) {
+          const relatedProductions = await ctx.db
+            .query("productions")
+            .withIndex("by_show", (q) =>
+              q.eq("showId", entry.entityId as Id<"shows">)
+            )
+            .collect();
+          for (const prod of relatedProductions) {
+            if (prod.hotlinkPosterUrl === entry.currentValue) {
+              await ctx.db.patch(prod._id, {
+                hotlinkPosterUrl: undefined,
+              });
+            }
+          }
+        } else if (entry.field === "hotlinkPosterUrl") {
+          await ctx.db.patch(entry.entityId as Id<"productions">, {
+            posterImage: undefined,
+          });
+        }
       } else if (
         decision.decision === "edited" &&
         decision.reviewedValue !== undefined
@@ -1045,7 +1080,8 @@ export const submitShowReview = mutation({
             "show",
             entry.entityId,
             "images",
-            rv
+            rv,
+            entry.source
           );
         } else if (
           entry.field === "hotlinkPosterUrl" &&
@@ -1056,15 +1092,19 @@ export const submitShowReview = mutation({
             "production",
             entry.entityId,
             "posterImage",
-            rv
+            rv,
+            entry.source
           );
         } else {
+          // Admin-edited value -> attribute to admin regardless of original
+          // source, since the final text didn't come from the bot.
           await applyFieldChange(
             ctx,
             entry.entityType,
             entry.entityId,
             entry.field,
-            rv
+            rv,
+            "manual"
           );
         }
       }
@@ -1078,18 +1118,39 @@ export const submitShowReview = mutation({
           edit.entityType,
           edit.entityId,
           edit.field,
-          edit.newValue
+          edit.newValue,
+          "manual"
         );
       }
     }
 
-    // Set dataStatus on the show
+    const showBefore = await ctx.db.get(args.showId);
+    const prevShowStatus = showBefore?.dataStatus;
     await ctx.db.patch(args.showId, { dataStatus: args.showDataStatus });
 
-    // Set dataStatus on productions
     if (args.productionStatuses) {
       for (const ps of args.productionStatuses) {
         await ctx.db.patch(ps.productionId, { dataStatus: ps.dataStatus });
+      }
+    }
+
+    // Fan out to all users' Uncategorized on needs_review → published so users
+    // who signed up during review also get the show.
+    const becamePublished =
+      (args.showDataStatus === "partial" || args.showDataStatus === "complete") &&
+      prevShowStatus !== "partial" &&
+      prevShowStatus !== "complete";
+    if (becamePublished) {
+      const productionsForShow = await ctx.db
+        .query("productions")
+        .withIndex("by_show", (q) => q.eq("showId", args.showId))
+        .collect();
+      const today = new Date().toISOString().split("T")[0];
+      const anyNonClosed = productionsForShow.some(
+        (p) => getProductionStatus(p, today) !== "closed"
+      );
+      if (anyNonClosed) {
+        await addShowToAllUsersUncategorizedIfEligible(ctx, args.showId);
       }
     }
   },
@@ -1337,12 +1398,27 @@ function isLikelyConvexStorageId(s: string): boolean {
   return /^[a-z0-9_-]+$/i.test(s);
 }
 
+/**
+ * Map a reviewQueue source literal onto the narrower union stored on
+ * `shows.descriptionSource`. Only playbill/wikipedia/admin are meaningful;
+ * everything else (bot, seed, ticketmaster, etc.) is attributed to "admin"
+ * since those paths go through manual review.
+ */
+function descriptionSourceFromReviewSource(
+  source: string | undefined
+): "playbill" | "wikipedia" | "admin" {
+  if (source === "playbill") return "playbill";
+  if (source === "wikipedia") return "wikipedia";
+  return "admin";
+}
+
 async function applyFieldChange(
   ctx: any,
   entityType: string,
   entityId: string,
   field: string,
-  value: string | undefined
+  value: string | undefined,
+  source?: string
 ) {
   const doc = await ctx.db.get(entityId as any);
   if (!doc) return;
@@ -1363,6 +1439,12 @@ async function applyFieldChange(
       await ctx.db.patch(entityId as any, {
         posterImage: undefined,
         hotlinkPosterUrl: undefined,
+      });
+    } else if (entityType === "show" && field === "description") {
+      await ctx.db.patch(entityId as any, {
+        description: undefined,
+        descriptionSource: undefined,
+        descriptionUpdatedAt: undefined,
       });
     } else {
       await ctx.db.patch(entityId as any, { [field]: undefined });
@@ -1390,6 +1472,12 @@ async function applyFieldChange(
   } else if (entityType === "show" && field === "type") {
     await ctx.db.patch(entityId as any, {
       type: normalizeShowTypeForPatch(value),
+    });
+  } else if (entityType === "show" && field === "description") {
+    await ctx.db.patch(entityId as any, {
+      description: value,
+      descriptionSource: descriptionSourceFromReviewSource(source),
+      descriptionUpdatedAt: Date.now(),
     });
   } else {
     await ctx.db.patch(entityId as any, { [field]: value });

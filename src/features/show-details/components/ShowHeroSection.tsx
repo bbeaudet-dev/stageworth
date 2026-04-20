@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
@@ -18,6 +19,50 @@ function deriveShowScoreSlug(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/** Target preview length for the collapsed description state. */
+const DESCRIPTION_PREVIEW_CHARS = 200;
+
+/**
+ * Truncate a description for preview. Tries to break on a sentence boundary
+ * within the last ~60 chars of the limit so we don't chop mid-word; otherwise
+ * falls back to the nearest space, then a hard slice.
+ */
+function truncateForPreview(full: string, limit: number): string {
+  if (full.length <= limit) return full;
+  const windowStart = Math.max(0, limit - 60);
+  const slice = full.slice(0, limit);
+  const sentenceEnd = Math.max(
+    slice.lastIndexOf(". ", limit),
+    slice.lastIndexOf("! ", limit),
+    slice.lastIndexOf("? ", limit)
+  );
+  if (sentenceEnd >= windowStart) {
+    return slice.slice(0, sentenceEnd + 1).trim();
+  }
+  const lastSpace = slice.lastIndexOf(" ", limit);
+  if (lastSpace >= windowStart) {
+    return slice.slice(0, lastSpace).trim();
+  }
+  return slice.trim();
+}
+
+type ListMembership = {
+  _id: string;
+  name: string;
+  systemKey?: string | null;
+  containsShow?: boolean;
+};
+
+// Uncategorized is auto-populated for everyone, so it's excluded from the count.
+function countNonUncategorizedMemberships(
+  lists: ListMembership[] | undefined,
+): number {
+  if (!lists) return 0;
+  return lists.filter(
+    (l) => l.containsShow && l.systemKey !== "uncategorized",
+  ).length;
+}
+
 interface ShowHeroSectionProps {
   show: {
     name: string;
@@ -26,12 +71,16 @@ interface ShowHeroSectionProps {
     showScoreRating?: number | null;
     showScoreCount?: number | string | null;
     showScoreSlug?: string | null;
+    description?: string | null;
   } | null | undefined;
   placeholderName?: string;
   showId: Id<"shows"> | "";
   screenWidth: number;
   onOpenListSheet: () => void;
   onOpenTripSheet: () => void;
+  visitCount?: number;
+  listMemberships?: ListMembership[];
+  tripsContainingShowCount?: number;
 }
 
 export function ShowHeroSection({
@@ -41,6 +90,9 @@ export function ShowHeroSection({
   screenWidth,
   onOpenListSheet,
   onOpenTripSheet,
+  visitCount = 0,
+  listMemberships,
+  tripsContainingShowCount = 0,
 }: ShowHeroSectionProps) {
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -52,6 +104,13 @@ export function ShowHeroSection({
   const posterUrl = show?.images?.[0] ?? null;
   const showType = show?.type ?? null;
   const typeColors = showTypeChip(showType ?? "other", isDark ? "dark" : "light");
+
+  const description = show?.description?.trim() || null;
+  const [expanded, setExpanded] = useState(false);
+  const needsTruncate = !!description && description.length > DESCRIPTION_PREVIEW_CHARS;
+  const preview = needsTruncate
+    ? truncateForPreview(description!, DESCRIPTION_PREVIEW_CHARS)
+    : description;
 
   return (
     <>
@@ -122,23 +181,83 @@ export function ShowHeroSection({
           });
         }}
       >
-        <Text style={[styles.primaryBtnText, { color: c.onAccent }]}>Add a Visit</Text>
+        <Text style={[styles.primaryBtnText, { color: c.onAccent }]}>
+          {visitCount > 0 ? `Add Visit (Existing: ${visitCount})` : "Add a Visit"}
+        </Text>
       </Pressable>
 
       <View style={styles.secondaryBtnRow}>
-        <Pressable
-          style={[styles.secondaryBtn, { backgroundColor: c.accent + "18", borderColor: c.accent + "40" }]}
-          onPress={onOpenListSheet}
-        >
-          <Text style={[styles.secondaryBtnText, { color: c.accent }]}>+ Add to List</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.secondaryBtn, { backgroundColor: c.accent + "18", borderColor: c.accent + "40" }]}
-          onPress={onOpenTripSheet}
-        >
-          <Text style={[styles.secondaryBtnText, { color: c.accent }]}>+ Add to Trip</Text>
-        </Pressable>
+        {(() => {
+          const listCount = countNonUncategorizedMemberships(listMemberships);
+          const inList = listCount > 0;
+          return (
+            <Pressable
+              style={[
+                styles.secondaryBtn,
+                inList
+                  ? { backgroundColor: c.accent, borderColor: c.accent }
+                  : { backgroundColor: c.accent + "18", borderColor: c.accent + "40" },
+              ]}
+              onPress={onOpenListSheet}
+            >
+              <Text
+                style={[
+                  styles.secondaryBtnText,
+                  { color: inList ? c.onAccent : c.accent },
+                ]}
+              >
+                {inList
+                  ? `In ${listCount} ${listCount === 1 ? "list" : "lists"}`
+                  : "+ Add to List"}
+              </Text>
+            </Pressable>
+          );
+        })()}
+        {(() => {
+          const inTrip = tripsContainingShowCount > 0;
+          return (
+            <Pressable
+              style={[
+                styles.secondaryBtn,
+                inTrip
+                  ? { backgroundColor: c.accent, borderColor: c.accent }
+                  : { backgroundColor: c.accent + "18", borderColor: c.accent + "40" },
+              ]}
+              onPress={onOpenTripSheet}
+            >
+              <Text
+                style={[
+                  styles.secondaryBtnText,
+                  { color: inTrip ? c.onAccent : c.accent },
+                ]}
+              >
+                {inTrip
+                  ? `In ${tripsContainingShowCount} ${tripsContainingShowCount === 1 ? "trip" : "trips"}`
+                  : "+ Add to Trip"}
+              </Text>
+            </Pressable>
+          );
+        })()}
       </View>
+
+      {description && preview && (
+        <View style={styles.descriptionWrap}>
+          <Text style={[styles.descriptionText, { color: c.text }]}>
+            {expanded || !needsTruncate ? description : `${preview}\u2026`}
+          </Text>
+          {needsTruncate && (
+            <Pressable
+              onPress={() => setExpanded((v) => !v)}
+              hitSlop={8}
+              style={({ pressed }) => [styles.readMoreBtn, { opacity: pressed ? 0.6 : 1 }]}
+            >
+              <Text style={[styles.readMoreText, { color: c.accent }]}>
+                {expanded ? "Read less" : "Read more"}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      )}
     </>
   );
 }
@@ -159,4 +278,8 @@ const styles = StyleSheet.create({
   secondaryBtnRow: { flexDirection: "row", gap: 10 },
   secondaryBtn: { flex: 1, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingVertical: 11 },
   secondaryBtnText: { fontWeight: "600", fontSize: 14 },
+  descriptionWrap: { gap: 4 },
+  descriptionText: { fontSize: 14, lineHeight: 20 },
+  readMoreBtn: { alignSelf: "flex-start", paddingVertical: 2 },
+  readMoreText: { fontSize: 13, fontWeight: "600" },
 });

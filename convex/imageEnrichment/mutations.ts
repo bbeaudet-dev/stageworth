@@ -85,6 +85,101 @@ export const markWikipediaChecked = internalMutation({
 });
 
 /**
+ * Write a Wikipedia-sourced description onto a show and stage a pending
+ * reviewQueue entry for admin oversight. Mirrors `setShowHotlinkImage`:
+ * the value goes into the live doc immediately (so users see it), and the
+ * queue entry gives admins a chance to edit or reject without blocking.
+ *
+ * Skips the patch if `shows.description` already has a non-Wikipedia source,
+ * so Playbill (preferred) and admin edits take precedence.
+ */
+export const setShowWikipediaDescription = internalMutation({
+  args: {
+    showId: v.id("shows"),
+    description: v.string(),
+    wikipediaTitle: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const show = await ctx.db.get(args.showId);
+    if (!show) return;
+
+    const currentSource = show.descriptionSource;
+    // Don't overwrite Playbill or admin descriptions with Wikipedia text.
+    if (
+      show.description &&
+      currentSource &&
+      currentSource !== "wikipedia"
+    ) {
+      if (args.wikipediaTitle && !show.wikipediaTitle) {
+        await ctx.db.patch(args.showId, {
+          wikipediaTitle: args.wikipediaTitle,
+          descriptionCheckedAt: Date.now(),
+        });
+      } else {
+        await ctx.db.patch(args.showId, {
+          descriptionCheckedAt: Date.now(),
+        });
+      }
+      return;
+    }
+
+    const patch: Record<string, unknown> = {
+      description: args.description,
+      descriptionSource: "wikipedia",
+      descriptionUpdatedAt: Date.now(),
+      descriptionCheckedAt: Date.now(),
+    };
+    if (args.wikipediaTitle && !show.wikipediaTitle) {
+      patch.wikipediaTitle = args.wikipediaTitle;
+    }
+    await ctx.db.patch(args.showId, patch);
+
+    const existingEntries = await ctx.db
+      .query("reviewQueue")
+      .withIndex("by_entity_field", (q) =>
+        q
+          .eq("entityType", "show")
+          .eq("entityId", args.showId)
+          .eq("field", "description")
+      )
+      .collect();
+
+    // Rule: skip if something pending exists (Playbill or earlier Wikipedia
+    // run) and skip if an admin already approved this exact text.
+    if (existingEntries.some((e) => e.status === "pending")) return;
+    const alreadyApproved = existingEntries.some((e) => {
+      if (e.status !== "approved" && e.status !== "edited") return false;
+      const accepted = e.reviewedValue ?? e.currentValue;
+      return accepted === args.description;
+    });
+    if (alreadyApproved) return;
+
+    await ctx.db.insert("reviewQueue", {
+      entityType: "show",
+      entityId: args.showId,
+      field: "description",
+      currentValue: args.description,
+      source: "wikipedia",
+      status: "pending",
+      createdAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Timestamp-only update for shows where Wikipedia returned nothing, so the
+ * backfill doesn't re-query them every run.
+ */
+export const markDescriptionChecked = internalMutation({
+  args: { showId: v.id("shows") },
+  handler: async (ctx, args) => {
+    const show = await ctx.db.get(args.showId);
+    if (!show) return;
+    await ctx.db.patch(args.showId, { descriptionCheckedAt: Date.now() });
+  },
+});
+
+/**
  * Set a hotlink poster URL on a production record from Ticketmaster.
  */
 export const setProductionHotlinkImage = internalMutation({

@@ -16,6 +16,7 @@ const MAX_RETRIES = 3;
 type WikiSummary = {
   title: string;
   type: string;
+  extract?: string;
   thumbnail?: { source: string; width: number; height: number };
   originalimage?: { source: string; width: number; height: number };
 };
@@ -184,6 +185,125 @@ export const enrichShowWikipedia = internalAction({
           hotlinkImageSource: "wikipedia",
           wikipediaTitle: result.articleTitle,
         }
+      );
+    }
+  },
+});
+
+// ─── Wikipedia description fallback ──────────────────────────────────────────
+// Long-tail coverage for shows with no Playbill mapping. Pulls
+// summary.extract, strips Wikipedia's genre-taxonomy opener, and writes to
+// shows.description with descriptionSource: "wikipedia".
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Wikipedia leads most show articles with a formulaic genre sentence:
+ *   "Hadestown is a musical with music, lyrics, and book by Anaïs Mitchell."
+ *   "Rent is a rock musical with music, lyrics, and book by Jonathan Larson."
+ *   "Hamilton is a sung-and-rapped-through biographical musical..."
+ *
+ * That framing is accurate but drains the voice we want for a user-facing
+ * blurb. Strip it when present, keep the rest. If stripping leaves too
+ * little, return the original.
+ */
+function stripGenreOpener(showName: string, extract: string): string {
+  const pattern = new RegExp(
+    `^${escapeRegex(showName)} is (a|an|the) [^.]+\\.\\s*`,
+    "i"
+  );
+  const stripped = extract.replace(pattern, "").trim();
+  return stripped.length >= 50 ? stripped : extract;
+}
+
+/**
+ * Resolve a Wikipedia summary (title + extract) for a show. Mirrors
+ * `resolveWikipediaImage`'s title-ladder → search fallback flow, but returns
+ * the article extract instead of an image URL.
+ */
+async function resolveWikipediaSummary(
+  showName: string,
+  showType:
+    | "musical"
+    | "play"
+    | "opera"
+    | "dance"
+    | "revue"
+    | "comedy"
+    | "magic"
+    | "other"
+): Promise<{ extract: string; articleTitle: string } | null> {
+  const candidates = wikipediaTitleCandidates(showName, showType);
+
+  for (const title of candidates) {
+    const summary = await fetchWikiSummary(title);
+    if (!summary) continue;
+    if (summary.type === "disambiguation") continue;
+    const score = scoreNameMatch(showName, summary.title);
+    if (!isAcceptableMatch(score)) continue;
+    if (summary.extract && summary.extract.length >= 60) {
+      return { extract: summary.extract, articleTitle: summary.title };
+    }
+  }
+
+  const searchTitle = await searchWikipedia(showName);
+  if (searchTitle) {
+    const summary = await fetchWikiSummary(searchTitle);
+    if (summary && summary.type !== "disambiguation") {
+      const score = scoreNameMatch(showName, summary.title);
+      if (isAcceptableMatch(score) && summary.extract && summary.extract.length >= 60) {
+        return { extract: summary.extract, articleTitle: summary.title };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Chunked backfill that pulls Wikipedia descriptions for shows whose
+ * description is still empty. Targets the long tail that Playbill mapping
+ * couldn't cover; Playbill remains primary when available.
+ *
+ * Same batching + pacing as backfillWikipediaImages — we're a good citizen
+ * against the shared Wikipedia REST API.
+ */
+export const backfillWikipediaDescriptions = internalAction({
+  args: { cursor: v.optional(v.string()) },
+  handler: async (ctx, args): Promise<void> => {
+    const batch = await ctx.runQuery(
+      internal.imageEnrichment.queries.showsNeedingDescriptions,
+      { limit: BATCH_SIZE, cursor: args.cursor ?? undefined }
+    );
+
+    for (const show of batch.shows) {
+      const result = await resolveWikipediaSummary(show.name, show.type);
+      if (result) {
+        const cleaned = stripGenreOpener(show.name, result.extract);
+        await ctx.runMutation(
+          internal.imageEnrichment.mutations.setShowWikipediaDescription,
+          {
+            showId: show._id,
+            description: cleaned,
+            wikipediaTitle: result.articleTitle,
+          }
+        );
+      } else {
+        await ctx.runMutation(
+          internal.imageEnrichment.mutations.markDescriptionChecked,
+          { showId: show._id }
+        );
+      }
+      await sleep(DELAY_MS);
+    }
+
+    if (batch.hasMore && batch.nextCursor) {
+      await ctx.scheduler.runAfter(
+        1000,
+        internal.imageEnrichment.wikipedia.backfillWikipediaDescriptions,
+        { cursor: batch.nextCursor }
       );
     }
   },

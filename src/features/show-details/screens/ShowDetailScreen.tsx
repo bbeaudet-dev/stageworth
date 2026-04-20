@@ -107,6 +107,11 @@ export default function ShowDetailScreen() {
           screenWidth={screenWidth}
           onOpenListSheet={() => setListSheetOpen(true)}
           onOpenTripSheet={() => setTripSheetOpen(true)}
+          visitCount={visits?.length ?? 0}
+          listMemberships={allLists}
+          tripsContainingShowCount={
+            activeTrips.filter((t) => t.containsShow).length
+          }
         />
 
         <ProductionsRail productions={productions} todayStr={todayStr} />

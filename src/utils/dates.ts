@@ -124,7 +124,7 @@ function ordinal(n: number): string {
   }
 }
 
-/** "today" / "yesterday" / "3 days ago" / "January 5th" / "January 5th, 2024" */
+/** "today" / "yesterday" / "3 days ago" / "tomorrow" / "in 3 days" / "January 5th" / "January 5th, 2024" */
 export function formatRelativeVisitDate(dateStr: string): string {
   const today = new Date();
   const target = new Date(`${dateStr}T00:00:00`);
@@ -136,13 +136,26 @@ export function formatRelativeVisitDate(dateStr: string): string {
   );
   if (diffDays === 0) return "today";
   if (diffDays === 1) return "yesterday";
-  if (diffDays <= 6) return `${diffDays} days ago`;
+  if (diffDays > 1 && diffDays <= 6) return `${diffDays} days ago`;
   if (diffDays === 7) return "a week ago";
+  if (diffDays === -1) return "tomorrow";
+  if (diffDays < -1 && diffDays >= -6) return `in ${-diffDays} days`;
+  if (diffDays === -7) return "in a week";
 
   const month = MONTHS_FULL[target.getMonth()];
   const day = ordinal(target.getDate());
-  if (diffDays >= 335) return `${month} ${day}, ${target.getFullYear()}`;
+  const absDiff = Math.abs(diffDays);
+  if (absDiff >= 335) return `${month} ${day}, ${target.getFullYear()}`;
   return `${month} ${day}`;
+}
+
+/** True when the ISO date is strictly after today. */
+export function isFutureDate(dateStr: string): boolean {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = parseISODate(dateStr);
+  target.setHours(0, 0, 0, 0);
+  return target.getTime() > today.getTime();
 }
 
 /** Section header for diary grouping: "Today" / "Yesterday" / "This Week" / "January 2026" */

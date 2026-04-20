@@ -12,13 +12,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 type ListStatus = "want_to_see" | "look_into" | "not_interested" | "uncategorized" | "none";
 
 function listStatusIconName(status: ListStatus): string {
-  switch (status) {
-    case "want_to_see":    return "hand.thumbsup";
-    case "look_into":      return "questionmark.circle";
-    case "not_interested": return "hand.thumbsdown";
-    case "uncategorized":  return "minus.circle";
-    default:               return "bookmark";
-  }
+  return status === "none" ? "bookmark" : "bookmark.fill";
 }
 
 export function ShowCard({

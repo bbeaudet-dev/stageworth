@@ -19,6 +19,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { useToast } from "@/components/Toast";
 import { useCelebration } from "@/components/CelebrationContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { isFutureDate } from "@/utils/dates";
 import { getBottomInsertionIndexForTier } from "@/features/add-visit/logic/ranking";
 import { useAddVisitData } from "@/features/add-visit/hooks/useAddVisitData";
 import { useAddVisitFormState } from "@/features/add-visit/hooks/useAddVisitFormState";
@@ -133,7 +134,11 @@ export default function AddVisitScreen() {
     }
     return null;
   }, [hasSelectedShow, state.customShowName, state.selectedShowId, selectedShow]);
-  const shouldShowRankingSection = hasSelectedShow && !(showContext?.hasRanking && state.keepCurrentRanking);
+  const isVisitInFuture = isFutureDate(state.date);
+  const shouldShowRankingSection =
+    hasSelectedShow &&
+    !isVisitInFuture &&
+    !(showContext?.hasRanking && state.keepCurrentRanking);
 
   useEffect(() => {
     if (shouldShowRankingSection) return;
@@ -312,24 +317,26 @@ export default function AddVisitScreen() {
                 theatre={state.theatre}
                 setTheatre={setTheatre}
               />
-              <RankingSection
-                showHasRanking={Boolean(showContext?.hasRanking)}
-                showHasVisit={Boolean(showContext?.hasVisit)}
-                keepCurrentRanking={state.keepCurrentRanking}
-                setKeepCurrentRanking={setKeepCurrentRanking}
-                shouldShowRankingSection={shouldShowRankingSection}
-                selectedTier={state.selectedTier}
-                onChangeTier={resetRankingFlow}
-                isRankingsLoading={isRankingsLoading}
-                startTierRanking={startTierRanking}
-                rankingPhase={rankingPhase}
-                comparisonTarget={comparisonTarget}
-                showNameForHeader={showNameForHeader}
-                showImageForHeader={selectedShowArt?.imageUrl ?? null}
-                onComparisonAnswer={handleComparisonAnswer}
-                predictedResultIndex={predictedResultIndex}
-                rankedShowsForRanking={rankedShowsForRanking}
-              />
+              {!isVisitInFuture && (
+                <RankingSection
+                  showHasRanking={Boolean(showContext?.hasRanking)}
+                  showHasVisit={Boolean(showContext?.hasVisit)}
+                  keepCurrentRanking={state.keepCurrentRanking}
+                  setKeepCurrentRanking={setKeepCurrentRanking}
+                  shouldShowRankingSection={shouldShowRankingSection}
+                  selectedTier={state.selectedTier}
+                  onChangeTier={resetRankingFlow}
+                  isRankingsLoading={isRankingsLoading}
+                  startTierRanking={startTierRanking}
+                  rankingPhase={rankingPhase}
+                  comparisonTarget={comparisonTarget}
+                  showNameForHeader={showNameForHeader}
+                  showImageForHeader={selectedShowArt?.imageUrl ?? null}
+                  onComparisonAnswer={handleComparisonAnswer}
+                  predictedResultIndex={predictedResultIndex}
+                  rankedShowsForRanking={rankedShowsForRanking}
+                />
+              )}
               <NotesSection notes={state.notes} setNotes={setNotes} />
               <TagFriendsSection
                 following={myFollowing}

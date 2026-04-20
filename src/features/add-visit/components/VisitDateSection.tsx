@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { WheelDatePicker } from "@/components/WheelDatePicker";
 import { Colors } from "@/constants/theme";
 import { styles } from "@/features/add-visit/styles";
@@ -35,9 +36,16 @@ export function VisitDateSection({
           onPress={() => setPickerOpen((prev) => !prev)}
         >
           <Text style={[styles.datePickerLabel, { color: c.mutedText }]}>Date</Text>
-          <Text style={[styles.datePickerValue, { color: c.accent }]}>
-            {formatDateObject(parseISODate(date))}
-          </Text>
+          <View style={localStyles.valueRow}>
+            <Text style={[styles.datePickerValue, { color: c.accent }]}>
+              {formatDateObject(parseISODate(date))}
+            </Text>
+            <IconSymbol
+              name={pickerOpen ? "chevron.up" : "chevron.down"}
+              size={16}
+              color={c.accent}
+            />
+          </View>
         </Pressable>
         {pickerOpen && (
           <>
@@ -46,9 +54,37 @@ export function VisitDateSection({
               value={parseISODate(date)}
               onChange={(nextDate) => setDate(toISODate(nextDate))}
             />
+            <Pressable
+              onPress={() => setPickerOpen(false)}
+              style={({ pressed }) => [
+                localStyles.doneBtn,
+                { backgroundColor: c.accent, opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Text style={[localStyles.doneBtnText, { color: c.onAccent }]}>Done</Text>
+            </Pressable>
           </>
         )}
       </View>
     </View>
   );
 }
+
+const localStyles = StyleSheet.create({
+  valueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  doneBtn: {
+    margin: 10,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  doneBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+});

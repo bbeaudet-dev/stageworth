@@ -108,7 +108,6 @@ export function AdminFilters({
               onChange={(e) => {
                 setFocusField(e.target.value);
                 setFocusEdit(null);
-                setOnlyWithPending(false);
               }}
               className="rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
             >

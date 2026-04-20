@@ -176,6 +176,7 @@ const SHOW_FIELDS: FieldDef[] = [
     label: "Ticketmaster ID",
     inputType: "text",
   },
+  { field: "description", label: "Description", inputType: "textarea" },
 ];
 
 const PRODUCTION_FIELDS: FieldDef[] = [
@@ -1563,13 +1564,25 @@ function FieldRow({
           </div>
         </div>
 
-        {isImage && value ? (
-          <ResolvedImagePreview value={value} label={label} className={imgPendingClass} />
-        ) : (
-          <div className="text-sm text-gray-700 bg-gray-50 rounded px-3 py-2 break-all">
-            {value ?? <span className="text-gray-400 italic">Empty</span>}
-          </div>
-        )}
+        {(() => {
+          const proposed = entry.currentValue ?? value;
+          const display =
+            proposed === "true" ? "Yes" : proposed === "false" ? "No" : proposed;
+          if (isImage && proposed) {
+            return (
+              <ResolvedImagePreview
+                value={proposed}
+                label={label}
+                className={imgPendingClass}
+              />
+            );
+          }
+          return (
+            <div className="text-sm text-gray-700 bg-gray-50 rounded px-3 py-2 break-all">
+              {display ?? <span className="text-gray-400 italic">Empty</span>}
+            </div>
+          );
+        })()}
 
         {isEditing && (
           <div className="mt-3">

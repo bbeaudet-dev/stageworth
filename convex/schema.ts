@@ -42,6 +42,21 @@ export default defineSchema({
         v.literal("complete")
       )
     ),
+    // Show-level description (tagline/synopsis/plot blurb). UI renders this
+    // with a "Read more" truncation, so source-variable length is fine.
+    // Sourced from Playbill (preferred) or Wikipedia (long-tail fallback).
+    description: v.optional(v.string()),
+    descriptionSource: v.optional(
+      v.union(
+        v.literal("playbill"),
+        v.literal("wikipedia"),
+        v.literal("admin")
+      )
+    ),
+    descriptionUpdatedAt: v.optional(v.number()),
+    // Timestamp of the last Wikipedia fallback attempt (success or miss).
+    // Used to avoid re-checking shows that already have no Wikipedia match.
+    descriptionCheckedAt: v.optional(v.number()),
   })
     .index("by_name", ["name"])
     .index("by_normalized_name", ["normalizedName"])

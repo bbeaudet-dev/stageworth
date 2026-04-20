@@ -5,7 +5,10 @@
  * Flow:
  *   1. GET  {CONVEX_URL}/playbill/enrich-queue  — fetch the work list
  *   2. Fetch each playbill.com/production/{id} page (rate-limited)
- *   3. Parse: running time, intermission count, description, dates
+ *   3. Parse:
+ *        - Show-level: description (meta tag + body synopsis, longer wins).
+ *          Targets `shows.description` on the linked show.
+ *        - Production-level: running time, intermission count, dates.
  *   4. POST {CONVEX_URL}/playbill/findings      — submit results
  *
  * Usage:
@@ -219,19 +222,104 @@ function parseRunningTime(html) {
 }
 
 /**
- * Extract the <meta name="description"> content.
- * This is the cleanest source for show descriptions — no HTML to strip.
+ * Decode HTML entities we commonly see in Playbill copy. Not exhaustive — meant
+ * for the curated prose we scrape, not arbitrary HTML.
  */
-function parseDescription(html) {
-  const match = html.match(/<meta\s+name="description"\s+content="([^"]+)"/);
-  if (!match) return null;
-  return match[1]
+function decodeEntities(s) {
+  return s
     .replace(/&#039;/g, "'")
+    .replace(/&rsquo;/g, "\u2019")
+    .replace(/&lsquo;/g, "\u2018")
+    .replace(/&rdquo;/g, "\u201d")
+    .replace(/&ldquo;/g, "\u201c")
+    .replace(/&ndash;/g, "\u2013")
+    .replace(/&mdash;/g, "\u2014")
+    .replace(/&hellip;/g, "\u2026")
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ");
+}
+
+/**
+ * Extract the <meta name="description"> content. This is a short one-liner
+ * suitable for a card-shaped preview — always reliable when present.
+ */
+function parseMetaDescription(html) {
+  const match = html.match(/<meta\s+name="description"\s+content="([^"]+)"/);
+  if (!match) return null;
+  return decodeEntities(match[1]).trim();
+}
+
+/**
+ * Strip HTML tags and collapse whitespace from an inner-HTML block.
+ * Drops `<script>` and `<style>` contents entirely, preserves paragraph
+ * boundaries as double-newlines (collapsed to double-space by the caller).
+ */
+function htmlBlockToText(fragment) {
+  return decodeEntities(
+    fragment
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<\/p\s*>/gi, "\n\n")
+      .replace(/<br\s*\/?\s*>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+  )
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/**
+ * Parse a longer body synopsis from the Playbill production page.
+ *
+ * Playbill pages are Brightspot-rendered and don't expose a single stable
+ * "synopsis" container — different productions use slightly different block
+ * types. We try a small ladder of selectors in rough quality order and
+ * return the first prose block that looks substantive (>= 150 chars after
+ * tag stripping, so we don't mistake a one-line blurb for the full text).
+ *
+ * If nothing qualifies, returns null and the caller falls back to the meta
+ * description alone.
+ */
+function parseBodySynopsis(html) {
+  const MIN_BODY_LEN = 150;
+  const MAX_BODY_LEN = 4000; // hard cap so we don't ingest an entire article
+
+  const candidatePatterns = [
+    // Brightspot promo-description block — common on production landing pages.
+    /<div[^>]+class="[^"]*\bbsp-list-promo-description\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    // Rich-text article bodies used on some production templates.
+    /<div[^>]+class="[^"]*\bRichTextArticleBody-body\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    /<div[^>]+class="[^"]*\brich-text\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    // Open Graph description is sometimes the longer variant.
+    /<meta\s+property="og:description"\s+content="([^"]+)"/i,
+  ];
+
+  for (const pattern of candidatePatterns) {
+    const match = html.match(pattern);
+    if (!match) continue;
+    const raw = match[1];
+    const text =
+      pattern.source.startsWith("<meta") ? decodeEntities(raw).trim() : htmlBlockToText(raw);
+    if (text.length >= MIN_BODY_LEN) {
+      return text.length > MAX_BODY_LEN ? text.slice(0, MAX_BODY_LEN).trim() : text;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Pick the best description for a show: prefer the longer of the meta tag
+ * and the body synopsis. Either can be null. Returns null if both are.
+ */
+function pickBestDescription(metaDesc, bodySynopsis) {
+  if (!metaDesc && !bodySynopsis) return null;
+  if (!metaDesc) return bodySynopsis;
+  if (!bodySynopsis) return metaDesc;
+  return bodySynopsis.length > metaDesc.length ? bodySynopsis : metaDesc;
 }
 
 // ─── Per-production scrape ────────────────────────────────────────────────────
@@ -240,9 +328,14 @@ async function scrapeProduction(production) {
   const {
     productionId,
     playbillProductionId,
+    showId,
     showName,
+    missingShowFields,
     missingProductionFields,
   } = production;
+
+  const showFields = missingShowFields ?? [];
+  const prodFields = missingProductionFields ?? [];
 
   log(`Fetching: "${showName}" — ${playbillProductionId}`);
 
@@ -262,15 +355,34 @@ async function scrapeProduction(production) {
 
   const findings = [];
 
+  // ── Show-level description (preferred target for Playbill description) ───
+  // Per the show-descriptions pipeline: descriptions live on `shows` only.
+  // We grab both the short meta tag and the longer body synopsis and submit
+  // whichever is longer as the single `shows.description` value.
+
+  if (showFields.includes("description") && showId) {
+    const metaDesc = parseMetaDescription(html);
+    const bodySynopsis = parseBodySynopsis(html);
+    const best = pickBestDescription(metaDesc, bodySynopsis);
+    if (best) {
+      findings.push({
+        entityType: "show",
+        entityId: showId,
+        field: "description",
+        value: best,
+      });
+    }
+  }
+
   // ── Production-level fields ──────────────────────────────────────────────
 
   if (
-    missingProductionFields.includes("runningTime") ||
-    missingProductionFields.includes("intermissionCount")
+    prodFields.includes("runningTime") ||
+    prodFields.includes("intermissionCount")
   ) {
     const { minutes, intermissionCount } = parseRunningTime(html);
 
-    if (minutes !== null && missingProductionFields.includes("runningTime")) {
+    if (minutes !== null && prodFields.includes("runningTime")) {
       findings.push({
         entityType: "production",
         entityId: productionId,
@@ -278,24 +390,12 @@ async function scrapeProduction(production) {
         value: String(minutes),
       });
     }
-    if (intermissionCount !== null && missingProductionFields.includes("intermissionCount")) {
+    if (intermissionCount !== null && prodFields.includes("intermissionCount")) {
       findings.push({
         entityType: "production",
         entityId: productionId,
         field: "intermissionCount",
         value: String(intermissionCount),
-      });
-    }
-  }
-
-  if (missingProductionFields.includes("description")) {
-    const description = parseDescription(html);
-    if (description) {
-      findings.push({
-        entityType: "production",
-        entityId: productionId,
-        field: "description",
-        value: description,
       });
     }
   }
@@ -309,7 +409,7 @@ async function scrapeProduction(production) {
   };
 
   for (const [field, label] of Object.entries(dateFields)) {
-    if (!missingProductionFields.includes(field)) continue;
+    if (!prodFields.includes(field)) continue;
 
     const result = parseDateSection(html, label);
     if (!result) continue;
@@ -374,7 +474,14 @@ async function main() {
           playbillProductionId: SPECIFIC_ID,
           showId: "manual-test",
           showName: SPECIFIC_ID,
-          missingProductionFields: ["runningTime", "intermissionCount", "description", "previewDate", "openingDate", "closingDate"],
+          missingShowFields: ["description"],
+          missingProductionFields: [
+            "runningTime",
+            "intermissionCount",
+            "previewDate",
+            "openingDate",
+            "closingDate",
+          ],
         },
       ];
     }

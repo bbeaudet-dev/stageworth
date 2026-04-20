@@ -159,8 +159,10 @@ function pickTripProductionDisplay(
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
 export const getMyTrips = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    showId: v.optional(v.id("shows")),
+  },
+  handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
 
     const ownedTrips = await ctx.db
@@ -196,6 +198,8 @@ export const getMyTrips = query({
     const upcoming = allTrips.filter((trip) => trip.endDate >= t);
     const past = allTrips.filter((trip) => trip.endDate < t);
 
+    const showIdFilter = args.showId;
+
     async function withShowCount(trip: Doc<"trips">) {
       const [tripShows, allMembers] = await Promise.all([
         ctx.db.query("tripShows").withIndex("by_trip", (q) => q.eq("tripId", trip._id)).collect(),
@@ -216,7 +220,18 @@ export const getMyTrips = query({
         )
       ).filter((url): url is string => url !== null);
 
-      return { ...trip, showCount: tripShows.length, isOwner, memberCount, memberAvatars };
+      const containsShow = showIdFilter
+        ? tripShows.some((ts) => ts.showId === showIdFilter)
+        : undefined;
+
+      return {
+        ...trip,
+        showCount: tripShows.length,
+        isOwner,
+        memberCount,
+        memberAvatars,
+        containsShow,
+      };
     }
 
     // Pending invitations: trips where this user has a "pending" membership

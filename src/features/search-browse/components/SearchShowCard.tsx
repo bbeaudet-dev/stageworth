@@ -12,15 +12,7 @@ export function ListStatusIcon({
   status: "want_to_see" | "look_into" | "not_interested" | "uncategorized" | "none";
   onPress: () => void;
 }) {
-  const icon = (() => {
-    switch (status) {
-      case "want_to_see":    return "hand.thumbsup.fill";
-      case "look_into":      return "questionmark.circle.fill";
-      case "not_interested": return "hand.thumbsdown.fill";
-      case "uncategorized":  return "minus.circle";
-      default:               return "bookmark";
-    }
-  })();
+  const icon = status === "none" ? "bookmark" : "bookmark.fill";
   return (
     <Pressable
       style={styles.listIconBtn}

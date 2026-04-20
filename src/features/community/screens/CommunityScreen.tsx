@@ -13,7 +13,7 @@ import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { FeedPostCard } from "@/features/community/components/FeedPostCard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { formatRelativeVisitDate } from "@/utils/dates";
+import { formatRelativeVisitDate, isFutureDate } from "@/utils/dates";
 import { getDisplayName } from "@/utils/user";
 
 type FeedTab = "following" | "global";
@@ -425,6 +425,8 @@ export default function CommunityScreen() {
             const location = formatVisitLocation(post.visitDate ?? "", post.theatre, post.city);
             const openParticipants = () =>
               setParticipantsModal({ actor: post.actor, taggedUsers: tagged });
+            const visitIsUpcoming = post.visitDate ? isFutureDate(post.visitDate) : false;
+            const verbPhrase = visitIsUpcoming ? "is seeing" : "saw";
 
             return (
               <FeedPostCard
@@ -434,7 +436,7 @@ export default function CommunityScreen() {
                 header={headerNode}
                 title={
                   <Text style={[styles.postTitle, { color: primaryTextColor }]}>
-                    {actorInline}{" "}saw{" "}
+                    {actorInline}{" "}{verbPhrase}{" "}
                     <Text
                       style={[styles.showText, { color: showTextColor }]}
                       onPress={() =>

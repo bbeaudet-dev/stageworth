@@ -17,7 +17,11 @@ export function useShowDetail(showId: Id<"shows"> | "") {
   );
   const myTrips = useQuery(
     api.trips.trips.getMyTrips,
-    !isPending && session ? {} : "skip"
+    !isPending && session
+      ? showId
+        ? { showId: showId as Id<"shows"> }
+        : {}
+      : "skip"
   );
 
   const addShowToList = useMutation(api.lists.addShowToList);

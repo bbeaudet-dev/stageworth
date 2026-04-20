@@ -154,6 +154,116 @@ http.route({
   }),
 });
 
+/**
+ * GET /playbill/mapping-queue
+ * Returns productions lacking `playbillProductionId`. Consumed by the mapping
+ * backfill script (scripts/mapPlaybillProductions.mjs).
+ */
+http.route({
+  path: "/playbill/mapping-queue",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const auth = request.headers.get("Authorization");
+    if (auth !== `Bearer ${process.env.PLAYBILL_SECRET}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const rows = await ctx.runQuery(
+      internal.playbill.getProductionsNeedingPlaybillMapping,
+      {}
+    );
+
+    return new Response(JSON.stringify(rows), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+/**
+ * GET /playbill/shows-needing-descriptions
+ * Returns shows without a `description` that haven't been checked recently.
+ * Used by the show-level description backfill (scripts/fetchPlaybillDescriptions.mjs),
+ * which queries Playbill's Algolia index by show name and stages findings.
+ *
+ * Paginates internally and returns a flat array so the script doesn't have
+ * to juggle cursors.
+ */
+http.route({
+  path: "/playbill/shows-needing-descriptions",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const auth = request.headers.get("Authorization");
+    if (auth !== `Bearer ${process.env.PLAYBILL_SECRET}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const BATCH = 500;
+    const out: Array<{ _id: string; name: string; type: string | null }> = [];
+    let cursor: string | undefined = undefined;
+    while (true) {
+      const page: {
+        shows: Array<{ _id: string; name: string; type: string | null }>;
+        hasMore: boolean;
+        nextCursor?: string;
+      } = await ctx.runQuery(
+        internal.imageEnrichment.queries.showsNeedingDescriptions,
+        { limit: BATCH, cursor }
+      );
+      out.push(...page.shows);
+      if (!page.hasMore || !page.nextCursor) break;
+      cursor = page.nextCursor;
+    }
+
+    return new Response(JSON.stringify(out), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
+/**
+ * POST /playbill/mapping-findings
+ * Stages proposed playbillProductionId mappings as pending reviewQueue entries.
+ * Body: { findings: Array<{ productionId, playbillProductionId, confidence, alternateIds? }> }
+ * Response: { created: number, skipped: number }
+ */
+http.route({
+  path: "/playbill/mapping-findings",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const auth = request.headers.get("Authorization");
+    if (auth !== `Bearer ${process.env.PLAYBILL_SECRET}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    let body: { findings: unknown };
+    try {
+      body = await request.json();
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+
+    if (!Array.isArray(body?.findings)) {
+      return new Response('Body must be { "findings": [...] }', { status: 400 });
+    }
+
+    try {
+      const result = await ctx.runMutation(
+        internal.playbill.submitMappingFindings,
+        { findings: body.findings } as never
+      );
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (err) {
+      console.error("playbill.submitMappingFindings failed:", err);
+      return new Response("Internal error", { status: 500 });
+    }
+  }),
+});
+
 // ─── Weekly showtimes sync endpoint ──────────────────────────────────────────
 // Called by the weekly-showtimes GitHub Action after scraping Playbill.
 // Secured with a shared secret: npx convex env set SHOWTIMES_SYNC_SECRET <value>
