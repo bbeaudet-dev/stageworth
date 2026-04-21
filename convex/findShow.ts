@@ -100,7 +100,11 @@ export type FindShowPick = {
   isOpenRun: boolean;
   urgency: FindShowUrgency;
   headline: string;
-  reasoning: string;
+  fit: string;
+  // Primary pick only: what this show offers that the alternates don't.
+  edge?: string;
+  // Alternate picks only: why this ranks below the primary.
+  tradeoff?: string;
 };
 
 export type FindShowResult =
@@ -409,72 +413,66 @@ export const findShowForUser = action({
     );
 
     const candidateLines = candidates.map((c, idx) => {
-      const desc = truncateForPrompt(c.description) ?? "(no description)";
-      const closingLabel = c.isOpenRun
-        ? "open-ended run"
-        : c.closingDate
-          ? `closing ${c.closingDate}`
-          : "closing date unknown";
-      const scheduleLabel =
-        c.hasScheduleOnTargetDate === null
-          ? hasTargetDate
-            ? " — schedule not confirmed for that day"
-            : ""
-          : c.hasScheduleOnTargetDate
-            ? ""
-            : " — dark on that day";
+      const desc = truncateForPrompt(c.description);
       const ratingLabel =
         c.showScoreRating !== null ? `, ShowScore ${c.showScoreRating}/100` : "";
-      return `${idx + 1}. [showId=${c.showId}] ${c.name} (${c.type}${ratingLabel}, ${closingLabel}${scheduleLabel})\n   ${desc}`;
+      const header = `${idx + 1}. [showId=${c.showId}] ${c.name} (${c.type}${ratingLabel})`;
+      return desc ? `${header}\n   ${desc}` : header;
     });
 
     const dateContextBlock = hasTargetDate
-      ? `TARGET DATE: ${formatAnchorDate(anchorDate)} (${DAY_LABELS[dayKeyForIso(anchorDate)]}). Every candidate listed below is open on that day (or has no schedule data). Mention urgency when a candidate is closing within ~30 days of the target date.`
-      : `CONTEXT: The user wants a suggestion for something to see soon (anchor date ${anchorDate}). Weight closing-soon and highly-rated shows.`;
+      ? `TARGET DATE: ${formatAnchorDate(anchorDate)} (${DAY_LABELS[dayKeyForIso(anchorDate)]}). Every candidate listed below is open on that day.`
+      : `CONTEXT: The user wants a suggestion for something to see soon (anchor date ${anchorDate}).`;
 
-    const prompt = `You are a personalized theatre recommendation assistant. The user is asking you to pick a show they should see from a pool of currently-running productions. Choose based on their stated preferences and full show history.
+    const prompt = `You are a personalized theatre recommendation assistant. Pick 3 shows from the candidate list that this user is most likely to love, ordered from strongest to weakest match.
 
-CRITICAL — TITLE DISAMBIGUATION:
-The candidate list below uses real proper-noun show titles. Do NOT interpret a title's words literally (e.g. "The Unknown" is not "about the unknown" — it's a specific show). Use each candidate's provided description for subject matter.
-
-CRITICAL — NEVER INVENT CANDIDATES:
-You may ONLY pick showIds that appear in the CANDIDATES list. If nothing in the list is a good fit for this user, respond with the insufficient_context variant.
+OUTPUT RULES (follow strictly):
+1. Show titles are proper nouns — quote them verbatim. Do NOT add, drop, or translate articles. Never say things like "the Hamilton" — use only the exact title given.
+2. Do NOT interpret a title's words literally. Use the provided description for subject matter.
+3. Do NOT reference the user's viewing, ranking, or "seen" history in the user-facing text. The user already knows what they've seen. Use their history internally to infer taste only.
+4. Do NOT mention the show's closing date, open-run status, running status, show type, or poster — those are displayed separately in the UI. Focus on taste match and cross-show comparison.
+5. Do NOT mention missing descriptions, context gaps, data availability, or "we don't know much" in the user-facing text. If you truly cannot produce 3 quality picks, return insufficient_context.
+6. You may ONLY pick showIds that appear in CANDIDATES. Never invent a candidate.
 
 ${dateContextBlock}
 
 USER PROFILE:
 ${preferencesBlock}
 
-FULL SHOW RANKINGS (every show they have placed in a tier — dislikes are as important as loves for filtering):
+INFERRED TASTE (internal reference — do NOT narrate back to the user).
 ${showHistoryBlock}${lovedDescriptionsBlock}${dislikedDescriptionsBlock}
 
-CANDIDATES (currently running; already deduped and pre-filtered to shows the user hasn't engaged with):
+CANDIDATES (currently running; already filtered to shows the user hasn't engaged with):
 ${candidateLines.join("\n")}
 
-Pick the BEST 3 candidates for this user, ordered from strongest to weakest match. For each, mark urgency:
-- "closing_soon" if the candidate's closing date is within ~30 days of the anchor date
+For each pick, mark urgency:
+- "closing_soon" if the closing date is within ~30 days of the anchor date
 - "open_run" if it's an open-ended run
 - "standard" otherwise
 
 Respond with ONLY a valid JSON object (no markdown, no code fences) matching one of these shapes:
 
-SUCCESS SHAPE:
+SUCCESS:
 {
   "kind": "ok",
-  "primary": { "showId": "<id from the list>", "urgency": "closing_soon|open_run|standard", "headline": "<short 3-8 word hook>", "reasoning": "<2-3 sentences explaining why THIS user, referencing specific preferences or past shows>" },
+  "primary": {
+    "showId": "<id from the list>",
+    "urgency": "closing_soon|open_run|standard",
+    "headline": "<short 3-8 word hook>",
+    "fit": "<2 short sentences on why this matches this user's taste. Ground it in their element preferences and inferred taste patterns, NOT in the names of shows they've seen.>",
+    "edge": "<1 sentence explaining what this pick offers that the alternates don't — the concrete reason it's ranked first.>"
+  },
   "alternates": [
-    { "showId": "...", "urgency": "...", "headline": "...", "reasoning": "..." },
-    { "showId": "...", "urgency": "...", "headline": "...", "reasoning": "..." }
+    { "showId": "...", "urgency": "...", "headline": "...", "fit": "<1-2 sentences>", "tradeoff": "<1 sentence on why this ranks below the primary for this user.>" },
+    { "showId": "...", "urgency": "...", "headline": "...", "fit": "<1-2 sentences>", "tradeoff": "<1 sentence>" }
   ]
 }
 
-INSUFFICIENT-CONTEXT SHAPE (use ONLY when nothing in the candidate list reasonably fits this user — e.g. all the listed titles clash with their dislikes and there is no signal to justify any pick):
+INSUFFICIENT-CONTEXT (use ONLY when nothing in the candidate list can be distinguished for this user):
 {
   "kind": "insufficient_context",
-  "reason": "<one short sentence explaining what's missing>"
-}
-
-Never return a fallback pick. Prefer the insufficient_context shape over guessing.`;
+  "reason": "<one short sentence, from the engine's perspective. Do NOT frame as a risk to the user.>"
+}`;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -484,7 +482,7 @@ Never return a fallback pick. Prefer the insufficient_context shape over guessin
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-opus-4-7",
         max_tokens: 1500,
         messages: [{ role: "user", content: prompt }],
       }),
@@ -513,7 +511,9 @@ Never return a fallback pick. Prefer the insufficient_context shape over guessin
       showId?: string;
       urgency?: string;
       headline?: string;
-      reasoning?: string;
+      fit?: string;
+      edge?: string;
+      tradeoff?: string;
     };
     const parsed = JSON.parse(jsonMatch[0]) as {
       kind?: string;
@@ -549,10 +549,13 @@ Never return a fallback pick. Prefer the insufficient_context shape over guessin
       return "standard";
     };
 
-    const toPick = (p: ParsedPick): FindShowPick | null => {
+    const toPick = (p: ParsedPick, rank: "primary" | "alternate"): FindShowPick | null => {
       if (!p.showId) return null;
       const card = byId.get(p.showId);
       if (!card) return null;
+      const fitText = (p.fit ?? "").trim();
+      const edgeText = rank === "primary" ? (p.edge ?? "").trim() : "";
+      const tradeoffText = rank === "alternate" ? (p.tradeoff ?? "").trim() : "";
       return {
         showId: card.showId,
         showName: card.name,
@@ -562,11 +565,13 @@ Never return a fallback pick. Prefer the insufficient_context shape over guessin
         isOpenRun: card.isOpenRun,
         urgency: normalizeUrgency(p.urgency),
         headline: (p.headline ?? "A pick for you").trim(),
-        reasoning: (p.reasoning ?? "").trim(),
+        fit: fitText,
+        ...(rank === "primary" && edgeText ? { edge: edgeText } : {}),
+        ...(rank === "alternate" && tradeoffText ? { tradeoff: tradeoffText } : {}),
       };
     };
 
-    const primary = toPick(parsed.primary);
+    const primary = toPick(parsed.primary, "primary");
     if (!primary) {
       return {
         kind: "insufficient_context",
@@ -579,7 +584,7 @@ Never return a fallback pick. Prefer the insufficient_context shape over guessin
     const alternates: FindShowPick[] = [];
     const usedIds = new Set<string>([String(primary.showId)]);
     for (const alt of parsed.alternates ?? []) {
-      const pick = toPick(alt);
+      const pick = toPick(alt, "alternate");
       if (!pick) continue;
       if (usedIds.has(String(pick.showId))) continue;
       alternates.push(pick);
@@ -589,15 +594,18 @@ Never return a fallback pick. Prefer the insufficient_context shape over guessin
 
     if (data.userId) {
       try {
+        const groupId = crypto.randomUUID();
         await ctx.runMutation(internal.findShow.saveFindShowPicks, {
           userId: data.userId,
           targetDate: hasTargetDate ? anchorDate : undefined,
+          groupId,
           picks: [
             {
               showId: primary.showId,
               showNameSnapshot: primary.showName,
               headline: primary.headline,
-              reasoning: primary.reasoning,
+              fit: primary.fit,
+              edge: primary.edge,
               urgency: primary.urgency,
               rank: "primary",
             },
@@ -605,7 +613,8 @@ Never return a fallback pick. Prefer the insufficient_context shape over guessin
               showId: a.showId,
               showNameSnapshot: a.showName,
               headline: a.headline,
-              reasoning: a.reasoning,
+              fit: a.fit,
+              tradeoff: a.tradeoff,
               urgency: a.urgency,
               rank: "alternate" as const,
             })),
@@ -624,12 +633,15 @@ export const saveFindShowPicks = internalMutation({
   args: {
     userId: v.id("users"),
     targetDate: v.optional(v.string()),
+    groupId: v.string(),
     picks: v.array(
       v.object({
         showId: v.id("shows"),
         showNameSnapshot: v.string(),
         headline: v.string(),
-        reasoning: v.string(),
+        fit: v.string(),
+        edge: v.optional(v.string()),
+        tradeoff: v.optional(v.string()),
         urgency: v.union(
           v.literal("closing_soon"),
           v.literal("open_run"),
@@ -647,12 +659,15 @@ export const saveFindShowPicks = internalMutation({
         showId: pick.showId,
         showNameSnapshot: pick.showNameSnapshot,
         headline: pick.headline,
-        reasoning: pick.reasoning,
         createdAt: now,
         kind: "find_a_show",
         rank: pick.rank,
         urgency: pick.urgency,
         targetDate: args.targetDate,
+        groupId: args.groupId,
+        fit: pick.fit,
+        edge: pick.edge,
+        tradeoff: pick.tradeoff,
       });
     }
   },

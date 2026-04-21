@@ -40,7 +40,9 @@ export type ComparePick = {
   isOpenRun: boolean;
   urgency: CompareUrgency;
   headline: string;
-  reasoning: string;
+  fit: string;
+  edge?: string;
+  tradeoff?: string;
 };
 
 export type CompareResult =
@@ -446,34 +448,33 @@ export const compareShowsForUser = action({
 
     const today = todayIso();
     const candidateLines = data.cards.map((c, idx) => {
-      const desc = truncateForPrompt(c.description) ?? "(no description)";
-      const closingLabel = c.isOpenRun
-        ? "open-ended run"
-        : c.closingDate
-          ? `closing ${c.closingDate}`
-          : "closing date unknown";
-      return `${idx + 1}. [showId=${c.showId}] ${c.name} (${c.type}, ${closingLabel})\n   ${desc}`;
+      const desc = truncateForPrompt(c.description);
+      const header = `${idx + 1}. [showId=${c.showId}] ${c.name} (${c.type})`;
+      return desc ? `${header}\n   ${desc}` : header;
     });
 
     let tripContextBlock = "";
     if (args.tripStartDate && args.tripEndDate) {
-      tripContextBlock = `\nTRIP WINDOW: ${formatDateHuman(args.tripStartDate)} \u2192 ${formatDateHuman(args.tripEndDate)}. Factor urgency: a show closing before or during the trip is more time-sensitive than an open-ended run.`;
+      tripContextBlock = `\nTRIP WINDOW: ${formatDateHuman(args.tripStartDate)} \u2192 ${formatDateHuman(args.tripEndDate)}.`;
     } else if (args.tripStartDate) {
       tripContextBlock = `\nTARGET DATE: ${formatDateHuman(args.tripStartDate)}.`;
     }
 
     const prompt = `You are a personalized theatre recommendation assistant. The user is deciding between a small set of shows and has asked you to pick the ONE they should prioritize.
 
-CRITICAL \u2014 TITLE DISAMBIGUATION:
-Titles are proper nouns. Do NOT interpret a title's words literally (e.g. "The Unknown" is a show name, not a show "about the unknown"). Use each candidate's description for subject matter.
-
-CRITICAL \u2014 PICK ONLY FROM THE LIST:
-You may ONLY use the showIds in CANDIDATES below. Never invent a candidate.${tripContextBlock}
+OUTPUT RULES (follow strictly):
+1. Show titles are proper nouns \u2014 quote them verbatim. Do NOT add, drop, or translate articles. Never say things like "the Hamilton" \u2014 use only the exact title given.
+2. Do NOT interpret a title's words literally. Use each candidate's description for subject matter.
+3. Do NOT reference the user's viewing, ranking, or "seen" history in the user-facing text. They already know what they've seen. Use their history internally to infer taste only.
+4. Do NOT mention closing date, open-run status, running status, show type, or poster in your text \u2014 those render separately in the UI. Focus entirely on taste match and cross-show comparison.
+5. Do NOT mention missing descriptions, context gaps, data availability, or "we don't know much" in user-facing text. If you truly cannot distinguish the candidates for this user, return insufficient_context.
+6. You may ONLY use the showIds that appear in CANDIDATES. Never invent a candidate.
+7. Reasoning must be genuinely comparative. The winner's "edge" and each runner-up's "tradeoff" must reference WHY it ranks where it does versus the other specific candidates in this list \u2014 not generic statements.${tripContextBlock}
 
 USER PROFILE:
 ${preferencesBlock}
 
-FULL SHOW RANKINGS (dislikes carry as much weight as loves):
+INFERRED TASTE (internal reference \u2014 do NOT narrate back to the user).
 ${showHistoryBlock}${lovedDescriptionsBlock}${dislikedDescriptionsBlock}
 
 CANDIDATES (the user is comparing these directly):
@@ -486,19 +487,25 @@ Pick the ONE winner that best fits this user, then rank the remaining candidates
 
 Respond with ONLY a valid JSON object (no markdown, no code fences) matching one of these shapes:
 
-SUCCESS SHAPE:
+SUCCESS:
 {
   "kind": "ok",
-  "winner": { "showId": "<id from the list>", "urgency": "closing_soon|open_run|standard", "headline": "<short 3-8 word hook>", "reasoning": "<2-3 sentences explaining why THIS show beats the others for THIS user>" },
+  "winner": {
+    "showId": "<id from the list>",
+    "urgency": "closing_soon|open_run|standard",
+    "headline": "<short 3-8 word hook>",
+    "fit": "<2 short sentences on why this matches this user's taste. Ground it in their element preferences and inferred taste patterns, NOT in the names of shows they've seen.>",
+    "edge": "<1 sentence naming what THIS show offers that the other candidates in this list do not \u2014 the concrete reason it wins the comparison.>"
+  },
   "runnersUp": [
-    { "showId": "...", "urgency": "...", "headline": "...", "reasoning": "<1-2 sentences; what's the tradeoff vs. the winner?>" }
+    { "showId": "...", "urgency": "...", "headline": "...", "fit": "<1-2 sentences>", "tradeoff": "<1 sentence on why this lost to the winner for this user. Reference the winner's edge or the specific gap.>" }
   ]
 }
 
-INSUFFICIENT-CONTEXT SHAPE (use ONLY when you genuinely cannot distinguish the candidates for this user \u2014 e.g. no taste signal and the candidates are too similar):
+INSUFFICIENT-CONTEXT (use ONLY when you genuinely cannot distinguish the candidates for this user):
 {
   "kind": "insufficient_context",
-  "reason": "<one short sentence explaining what's missing>"
+  "reason": "<one short sentence, from the engine's perspective. Do NOT frame as a risk to the user.>"
 }`;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -509,7 +516,7 @@ INSUFFICIENT-CONTEXT SHAPE (use ONLY when you genuinely cannot distinguish the c
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-opus-4-7",
         max_tokens: 1500,
         messages: [{ role: "user", content: prompt }],
       }),
@@ -538,7 +545,9 @@ INSUFFICIENT-CONTEXT SHAPE (use ONLY when you genuinely cannot distinguish the c
       showId?: string;
       urgency?: string;
       headline?: string;
-      reasoning?: string;
+      fit?: string;
+      edge?: string;
+      tradeoff?: string;
     };
     const parsed = JSON.parse(jsonMatch[0]) as {
       kind?: string;
@@ -570,10 +579,16 @@ INSUFFICIENT-CONTEXT SHAPE (use ONLY when you genuinely cannot distinguish the c
       return "standard";
     };
 
-    const toPick = (p: ParsedPick): ComparePick | null => {
+    const toPick = (
+      p: ParsedPick,
+      rank: "primary" | "alternate"
+    ): ComparePick | null => {
       if (!p.showId) return null;
       const card = byId.get(p.showId);
       if (!card) return null;
+      const fitText = (p.fit ?? "").trim();
+      const edgeText = rank === "primary" ? (p.edge ?? "").trim() : "";
+      const tradeoffText = rank === "alternate" ? (p.tradeoff ?? "").trim() : "";
       return {
         showId: card.showId,
         showName: card.name,
@@ -583,11 +598,13 @@ INSUFFICIENT-CONTEXT SHAPE (use ONLY when you genuinely cannot distinguish the c
         isOpenRun: card.isOpenRun,
         urgency: normalizeUrgency(p.urgency),
         headline: (p.headline ?? "Best pick for you").trim(),
-        reasoning: (p.reasoning ?? "").trim(),
+        fit: fitText,
+        ...(rank === "primary" && edgeText ? { edge: edgeText } : {}),
+        ...(rank === "alternate" && tradeoffText ? { tradeoff: tradeoffText } : {}),
       };
     };
 
-    const winner = toPick(parsed.winner);
+    const winner = toPick(parsed.winner, "primary");
     if (!winner) {
       return {
         kind: "insufficient_context",
@@ -598,7 +615,7 @@ INSUFFICIENT-CONTEXT SHAPE (use ONLY when you genuinely cannot distinguish the c
     const runnersUp: ComparePick[] = [];
     const usedIds = new Set<string>([String(winner.showId)]);
     for (const rp of parsed.runnersUp ?? []) {
-      const pick = toPick(rp);
+      const pick = toPick(rp, "alternate");
       if (!pick) continue;
       if (usedIds.has(String(pick.showId))) continue;
       runnersUp.push(pick);
@@ -607,14 +624,17 @@ INSUFFICIENT-CONTEXT SHAPE (use ONLY when you genuinely cannot distinguish the c
 
     if (data.userId) {
       try {
+        const groupId = crypto.randomUUID();
         await ctx.runMutation(internal.compareShows.saveComparePicks, {
           userId: data.userId,
+          groupId,
           picks: [
             {
               showId: winner.showId,
               showNameSnapshot: winner.showName,
               headline: winner.headline,
-              reasoning: winner.reasoning,
+              fit: winner.fit,
+              edge: winner.edge,
               urgency: winner.urgency,
               rank: "primary",
             },
@@ -622,7 +642,8 @@ INSUFFICIENT-CONTEXT SHAPE (use ONLY when you genuinely cannot distinguish the c
               showId: r.showId,
               showNameSnapshot: r.showName,
               headline: r.headline,
-              reasoning: r.reasoning,
+              fit: r.fit,
+              tradeoff: r.tradeoff,
               urgency: r.urgency,
               rank: "alternate" as const,
             })),
@@ -640,12 +661,15 @@ INSUFFICIENT-CONTEXT SHAPE (use ONLY when you genuinely cannot distinguish the c
 export const saveComparePicks = internalMutation({
   args: {
     userId: v.id("users"),
+    groupId: v.string(),
     picks: v.array(
       v.object({
         showId: v.id("shows"),
         showNameSnapshot: v.string(),
         headline: v.string(),
-        reasoning: v.string(),
+        fit: v.string(),
+        edge: v.optional(v.string()),
+        tradeoff: v.optional(v.string()),
         urgency: v.union(
           v.literal("closing_soon"),
           v.literal("open_run"),
@@ -663,11 +687,14 @@ export const saveComparePicks = internalMutation({
         showId: pick.showId,
         showNameSnapshot: pick.showNameSnapshot,
         headline: pick.headline,
-        reasoning: pick.reasoning,
         createdAt: now,
         kind: "help_me_decide",
         rank: pick.rank,
         urgency: pick.urgency,
+        groupId: args.groupId,
+        fit: pick.fit,
+        edge: pick.edge,
+        tradeoff: pick.tradeoff,
       });
     }
   },

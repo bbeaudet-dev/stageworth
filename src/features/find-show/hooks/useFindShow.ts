@@ -15,7 +15,9 @@ export type FindShowPick = {
   isOpenRun: boolean;
   urgency: FindShowUrgency;
   headline: string;
-  reasoning: string;
+  fit: string;
+  edge?: string;
+  tradeoff?: string;
 };
 
 export type FindShowResult =

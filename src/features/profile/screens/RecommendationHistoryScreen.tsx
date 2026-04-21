@@ -1,14 +1,24 @@
 import { useMutation, useQuery } from "convex/react";
 import { Stack, useRouter } from "expo-router";
-import { useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useMemo, useState } from "react";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { formatDate as formatDateShort } from "@/utils/dates";
+
+type HistoryRow = Doc<"aiRecommendationHistory">;
 
 function formatTimestamp(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, {
@@ -40,6 +50,44 @@ const SCORE_COLORS_DARK: Record<number, { bg: string; text: string }> = {
   5: { bg: "rgba(34,197,94,0.15)", text: "#4ADE80" },
 };
 
+type HistoryGroup = {
+  key: string;
+  kind: HistoryRow["kind"];
+  createdAt: number;
+  targetDate?: string;
+  rows: HistoryRow[];
+};
+
+function buildGroups(rows: readonly HistoryRow[]): HistoryGroup[] {
+  const groups = new Map<string, HistoryGroup>();
+  for (const row of rows) {
+    const key = row.groupId ? `g:${row.groupId}` : `r:${row._id}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.rows.push(row);
+      if (row.createdAt > existing.createdAt) existing.createdAt = row.createdAt;
+    } else {
+      groups.set(key, {
+        key,
+        kind: row.kind,
+        createdAt: row.createdAt,
+        targetDate: row.targetDate,
+        rows: [row],
+      });
+    }
+  }
+  const out = Array.from(groups.values());
+  for (const g of out) {
+    g.rows.sort((a, b) => {
+      if (a.rank === "primary" && b.rank !== "primary") return -1;
+      if (b.rank === "primary" && a.rank !== "primary") return 1;
+      return a._creationTime - b._creationTime;
+    });
+  }
+  out.sort((a, b) => b.createdAt - a.createdAt);
+  return out;
+}
+
 export default function RecommendationHistoryScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -50,30 +98,50 @@ export default function RecommendationHistoryScreen() {
   const history = useQuery(api.recommendations.listRecommendationHistory);
   const clearHistory = useMutation(api.recommendations.clearRecommendationHistory);
   const deleteRec = useMutation(api.recommendations.deleteRecommendation);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
-  const toggleExpanded = (id: string) => {
-    setExpandedIds((prev) => {
+  const groups = useMemo(() => buildGroups(history ?? []), [history]);
+
+  const toggleExpanded = (key: string) => {
+    setExpandedKeys((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
 
-  const handleDeleteOne = (id: Id<"aiRecommendationHistory">, showName: string) => {
-    Alert.alert(
-      "Remove recommendation",
-      `Remove the recommendation for "${showName}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => deleteRec({ id }).catch(() => Alert.alert("Error", "Could not remove. Please try again.")),
+  const goToShow = (showId: Id<"shows">, showName: string) =>
+    router.push({
+      pathname: "/show/[showId]",
+      params: { showId, name: showName },
+    });
+
+  const handleDeleteGroup = (group: HistoryGroup) => {
+    const title =
+      group.rows.length === 1
+        ? "Remove recommendation"
+        : "Remove this set of picks";
+    const body =
+      group.rows.length === 1
+        ? `Remove the recommendation for "${group.rows[0].showNameSnapshot}"?`
+        : `Remove all ${group.rows.length} picks from this ${KIND_LABELS[group.kind].toLowerCase()} run?`;
+    Alert.alert(title, body, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await Promise.all(
+              group.rows.map((row) => deleteRec({ id: row._id }))
+            );
+          } catch {
+            Alert.alert("Error", "Could not remove. Please try again.");
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleClearAll = () => {
@@ -113,7 +181,7 @@ export default function RecommendationHistoryScreen() {
       >
         {history === undefined ? (
           <Text style={[s.empty, { color: c.mutedText }]}>Loading…</Text>
-        ) : history.length === 0 ? (
+        ) : groups.length === 0 ? (
           <View style={s.emptyState}>
             <Text style={[s.emptyTitle, { color: c.text }]}>No recommendations yet</Text>
             <Text style={[s.emptySub, { color: c.mutedText }]}>
@@ -122,121 +190,40 @@ export default function RecommendationHistoryScreen() {
           </View>
         ) : (
           <>
-            {history.map((item) => {
-              const scoreColors =
-                typeof item.score === "number"
-                  ? (isDark ? SCORE_COLORS_DARK : SCORE_COLORS)[item.score] ??
-                    (isDark ? SCORE_COLORS_DARK[3] : SCORE_COLORS[3])
-                  : null;
-              const isExpanded = expandedIds.has(item._id);
-              const kindLabel = KIND_LABELS[item.kind];
-              const rankLabel = item.rank === "alternate" ? "Alternate" : null;
-              const targetDateLabel = item.targetDate
-                ? ` · for ${formatDateShort(item.targetDate)}`
-                : "";
-              const matched = item.matchedElements ?? [];
-              const mismatched = item.mismatchedElements ?? [];
-              return (
-                <Pressable
-                  key={item._id}
-                  style={[s.card, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/show/[showId]",
-                      params: { showId: item.showId, name: item.showNameSnapshot },
-                    })
+            {groups.map((group) => {
+              const isMulti = group.rows.length > 1;
+              return isMulti ? (
+                <MultiPickGroup
+                  key={group.key}
+                  group={group}
+                  isDark={isDark}
+                  theme={theme}
+                  isExpanded={expandedKeys.has(group.key)}
+                  onToggleExpanded={() => toggleExpanded(group.key)}
+                  onDeleteGroup={() => handleDeleteGroup(group)}
+                  onPressRow={(row) =>
+                    goToShow(row.showId, row.showNameSnapshot)
                   }
-                >
-                  <View style={s.cardHeader}>
-                    <View style={s.kindRow}>
-                      <View
-                        style={[
-                          s.kindChip,
-                          {
-                            backgroundColor: isDark ? "rgba(83,109,254,0.2)" : "#EEF2FF",
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[s.kindChipText, { color: isDark ? "#818CF8" : "#536DFE" }]}
-                        >
-                          {kindLabel}
-                        </Text>
-                      </View>
-                      {rankLabel && (
-                        <View
-                          style={[
-                            s.kindChip,
-                            s.kindChipGhost,
-                            { borderColor: c.border },
-                          ]}
-                        >
-                          <Text style={[s.kindChipText, { color: c.mutedText }]}>
-                            {rankLabel}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <View style={s.cardTitleRow}>
-                      <Text style={[s.showName, { color: c.text }]} numberOfLines={1}>
-                        {item.showNameSnapshot}
-                      </Text>
-                      <View style={s.cardTitleRight}>
-                        {scoreColors && (
-                          <View style={[s.scoreBadge, { backgroundColor: scoreColors.bg }]}>
-                            <Text style={[s.scoreText, { color: scoreColors.text }]}>
-                              {item.score}/5
-                            </Text>
-                          </View>
-                        )}
-                        <TouchableOpacity
-                          onPress={(e) => { e.stopPropagation?.(); handleDeleteOne(item._id, item.showNameSnapshot); }}
-                          hitSlop={8}
-                        >
-                          <Text style={[s.deleteX, { color: c.mutedText }]}>×</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                    <Text style={[s.headline, { color: c.text }]}>{item.headline}</Text>
-                    <Text style={[s.date, { color: c.mutedText }]}>
-                      {formatTimestamp(item.createdAt)}
-                      {targetDateLabel}
-                    </Text>
-                  </View>
-                  <Text style={[s.reasoning, { color: c.mutedText }]} numberOfLines={isExpanded ? undefined : 3}>
-                    {item.reasoning}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={(e) => { e.stopPropagation?.(); toggleExpanded(item._id); }}
-                    hitSlop={4}
-                  >
-                    <Text style={[s.expandToggle, { color: c.accent }]}>
-                      {isExpanded ? "Show less" : "Read more"}
-                    </Text>
-                  </TouchableOpacity>
-                  {matched.length > 0 && (
-                    <View style={s.chipRow}>
-                      {matched.map((el) => (
-                        <View key={el} style={[s.chip, s.matchChip, { borderColor: isDark ? "rgba(34,197,94,0.3)" : "#A7F3D0", backgroundColor: isDark ? "rgba(34,197,94,0.10)" : "#ECFDF5" }]}>
-                          <Text style={[s.chipText, { color: isDark ? "#6EE7B7" : "#065F46" }]}>{el}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                  {mismatched.length > 0 && (
-                    <View style={s.chipRow}>
-                      {mismatched.map((el) => (
-                        <View key={el} style={[s.chip, { borderColor: isDark ? "rgba(239,68,68,0.25)" : "#FECACA", backgroundColor: isDark ? "rgba(239,68,68,0.10)" : "#FEF2F2" }]}>
-                          <Text style={[s.chipText, { color: isDark ? "#FCA5A5" : "#991B1B" }]}>{el}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </Pressable>
+                />
+              ) : (
+                <SinglePickCard
+                  key={group.key}
+                  row={group.rows[0]}
+                  isDark={isDark}
+                  theme={theme}
+                  isExpanded={expandedKeys.has(group.key)}
+                  onToggleExpanded={() => toggleExpanded(group.key)}
+                  onDelete={() => handleDeleteGroup(group)}
+                  onPress={() =>
+                    goToShow(
+                      group.rows[0].showId,
+                      group.rows[0].showNameSnapshot
+                    )
+                  }
+                />
               );
             })}
 
-            {/* Clear All at bottom of list */}
             <Pressable
               style={[s.clearAllBtn, { borderColor: c.danger + "55" }]}
               onPress={handleClearAll}
@@ -247,6 +234,292 @@ export default function RecommendationHistoryScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+interface SinglePickCardProps {
+  row: HistoryRow;
+  isDark: boolean;
+  theme: "light" | "dark";
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
+  onDelete: () => void;
+  onPress: () => void;
+}
+
+function SinglePickCard({
+  row,
+  isDark,
+  theme,
+  isExpanded,
+  onToggleExpanded,
+  onDelete,
+  onPress,
+}: SinglePickCardProps) {
+  const c = Colors[theme];
+  const scoreColors =
+    typeof row.score === "number"
+      ? (isDark ? SCORE_COLORS_DARK : SCORE_COLORS)[row.score] ??
+        (isDark ? SCORE_COLORS_DARK[3] : SCORE_COLORS[3])
+      : null;
+  const kindLabel = KIND_LABELS[row.kind] ?? row.kind;
+  const matched = row.matchedElements ?? [];
+  const mismatched = row.mismatchedElements ?? [];
+  const body = row.reasoning ?? row.fit ?? "";
+
+  return (
+    <Pressable
+      style={[s.card, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
+      onPress={onPress}
+    >
+      <View style={s.cardHeader}>
+        <View style={s.kindRow}>
+          <View
+            style={[
+              s.kindChip,
+              { backgroundColor: isDark ? "rgba(83,109,254,0.2)" : "#EEF2FF" },
+            ]}
+          >
+            <Text
+              style={[s.kindChipText, { color: isDark ? "#818CF8" : "#536DFE" }]}
+            >
+              {kindLabel}
+            </Text>
+          </View>
+        </View>
+        <View style={s.cardTitleRow}>
+          <Text style={[s.showName, { color: c.text }]} numberOfLines={1}>
+            {row.showNameSnapshot}
+          </Text>
+          <View style={s.cardTitleRight}>
+            {scoreColors && (
+              <View style={[s.scoreBadge, { backgroundColor: scoreColors.bg }]}>
+                <Text style={[s.scoreText, { color: scoreColors.text }]}>
+                  {row.score}/5
+                </Text>
+              </View>
+            )}
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation?.();
+                onDelete();
+              }}
+              hitSlop={8}
+            >
+              <Text style={[s.deleteX, { color: c.mutedText }]}>×</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <Text style={[s.headline, { color: c.text }]}>{row.headline}</Text>
+        <Text style={[s.date, { color: c.mutedText }]}>
+          {formatTimestamp(row.createdAt)}
+        </Text>
+      </View>
+      {!!body && (
+        <>
+          <Text
+            style={[s.reasoning, { color: c.mutedText }]}
+            numberOfLines={isExpanded ? undefined : 3}
+          >
+            {body}
+          </Text>
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onToggleExpanded();
+            }}
+            hitSlop={4}
+          >
+            <Text style={[s.expandToggle, { color: c.accent }]}>
+              {isExpanded ? "Show less" : "Read more"}
+            </Text>
+          </TouchableOpacity>
+        </>
+      )}
+      {matched.length > 0 && (
+        <View style={s.chipRow}>
+          {matched.map((el) => (
+            <View
+              key={el}
+              style={[
+                s.chip,
+                {
+                  borderColor: isDark ? "rgba(34,197,94,0.3)" : "#A7F3D0",
+                  backgroundColor: isDark ? "rgba(34,197,94,0.10)" : "#ECFDF5",
+                },
+              ]}
+            >
+              <Text style={[s.chipText, { color: isDark ? "#6EE7B7" : "#065F46" }]}>
+                {el}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {mismatched.length > 0 && (
+        <View style={s.chipRow}>
+          {mismatched.map((el) => (
+            <View
+              key={el}
+              style={[
+                s.chip,
+                {
+                  borderColor: isDark ? "rgba(239,68,68,0.25)" : "#FECACA",
+                  backgroundColor: isDark ? "rgba(239,68,68,0.10)" : "#FEF2F2",
+                },
+              ]}
+            >
+              <Text style={[s.chipText, { color: isDark ? "#FCA5A5" : "#991B1B" }]}>
+                {el}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+interface MultiPickGroupProps {
+  group: HistoryGroup;
+  isDark: boolean;
+  theme: "light" | "dark";
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
+  onDeleteGroup: () => void;
+  onPressRow: (row: HistoryRow) => void;
+}
+
+function MultiPickGroup({
+  group,
+  isDark,
+  theme,
+  isExpanded,
+  onToggleExpanded,
+  onDeleteGroup,
+  onPressRow,
+}: MultiPickGroupProps) {
+  const c = Colors[theme];
+  const kindLabel = KIND_LABELS[group.kind] ?? group.kind;
+  const targetDateLabel = group.targetDate
+    ? ` · for ${formatDateShort(group.targetDate)}`
+    : "";
+  const primary = group.rows.find((r) => r.rank === "primary") ?? group.rows[0];
+  const runnersUp = group.rows.filter((r) => r._id !== primary._id);
+
+  return (
+    <View
+      style={[s.card, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
+    >
+      <View style={s.cardHeader}>
+        <View style={s.kindRow}>
+          <View
+            style={[
+              s.kindChip,
+              { backgroundColor: isDark ? "rgba(83,109,254,0.2)" : "#EEF2FF" },
+            ]}
+          >
+            <Text
+              style={[s.kindChipText, { color: isDark ? "#818CF8" : "#536DFE" }]}
+            >
+              {kindLabel}
+            </Text>
+          </View>
+          <View style={s.groupMetaRight}>
+            <Text style={[s.date, { color: c.mutedText }]}>
+              {formatTimestamp(group.createdAt)}
+              {targetDateLabel}
+            </Text>
+            <TouchableOpacity onPress={onDeleteGroup} hitSlop={8}>
+              <Text style={[s.deleteX, { color: c.mutedText }]}>×</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      <Pressable onPress={() => onPressRow(primary)} style={s.groupRow}>
+        <View style={s.groupRowLeft}>
+          <Text style={[s.rankLabel, { color: c.accent }]}>WINNER</Text>
+          <Text style={[s.showName, { color: c.text }]} numberOfLines={1}>
+            {primary.showNameSnapshot}
+          </Text>
+          <Text style={[s.headline, { color: c.text }]} numberOfLines={2}>
+            {primary.headline}
+          </Text>
+          {!!primary.fit && (
+            <Text
+              style={[s.reasoning, { color: c.mutedText }]}
+              numberOfLines={isExpanded ? undefined : 2}
+            >
+              {primary.fit}
+            </Text>
+          )}
+          {isExpanded && !!primary.edge && (
+            <View style={s.secondaryBlock}>
+              <Text style={[s.secondaryLabel, { color: c.accent }]}>
+                WHY THIS ONE
+              </Text>
+              <Text style={[s.secondaryText, { color: c.text }]}>
+                {primary.edge}
+              </Text>
+            </View>
+          )}
+        </View>
+      </Pressable>
+
+      {runnersUp.length > 0 && (
+        <View style={s.runnersUpBlock}>
+          <Text style={[s.runnersUpHeader, { color: c.mutedText }]}>
+            Runners-up
+          </Text>
+          {runnersUp.map((row) => (
+            <Pressable
+              key={row._id}
+              onPress={() => onPressRow(row)}
+              style={[s.runnerUpRow, { borderTopColor: c.border }]}
+            >
+              <Text
+                style={[s.runnerUpName, { color: c.text }]}
+                numberOfLines={1}
+              >
+                {row.showNameSnapshot}
+              </Text>
+              {!!row.headline && (
+                <Text
+                  style={[s.runnerUpHeadline, { color: c.mutedText }]}
+                  numberOfLines={1}
+                >
+                  {row.headline}
+                </Text>
+              )}
+              {isExpanded && !!row.fit && (
+                <Text
+                  style={[s.reasoning, { color: c.mutedText }]}
+                >
+                  {row.fit}
+                </Text>
+              )}
+              {isExpanded && !!row.tradeoff && (
+                <View style={s.secondaryBlock}>
+                  <Text style={[s.secondaryLabel, { color: c.mutedText }]}>
+                    TRADEOFF
+                  </Text>
+                  <Text style={[s.secondaryText, { color: c.text }]}>
+                    {row.tradeoff}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      <TouchableOpacity onPress={onToggleExpanded} hitSlop={4}>
+        <Text style={[s.expandToggle, { color: c.accent }]}>
+          {isExpanded ? "Show less" : "Read more"}
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -264,16 +537,19 @@ const s = StyleSheet.create({
     gap: 8,
   },
   cardHeader: { gap: 3 },
-  kindRow: { flexDirection: "row", gap: 6, flexWrap: "wrap", marginBottom: 2 },
+  kindRow: {
+    flexDirection: "row",
+    gap: 6,
+    flexWrap: "wrap",
+    marginBottom: 2,
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   kindChip: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
     alignSelf: "flex-start",
-  },
-  kindChipGhost: {
-    backgroundColor: "transparent",
-    borderWidth: StyleSheet.hairlineWidth,
   },
   kindChipText: {
     fontSize: 11,
@@ -281,8 +557,18 @@ const s = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
-  cardTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  cardTitleRight: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 0 },
+  cardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  cardTitleRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+  },
   showName: { fontSize: 15, fontWeight: "700", flex: 1 },
   deleteX: { fontSize: 22, lineHeight: 24, fontWeight: "300" },
   scoreBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
@@ -298,7 +584,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  matchChip: {},
   chipText: { fontSize: 11, fontWeight: "600" },
   clearAllBtn: {
     marginTop: 8,
@@ -308,4 +593,34 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   clearAllText: { fontSize: 15, fontWeight: "600" },
+  groupMetaRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  groupRow: { gap: 4 },
+  groupRowLeft: { gap: 4 },
+  rankLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+  },
+  secondaryBlock: { marginTop: 4, gap: 2 },
+  secondaryLabel: { fontSize: 10, fontWeight: "800", letterSpacing: 0.6 },
+  secondaryText: { fontSize: 13, lineHeight: 18 },
+  runnersUpBlock: { gap: 6, marginTop: 4 },
+  runnersUpHeader: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginTop: 4,
+  },
+  runnerUpRow: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 8,
+    gap: 2,
+  },
+  runnerUpName: { fontSize: 14, fontWeight: "700" },
+  runnerUpHeadline: { fontSize: 12 },
 });

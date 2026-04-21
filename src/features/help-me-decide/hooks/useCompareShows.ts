@@ -15,7 +15,9 @@ export type ComparePick = {
   isOpenRun: boolean;
   urgency: CompareUrgency;
   headline: string;
-  reasoning: string;
+  fit: string;
+  edge?: string;
+  tradeoff?: string;
 };
 
 export type CompareResult =

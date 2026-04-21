@@ -167,7 +167,7 @@ export const getShowRecommendation = action({
     const candidateDescription = truncateForPrompt(data.show.description);
     const showDescriptionBlock = candidateDescription
       ? `Description: ${candidateDescription}`
-      : "Description: (not available)";
+      : null;
 
     function buildDescriptionsBlock(
       title: string,
@@ -193,45 +193,52 @@ export const getShowRecommendation = action({
       dislikedWithDescriptions
     );
 
-    const prompt = `You are a personalized theatre recommendation assistant. Based on a user's stated preferences and full show history, predict whether they would enjoy a specific show.
+    const showBlockLines = [
+      `- Name: ${data.show.name}`,
+      `- Type: ${data.show.type}`,
+      showDescriptionBlock ? `- ${showDescriptionBlock}` : null,
+    ].filter((l): l is string => l !== null);
 
-CRITICAL — TITLE DISAMBIGUATION:
-"${data.show.name}" is the proper-noun title of a real theatre production of type ${data.show.type}. Treat the title as a proper noun; do NOT interpret its words literally (e.g. a show called "The Unknown" is not "about the unknown" — it's a specific show with that title). If the Description is available, rely on it for subject matter. If you genuinely do not know which production this refers to and the description is not enough to assess it, respond with the insufficient_context variant described below — DO NOT invent a plot, and DO NOT emit a fallback score.
+    const prompt = `You are a personalized theatre recommendation assistant. Based on a user's stated preferences and ranking history, predict whether they would enjoy a specific show.
+
+OUTPUT RULES (follow strictly):
+1. Show titles are proper nouns — quote them verbatim. Do NOT add, drop, or translate articles. Do NOT paraphrase the title.
+2. Do NOT interpret a title's words literally (e.g. "The Unknown" is not "about the unknown" — it's a specific show with that name). Rely on the Description for subject matter.
+3. Do NOT reference the user's viewing, ranking, or "seen" history in the user-facing text. The user already knows what they've seen. Use their history internally to infer taste only.
+4. Do NOT mention the show's closing date, open-run status, or poster — those are displayed separately in the UI.
+5. Do NOT mention missing descriptions, context gaps, or "we don't know much about this show" in the user-facing text. If you genuinely cannot assess the show, return the insufficient_context shape described below.
+6. Never return a fallback score. If the signal is not there, return insufficient_context.
 
 ${typeGuidance}
 
 SHOW TO EVALUATE:
-- Name: ${data.show.name}
-- Type: ${data.show.type}
-- ${showDescriptionBlock}
+${showBlockLines.join("\n")}
 
 USER PROFILE:
 ${preferencesBlock}
 
-FULL SHOW RANKINGS (every show they have placed in a tier — use ALL of this; dislikes are as important as loves for avoiding similar work):
+INFERRED TASTE (internal reference — do NOT narrate back to the user). Dislikes carry as much weight as loves for avoiding similar work.
 ${showHistoryBlock}${lovedDescriptionsBlock}${dislikedDescriptionsBlock}
 
-Based on this information, assess how likely this user is to enjoy "${data.show.name}". Use the description for thematic reasoning (tone, subject matter, style) in addition to the name. If the show is likely similar in theme/tone to ones they DISLIKED, weigh that heavily. If it aligns thematically with LOVED/LIKED patterns, say so.
+Assess how likely this user is to enjoy "${data.show.name}". Use the description for thematic reasoning (tone, subject matter, style) in addition to the name. If the show is similar in theme/tone to ones they disliked, weigh that heavily. If it aligns with loved/liked patterns, reflect that in your reasoning WITHOUT naming the specific shows they've seen.
 
 Respond with ONLY a valid JSON object (no markdown, no code fences) matching one of these two shapes:
 
-SUCCESS SHAPE:
+SUCCESS:
 {
   "kind": "ok",
   "score": <integer 1-5, 1=probably won't enjoy, 3=could go either way, 5=almost certainly will love it>,
-  "headline": "<short 3-8 word headline like 'Right up your alley' or 'Not your usual pick'>",
-  "reasoning": "<2-3 sentences explaining why, referencing their specific preferences and show history where possible>",
-  "matchedElements": [<element names from their preferences that align well with this show; can be empty>],
+  "headline": "<short 3-8 word hook>",
+  "reasoning": "<2-3 sentences explaining why, grounded in their element preferences and inferred taste. Do not name their past shows or reference their viewing history.>",
+  "matchedElements": [<element names from their preferences that align with this show; can be empty>],
   "mismatchedElements": [<element names that might not align; can be empty>]
 }
 
-INSUFFICIENT-CONTEXT SHAPE (use ONLY when you genuinely cannot assess this show — e.g. title is ambiguous and no description is provided):
+INSUFFICIENT-CONTEXT (use ONLY when you genuinely cannot assess this show — e.g. title is ambiguous and no description is provided):
 {
   "kind": "insufficient_context",
-  "reason": "<one short sentence explaining what was missing>"
-}
-
-Never return a fallback score. Prefer the insufficient_context shape over guessing.`;
+  "reason": "<one short sentence explaining what was missing, from the engine's perspective. Do NOT frame this as a risk to the user.>"
+}`;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -241,7 +248,7 @@ Never return a fallback score. Prefer the insufficient_context shape over guessi
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-opus-4-7",
         max_tokens: 768,
         messages: [{ role: "user", content: prompt }],
       }),
