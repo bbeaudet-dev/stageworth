@@ -1,6 +1,7 @@
 import Image from "next/image";
-import { BRAND_BLUE, BRAND_PURPLE, BRAND_GRADIENT_STYLE } from "@/lib/brand-colors";
-import { TESTFLIGHT_PUBLIC_URL } from "@/lib/testflight";
+import { DownloadButtonRow } from "@/components/DownloadPlatformButtons";
+import { getAndroidApkUrl } from "@/lib/app-downloads";
+import { BRAND_PURPLE, BRAND_GRADIENT_STYLE } from "@/lib/brand-colors";
 
 /** Display size for Next/Image; assets are 718×1428 (device screenshots). */
 const SHOT_WIDTH = 359;
@@ -30,6 +31,8 @@ const FEATURES = [
 ] as const;
 
 export default function HomePage() {
+  const hasAndroidApk = Boolean(getAndroidApkUrl());
+
   return (
     <div>
       {/* Hero */}
@@ -65,15 +68,8 @@ export default function HomePage() {
             favorites, plan trips with friends, and stay on top of what&apos;s
             playing.
           </p>
-          <div className="flex items-center justify-center gap-4">
-            <a
-              href={TESTFLIGHT_PUBLIC_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center rounded-full bg-white/15 border border-white/25 px-4 py-2 text-sm font-medium backdrop-blur-sm hover:bg-white/20 transition-colors"
-            >
-              Join the TestFlight beta
-            </a>
+          <div className="flex justify-center">
+            <DownloadButtonRow />
           </div>
         </div>
       </section>
@@ -108,28 +104,35 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA — TestFlight public link (works on iPhone with TestFlight installed) */}
+      {/* CTA — TestFlight (iOS) + optional Expo build page (Android) */}
       <section className="border-t border-gray-200 bg-linear-to-b from-gray-50 to-white py-16">
         <div className="mx-auto max-w-5xl px-4 text-center">
           <h2 className="text-2xl font-bold mb-4 text-gray-900">
-            Join the iOS beta
+            Get the beta
           </h2>
-          <p className="text-gray-600 mb-2 max-w-xl mx-auto">
-            Install Apple&apos;s{" "}
-            <span className="font-medium text-gray-800">TestFlight</span> app,
-            then tap the button below to install Stageworth.
+          <p className="text-gray-600 mb-8 max-w-xl mx-auto text-[15px] leading-relaxed">
+            {hasAndroidApk ? (
+              <>
+                <span className="font-medium text-gray-800">iPhone:</span> install{" "}
+                Apple&apos;s <span className="font-medium text-gray-800">TestFlight</span>{" "}
+                app, then use the black button.{" "}
+                <span className="font-medium text-gray-800">Android:</span> the white
+                button opens your build on{" "}
+                <span className="font-medium text-gray-800">Expo</span>. Download
+                the <span className="font-medium text-gray-800">.apk</span> from
+                that page, then install it (you may need to allow installs from
+                unknown sources). The site link is updated by hand when we ship a new
+                build.
+              </>
+            ) : (
+              <>
+                Install Apple&apos;s{" "}
+                <span className="font-medium text-gray-800">TestFlight</span> app,
+                then tap the black button to install Stageworth.
+              </>
+            )}
           </p>
-          <a
-            href={TESTFLIGHT_PUBLIC_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center rounded-full px-5 py-2.5 text-sm font-medium text-white shadow-md hover:opacity-95 transition-opacity"
-            style={{
-              background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, ${BRAND_PURPLE} 100%)`,
-            }}
-          >
-            Open TestFlight invite
-          </a>
+          <DownloadButtonRow />
         </div>
       </section>
 
