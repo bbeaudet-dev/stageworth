@@ -53,6 +53,7 @@ import type * as showtimes from "../showtimes.js";
 import type * as social_community from "../social/community.js";
 import type * as social_profiles from "../social/profiles.js";
 import type * as social_social from "../social/social.js";
+import type * as suggestedRanking from "../suggestedRanking.js";
 import type * as tasteProfile from "../tasteProfile.js";
 import type * as trips_tripLabels from "../trips/tripLabels.js";
 import type * as trips_tripPresence from "../trips/tripPresence.js";
@@ -114,6 +115,7 @@ declare const fullApi: ApiFromModules<{
   "social/community": typeof social_community;
   "social/profiles": typeof social_profiles;
   "social/social": typeof social_social;
+  suggestedRanking: typeof suggestedRanking;
   tasteProfile: typeof tasteProfile;
   "trips/tripLabels": typeof trips_tripLabels;
   "trips/tripPresence": typeof trips_tripPresence;

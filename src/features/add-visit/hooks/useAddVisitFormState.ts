@@ -23,6 +23,11 @@ type Action =
   | { type: "SKIP_COMPARISON_INDEX"; value: number }
   | { type: "RESET_SKIPPED_COMPARISONS" }
   | { type: "RESET_RANKING_FLOW" }
+  | {
+      type: "APPLY_SUGGESTED_RANKING";
+      tier: RankedTier;
+      insertionIndex: number;
+    }
   | { type: "SELECT_EXISTING_SHOW"; showId: Id<"shows"> }
   | { type: "SELECT_CUSTOM_SHOW"; name: string }
   | { type: "CLEAR_SELECTION" }
@@ -76,6 +81,15 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
         searchLow: 0,
         searchHigh: 0,
         rankingResultIndex: null,
+        skippedComparisonIndices: [],
+      };
+    case "APPLY_SUGGESTED_RANKING":
+      return {
+        ...state,
+        selectedTier: action.tier,
+        searchLow: 0,
+        searchHigh: 0,
+        rankingResultIndex: action.insertionIndex,
         skippedComparisonIndices: [],
       };
     case "SELECT_EXISTING_SHOW":
@@ -171,6 +185,8 @@ export function useAddVisitFormState() {
     skipComparisonIndex: (value: number) => dispatch({ type: "SKIP_COMPARISON_INDEX", value }),
     resetSkippedComparisons: () => dispatch({ type: "RESET_SKIPPED_COMPARISONS" }),
     resetRankingFlow: () => dispatch({ type: "RESET_RANKING_FLOW" }),
+    applySuggestedRanking: (tier: RankedTier, insertionIndex: number) =>
+      dispatch({ type: "APPLY_SUGGESTED_RANKING", tier, insertionIndex }),
     selectExistingShow: (showId: Id<"shows">) => dispatch({ type: "SELECT_EXISTING_SHOW", showId }),
     selectCustomShow: (name: string) => dispatch({ type: "SELECT_CUSTOM_SHOW", name }),
     clearSelection: () => dispatch({ type: "CLEAR_SELECTION" }),

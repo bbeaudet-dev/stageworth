@@ -20,10 +20,14 @@ import { useToast } from "@/components/Toast";
 import { useCelebration } from "@/components/CelebrationContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { isFutureDate } from "@/utils/dates";
-import { getBottomInsertionIndexForTier } from "@/features/add-visit/logic/ranking";
+import {
+  getBottomInsertionIndexForTier,
+  getInsertionIndexForTierAndRelative,
+} from "@/features/add-visit/logic/ranking";
 import { useAddVisitData } from "@/features/add-visit/hooks/useAddVisitData";
 import { useAddVisitFormState } from "@/features/add-visit/hooks/useAddVisitFormState";
 import { useAddVisitRankingFlow } from "@/features/add-visit/hooks/useAddVisitRankingFlow";
+import { useSuggestedRanking } from "@/features/add-visit/hooks/useSuggestedRanking";
 import { styles } from "@/features/add-visit/styles";
 import { ShowPickerSection } from "@/features/add-visit/components/ShowPickerSection";
 import { VisitDateSection } from "@/features/add-visit/components/VisitDateSection";
@@ -66,6 +70,7 @@ export default function AddVisitScreen() {
     skipComparisonIndex,
     resetSkippedComparisons,
     resetRankingFlow,
+    applySuggestedRanking,
     selectExistingShow,
     selectCustomShow,
     clearSelection,
@@ -149,6 +154,21 @@ export default function AddVisitScreen() {
     if (shouldShowRankingSection) return;
     resetRankingFlow();
   }, [resetRankingFlow, shouldShowRankingSection]);
+
+  const suggestedRankingTargetId =
+    shouldShowRankingSection && !state.selectedTier ? state.selectedShowId : null;
+  const { state: suggestedRanking, refresh: refreshSuggestedRanking } =
+    useSuggestedRanking(suggestedRankingTargetId);
+
+  const handleUseSuggestedRanking = () => {
+    if (suggestedRanking.status !== "ready") return;
+    const insertionIndex = getInsertionIndexForTierAndRelative(
+      rankedShowsForRanking,
+      suggestedRanking.tier,
+      suggestedRanking.relativeIndex,
+    );
+    applySuggestedRanking(suggestedRanking.tier, insertionIndex);
+  };
 
   useEffect(() => {
     if (!shouldForceOtherLocation) return;
@@ -350,6 +370,9 @@ export default function AddVisitScreen() {
                   canSkipComparison={canSkipComparison}
                   predictedResultIndex={predictedResultIndex}
                   rankedShowsForRanking={rankedShowsForRanking}
+                  suggestedRanking={suggestedRanking}
+                  onUseSuggestedRanking={handleUseSuggestedRanking}
+                  onRefreshSuggestedRanking={refreshSuggestedRanking}
                 />
               )}
               <NotesSection notes={state.notes} setNotes={setNotes} />
