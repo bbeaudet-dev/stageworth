@@ -205,7 +205,22 @@ export function VisitsList({ showId }: { showId: Id<"shows"> }) {
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => removeVisit({ visitId: visit._id })}
+              onPress={() =>
+                Alert.alert(
+                  "Delete visit?",
+                  `Remove the ${formatVisitDate(visit.date)} visit? This cannot be undone.`,
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: () => {
+                        void removeVisit({ visitId: visit._id });
+                      },
+                    },
+                  ],
+                )
+              }
               hitSlop={8}
             >
               <Text style={[accordionStyles.visitRemove, { color: mutedTextColor }]}>✕</Text>
@@ -385,7 +400,9 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
           <Text style={[accordionStyles.rank, { color: mutedTextColor }]}>
             {rankLabel ?? `#${index + 1}`}
           </Text>
-          <View
+          <Pressable
+            onPress={onViewShowDetails}
+            disabled={isActive}
             style={[
               accordionStyles.listThumbFrame,
               {
@@ -393,6 +410,8 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
                 backgroundColor: hasListThumbImage ? listThumbMat : "transparent",
               },
             ]}
+            accessibilityRole="button"
+            accessibilityLabel={`View details for ${item.name}`}
           >
             {hasListThumbImage ? (
               <Image
@@ -406,7 +425,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
                 style={{ width: "100%", height: "100%", aspectRatio: undefined }}
               />
             )}
-          </View>
+          </Pressable>
           <Pressable
             style={accordionStyles.showNameWrap}
             onPress={onViewShowDetails}

@@ -574,17 +574,39 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
-  // AI recommendation history — one row per user × show recommendation trigger.
   aiRecommendationHistory: defineTable({
     userId: v.id("users"),
     showId: v.id("shows"),
     showNameSnapshot: v.string(),
-    score: v.number(),
     headline: v.string(),
-    reasoning: v.string(),
-    matchedElements: v.array(v.string()),
-    mismatchedElements: v.array(v.string()),
+    reasoning: v.optional(v.string()),
     createdAt: v.number(),
+    kind: v.union(
+      v.literal("would_i_like"),
+      v.literal("find_a_show"),
+      v.literal("help_me_decide")
+    ),
+    // Only set for kind="would_i_like".
+    score: v.optional(v.number()),
+    matchedElements: v.optional(v.array(v.string())),
+    mismatchedElements: v.optional(v.array(v.string())),
+    // Only set for multi-pick kinds (find_a_show, help_me_decide).
+    rank: v.optional(v.union(v.literal("primary"), v.literal("alternate"))),
+    urgency: v.optional(
+      v.union(
+        v.literal("closing_soon"),
+        v.literal("open_run"),
+        v.literal("standard")
+      )
+    ),
+    targetDate: v.optional(v.string()),
+    // Shared across all picks from a single find_a_show / help_me_decide run
+    // so the history UI can group them as one block.
+    groupId: v.optional(v.string()),
+    // Structured reasoning for multi-pick kinds.
+    fit: v.optional(v.string()),
+    edge: v.optional(v.string()),
+    tradeoff: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_user_show", ["userId", "showId"]),

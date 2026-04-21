@@ -254,17 +254,33 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
         {/* Trip List */}
         <View style={styles.rowBetween}>
           <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>Trip List</Text>
-          <Pressable
-            style={[styles.sortIconBtn, { backgroundColor: accentColor + "18", borderColor: accentColor + "40" }]}
-            onPress={openTripListSortSheet}
-            accessibilityLabel={
-              tripListSort === "closing"
-                ? "Sorted by closing date. Tap to change."
-                : "Sorted by reaction. Tap to change."
-            }
-          >
-            <IconSymbol size={18} name="arrow.up.arrow.down" color={accentColor} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            {allTripShows.length >= 2 ? (
+              <Pressable
+                style={[styles.sortIconBtn, { backgroundColor: accentColor + "18", borderColor: accentColor + "40" }]}
+                onPress={() =>
+                  router.push({
+                    pathname: "/help-me-decide",
+                    params: { tripId: String(tripId) },
+                  })
+                }
+                accessibilityLabel="Help me decide which of these to see"
+              >
+                <IconSymbol size={18} name="questionmark.circle" color={accentColor} />
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={[styles.sortIconBtn, { backgroundColor: accentColor + "18", borderColor: accentColor + "40" }]}
+              onPress={openTripListSortSheet}
+              accessibilityLabel={
+                tripListSort === "closing"
+                  ? "Sorted by closing date. Tap to change."
+                  : "Sorted by reaction. Tap to change."
+              }
+            >
+              <IconSymbol size={18} name="arrow.up.arrow.down" color={accentColor} />
+            </Pressable>
+          </View>
         </View>
 
         {allTripShows.length === 0 ? (
@@ -459,6 +475,7 @@ const styles = StyleSheet.create({
   tabContent: { padding: 16, gap: 16 },
   card: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 12, gap: 8 },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  headerActions: { flexDirection: "row", gap: 8 },
   sectionTitle: { fontSize: 17, fontWeight: "700" },
   sortIconBtn: {
     width: 40,

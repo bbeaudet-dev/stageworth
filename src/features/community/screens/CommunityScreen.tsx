@@ -1,8 +1,10 @@
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import type { ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { ScrollView, Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BrandGradientTitle } from "@/components/BrandGradientTitle";
@@ -11,6 +13,7 @@ import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { FeedPostCard } from "@/features/community/components/FeedPostCard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { formatRelativeVisitDate, isFutureDate } from "@/utils/dates";
@@ -87,6 +90,49 @@ function ParticipantsSheet({
   );
 }
 
+/** Swipe left to reveal Delete — same pattern as list view show rows. */
+function OwnerSwipeable({
+  enabled,
+  onDeletePress,
+  children,
+}: {
+  enabled: boolean;
+  onDeletePress: () => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<Swipeable>(null);
+  const colorScheme = useColorScheme();
+  const theme = colorScheme ?? "light";
+  const dangerColor = Colors[theme].danger;
+
+  const handleDeletePress = useCallback(() => {
+    ref.current?.close();
+    onDeletePress();
+  }, [onDeletePress]);
+
+  const renderRightActions = useCallback(
+    () => (
+      <Pressable
+        style={[styles.swipeDeleteAction, { backgroundColor: dangerColor }]}
+        onPress={handleDeletePress}
+        accessibilityRole="button"
+        accessibilityLabel="Delete post"
+      >
+        <Text style={styles.swipeDeleteLabel}>Delete</Text>
+      </Pressable>
+    ),
+    [dangerColor, handleDeletePress],
+  );
+
+  if (!enabled) return <>{children}</>;
+
+  return (
+    <Swipeable ref={ref} renderRightActions={renderRightActions} overshootRight={false}>
+      {children}
+    </Swipeable>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function CommunityScreen() {
@@ -114,10 +160,36 @@ export default function CommunityScreen() {
     selectedTab === "global" ? { limit: 40 } : "skip",
   );
   const unreadCount = useQuery(api.notifications.getUnreadCount) ?? 0;
+  const myProfile = useQuery(api.social.profiles.getMyProfile);
+  const deleteMyPost = useMutation(api.social.community.deleteMyPost);
   const [participantsModal, setParticipantsModal] = useState<{
     actor: TaggedUser;
     taggedUsers: TaggedUser[];
   } | null>(null);
+
+  const confirmDeletePost = (postId: Id<"activityPosts">, label: string) => {
+    Alert.alert(
+      "Delete post?",
+      `This will remove your ${label} from the community feed. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteMyPost({ postId });
+            } catch (err) {
+              Alert.alert(
+                "Couldn't delete post",
+                err instanceof Error ? err.message : "Please try again.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const posts = useMemo(
     () => (selectedTab === "following" ? (followingFeed ?? []) : (globalFeed ?? [])),
@@ -240,6 +312,18 @@ export default function CommunityScreen() {
             const actorLabel = getDisplayName(post.actor.name, post.actor.username);
             const isGlobal = selectedTab === "global";
             const tagged: TaggedUser[] = post.taggedUsers ?? [];
+            const isMine = !!myProfile && post.actor._id === myProfile._id;
+            const postLabel =
+              post.type === "visit_created"
+                ? "visit post"
+                : "challenge post";
+            const onLongPressForOwner = isMine
+              ? () =>
+                  confirmDeletePost(
+                    post._id as Id<"activityPosts">,
+                    postLabel,
+                  )
+              : undefined;
 
             // ── Shared inline elements ──────────────────────────────────────
             const actorInline = (
@@ -270,29 +354,37 @@ export default function CommunityScreen() {
               const target   = post.challengeTarget ?? 0;
               const progress = post.challengeProgress ?? 0;
               return (
-                <FeedPostCard
+                <OwnerSwipeable
                   key={post._id}
-                  backgroundColor={cardBackground}
-                  borderColor={cardBorder}
-                  onPress={() => router.push("/challenges")}
-                  header={headerNode}
-                  title={
-                    <Text style={[styles.postTitle, { color: primaryTextColor }]}>
-                      {actorInline}{" "}has started a new Theatre Challenge!
-                    </Text>
+                  enabled={isMine}
+                  onDeletePress={() =>
+                    confirmDeletePost(post._id as Id<"activityPosts">, postLabel)
                   }
-                  body={
-                    <>
-                      <Text style={[styles.challengeGoalText, { color: mutedTextColor }]}>
-                        Goal: {target} show{target !== 1 ? "s" : ""}
-                        {progress > 0 ? ` · ${progress} already logged` : ""}
+                >
+                  <FeedPostCard
+                    backgroundColor={cardBackground}
+                    borderColor={cardBorder}
+                    onPress={() => router.push("/challenges")}
+                    onLongPress={onLongPressForOwner}
+                    header={headerNode}
+                    title={
+                      <Text style={[styles.postTitle, { color: primaryTextColor }]}>
+                        {actorInline}{" "}has started a new Theatre Challenge!
                       </Text>
-                      <Text style={[styles.subText, { color: mutedTextColor }]}>
-                        {formatRelativeVisitDate(new Date(post.createdAt).toISOString().slice(0, 10))}
-                      </Text>
-                    </>
-                  }
-                />
+                    }
+                    body={
+                      <>
+                        <Text style={[styles.challengeGoalText, { color: mutedTextColor }]}>
+                          Goal: {target} show{target !== 1 ? "s" : ""}
+                          {progress > 0 ? ` · ${progress} already logged` : ""}
+                        </Text>
+                        <Text style={[styles.subText, { color: mutedTextColor }]}>
+                          {formatRelativeVisitDate(new Date(post.createdAt).toISOString().slice(0, 10))}
+                        </Text>
+                      </>
+                    }
+                  />
+                </OwnerSwipeable>
               );
             }
 
@@ -303,56 +395,64 @@ export default function CommunityScreen() {
               const progress = post.challengeProgress ?? 0;
               const show     = post.show;
               return (
-                <FeedPostCard
+                <OwnerSwipeable
                   key={post._id}
-                  backgroundColor={cardBackground}
-                  borderColor={cardBorder}
-                  onPress={() => router.push("/challenges")}
-                  header={headerNode}
-                  title={
-                    <Text style={[styles.postTitle, { color: primaryTextColor }]}>
-                      {actorInline}{" "}completed their {year} Theatre Challenge!
-                    </Text>
+                  enabled={isMine}
+                  onDeletePress={() =>
+                    confirmDeletePost(post._id as Id<"activityPosts">, postLabel)
                   }
-                  body={
-                    <>
-                      <Text style={[styles.challengeGoalText, { color: mutedTextColor }]}>
-                        {progress}/{target} shows
+                >
+                  <FeedPostCard
+                    backgroundColor={cardBackground}
+                    borderColor={cardBorder}
+                    onPress={() => router.push("/challenges")}
+                    onLongPress={onLongPressForOwner}
+                    header={headerNode}
+                    title={
+                      <Text style={[styles.postTitle, { color: primaryTextColor }]}>
+                        {actorInline}{" "}completed their {year} Theatre Challenge!
                       </Text>
-                      {show && post.visitDate && (
-                        <Text style={[styles.subText, { color: mutedTextColor }]}>
-                          {"Final show: "}
-                          <Text
-                            style={[styles.showText, { color: showTextColor }]}
-                            onPress={() =>
-                              router.push({ pathname: "/show/[showId]", params: { showId: show._id } })
-                            }
-                          >
-                            {show.name}
-                          </Text>
-                          {" · "}{formatRelativeVisitDate(post.visitDate)}
+                    }
+                    body={
+                      <>
+                        <Text style={[styles.challengeGoalText, { color: mutedTextColor }]}>
+                          {progress}/{target} shows
                         </Text>
-                      )}
-                    </>
-                  }
-                  poster={
-                    show ? (
-                      <Pressable
-                        style={StyleSheet.absoluteFillObject}
-                        onPress={() =>
-                          router.push({ pathname: "/show/[showId]", params: { showId: show._id } })
-                        }
-                      >
-                        {show.images[0] ? (
-                          <Image source={{ uri: show.images[0] }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
-                        ) : (
-                          <ShowPlaceholder name={show.name} style={{ width: "100%", height: "100%", aspectRatio: undefined }} />
+                        {show && post.visitDate && (
+                          <Text style={[styles.subText, { color: mutedTextColor }]}>
+                            {"Final show: "}
+                            <Text
+                              style={[styles.showText, { color: showTextColor }]}
+                              onPress={() =>
+                                router.push({ pathname: "/show/[showId]", params: { showId: show._id } })
+                              }
+                            >
+                              {show.name}
+                            </Text>
+                            {" · "}{formatRelativeVisitDate(post.visitDate)}
+                          </Text>
                         )}
-                      </Pressable>
-                    ) : undefined
-                  }
-                  posterBackground={posterBackground}
-                />
+                      </>
+                    }
+                    poster={
+                      show ? (
+                        <Pressable
+                          style={StyleSheet.absoluteFillObject}
+                          onPress={() =>
+                            router.push({ pathname: "/show/[showId]", params: { showId: show._id } })
+                          }
+                        >
+                          {show.images[0] ? (
+                            <Image source={{ uri: show.images[0] }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
+                          ) : (
+                            <ShowPlaceholder name={show.name} style={{ width: "100%", height: "100%", aspectRatio: undefined }} />
+                          )}
+                        </Pressable>
+                      ) : undefined
+                    }
+                    posterBackground={posterBackground}
+                  />
+                </OwnerSwipeable>
               );
             }
 
@@ -364,58 +464,66 @@ export default function CommunityScreen() {
               const pct      = target > 0 ? Math.round((progress / target) * 100) : 0;
               const show     = post.show;
               return (
-                <FeedPostCard
+                <OwnerSwipeable
                   key={post._id}
-                  backgroundColor={cardBackground}
-                  borderColor={cardBorder}
-                  onPress={() => router.push("/challenges")}
-                  header={headerNode}
-                  title={
-                    <Text style={[styles.postTitle, { color: primaryTextColor }]}>
-                      {actorInline}{" "}is{" "}
-                      {pct === 50 ? "halfway" : `${pct}%`}{" "}
-                      through their {year} Theatre Challenge!
-                    </Text>
+                  enabled={isMine}
+                  onDeletePress={() =>
+                    confirmDeletePost(post._id as Id<"activityPosts">, postLabel)
                   }
-                  body={
-                    <>
-                      <Text style={[styles.challengeGoalText, { color: mutedTextColor }]}>
-                        {progress} of {target} shows
+                >
+                  <FeedPostCard
+                    backgroundColor={cardBackground}
+                    borderColor={cardBorder}
+                    onPress={() => router.push("/challenges")}
+                    onLongPress={onLongPressForOwner}
+                    header={headerNode}
+                    title={
+                      <Text style={[styles.postTitle, { color: primaryTextColor }]}>
+                        {actorInline}{" "}is{" "}
+                        {pct === 50 ? "halfway" : `${pct}%`}{" "}
+                        through their {year} Theatre Challenge!
                       </Text>
-                      {show && post.visitDate && (
-                        <Text style={[styles.subText, { color: mutedTextColor }]}>
-                          {"Latest: "}
-                          <Text
-                            style={[styles.showText, { color: showTextColor }]}
-                            onPress={() =>
-                              router.push({ pathname: "/show/[showId]", params: { showId: show._id } })
-                            }
-                          >
-                            {show.name}
-                          </Text>
-                          {" · "}{formatRelativeVisitDate(post.visitDate)}
+                    }
+                    body={
+                      <>
+                        <Text style={[styles.challengeGoalText, { color: mutedTextColor }]}>
+                          {progress} of {target} shows
                         </Text>
-                      )}
-                    </>
-                  }
-                  poster={
-                    show ? (
-                      <Pressable
-                        style={StyleSheet.absoluteFillObject}
-                        onPress={() =>
-                          router.push({ pathname: "/show/[showId]", params: { showId: show._id } })
-                        }
-                      >
-                        {show.images[0] ? (
-                          <Image source={{ uri: show.images[0] }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
-                        ) : (
-                          <ShowPlaceholder name={show.name} style={{ width: "100%", height: "100%", aspectRatio: undefined }} />
+                        {show && post.visitDate && (
+                          <Text style={[styles.subText, { color: mutedTextColor }]}>
+                            {"Latest: "}
+                            <Text
+                              style={[styles.showText, { color: showTextColor }]}
+                              onPress={() =>
+                                router.push({ pathname: "/show/[showId]", params: { showId: show._id } })
+                              }
+                            >
+                              {show.name}
+                            </Text>
+                            {" · "}{formatRelativeVisitDate(post.visitDate)}
+                          </Text>
                         )}
-                      </Pressable>
-                    ) : undefined
-                  }
-                  posterBackground={posterBackground}
-                />
+                      </>
+                    }
+                    poster={
+                      show ? (
+                        <Pressable
+                          style={StyleSheet.absoluteFillObject}
+                          onPress={() =>
+                            router.push({ pathname: "/show/[showId]", params: { showId: show._id } })
+                          }
+                        >
+                          {show.images[0] ? (
+                            <Image source={{ uri: show.images[0] }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
+                          ) : (
+                            <ShowPlaceholder name={show.name} style={{ width: "100%", height: "100%", aspectRatio: undefined }} />
+                          )}
+                        </Pressable>
+                      ) : undefined
+                    }
+                    posterBackground={posterBackground}
+                  />
+                </OwnerSwipeable>
               );
             }
 
@@ -429,82 +537,90 @@ export default function CommunityScreen() {
             const verbPhrase = visitIsUpcoming ? "is seeing" : "saw";
 
             return (
-              <FeedPostCard
+              <OwnerSwipeable
                 key={post._id}
-                backgroundColor={cardBackground}
-                borderColor={cardBorder}
-                header={headerNode}
-                title={
-                  <Text style={[styles.postTitle, { color: primaryTextColor }]}>
-                    {actorInline}{" "}{verbPhrase}{" "}
-                    <Text
-                      style={[styles.showText, { color: showTextColor }]}
+                enabled={isMine}
+                onDeletePress={() =>
+                  confirmDeletePost(post._id as Id<"activityPosts">, postLabel)
+                }
+              >
+                <FeedPostCard
+                  backgroundColor={cardBackground}
+                  borderColor={cardBorder}
+                  onLongPress={onLongPressForOwner}
+                  header={headerNode}
+                  title={
+                    <Text style={[styles.postTitle, { color: primaryTextColor }]}>
+                      {actorInline}{" "}{verbPhrase}{" "}
+                      <Text
+                        style={[styles.showText, { color: showTextColor }]}
+                        onPress={() =>
+                          router.push({ pathname: "/show/[showId]", params: { showId: visitShow._id } })
+                        }
+                      >
+                        {visitShow.name}
+                      </Text>
+                      {tagged.length === 1 && (
+                        <>
+                          {" with "}
+                          <Text
+                            style={[styles.actorText, { color: actorLinkColor }]}
+                            onPress={() =>
+                              router.push({ pathname: "/user/[username]", params: { username: tagged[0].username } })
+                            }
+                          >
+                            {getDisplayName(tagged[0].name, tagged[0].username)}
+                          </Text>
+                        </>
+                      )}
+                      {tagged.length >= 2 && (
+                        <>
+                          {" with "}
+                          <Text
+                            style={[styles.actorText, { color: actorLinkColor }]}
+                            onPress={openParticipants}
+                          >
+                            {tagged.length} others
+                          </Text>
+                        </>
+                      )}
+                      {" "}{post.visitDate ? formatRelativeVisitDate(post.visitDate) : ""}
+                    </Text>
+                  }
+                  body={
+                    (location || post.notes || post.rankAtPost) ? (
+                      <>
+                        {!!location && (
+                          <Text style={[styles.subText, { color: mutedTextColor }]}>{location}</Text>
+                        )}
+                        {!!post.notes && (
+                          <Text style={[styles.notesText, { color: notesTextColor }]}>{post.notes}</Text>
+                        )}
+                        {!!post.rankAtPost && (
+                          <Text style={[styles.rankText, { color: mutedTextColor }]}>
+                            Ranked #{post.rankAtPost} of {post.rankingTotal}
+                          </Text>
+                        )}
+                      </>
+                    ) : undefined
+                  }
+                  poster={
+                    <Pressable
+                      style={StyleSheet.absoluteFillObject}
                       onPress={() =>
                         router.push({ pathname: "/show/[showId]", params: { showId: visitShow._id } })
                       }
                     >
-                      {visitShow.name}
-                    </Text>
-                    {tagged.length === 1 && (
-                      <>
-                        {" with "}
-                        <Text
-                          style={[styles.actorText, { color: actorLinkColor }]}
-                          onPress={() =>
-                            router.push({ pathname: "/user/[username]", params: { username: tagged[0].username } })
-                          }
-                        >
-                          {getDisplayName(tagged[0].name, tagged[0].username)}
-                        </Text>
-                      </>
-                    )}
-                    {tagged.length >= 2 && (
-                      <>
-                        {" with "}
-                        <Text
-                          style={[styles.actorText, { color: actorLinkColor }]}
-                          onPress={openParticipants}
-                        >
-                          {tagged.length} others
-                        </Text>
-                      </>
-                    )}
-                    {" "}{post.visitDate ? formatRelativeVisitDate(post.visitDate) : ""}
-                  </Text>
-                }
-                body={
-                  (location || post.notes || post.rankAtPost) ? (
-                    <>
-                      {!!location && (
-                        <Text style={[styles.subText, { color: mutedTextColor }]}>{location}</Text>
+                      {visitShow.images[0] ? (
+                        <Image source={{ uri: visitShow.images[0] }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
+                      ) : (
+                        <ShowPlaceholder name={visitShow.name} style={{ width: "100%", height: "100%", aspectRatio: undefined }} />
                       )}
-                      {!!post.notes && (
-                        <Text style={[styles.notesText, { color: notesTextColor }]}>{post.notes}</Text>
-                      )}
-                      {!!post.rankAtPost && (
-                        <Text style={[styles.rankText, { color: mutedTextColor }]}>
-                          Ranked #{post.rankAtPost} of {post.rankingTotal}
-                        </Text>
-                      )}
-                    </>
-                  ) : undefined
-                }
-                poster={
-                  <Pressable
-                    style={StyleSheet.absoluteFillObject}
-                    onPress={() =>
-                      router.push({ pathname: "/show/[showId]", params: { showId: visitShow._id } })
-                    }
-                  >
-                    {visitShow.images[0] ? (
-                      <Image source={{ uri: visitShow.images[0] }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
-                    ) : (
-                      <ShowPlaceholder name={visitShow.name} style={{ width: "100%", height: "100%", aspectRatio: undefined }} />
-                    )}
-                  </Pressable>
-                }
-                posterBackground={posterBackground}
-              />
+                    </Pressable>
+                  }
+                  posterBackground={posterBackground}
+                />
+              </OwnerSwipeable>
             );
           })}
       </ScrollView>
@@ -588,6 +704,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 24,
     gap: 10,
+  },
+  swipeDeleteAction: {
+    justifyContent: "center",
+    alignItems: "center",
+    width: 88,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  swipeDeleteLabel: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
   emptyText: {
     fontSize: 15,

@@ -6,8 +6,13 @@ import { RANKED_TIER_COLORS } from "@/constants/tierColors";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { styles } from "@/features/add-visit/styles";
-import { TIER_ORDER } from "@/features/add-visit/logic/ranking";
+import {
+  getInsertionIndexForTierAndRelative,
+  TIER_ORDER,
+} from "@/features/add-visit/logic/ranking";
 import type { RankedShowForRanking, RankedTier } from "@/features/add-visit/types";
+import { SuggestedRankingCard } from "@/features/add-visit/components/SuggestedRankingCard";
+import type { SuggestedRankingState } from "@/features/add-visit/hooks/useSuggestedRanking";
 
 // Derive button styles directly from the shared tier colour scale.
 // Using solid fills (same as list-view pills) — bolder and consistent.
@@ -76,6 +81,9 @@ export function RankingSection({
   canSkipComparison,
   predictedResultIndex,
   rankedShowsForRanking,
+  suggestedRanking,
+  onUseSuggestedRanking,
+  onRefreshSuggestedRanking,
 }: {
   showHasRanking: boolean;
   showHasVisit: boolean;
@@ -95,6 +103,9 @@ export function RankingSection({
   canSkipComparison: boolean;
   predictedResultIndex: number | null;
   rankedShowsForRanking: RankedShowForRanking[];
+  suggestedRanking: SuggestedRankingState;
+  onUseSuggestedRanking: () => void;
+  onRefreshSuggestedRanking: () => void;
 }) {
   const theme = useColorScheme() ?? "light";
   const c = Colors[theme];
@@ -262,6 +273,24 @@ export function RankingSection({
                 {`#${predictedResultIndex + 1} of ${rankedShowsForRanking.length + 1}`}
               </Text>
             </View>
+          )}
+
+          {!selectedTier && suggestedRanking.status !== "idle" && (
+            <SuggestedRankingCard
+              state={suggestedRanking}
+              totalRanked={rankedShowsForRanking.length}
+              globalInsertionIndex={
+                suggestedRanking.status === "ready"
+                  ? getInsertionIndexForTierAndRelative(
+                      rankedShowsForRanking,
+                      suggestedRanking.tier,
+                      suggestedRanking.relativeIndex,
+                    )
+                  : null
+              }
+              onUseSuggestion={onUseSuggestedRanking}
+              onRetry={onRefreshSuggestedRanking}
+            />
           )}
         </View>
       )}

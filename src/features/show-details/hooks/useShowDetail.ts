@@ -11,6 +11,10 @@ export function useShowDetail(showId: Id<"shows"> | "") {
   const show = useQuery(api.shows.getById, showId ? { id: showId as Id<"shows"> } : "skip");
   const visits = useQuery(api.visits.listByShow, showId ? { showId: showId as Id<"shows"> } : "skip");
   const productions = useQuery(api.productions.listByShowWithImages, showId ? { showId: showId as Id<"shows"> } : "skip");
+  const myRankings = useQuery(
+    api.rankings.get,
+    !isPending && session ? {} : "skip",
+  );
   const myLists = useQuery(
     api.lists.getProfileLists,
     !isPending && session && showId ? { showId: showId as Id<"shows"> } : "skip"
@@ -56,6 +60,13 @@ export function useShowDetail(showId: Id<"shows"> | "") {
     return prod?.weeklySchedule ?? null;
   }, [productions]);
 
+  const personalRank = useMemo(() => {
+    if (!showId || !myRankings) return null;
+    const index = myRankings.showIds.indexOf(showId as Id<"shows">);
+    if (index < 0) return null;
+    return { rank: index + 1, total: myRankings.showIds.length };
+  }, [myRankings, showId]);
+
   return {
     session,
     show,
@@ -64,6 +75,7 @@ export function useShowDetail(showId: Id<"shows"> | "") {
     allLists,
     activeTrips,
     broadwayShowtimes,
+    personalRank,
     addShowToList,
     addShowToTrip,
     getRecommendation,

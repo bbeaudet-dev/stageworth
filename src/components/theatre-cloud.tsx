@@ -1,16 +1,15 @@
-import { BRAND_BLUE, BRAND_PURPLE, Colors } from "@/constants/theme";
-import { showTypeLabel } from "@/constants/showTypeColors";
+import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
+import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
   Canvas,
   Group,
-  LinearGradient,
   RoundedRect,
   Image as SkiaImage,
   useImage,
-  vec,
 } from "@shopify/react-native-skia";
+import { playbillMatBackground } from "@/features/browse/styles";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -149,6 +148,7 @@ function PlaybillImage({
   r,
   showId,
   onLoad,
+  onError,
 }: {
   url: string;
   x: number;
@@ -158,8 +158,9 @@ function PlaybillImage({
   r: number;
   showId: Id<"shows">;
   onLoad: (showId: Id<"shows">) => void;
+  onError: (showId: Id<"shows">) => void;
 }) {
-  const image = useImage(url);
+  const image = useImage(url, () => onError(showId));
 
   useEffect(() => {
     if (image) onLoad(showId);
@@ -183,45 +184,6 @@ function PlaybillImage({
         height={height}
         fit="contain"
       />
-    </Group>
-  );
-}
-
-function PlaybillItem({
-  placement,
-  onImageLoaded,
-}: {
-  placement: Placement;
-  onImageLoaded: (showId: Id<"shows">) => void;
-}) {
-  const { x, y, width, height, imageUrl, showId } = placement;
-  const r = Math.max(2, width * CORNER_RADIUS_RATIO);
-
-  return (
-    <Group>
-      {imageUrl ? (
-        <RoundedRect x={x} y={y} width={width} height={height} r={r} color="#e0e0e0" />
-      ) : (
-        <RoundedRect x={x} y={y} width={width} height={height} r={r} color={BRAND_BLUE}>
-          <LinearGradient
-            start={vec(x, y)}
-            end={vec(x + width, y + height)}
-            colors={[BRAND_BLUE, BRAND_PURPLE]}
-          />
-        </RoundedRect>
-      )}
-      {imageUrl && (
-        <PlaybillImage
-          url={imageUrl}
-          x={x}
-          y={y}
-          width={width}
-          height={height}
-          r={r}
-          showId={showId}
-          onLoad={onImageLoaded}
-        />
-      )}
     </Group>
   );
 }
@@ -253,11 +215,23 @@ export function TheatreCloud({
   }, [shows]);
 
   // Track which shows have had their poster image successfully loaded by Skia.
-  // Any placement not in this set will show the text fallback label.
+  // Any placement not in this set falls back to the ShowPlaceholder overlay.
   const [loadedShowIds, setLoadedShowIds] = useState<Set<string>>(new Set());
+  // Track URLs that Skia failed to load (broken hotlinks, unsupported formats,
+  // etc.) so we keep the placeholder visible permanently for those.
+  const [failedShowIds, setFailedShowIds] = useState<Set<string>>(new Set());
 
   const handleImageLoaded = useCallback((showId: Id<"shows">) => {
     setLoadedShowIds((prev) => {
+      if (prev.has(showId)) return prev;
+      const next = new Set(prev);
+      next.add(showId);
+      return next;
+    });
+  }, []);
+
+  const handleImageFailed = useCallback((showId: Id<"shows">) => {
+    setFailedShowIds((prev) => {
       if (prev.has(showId)) return prev;
       const next = new Set(prev);
       next.add(showId);
@@ -280,9 +254,8 @@ export function TheatreCloud({
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const backgroundColor = Colors[theme].background;
-  const surfaceColor = Colors[theme].surface;
-  const mutedTextColor = Colors[theme].mutedText;
   const emptyTextColor = Colors[theme].text;
+  const matColor = playbillMatBackground(theme);
 
   const initialOffset = useMemo(() => {
     if (placements.length === 0 || size.width === 0) return { x: 0, y: 0 };
@@ -352,9 +325,11 @@ export function TheatreCloud({
 
   const gesture = useMemo(() => Gesture.Simultaneous(tap, pan), [tap, pan]);
 
-  // Show text label for any placement whose image hasn't loaded yet —
-  // covers both shows with no image URL and shows whose URL failed to load.
-  const labelPlacements = useMemo(
+  // Render the shared ShowPlaceholder for any placement whose poster isn't
+  // showing a real image: no URL at all, still loading, or Skia failed to decode.
+  // Placeholders sit *behind* the Skia canvas so that once an image loads, it
+  // paints on top and hides the placeholder.
+  const placeholderPlacements = useMemo(
     () =>
       placements
         .slice(0, visibleCount)
@@ -362,9 +337,14 @@ export function TheatreCloud({
     [placements, visibleCount, loadedShowIds],
   );
 
-  const noImagePlacements = useMemo(
-    () => new Set(placements.filter((p) => !p.imageUrl).map((p) => p.showId)),
-    [placements],
+  // Only mount Skia images for URLs that haven't failed — avoids retrying
+  // broken URLs every render and lets the placeholder stay visible.
+  const drawablePlacements = useMemo(
+    () =>
+      placements
+        .slice(0, visibleCount)
+        .filter((p) => p.imageUrl && !failedShowIds.has(p.showId)),
+    [placements, visibleCount, failedShowIds],
   );
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
@@ -403,67 +383,76 @@ export function TheatreCloud({
     >
       {size.width > 0 && size.height > 0 && (
         <>
-          <GestureDetector gesture={gesture}>
-            <Canvas style={StyleSheet.absoluteFill}>
-              <Group
-                transform={[{ translateX: offset.x }, { translateY: offset.y }]}
-              >
-                {placements.slice(0, visibleCount).map((p) => (
-                  <PlaybillItem
-                    key={p.showId}
-                    placement={p}
-                    onImageLoaded={handleImageLoaded}
-                  />
-                ))}
-              </Group>
-            </Canvas>
-          </GestureDetector>
-
-          {/* RN text labels for shows without a successfully loaded poster.
-              Sits above the canvas; pointerEvents="none" lets gestures fall through. */}
+          {/* Placeholder layer — sits behind the canvas. Loaded Skia images
+              paint on top of these, so they're only visible when no real
+              poster is available. pointerEvents="none" lets gestures fall
+              through to the canvas's GestureDetector above. */}
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            {labelPlacements.map((p) => {
+            {placeholderPlacements.map((p) => {
               const r = Math.max(2, p.width * CORNER_RADIUS_RATIO);
-              const hasBrandBg = noImagePlacements.has(p.showId);
               return (
                 <View
                   key={p.showId}
                   style={[
-                    styles.labelContainer,
+                    styles.placeholderContainer,
                     {
                       left: offset.x + p.x,
                       top: offset.y + p.y,
                       width: p.width,
                       height: p.height,
                       borderRadius: r,
-                      backgroundColor: hasBrandBg ? "transparent" : surfaceColor,
                     },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.labelTypeText,
-                      { color: hasBrandBg ? "rgba(255,255,255,0.65)" : mutedTextColor },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {showTypeLabel(p.showType)}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.labelNameText,
-                      { color: hasBrandBg ? "#ffffff" : mutedTextColor },
-                    ]}
-                    numberOfLines={4}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.6}
-                  >
-                    {p.showName}
-                  </Text>
+                  <ShowPlaceholder
+                    name={p.showName}
+                    style={{ width: "100%", height: "100%", aspectRatio: undefined }}
+                  />
                 </View>
               );
             })}
           </View>
+
+          <GestureDetector gesture={gesture}>
+            <Canvas style={StyleSheet.absoluteFill}>
+              <Group
+                transform={[{ translateX: offset.x }, { translateY: offset.y }]}
+              >
+                {drawablePlacements.map((p) => {
+                  const r = Math.max(2, p.width * CORNER_RADIUS_RATIO);
+                  const loaded = loadedShowIds.has(p.showId);
+                  return (
+                    <Group key={p.showId}>
+                      {/* Mat shows through any letterbox gaps left by `fit="contain"`.
+                          Hidden while loading so the ShowPlaceholder underneath
+                          stays visible. */}
+                      {loaded && (
+                        <RoundedRect
+                          x={p.x}
+                          y={p.y}
+                          width={p.width}
+                          height={p.height}
+                          r={r}
+                          color={matColor}
+                        />
+                      )}
+                      <PlaybillImage
+                        url={p.imageUrl as string}
+                        x={p.x}
+                        y={p.y}
+                        width={p.width}
+                        height={p.height}
+                        r={r}
+                        showId={p.showId}
+                        onLoad={handleImageLoaded}
+                        onError={handleImageFailed}
+                      />
+                    </Group>
+                  );
+                })}
+              </Group>
+            </Canvas>
+          </GestureDetector>
         </>
       )}
     </View>
@@ -483,25 +472,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#999",
   },
-  labelContainer: {
+  placeholderContainer: {
     position: "absolute",
     overflow: "hidden",
-    padding: 5,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 3,
-  },
-  labelTypeText: {
-    fontSize: 8,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    textAlign: "center",
-  },
-  labelNameText: {
-    fontSize: 10,
-    fontWeight: "600",
-    textAlign: "center",
-    lineHeight: 12,
   },
 });

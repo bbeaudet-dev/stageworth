@@ -11,7 +11,7 @@
  *         the card owns the slot dimensions/border-radius so callers
  *         only supply the inner image/placeholder
  *
- * The whole card becomes a <Pressable> when `onPress` is provided.
+ * The whole card becomes a <Pressable> when `onPress` or `onLongPress` is provided.
  */
 
 import type { ReactNode } from "react";
@@ -28,6 +28,8 @@ export type FeedPostCardProps = {
   borderColor: string;
   /** Makes the entire card tappable. */
   onPress?: () => void;
+  /** Fires on long-press — used for owner actions like delete. */
+  onLongPress?: () => void;
   /** Small category pill rendered at the very top of the card. */
   pill?: PillConfig;
   /** Optional content above the title (e.g. a @handle line in global mode). */
@@ -49,6 +51,7 @@ export function FeedPostCard({
   backgroundColor,
   borderColor,
   onPress,
+  onLongPress,
   pill,
   header,
   title,
@@ -56,13 +59,8 @@ export function FeedPostCard({
   poster,
   posterBackground = "#efefef",
 }: FeedPostCardProps) {
-  const Wrapper = onPress ? Pressable : View;
-
-  return (
-    <Wrapper
-      style={[cardStyles.card, { backgroundColor, borderColor }]}
-      onPress={onPress}
-    >
+  const inner = (
+    <>
       {pill && (
         <Text
           style={[
@@ -89,7 +87,26 @@ export function FeedPostCard({
           </View>
         ) : null}
       </View>
-    </Wrapper>
+    </>
+  );
+
+  if (onPress || onLongPress) {
+    return (
+      <Pressable
+        style={[cardStyles.card, { backgroundColor, borderColor }]}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={400}
+      >
+        {inner}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={[cardStyles.card, { backgroundColor, borderColor }]}>
+      {inner}
+    </View>
   );
 }
 

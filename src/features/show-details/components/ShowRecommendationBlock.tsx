@@ -8,13 +8,21 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
-type RecResult = {
+type RecOk = {
+  kind: "ok";
   score: number;
   headline: string;
   reasoning: string;
   matchedElements: string[];
   mismatchedElements: string[];
 };
+
+type RecInsufficient = {
+  kind: "insufficient_context";
+  reason: string;
+};
+
+type RecResult = RecOk | RecInsufficient;
 
 interface ShowRecommendationBlockProps {
   showId: Id<"shows"> | "";
@@ -56,6 +64,11 @@ export function ShowRecommendationBlock({ showId, showName, isSignedIn }: ShowRe
     }
   }
 
+  const resetState = () => {
+    setRecResult(null);
+    setRecError(false);
+  };
+
   if (!recResult) {
     return (
       <Pressable
@@ -92,6 +105,40 @@ export function ShowRecommendationBlock({ showId, showName, isSignedIn }: ShowRe
     );
   }
 
+  if (recResult.kind === "insufficient_context") {
+    return (
+      <View
+        style={[
+          styles.recResultCard,
+          {
+            backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#FAFAFA",
+            borderColor: c.border,
+          },
+        ]}
+      >
+        <Text style={[styles.recHeadline, { color: c.text }]}>
+          Not enough to go on yet
+        </Text>
+        <Text style={[styles.recReasoning, { color: c.mutedText }]}>
+          We couldn&apos;t generate a reliable suggestion for this show yet
+          {recResult.reason ? ` — ${recResult.reason.trim().replace(/\.$/, "")}.` : "."}
+          {" "}Try again later, or add more ranked shows so we have more to
+          compare against.
+        </Text>
+        <Pressable
+          onPress={resetState}
+          style={({ pressed }) => ({
+            opacity: pressed ? 0.6 : 1,
+            alignSelf: "flex-start",
+            marginTop: 4,
+          })}
+        >
+          <Text style={[styles.recRetryText, { color: c.accent }]}>Try again</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.recResultCard, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
       <View style={styles.recResultHeader}>
@@ -124,7 +171,7 @@ export function ShowRecommendationBlock({ showId, showName, isSignedIn }: ShowRe
         </View>
       )}
       <Pressable
-        onPress={() => { setRecResult(null); setRecError(false); }}
+        onPress={resetState}
         style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, alignSelf: "flex-start", marginTop: 4 })}
       >
         <Text style={[styles.recRetryText, { color: c.accent }]}>Ask again</Text>

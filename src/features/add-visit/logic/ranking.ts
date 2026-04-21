@@ -22,3 +22,33 @@ export function getBottomInsertionIndexForTier(
   }
   return rankedShows.length;
 }
+
+/**
+ * Maps a tier-relative insertion index (0-based, inclusive of the bottom
+ * slot) to an absolute index in the overall ranked list. Unlike the version
+ * exposed on `useAddVisitRankingFlow`, this works for ANY tier, not just the
+ * currently-selected one — needed when the Suggested Ranking engine wants to
+ * slot into a tier the user hasn't opened yet.
+ */
+export function getInsertionIndexForTierAndRelative(
+  rankedShows: RankedShowForRanking[],
+  tier: RankedTier,
+  relativeInsertIndex: number,
+) {
+  const absoluteIndicesInTier: number[] = [];
+  for (let i = 0; i < rankedShows.length; i += 1) {
+    if (normalizeRankedTier(rankedShows[i].tier) === tier) {
+      absoluteIndicesInTier.push(i);
+    }
+  }
+  if (absoluteIndicesInTier.length === 0) {
+    return getBottomInsertionIndexForTier(rankedShows, tier);
+  }
+  if (relativeInsertIndex >= absoluteIndicesInTier.length) {
+    return absoluteIndicesInTier[absoluteIndicesInTier.length - 1] + 1;
+  }
+  if (relativeInsertIndex <= 0) {
+    return absoluteIndicesInTier[0];
+  }
+  return absoluteIndicesInTier[relativeInsertIndex];
+}

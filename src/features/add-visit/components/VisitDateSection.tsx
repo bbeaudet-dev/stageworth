@@ -21,7 +21,6 @@ export function VisitDateSection({
 
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: c.text }]}>Visit Date</Text>
       <View
         style={[
           styles.datePickerCard,
@@ -35,7 +34,7 @@ export function VisitDateSection({
           ]}
           onPress={() => setPickerOpen((prev) => !prev)}
         >
-          <Text style={[styles.datePickerLabel, { color: c.mutedText }]}>Date</Text>
+          <Text style={[styles.datePickerLabel, { color: c.mutedText }]}>Visit Date</Text>
           <View style={localStyles.valueRow}>
             <Text style={[styles.datePickerValue, { color: c.accent }]}>
               {formatDateObject(parseISODate(date))}

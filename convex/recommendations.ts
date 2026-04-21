@@ -1,7 +1,22 @@
 import { v } from "convex/values";
-import { action, internalMutation, mutation, query } from "./_generated/server";
+import {
+  action,
+  internalAction,
+  internalMutation,
+  mutation,
+  query,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireConvexUserId } from "./auth";
+import {
+  resolveWikipediaSummary,
+  stripGenreOpener,
+} from "./imageEnrichment/wikipedia";
+import {
+  buildNoRegurgitationBlock,
+  buildOutputRulesBlock,
+  buildVoiceRulesBlock,
+} from "./promptFragments";
 
 const RATING_LABELS: Record<number, string> = {
   1: "Strongly Disagree",
@@ -13,6 +28,44 @@ const RATING_LABELS: Record<number, string> = {
 
 /** Prompt-time cap on any single description. Full text stays in the DB. */
 const DESCRIPTION_PROMPT_MAX_CHARS = 400;
+
+/** How long before we'll retry a Wikipedia fallback for a show with no description. */
+const DESCRIPTION_RECHECK_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
+
+type ShowType =
+  | "musical"
+  | "play"
+  | "opera"
+  | "dance"
+  | "revue"
+  | "comedy"
+  | "magic"
+  | "other";
+
+/**
+ * Per-type prompt guidance (#134). Each line replaces the generic "weigh
+ * their preferences" framing with the criteria that matter most for that
+ * art form, so the model doesn't, for example, grade a play on its
+ * orchestration. Keep lines short — they're inlined into the prompt.
+ */
+const TYPE_GUIDANCE: Record<ShowType, string> = {
+  musical:
+    "For a MUSICAL, weigh score/orchestration, vocal performance, choreography, and book alongside the user's preferences. Genre of musical (pop, rock, jazz, sung-through, etc.) is a strong signal.",
+  play:
+    "For a PLAY, weigh writing/dialogue, acting, direction, staging, and tone. Subject matter and genre (drama, comedy, thriller, absurdist, etc.) matter more than production polish.",
+  opera:
+    "For an OPERA, weigh composer/score, vocal style (bel canto, verismo, contemporary), libretto, and staging tradition. Audience familiarity with opera is usually a factor.",
+  dance:
+    "For a DANCE production, weigh choreographer, style (ballet, modern, tap, hip-hop), physicality, and the strength of any narrative or theme.",
+  revue:
+    "For a REVUE, weigh the songbook/material, performer chemistry, pacing, and whether the user enjoys variety/non-narrative formats.",
+  comedy:
+    "For a COMEDY (stand-up, sketch, improv), weigh the performer(s), tone (observational, absurd, political, blue), and format. Subject matter is usually the strongest signal.",
+  magic:
+    "For a MAGIC show, weigh illusion style (close-up, grand stage, mentalism), showmanship, and theatrical framing.",
+  other:
+    "Weigh the user's element preferences and the thematic patterns from their ranked shows.",
+};
 
 /**
  * Shorten a description for prompt inclusion without mid-word chops.
@@ -42,9 +95,30 @@ function truncateForPrompt(text: string | null | undefined): string | null {
 
 export const getShowRecommendation = action({
   args: { showId: v.id("shows") },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<
+    | {
+        kind: "ok";
+        score: number;
+        headline: string;
+        reasoning: string;
+        matchedElements: string[];
+        mismatchedElements: string[];
+      }
+    | { kind: "insufficient_context"; reason: string }
+  > => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error("AI recommendations are not configured yet");
+
+    // Best-effort hydrate: if the show has no description, try to pull one
+    // from a production or Wikipedia before we build the prompt. Safe to
+    // call every time — the action short-circuits when a description already
+    // exists or we checked recently.
+    await ctx.runAction(internal.recommendations.ensureShowDescription, {
+      showId: args.showId,
+    });
 
     const data = await ctx.runQuery(
       internal.recommendationsContext.gatherRecommendationContext,
@@ -52,6 +126,9 @@ export const getShowRecommendation = action({
     );
 
     if (!data.show) throw new Error("Show not found");
+
+    const showType = data.show.type as ShowType;
+    const typeGuidance = TYPE_GUIDANCE[showType] ?? TYPE_GUIDANCE.other;
 
     let preferencesBlock: string;
     if (data.preferences && data.preferences.length > 0) {
@@ -61,10 +138,11 @@ export const getShowRecommendation = action({
       );
       preferencesBlock = `The user's theatre element preferences:\n${lines.join("\n")}`;
     } else {
-      preferencesBlock = "The user has not set any theatre preferences yet. Make a general assessment.";
+      preferencesBlock =
+        "The user has not set any theatre preferences yet. Make a general assessment.";
     }
 
-    const { ranked, lovedWithDescriptions } = data;
+    const { ranked, lovedWithDescriptions, dislikedWithDescriptions } = data;
     const hasAnyRanked =
       ranked.loved.length > 0 ||
       ranked.liked.length > 0 ||
@@ -91,50 +169,81 @@ export const getShowRecommendation = action({
       showHistoryBlock = "The user hasn't ranked any shows yet (only unranked entries, if any).";
     }
 
-    // Truncate each description only for the prompt. Full text stays in
-    // `shows.description` and is rendered untruncated in the UI.
     const candidateDescription = truncateForPrompt(data.show.description);
     const showDescriptionBlock = candidateDescription
       ? `Description: ${candidateDescription}`
-      : "Description: (not available)";
+      : null;
 
-    let lovedDescriptionsBlock = "";
-    if (
-      Array.isArray(lovedWithDescriptions) &&
-      lovedWithDescriptions.length > 0
-    ) {
-      const lines = lovedWithDescriptions
-        .map((s: { name: string; description: string }) => {
+    function buildDescriptionsBlock(
+      title: string,
+      entries: { name: string; description: string }[]
+    ): string {
+      if (!Array.isArray(entries) || entries.length === 0) return "";
+      const lines = entries
+        .map((s) => {
           const d = truncateForPrompt(s.description);
           return d ? `- ${s.name}: ${d}` : null;
         })
         .filter((l): l is string => l !== null);
-      if (lines.length > 0) {
-        lovedDescriptionsBlock = `\n\nPLOT/THEMATIC CONTEXT FOR A FEW OF THEIR LOVED SHOWS (use for thematic similarity, not as a hard rule):\n${lines.join("\n")}`;
-      }
+      if (lines.length === 0) return "";
+      return `\n\n${title}\n${lines.join("\n")}`;
     }
 
-    const prompt = `You are a personalized theatre recommendation assistant. Based on a user's stated preferences and full show history, predict whether they would enjoy a specific show.
+    const lovedDescriptionsBlock = buildDescriptionsBlock(
+      "PLOT/THEMATIC CONTEXT FOR SHOWS THEY LOVED (use for thematic similarity, not as a hard rule):",
+      lovedWithDescriptions
+    );
+    const dislikedDescriptionsBlock = buildDescriptionsBlock(
+      "PLOT/THEMATIC CONTEXT FOR SHOWS THEY DISLIKED (avoid similar themes/tone unless the user's preferences explicitly point the other way):",
+      dislikedWithDescriptions
+    );
+
+    const showBlockLines = [
+      `- Name: ${data.show.name}`,
+      `- Type: ${data.show.type}`,
+      showDescriptionBlock ? `- ${showDescriptionBlock}` : null,
+    ].filter((l): l is string => l !== null);
+
+    const prompt = `You are a personalized theatre recommendation assistant. Based on the reader's stated preferences and ranking history, predict whether they would enjoy a specific show.
+
+${buildOutputRulesBlock([
+  "Never return a fallback score. If the signal is not there, return insufficient_context.",
+])}
+
+${buildNoRegurgitationBlock("single")}
+
+${buildVoiceRulesBlock("single")}
+
+${typeGuidance}
 
 SHOW TO EVALUATE:
-- Name: ${data.show.name}
-- Type: ${data.show.type}
-- ${showDescriptionBlock}
+${showBlockLines.join("\n")}
 
-USER PROFILE:
+READER PROFILE:
 ${preferencesBlock}
 
-FULL SHOW RANKINGS (every show they have placed in a tier — use ALL of this; dislikes are as important as loves for avoiding similar work):
-${showHistoryBlock}${lovedDescriptionsBlock}
+INFERRED TASTE (internal reference — titles from any of these lists may be cited per the Voice Rules).
+${showHistoryBlock}${lovedDescriptionsBlock}${dislikedDescriptionsBlock}
 
-Based on this information, assess how likely this user is to enjoy "${data.show.name}". Use the description for thematic reasoning (tone, subject matter, style) in addition to the name. If the show is likely similar in theme/tone to ones they DISLIKED, weigh that heavily. If it aligns thematically with LOVED/LIKED patterns, say so.
+Assess how likely the reader is to enjoy "${data.show.name}". Use the description for thematic reasoning (tone, subject matter, style). Describe the show's qualities directly. Per the Voice Rules, you may optionally anchor a taste claim with one parenthetical example from the reader's loved/liked list (positive anchor) or disliked list (warning anchor) when it sharpens the point.
 
-Respond with ONLY a valid JSON object (no markdown, no code fences) with these fields:
-- "score": integer 1-5 (1=probably won't enjoy, 3=could go either way, 5=almost certainly will love it)
-- "headline": a short punchy 3-8 word headline like "Right up your alley" or "Not your usual pick"
-- "reasoning": 2-3 sentences explaining why, referencing their specific preferences and show history where possible
-- "matchedElements": array of element names from their preferences that align well with this show (can be empty)
-- "mismatchedElements": array of element names that might not align (can be empty)`;
+Respond with ONLY a valid JSON object (no markdown, no code fences) matching one of these two shapes:
+
+SUCCESS:
+{
+  "kind": "ok",
+  "score": <integer 1-5, 1=probably won't enjoy, 3=could go either way, 5=almost certainly will love it>,
+  "headline": "<short 3-8 word taste-match hook — NOT a plot descriptor>",
+  "reasoning": "<2-3 short sentences of ANALYSIS — why this show's qualities line up (or don't) with the reader's taste. Address the reader as 'you' when needed; NEVER use third person. NEVER summarize the plot/setting/characters. At most one parenthetical citation of a loved/liked/disliked title per Voice Rules.>",
+  "matchedElements": [<element names from their preferences that align with this show; can be empty>],
+  "mismatchedElements": [<element names that might not align; can be empty>]
+}
+
+INSUFFICIENT-CONTEXT (use ONLY when you genuinely cannot assess this show — e.g. title is ambiguous and no description is provided):
+{
+  "kind": "insufficient_context",
+  "reason": "<one short sentence explaining what was missing, from the engine's perspective. Do NOT frame this as a risk to the reader.>"
+}`;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -144,7 +253,7 @@ Respond with ONLY a valid JSON object (no markdown, no code fences) with these f
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-opus-4-7",
         max_tokens: 768,
         messages: [{ role: "user", content: prompt }],
       }),
@@ -170,24 +279,163 @@ Respond with ONLY a valid JSON object (no markdown, no code fences) with these f
     if (!jsonMatch) throw new Error("Failed to parse recommendation");
 
     const parsed = JSON.parse(jsonMatch[0]) as {
-      score: number;
-      headline: string;
-      reasoning: string;
-      matchedElements: string[];
-      mismatchedElements: string[];
+      kind?: string;
+      score?: number;
+      headline?: string;
+      reasoning?: string;
+      matchedElements?: string[];
+      mismatchedElements?: string[];
+      reason?: string;
     };
 
-    // Persist to history if the user is authenticated
-    if (data.userId) {
-      await ctx.runMutation(internal.recommendations.saveRecommendation, {
-        userId: data.userId,
-        showId: args.showId,
-        showNameSnapshot: data.show.name,
-        ...parsed,
-      });
+    if (parsed.kind === "insufficient_context") {
+      return {
+        kind: "insufficient_context",
+        reason:
+          typeof parsed.reason === "string" && parsed.reason.trim().length > 0
+            ? parsed.reason
+            : "Not enough context to generate a reliable suggestion.",
+      };
     }
 
-    return parsed;
+    // Legacy guard: if the model ignored the schema and returned raw score
+    // fields without a `kind`, accept as success. If it explicitly sent
+    // `"kind": "ok"` we also take that path.
+    if (
+      parsed.kind === "ok" ||
+      (parsed.kind === undefined && typeof parsed.score === "number")
+    ) {
+      if (
+        typeof parsed.score !== "number" ||
+        typeof parsed.headline !== "string" ||
+        typeof parsed.reasoning !== "string" ||
+        !Array.isArray(parsed.matchedElements) ||
+        !Array.isArray(parsed.mismatchedElements)
+      ) {
+        throw new Error("Failed to parse recommendation");
+      }
+
+      const ok = {
+        kind: "ok" as const,
+        score: parsed.score,
+        headline: parsed.headline,
+        reasoning: parsed.reasoning,
+        matchedElements: parsed.matchedElements,
+        mismatchedElements: parsed.mismatchedElements,
+      };
+
+      if (data.userId) {
+        await ctx.runMutation(internal.recommendations.saveRecommendation, {
+          userId: data.userId,
+          showId: args.showId,
+          showNameSnapshot: data.show.name,
+          score: ok.score,
+          headline: ok.headline,
+          reasoning: ok.reasoning,
+          matchedElements: ok.matchedElements,
+          mismatchedElements: ok.mismatchedElements,
+        });
+      }
+
+      return ok;
+    }
+
+    throw new Error("Failed to parse recommendation");
+  },
+});
+
+/**
+ * Best-effort description hydration called before building the
+ * recommendation prompt. Order of operations:
+ *   1. If the show already has a description, return (no-op).
+ *   2. If we fetched recently (within DESCRIPTION_RECHECK_COOLDOWN_MS),
+ *      skip — avoids hammering Wikipedia for a show that has no article.
+ *   3. Try to copy the newest production's description onto the show
+ *      (Playbill-sourced when present). Cheap, in-DB, no network.
+ *   4. Fall back to a Wikipedia summary via the shared enrichment helpers.
+ *
+ * Writes set `descriptionCheckedAt` via the underlying mutations, so the
+ * cooldown guard works on both success and miss.
+ */
+export const ensureShowDescription = internalAction({
+  args: { showId: v.id("shows") },
+  handler: async (ctx, args) => {
+    const show = await ctx.runQuery(
+      internal.recommendationsContext.getShowForDescriptionHydrate,
+      { showId: args.showId }
+    );
+    if (!show) return;
+    if (show.description && show.description.trim().length > 0) return;
+
+    if (
+      show.descriptionCheckedAt &&
+      Date.now() - show.descriptionCheckedAt < DESCRIPTION_RECHECK_COOLDOWN_MS
+    ) {
+      return;
+    }
+
+    const prod = await ctx.runQuery(
+      internal.recommendationsContext.getNewestProductionDescription,
+      { showId: args.showId }
+    );
+    if (prod && prod.description.trim().length > 0) {
+      await ctx.runMutation(
+        internal.recommendations.setShowDescriptionFromProduction,
+        { showId: args.showId, description: prod.description }
+      );
+      return;
+    }
+
+    try {
+      const result = await resolveWikipediaSummary(show.name, show.type);
+      if (result) {
+        const cleaned = stripGenreOpener(show.name, result.extract);
+        await ctx.runMutation(
+          internal.imageEnrichment.mutations.setShowWikipediaDescription,
+          {
+            showId: args.showId,
+            description: cleaned,
+            wikipediaTitle: result.articleTitle,
+          }
+        );
+      } else {
+        await ctx.runMutation(
+          internal.imageEnrichment.mutations.markDescriptionChecked,
+          { showId: args.showId }
+        );
+      }
+    } catch (err) {
+      console.error("ensureShowDescription: Wikipedia lookup failed", err);
+      await ctx.runMutation(
+        internal.imageEnrichment.mutations.markDescriptionChecked,
+        { showId: args.showId }
+      );
+    }
+  },
+});
+
+/**
+ * Copies a production's description onto its parent show when the show
+ * itself has no description yet. Uses `descriptionSource: "playbill"` —
+ * production descriptions originate from the Playbill ingest pipeline per
+ * `productions.description`'s schema comment.
+ */
+export const setShowDescriptionFromProduction = internalMutation({
+  args: {
+    showId: v.id("shows"),
+    description: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const show = await ctx.db.get(args.showId);
+    if (!show) return;
+    if (show.description && show.description.trim().length > 0) return;
+
+    await ctx.db.patch(args.showId, {
+      description: args.description,
+      descriptionSource: "playbill",
+      descriptionUpdatedAt: Date.now(),
+      descriptionCheckedAt: Date.now(),
+    });
   },
 });
 
@@ -205,6 +453,7 @@ export const saveRecommendation = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.insert("aiRecommendationHistory", {
       ...args,
+      kind: "would_i_like",
       createdAt: Date.now(),
     });
   },

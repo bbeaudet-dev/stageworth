@@ -99,7 +99,7 @@ Requires an external show database.
 Inspired by Beli (the restaurant ranking app).
 
 **How it works:**
-1. User sees a show and gives an initial reaction: **Liked it**, **Neutral**, or **Didn't like it**
+1. User sees a show and gives an initial reaction: **Liked it**, **Neutral**, or **Disliked it**
 2. Based on the reaction, the app runs a **halving/binary search algorithm** against existing rankings in that tier to converge on the right position
    - e.g., "Did you like it more than Show X?" → narrow down
 3. Numeric ratings (1-10, 5-star, etc.) are **derived** from position + distribution, not manually assigned

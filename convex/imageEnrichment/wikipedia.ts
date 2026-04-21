@@ -209,7 +209,7 @@ function escapeRegex(s: string): string {
  * blurb. Strip it when present, keep the rest. If stripping leaves too
  * little, return the original.
  */
-function stripGenreOpener(showName: string, extract: string): string {
+export function stripGenreOpener(showName: string, extract: string): string {
   const pattern = new RegExp(
     `^${escapeRegex(showName)} is (a|an|the) [^.]+\\.\\s*`,
     "i"
@@ -223,7 +223,7 @@ function stripGenreOpener(showName: string, extract: string): string {
  * `resolveWikipediaImage`'s title-ladder → search fallback flow, but returns
  * the article extract instead of an image URL.
  */
-async function resolveWikipediaSummary(
+export async function resolveWikipediaSummary(
   showName: string,
   showType:
     | "musical"
