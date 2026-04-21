@@ -400,7 +400,9 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
           <Text style={[accordionStyles.rank, { color: mutedTextColor }]}>
             {rankLabel ?? `#${index + 1}`}
           </Text>
-          <View
+          <Pressable
+            onPress={onViewShowDetails}
+            disabled={isActive}
             style={[
               accordionStyles.listThumbFrame,
               {
@@ -408,6 +410,8 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
                 backgroundColor: hasListThumbImage ? listThumbMat : "transparent",
               },
             ]}
+            accessibilityRole="button"
+            accessibilityLabel={`View details for ${item.name}`}
           >
             {hasListThumbImage ? (
               <Image
@@ -421,7 +425,7 @@ export const ShowRowAccordion = memo(function ShowRowAccordion({
                 style={{ width: "100%", height: "100%", aspectRatio: undefined }}
               />
             )}
-          </View>
+          </Pressable>
           <Pressable
             style={accordionStyles.showNameWrap}
             onPress={onViewShowDetails}

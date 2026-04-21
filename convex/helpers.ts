@@ -33,7 +33,9 @@ export async function resolveShowImageUrls(
   }
 ): Promise<string[]> {
   if (show.images.length > 0) {
-    return resolveImageUrls(ctx, show.images);
+    const urls = await resolveImageUrls(ctx, show.images);
+    if (urls.length > 0) return urls;
+    // Storage IDs all resolved to null (stale refs) — fall through to hotlink/productions.
   }
   if (show.hotlinkImageUrl) {
     return [show.hotlinkImageUrl];

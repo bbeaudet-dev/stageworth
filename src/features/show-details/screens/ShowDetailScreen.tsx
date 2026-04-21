@@ -40,6 +40,7 @@ export default function ShowDetailScreen() {
     allLists,
     activeTrips,
     broadwayShowtimes,
+    personalRank,
     addShowToList,
     addShowToTrip,
   } = useShowDetail(showId);
@@ -131,7 +132,7 @@ export default function ShowDetailScreen() {
           </View>
         ) : null}
 
-        <ShowVisitsList visits={visits} />
+        <ShowVisitsList visits={visits} personalRank={personalRank} />
 
         <View style={styles.recSection}>
           {show?.showScoreRating != null && (show?.name ?? params.name) ? (

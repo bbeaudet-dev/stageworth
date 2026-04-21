@@ -159,7 +159,6 @@ export function BrowseSections({
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const surface = Colors[theme].surfaceElevated;
-  const border = Colors[theme].border;
   const text = Colors[theme].text;
   const muted = Colors[theme].mutedText;
   const accent = Colors[theme].accent;
