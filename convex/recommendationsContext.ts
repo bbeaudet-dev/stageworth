@@ -2,8 +2,17 @@ import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import { getConvexUserId } from "./auth";
 
-/** Cap on how many loved shows we ship full descriptions for (prompt weight). */
+/**
+ * Cap on how many loved/disliked shows we ship full descriptions for
+ * (prompt weight). We intentionally exclude `liked` / `okay` descriptions:
+ * they're the weakest signal per token and crowd the prompt.
+ *
+ * Forward-looking: once the Moods feature (#176) lands, per-show mood
+ * distributions will replace most of this description-based thematic
+ * context. At that point we can drop (or heavily trim) these blocks.
+ */
 const LOVED_DESCRIPTIONS_LIMIT = 5;
+const DISLIKED_DESCRIPTIONS_LIMIT = 5;
 
 /** Internal: loads show + user prefs + ranked tiers for the recommendation action. */
 export const gatherRecommendationContext = internalQuery({
@@ -19,10 +28,11 @@ export const gatherRecommendationContext = internalQuery({
       okay: [] as string[],
       disliked: [] as string[],
     };
-    // Descriptions for the top N loved shows — the strongest positive signal
-    // for thematic matching. Not returned for every tier to keep the prompt
-    // compact; loved carries the most weight for "what else might they like".
+    // Descriptions for loved + disliked shows — the two strongest thematic
+    // signals. `liked` and `okay` are intentionally omitted: weak signal for
+    // the tokens they cost.
     let lovedWithDescriptions: { name: string; description: string }[] = [];
+    let dislikedWithDescriptions: { name: string; description: string }[] = [];
 
     if (userId) {
       const prefs = await ctx.db
@@ -76,12 +86,30 @@ export const gatherRecommendationContext = internalQuery({
       ranked.okay = await namesFor(okayIds);
       ranked.disliked = await namesFor(dislikedIds);
 
-      const lovedDocs = await Promise.all(lovedIds.map((id) => ctx.db.get(id)));
-      lovedWithDescriptions = lovedDocs
-        .filter((s): s is NonNullable<typeof s> => s !== null)
-        .filter((s) => typeof s.description === "string" && s.description.trim().length > 0)
-        .slice(0, LOVED_DESCRIPTIONS_LIMIT)
-        .map((s) => ({ name: s.name, description: s.description as string }));
+      async function descriptionsFor(
+        ids: typeof lovedIds,
+        limit: number
+      ): Promise<{ name: string; description: string }[]> {
+        const docs = await Promise.all(ids.map((id) => ctx.db.get(id)));
+        return docs
+          .filter((s): s is NonNullable<typeof s> => s !== null)
+          .filter(
+            (s) =>
+              typeof s.description === "string" &&
+              s.description.trim().length > 0
+          )
+          .slice(0, limit)
+          .map((s) => ({ name: s.name, description: s.description as string }));
+      }
+
+      lovedWithDescriptions = await descriptionsFor(
+        lovedIds,
+        LOVED_DESCRIPTIONS_LIMIT
+      );
+      dislikedWithDescriptions = await descriptionsFor(
+        dislikedIds,
+        DISLIKED_DESCRIPTIONS_LIMIT
+      );
     }
 
     return {
@@ -99,6 +127,63 @@ export const gatherRecommendationContext = internalQuery({
       preferences,
       ranked,
       lovedWithDescriptions,
+      dislikedWithDescriptions,
+    };
+  },
+});
+
+/**
+ * Lightweight show lookup for the `ensureShowDescription` hydrate step.
+ * Returns only the fields needed to decide whether to try a fetch and, if
+ * so, what identity to search with. Kept separate from
+ * `gatherRecommendationContext` so the hydrate path doesn't pull the full
+ * user tier graph for nothing.
+ */
+export const getShowForDescriptionHydrate = internalQuery({
+  args: { showId: v.id("shows") },
+  handler: async (ctx, args) => {
+    const show = await ctx.db.get(args.showId);
+    if (!show) return null;
+    return {
+      name: show.name,
+      type: show.type,
+      description: show.description ?? null,
+      descriptionSource: show.descriptionSource ?? null,
+      descriptionCheckedAt: show.descriptionCheckedAt ?? null,
+    };
+  },
+});
+
+/**
+ * Picks a description for a show from its most recent production (by opening
+ * date, falling back to creation order). Returns null if no production has
+ * a usable description. Used as the first fallback in `ensureShowDescription`
+ * before we hit Wikipedia.
+ */
+export const getNewestProductionDescription = internalQuery({
+  args: { showId: v.id("shows") },
+  handler: async (ctx, args) => {
+    const productions = await ctx.db
+      .query("productions")
+      .withIndex("by_show", (q) => q.eq("showId", args.showId))
+      .collect();
+
+    const withDescription = productions.filter(
+      (p) => typeof p.description === "string" && p.description.trim().length > 0
+    );
+    if (withDescription.length === 0) return null;
+
+    withDescription.sort((a, b) => {
+      const aDate = a.openingDate ?? "";
+      const bDate = b.openingDate ?? "";
+      if (aDate !== bDate) return aDate < bDate ? 1 : -1;
+      return b._creationTime - a._creationTime;
+    });
+
+    const chosen = withDescription[0];
+    return {
+      description: chosen.description as string,
+      productionId: chosen._id,
     };
   },
 });
