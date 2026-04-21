@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, Pressable, Text, useWindowDimensions, View } from "react-native";
 
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
@@ -22,6 +23,40 @@ const TIER_BUTTON_STYLES: Record<RankedTier, { backgroundColor: string; borderCo
     ])
   ) as Record<RankedTier, { backgroundColor: string; borderColor: string; textColor: string }>;
 
+/**
+ * Small wrapper that falls back to the branded placeholder if the playbill
+ * image URL fails to load (broken hotlink, decode error, etc.) — important
+ * because the ranking comparison is useless without a visible poster.
+ */
+function ComparisonPlaybillImage({
+  uri,
+  name,
+  surfaceColor,
+}: {
+  uri: string | null;
+  name: string;
+  surfaceColor: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [uri]);
+
+  if (!uri || failed) {
+    return <ShowPlaceholder name={name} />;
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={[styles.playbillImage, { backgroundColor: surfaceColor }]}
+      resizeMode="contain"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export function RankingSection({
   showHasRanking,
   showHasVisit,
@@ -37,6 +72,8 @@ export function RankingSection({
   showNameForHeader,
   showImageForHeader,
   onComparisonAnswer,
+  onSkipComparison,
+  canSkipComparison,
   predictedResultIndex,
   rankedShowsForRanking,
 }: {
@@ -54,6 +91,8 @@ export function RankingSection({
   showNameForHeader: string;
   showImageForHeader: string | null;
   onComparisonAnswer: (prefersNewShow: boolean) => void;
+  onSkipComparison: () => void;
+  canSkipComparison: boolean;
   predictedResultIndex: number | null;
   rankedShowsForRanking: RankedShowForRanking[];
 }) {
@@ -157,15 +196,11 @@ export function RankingSection({
                   ]}
                   onPress={() => onComparisonAnswer(true)}
                 >
-                  {showImageForHeader ? (
-                    <Image
-                      source={{ uri: showImageForHeader }}
-                      style={[styles.playbillImage, { backgroundColor: c.surface }]}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <ShowPlaceholder name={showNameForHeader} />
-                  )}
+                  <ComparisonPlaybillImage
+                    uri={showImageForHeader}
+                    name={showNameForHeader}
+                    surfaceColor={c.surface}
+                  />
                   <Text style={[styles.playbillName, { color: c.text }]} numberOfLines={2}>
                     {showNameForHeader}
                   </Text>
@@ -182,20 +217,40 @@ export function RankingSection({
                   ]}
                   onPress={() => onComparisonAnswer(false)}
                 >
-                  {comparisonTarget.images[0] ? (
-                    <Image
-                      source={{ uri: comparisonTarget.images[0] }}
-                      style={[styles.playbillImage, { backgroundColor: c.surface }]}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <ShowPlaceholder name={comparisonTarget.name} />
-                  )}
+                  <ComparisonPlaybillImage
+                    uri={comparisonTarget.images[0] ?? null}
+                    name={comparisonTarget.name}
+                    surfaceColor={c.surface}
+                  />
                   <Text style={[styles.playbillName, { color: c.text }]} numberOfLines={2}>
                     {comparisonTarget.name}
                   </Text>
                 </Pressable>
               </View>
+              <Pressable
+                onPress={onSkipComparison}
+                disabled={!canSkipComparison}
+                style={[
+                  styles.skipButton,
+                  {
+                    borderColor: c.border,
+                    backgroundColor: c.surfaceElevated,
+                  },
+                  !canSkipComparison && styles.skipButtonDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Skip this comparison"
+                accessibilityState={{ disabled: !canSkipComparison }}
+              >
+                <Text
+                  style={[
+                    styles.skipButtonText,
+                    { color: canSkipComparison ? c.text : c.mutedText },
+                  ]}
+                >
+                  Skip
+                </Text>
+              </Pressable>
             </View>
           )}
 

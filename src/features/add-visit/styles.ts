@@ -362,6 +362,21 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingTop: 8,
   },
+  skipButton: {
+    alignSelf: "center",
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  skipButtonDisabled: {
+    opacity: 0.4,
+  },
+  skipButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
   resultBlock: {
     marginTop: 8,
     gap: 6,
