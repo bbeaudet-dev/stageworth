@@ -24,6 +24,7 @@ import type * as botIngestion from "../botIngestion.js";
 import type * as catalogVisibility from "../catalogVisibility.js";
 import type * as challenges from "../challenges.js";
 import type * as crons from "../crons.js";
+import type * as findShow from "../findShow.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as imageEnrichment_mutations from "../imageEnrichment/mutations.js";
@@ -82,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   catalogVisibility: typeof catalogVisibility;
   challenges: typeof challenges;
   crons: typeof crons;
+  findShow: typeof findShow;
   helpers: typeof helpers;
   http: typeof http;
   "imageEnrichment/mutations": typeof imageEnrichment_mutations;

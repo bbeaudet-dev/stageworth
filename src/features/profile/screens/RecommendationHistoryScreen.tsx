@@ -8,14 +8,21 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { formatDate as formatDateShort } from "@/utils/dates";
 
-function formatDate(ts: number): string {
+function formatTimestamp(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 }
+
+const KIND_LABELS: Record<string, string> = {
+  would_i_like: "Would I like this?",
+  find_a_show: "Find a show",
+  help_me_decide: "Help me decide",
+};
 
 const SCORE_COLORS: Record<number, { bg: string; text: string }> = {
   1: { bg: "#FEF2F2", text: "#991B1B" },
@@ -116,9 +123,21 @@ export default function RecommendationHistoryScreen() {
         ) : (
           <>
             {history.map((item) => {
-              const scoreColors = (isDark ? SCORE_COLORS_DARK : SCORE_COLORS)[item.score] ??
-                (isDark ? SCORE_COLORS_DARK[3] : SCORE_COLORS[3]);
+              const kind = item.kind ?? "would_i_like";
+              const hasScore = typeof item.score === "number";
+              const scoreColors = hasScore
+                ? (isDark ? SCORE_COLORS_DARK : SCORE_COLORS)[item.score as number] ??
+                  (isDark ? SCORE_COLORS_DARK[3] : SCORE_COLORS[3])
+                : null;
               const isExpanded = expandedIds.has(item._id);
+              const kindLabel = KIND_LABELS[kind] ?? "Recommendation";
+              const rankLabel =
+                item.rank === "alternate" ? "Alternate" : null;
+              const targetDateLabel = item.targetDate
+                ? ` · for ${formatDateShort(item.targetDate)}`
+                : "";
+              const matched = item.matchedElements ?? [];
+              const mismatched = item.mismatchedElements ?? [];
               return (
                 <Pressable
                   key={item._id}
@@ -131,16 +150,47 @@ export default function RecommendationHistoryScreen() {
                   }
                 >
                   <View style={s.cardHeader}>
+                    <View style={s.kindRow}>
+                      <View
+                        style={[
+                          s.kindChip,
+                          {
+                            backgroundColor: isDark ? "rgba(83,109,254,0.2)" : "#EEF2FF",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[s.kindChipText, { color: isDark ? "#818CF8" : "#536DFE" }]}
+                        >
+                          {kindLabel}
+                        </Text>
+                      </View>
+                      {rankLabel && (
+                        <View
+                          style={[
+                            s.kindChip,
+                            s.kindChipGhost,
+                            { borderColor: c.border },
+                          ]}
+                        >
+                          <Text style={[s.kindChipText, { color: c.mutedText }]}>
+                            {rankLabel}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                     <View style={s.cardTitleRow}>
                       <Text style={[s.showName, { color: c.text }]} numberOfLines={1}>
                         {item.showNameSnapshot}
                       </Text>
                       <View style={s.cardTitleRight}>
-                        <View style={[s.scoreBadge, { backgroundColor: scoreColors.bg }]}>
-                          <Text style={[s.scoreText, { color: scoreColors.text }]}>
-                            {item.score}/5
-                          </Text>
-                        </View>
+                        {scoreColors && (
+                          <View style={[s.scoreBadge, { backgroundColor: scoreColors.bg }]}>
+                            <Text style={[s.scoreText, { color: scoreColors.text }]}>
+                              {item.score}/5
+                            </Text>
+                          </View>
+                        )}
                         <TouchableOpacity
                           onPress={(e) => { e.stopPropagation?.(); handleDeleteOne(item._id, item.showNameSnapshot); }}
                           hitSlop={8}
@@ -150,7 +200,10 @@ export default function RecommendationHistoryScreen() {
                       </View>
                     </View>
                     <Text style={[s.headline, { color: c.text }]}>{item.headline}</Text>
-                    <Text style={[s.date, { color: c.mutedText }]}>{formatDate(item.createdAt)}</Text>
+                    <Text style={[s.date, { color: c.mutedText }]}>
+                      {formatTimestamp(item.createdAt)}
+                      {targetDateLabel}
+                    </Text>
                   </View>
                   <Text style={[s.reasoning, { color: c.mutedText }]} numberOfLines={isExpanded ? undefined : 3}>
                     {item.reasoning}
@@ -163,18 +216,18 @@ export default function RecommendationHistoryScreen() {
                       {isExpanded ? "Show less" : "Read more"}
                     </Text>
                   </TouchableOpacity>
-                  {item.matchedElements.length > 0 && (
+                  {matched.length > 0 && (
                     <View style={s.chipRow}>
-                      {item.matchedElements.map((el) => (
+                      {matched.map((el) => (
                         <View key={el} style={[s.chip, s.matchChip, { borderColor: isDark ? "rgba(34,197,94,0.3)" : "#A7F3D0", backgroundColor: isDark ? "rgba(34,197,94,0.10)" : "#ECFDF5" }]}>
                           <Text style={[s.chipText, { color: isDark ? "#6EE7B7" : "#065F46" }]}>{el}</Text>
                         </View>
                       ))}
                     </View>
                   )}
-                  {item.mismatchedElements.length > 0 && (
+                  {mismatched.length > 0 && (
                     <View style={s.chipRow}>
-                      {item.mismatchedElements.map((el) => (
+                      {mismatched.map((el) => (
                         <View key={el} style={[s.chip, { borderColor: isDark ? "rgba(239,68,68,0.25)" : "#FECACA", backgroundColor: isDark ? "rgba(239,68,68,0.10)" : "#FEF2F2" }]}>
                           <Text style={[s.chipText, { color: isDark ? "#FCA5A5" : "#991B1B" }]}>{el}</Text>
                         </View>
@@ -213,6 +266,23 @@ const s = StyleSheet.create({
     gap: 8,
   },
   cardHeader: { gap: 3 },
+  kindRow: { flexDirection: "row", gap: 6, flexWrap: "wrap", marginBottom: 2 },
+  kindChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+  },
+  kindChipGhost: {
+    backgroundColor: "transparent",
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  kindChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
   cardTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   cardTitleRight: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 0 },
   showName: { fontSize: 15, fontWeight: "700", flex: 1 },

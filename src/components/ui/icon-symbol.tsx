@@ -53,6 +53,7 @@ const MAPPING = {
   'arrow.up.arrow.down': 'swap-vert',
   'arrow.up': 'arrow-upward',
   'arrow.down': 'arrow-downward',
+  'arrow.clockwise': 'refresh',
   'plus.circle.fill': 'add-circle',
   'line.3.horizontal': 'menu',
   'eye.fill': 'visibility',
