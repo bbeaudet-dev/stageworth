@@ -94,6 +94,10 @@ export default function RootLayout() {
                     options={{ presentation: "modal", headerShown: false }}
                   />
                   <Stack.Screen
+                    name="help-me-decide"
+                    options={{ presentation: "modal", headerShown: false }}
+                  />
+                  <Stack.Screen
                     name="invite-friend"
                     options={{ headerShown: false }}
                   />

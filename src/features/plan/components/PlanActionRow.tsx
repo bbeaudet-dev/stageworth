@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
@@ -9,10 +9,6 @@ export function PlanActionRow() {
   const router = useRouter();
   const theme = useColorScheme() ?? "light";
   const c = Colors[theme];
-
-  const handleHelpMeDecide = () => {
-    Alert.alert("Coming soon", "Help Me Decide is on the way — you'll be able to compare a few shows and get a pick.");
-  };
 
   return (
     <View style={styles.row}>
@@ -27,7 +23,7 @@ export function PlanActionRow() {
         <Text style={[styles.actionText, { color: c.text }]}>Find a Show</Text>
       </Pressable>
       <Pressable
-        onPress={handleHelpMeDecide}
+        onPress={() => router.push("/help-me-decide")}
         style={[
           styles.action,
           { backgroundColor: c.surfaceElevated, borderColor: c.border },
