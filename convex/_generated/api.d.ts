@@ -41,6 +41,7 @@ import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
 import type * as playbill from "../playbill.js";
 import type * as productions from "../productions.js";
+import type * as promptFragments from "../promptFragments.js";
 import type * as rankings from "../rankings.js";
 import type * as recommendations from "../recommendations.js";
 import type * as recommendationsContext from "../recommendationsContext.js";
@@ -101,6 +102,7 @@ declare const fullApi: ApiFromModules<{
   onboarding: typeof onboarding;
   playbill: typeof playbill;
   productions: typeof productions;
+  promptFragments: typeof promptFragments;
   rankings: typeof rankings;
   recommendations: typeof recommendations;
   recommendationsContext: typeof recommendationsContext;

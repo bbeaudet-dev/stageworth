@@ -12,6 +12,11 @@ import {
   resolveWikipediaSummary,
   stripGenreOpener,
 } from "./imageEnrichment/wikipedia";
+import {
+  buildNoRegurgitationBlock,
+  buildOutputRulesBlock,
+  buildVoiceRulesBlock,
+} from "./promptFragments";
 
 const RATING_LABELS: Record<number, string> = {
   1: "Strongly Disagree",
@@ -199,32 +204,28 @@ export const getShowRecommendation = action({
       showDescriptionBlock ? `- ${showDescriptionBlock}` : null,
     ].filter((l): l is string => l !== null);
 
-    const prompt = `You are a personalized theatre recommendation assistant. Based on a user's stated preferences and ranking history, predict whether they would enjoy a specific show.
+    const prompt = `You are a personalized theatre recommendation assistant. Based on the reader's stated preferences and ranking history, predict whether they would enjoy a specific show.
 
-OUTPUT RULES (follow strictly):
-1. Show titles are proper nouns — quote them verbatim. Do NOT add, drop, or translate articles. Do NOT paraphrase the title.
-2. Do NOT interpret a title's words literally (e.g. "The Unknown" is not "about the unknown" — it's a specific show with that name). Rely on the Description for subject matter.
-3. Do NOT mention the show's closing date, open-run status, or poster — those are displayed separately in the UI.
-4. Do NOT mention missing descriptions, context gaps, or "we don't know much about this show" in the user-facing text. If you genuinely cannot assess the show, return the insufficient_context shape described below.
-5. Never return a fallback score. If the signal is not there, return insufficient_context.
+${buildOutputRulesBlock([
+  "Never return a fallback score. If the signal is not there, return insufficient_context.",
+])}
 
-VOICE RULES (follow strictly):
-- Describe the SHOW, not the user. Prefer "This has sharp writing" over "You'll appreciate the sharp writing" or "You usually like shows with sharp writing". Minimize narration on what the user has seen or typically likes.
-- Be concise and concrete. No filler phrases like "suitable for your taste", "right up your alley", "like your favorites", "as you know", "perfect for you", "you typically enjoy", or "you'll probably love".
-- You MAY cite ONE title from the user's LOVED or LIKED list in parentheses as a concrete anchor for a taste claim about the show, e.g. "Sharp, character-driven storytelling (Hadestown)." Use this sparingly — at most one parenthetical anchor in the reasoning, and only when it adds concreteness. You can cite a loved or disliked show.
+${buildNoRegurgitationBlock("single")}
+
+${buildVoiceRulesBlock("single")}
 
 ${typeGuidance}
 
 SHOW TO EVALUATE:
 ${showBlockLines.join("\n")}
 
-USER PROFILE:
+READER PROFILE:
 ${preferencesBlock}
 
-INFERRED TASTE (internal reference — their loved/liked titles may be cited in parens per the Voice Rules; their disliked titles must never be named).
+INFERRED TASTE (internal reference — titles from any of these lists may be cited per the Voice Rules).
 ${showHistoryBlock}${lovedDescriptionsBlock}${dislikedDescriptionsBlock}
 
-Assess how likely this user is to enjoy "${data.show.name}". Use the description for thematic reasoning (tone, subject matter, style). If the show is similar in theme/tone to ones they disliked, weigh that heavily without naming those shows. If it aligns with loved/liked patterns, describe the show's qualities directly and optionally anchor with one parenthetical example.
+Assess how likely the reader is to enjoy "${data.show.name}". Use the description for thematic reasoning (tone, subject matter, style). Describe the show's qualities directly. Per the Voice Rules, you may optionally anchor a taste claim with one parenthetical example from the reader's loved/liked list (positive anchor) or disliked list (warning anchor) when it sharpens the point.
 
 Respond with ONLY a valid JSON object (no markdown, no code fences) matching one of these two shapes:
 
@@ -232,8 +233,8 @@ SUCCESS:
 {
   "kind": "ok",
   "score": <integer 1-5, 1=probably won't enjoy, 3=could go either way, 5=almost certainly will love it>,
-  "headline": "<short 3-8 word hook>",
-  "reasoning": "<2-3 short sentences describing the show and why it does or doesn't line up with this user's taste. Show-first voice. At most one parenthetical citation of a loved/liked title.>",
+  "headline": "<short 3-8 word taste-match hook — NOT a plot descriptor>",
+  "reasoning": "<2-3 short sentences of ANALYSIS — why this show's qualities line up (or don't) with the reader's taste. Address the reader as 'you' when needed; NEVER use third person. NEVER summarize the plot/setting/characters. At most one parenthetical citation of a loved/liked/disliked title per Voice Rules.>",
   "matchedElements": [<element names from their preferences that align with this show; can be empty>],
   "mismatchedElements": [<element names that might not align; can be empty>]
 }
@@ -241,7 +242,7 @@ SUCCESS:
 INSUFFICIENT-CONTEXT (use ONLY when you genuinely cannot assess this show — e.g. title is ambiguous and no description is provided):
 {
   "kind": "insufficient_context",
-  "reason": "<one short sentence explaining what was missing, from the engine's perspective. Do NOT frame this as a risk to the user.>"
+  "reason": "<one short sentence explaining what was missing, from the engine's perspective. Do NOT frame this as a risk to the reader.>"
 }`;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
