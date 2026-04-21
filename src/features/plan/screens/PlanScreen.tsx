@@ -22,7 +22,6 @@ import type { VisibleProfileList } from "@/features/profile/types";
 import { TripCard } from "@/features/plan/components/TripCard";
 import { CreateTripSheet } from "@/features/plan/components/CreateTripSheet";
 import { CreateListSheet } from "@/features/plan/components/CreateListSheet";
-import { PlanActionRow } from "@/features/plan/components/PlanActionRow";
 import { useTripData } from "@/features/plan/hooks/useTripData";
 import type { TripSummary, TripInvitation } from "@/features/plan/types";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -187,8 +186,6 @@ export default function PlanScreen() {
         <View style={styles.pageHeader}>
           <BrandGradientTitle text="Plan" fontSize={28} />
         </View>
-
-        <PlanActionRow />
 
         {/* Trips section */}
         <View style={[styles.section, { backgroundColor: surfaceColor, borderColor }]}>

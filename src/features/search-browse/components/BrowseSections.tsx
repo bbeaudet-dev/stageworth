@@ -11,6 +11,7 @@ import {
   type FullStatusBadge,
 } from "@/features/browse/components/ProductionCard";
 import { SearchShowCard } from "@/features/search-browse/components/SearchShowCard";
+import { PlanActionRow } from "@/features/plan/components/PlanActionRow";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const GRID_GAP = 8;
@@ -166,30 +167,7 @@ export function BrowseSections({
 
   return (
     <>
-      {/* Quick actions */}
-      <View style={styles.quickActionsRow}>
-        <Pressable
-          style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}
-          onPress={() => router.push("/add-visit")}
-        >
-          <IconSymbol name="plus.circle.fill" size={16} color={accent} />
-          <Text style={[styles.quickActionText, { color: text }]}>Add Visit</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}
-          onPress={() => router.push({ pathname: "/(tabs)/plan", params: { createTrip: "1" } })}
-        >
-          <IconSymbol name="airplane" size={16} color={accent} />
-          <Text style={[styles.quickActionText, { color: text }]}>New Trip</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}
-          onPress={() => router.push({ pathname: "/(tabs)/plan", params: { createList: "1" } })}
-        >
-          <IconSymbol name="list.bullet" size={16} color={accent} />
-          <Text style={[styles.quickActionText, { color: text }]}>New List</Text>
-        </Pressable>
-      </View>
+      <PlanActionRow />
 
       {currentShows && currentShows.length > 0 && (
         <BrowseRail
@@ -275,9 +253,6 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
   sectionTitle: { fontSize: 18, fontWeight: "700" },
   seeMoreText: { fontSize: 14, fontWeight: "600" },
-  quickActionsRow: { flexDirection: "row", gap: GRID_GAP },
-  quickAction: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
-  quickActionText: { fontSize: 12, fontWeight: "600" },
   seeAllButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 2, marginVertical: -6 },
   seeAllText: { fontSize: 15, fontWeight: "600" },
   railContent: { gap: GRID_GAP, paddingRight: SECTION_PADDING },
