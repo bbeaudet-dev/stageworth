@@ -226,31 +226,32 @@ export function RankingSection({
                     {comparisonTarget.name}
                   </Text>
                 </Pressable>
-              </View>
-              <Pressable
-                onPress={onSkipComparison}
-                disabled={!canSkipComparison}
-                style={[
-                  styles.skipButton,
-                  {
-                    borderColor: c.border,
-                    backgroundColor: c.surfaceElevated,
-                  },
-                  !canSkipComparison && styles.skipButtonDisabled,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Skip this comparison"
-                accessibilityState={{ disabled: !canSkipComparison }}
-              >
-                <Text
+
+                <Pressable
+                  onPress={onSkipComparison}
+                  disabled={!canSkipComparison}
                   style={[
-                    styles.skipButtonText,
-                    { color: canSkipComparison ? c.text : c.mutedText },
+                    styles.skipButton,
+                    {
+                      borderColor: c.border,
+                      backgroundColor: c.surfaceElevated,
+                    },
+                    !canSkipComparison && styles.skipButtonDisabled,
                   ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Skip this comparison"
+                  accessibilityState={{ disabled: !canSkipComparison }}
                 >
-                  Skip
-                </Text>
-              </Pressable>
+                  <Text
+                    style={[
+                      styles.skipButtonText,
+                      { color: canSkipComparison ? c.text : c.mutedText },
+                    ]}
+                  >
+                    Skip
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           )}
 
