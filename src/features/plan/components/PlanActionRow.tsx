@@ -5,18 +5,12 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
-/**
- * Plan-tab quick-action row. Mirrors the shape of the Search tab's row so the
- * two top-of-screen action surfaces feel consistent. "Help Me Decide" is
- * scaffolded here but will be wired to the compare-shows action in Phase 3.
- */
 export function PlanActionRow() {
   const router = useRouter();
   const theme = useColorScheme() ?? "light";
   const c = Colors[theme];
 
   const handleHelpMeDecide = () => {
-    // TODO(phase-3): open HelpMeDecideSheet with the user's "Want to See" list
     Alert.alert("Coming soon", "Help Me Decide is on the way — you'll be able to compare a few shows and get a pick.");
   };
 

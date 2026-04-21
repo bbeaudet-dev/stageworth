@@ -23,19 +23,11 @@ function todayStr(): string {
   return new Date().toISOString().split("T")[0];
 }
 
-/**
- * Resolve the status badge for a pick using the same helpers the rest of the
- * app uses — closingStripBadge (urgency color fading from brand blue) when we
- * know a closing date, openRunStripBadge when the run is open-ended, nothing
- * otherwise. This keeps urgency color/label consistent with browse rails,
- * production cards, and trip playbills.
- */
 function resolvePickBadge(
   pick: FindShowPick,
   isDark: boolean
 ): ClosingStripBadge | null {
-  const today = todayStr();
-  const closing = closingStripBadge(pick.closingDate, today, isDark);
+  const closing = closingStripBadge(pick.closingDate, todayStr(), isDark);
   if (closing) return closing;
   if (pick.isOpenRun) return openRunStripBadge(isDark);
   return null;

@@ -8,16 +8,10 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { formatDateObject, parseISODate, toISODate } from "@/utils/dates";
 
 interface FindShowDatePickerProps {
-  /** ISO `YYYY-MM-DD`, or null for "Any time". */
   date: string | null;
   onChangeDate: (next: string | null) => void;
 }
 
-/**
- * Two-mode selector: an "Any time" chip and a "Specific date" chip. Tapping the
- * specific-date chip reveals the WheelDatePicker below. We don't auto-collapse
- * on change because users often adjust multiple columns.
- */
 export function FindShowDatePicker({ date, onChangeDate }: FindShowDatePickerProps) {
   const theme = useColorScheme() ?? "light";
   const c = Colors[theme];
@@ -35,7 +29,6 @@ export function FindShowDatePicker({ date, onChangeDate }: FindShowDatePickerPro
 
   const selectSpecific = () => {
     if (!specificSelected) {
-      // Default to today when flipping into "specific date" mode.
       onChangeDate(toISODate(new Date()));
     }
     setExpanded(true);

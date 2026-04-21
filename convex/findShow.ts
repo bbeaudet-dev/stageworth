@@ -14,8 +14,6 @@ import {
   resolveShowImageUrls,
 } from "./helpers";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const RATING_LABELS: Record<number, string> = {
   1: "Strongly Disagree",
   2: "Disagree",
@@ -24,17 +22,10 @@ const RATING_LABELS: Record<number, string> = {
   5: "Strongly Agree",
 };
 
-/** Prompt-time cap on any description. Candidate lists are long, so tighter than the single-show recommender. */
 const DESCRIPTION_PROMPT_MAX_CHARS = 240;
-
-/** Cap on the candidate pool handed to the model. 25 is enough signal without blowing the context budget. */
 const MAX_CANDIDATES = 25;
-
-/** How many loved/disliked descriptions to attach as taste context. */
 const LOVED_DESCRIPTIONS_LIMIT = 5;
 const DISLIKED_DESCRIPTIONS_LIMIT = 5;
-
-/** A production counts as "closing soon" (and gets a ranking bonus) when within this window of the anchor date. */
 const CLOSING_SOON_DAYS = 30;
 
 type ShowType =
@@ -59,8 +50,6 @@ const DAY_LABELS: Record<DayKey, string> = {
   fri: "Friday",
   sat: "Saturday",
 };
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function todayIso(): string {
   return new Date().toISOString().split("T")[0];
@@ -100,8 +89,6 @@ function formatAnchorDate(iso: string): string {
   });
 }
 
-// ─── Types shared across the internal query and action ───────────────────────
-
 export type FindShowUrgency = "closing_soon" | "open_run" | "standard";
 
 export type FindShowPick = {
@@ -140,7 +127,6 @@ type CandidateCard = {
   closingDate: string | null;
   isOpenRun: boolean;
   showScoreRating: number | null;
-  /** null when targetDate was not provided, or when weeklySchedule is missing. */
   hasScheduleOnTargetDate: boolean | null;
   posterUrl: string | null;
 };
@@ -167,7 +153,6 @@ export const gatherFindShowContext = internalQuery({
     const anchorDate = args.targetDate ?? todayIso();
     const userId = await getConvexUserId(ctx);
 
-    // ── Taste context ──────────────────────────────────────────────────────
     let preferences: { element: string; rating: number }[] = [];
     const ranked = {
       loved: [] as string[],
@@ -197,8 +182,6 @@ export const gatherFindShowContext = internalQuery({
       const dislikedIds: Id<"shows">[] = [];
 
       for (const row of userShows) {
-        // Any relationship at all (even "unranked") excludes the show from
-        // fresh suggestions — they've already considered it.
         excludedShowIds.add(String(row.showId));
         switch (row.tier) {
           case "loved":
@@ -266,7 +249,6 @@ export const gatherFindShowContext = internalQuery({
       );
     }
 
-    // ── Candidate productions ──────────────────────────────────────────────
     const productions = await ctx.db.query("productions").collect();
     const targetDayKey = args.targetDate
       ? dayKeyForIso(args.targetDate)
@@ -289,18 +271,13 @@ export const gatherFindShowContext = internalQuery({
       const show = await ctx.db.get(prod.showId);
       if (!show || !isCatalogPublished(show.dataStatus)) continue;
 
-      // Schedule gating for date-scoped queries
+      // If we have schedule data and the theatre is dark on targetDate, drop
+      // the candidate. Missing schedule data stays in the pool with a null flag.
       let hasScheduleOnTargetDate: boolean | null = null;
-      if (targetDayKey) {
-        if (prod.weeklySchedule) {
-          const list = prod.weeklySchedule[targetDayKey] ?? [];
-          hasScheduleOnTargetDate = Array.isArray(list) && list.length > 0;
-          // Strict rule when we DO have schedule data: drop the candidate if
-          // the theatre is dark that day. When schedule data is missing we
-          // keep the candidate with an "unknown" flag so the model and UI can
-          // mention that showtimes aren't confirmed.
-          if (!hasScheduleOnTargetDate) continue;
-        }
+      if (targetDayKey && prod.weeklySchedule) {
+        const list = prod.weeklySchedule[targetDayKey] ?? [];
+        hasScheduleOnTargetDate = Array.isArray(list) && list.length > 0;
+        if (!hasScheduleOnTargetDate) continue;
       }
 
       const productionPoster = await resolveProductionPosterUrl(ctx, prod);
@@ -327,7 +304,6 @@ export const gatherFindShowContext = internalQuery({
       });
     }
 
-    // Ranking: closing-soon first (date-anchored urgency), then ShowScore desc, then name.
     candidates.sort((a, b) => {
       const aClosing =
         a.closingDate && daysBetween(anchorDate, a.closingDate) <= CLOSING_SOON_DAYS;
@@ -353,8 +329,6 @@ export const gatherFindShowContext = internalQuery({
   },
 });
 
-// ─── Public action ───────────────────────────────────────────────────────────
-
 export const findShowForUser = action({
   args: { targetDate: v.optional(v.string()) },
   handler: async (ctx, args): Promise<FindShowResult> => {
@@ -378,7 +352,6 @@ export const findShowForUser = action({
       };
     }
 
-    // ── Build prompt blocks ────────────────────────────────────────────────
     let preferencesBlock: string;
     if (data.preferences && data.preferences.length > 0) {
       const lines = data.preferences.map(
@@ -435,8 +408,6 @@ export const findShowForUser = action({
       dislikedWithDescriptions
     );
 
-    // Candidate list: each candidate is keyed by showId so the model can only
-    // pick from the provided pool. Show it closing dates and schedule hints.
     const candidateLines = candidates.map((c, idx) => {
       const desc = truncateForPrompt(c.description) ?? "(no description)";
       const closingLabel = c.isOpenRun
@@ -569,7 +540,6 @@ Never return a fallback pick. Prefer the insufficient_context shape over guessin
       };
     }
 
-    // Build a lookup of candidates by string showId for model-output validation.
     const byId = new Map<string, CandidateCard>(
       candidates.map((c) => [String(c.showId), c])
     );
@@ -598,7 +568,6 @@ Never return a fallback pick. Prefer the insufficient_context shape over guessin
 
     const primary = toPick(parsed.primary);
     if (!primary) {
-      // Model hallucinated or returned no match; fail closed.
       return {
         kind: "insufficient_context",
         anchorDate,
@@ -618,9 +587,6 @@ Never return a fallback pick. Prefer the insufficient_context shape over guessin
       if (alternates.length >= 2) break;
     }
 
-    // Log every successful run to the shared recommendation history so these
-    // picks show up alongside "Would I like this?" rows. Best-effort — a
-    // failure here shouldn't fail the user's request for a suggestion.
     if (data.userId) {
       try {
         await ctx.runMutation(internal.findShow.saveFindShowPicks, {
@@ -654,14 +620,6 @@ Never return a fallback pick. Prefer the insufficient_context shape over guessin
   },
 });
 
-// ─── Persistence ─────────────────────────────────────────────────────────────
-
-/**
- * Write a batch of find-a-show picks into the shared aiRecommendationHistory
- * table. One row per pick so the history UI can render them inline with the
- * single-show "Would I like this?" results. Kind is tagged as "find_a_show"
- * so the UI can discriminate.
- */
 export const saveFindShowPicks = internalMutation({
   args: {
     userId: v.id("users"),

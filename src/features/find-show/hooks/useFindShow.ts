@@ -33,11 +33,6 @@ export type FindShowResult =
       reason: string;
     };
 
-/**
- * Wraps the findShowForUser Convex action with local loading/error/result
- * state so the screen can stay declarative. Returns a single `run` function
- * that fires the action and swaps in the latest result.
- */
 export function useFindShow() {
   const findShowForUser = useAction(api.findShow.findShowForUser);
 

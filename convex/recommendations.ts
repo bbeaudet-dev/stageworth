@@ -441,6 +441,7 @@ export const saveRecommendation = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.insert("aiRecommendationHistory", {
       ...args,
+      kind: "would_i_like",
       createdAt: Date.now(),
     });
   },

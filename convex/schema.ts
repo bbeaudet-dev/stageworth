@@ -574,11 +574,6 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
-  // AI recommendation history — one row per user × show recommendation event.
-  // Legacy shape: a "Would I like this?" per-show recommendation carries score +
-  // matched/mismatched elements. Newer engine paths (#165 find-a-show, #160
-  // help-me-decide) produce show-level suggestions without a 1-5 score; for
-  // those rows `kind` discriminates and the unused fields stay undefined.
   aiRecommendationHistory: defineTable({
     userId: v.id("users"),
     showId: v.id("shows"),
@@ -586,23 +581,17 @@ export default defineSchema({
     headline: v.string(),
     reasoning: v.string(),
     createdAt: v.number(),
-    // Legacy per-show "Would I Like This?" fields — required for kind="would_i_like",
-    // absent for find_a_show / help_me_decide.
+    kind: v.union(
+      v.literal("would_i_like"),
+      v.literal("find_a_show"),
+      v.literal("help_me_decide")
+    ),
+    // Only set for kind="would_i_like".
     score: v.optional(v.number()),
     matchedElements: v.optional(v.array(v.string())),
     mismatchedElements: v.optional(v.array(v.string())),
-    // New discriminator. Undefined = legacy "would_i_like" row.
-    kind: v.optional(
-      v.union(
-        v.literal("would_i_like"),
-        v.literal("find_a_show"),
-        v.literal("help_me_decide")
-      )
-    ),
-    // Pick rank within a multi-pick event (find_a_show / help_me_decide).
+    // Only set for multi-pick kinds (find_a_show, help_me_decide).
     rank: v.optional(v.union(v.literal("primary"), v.literal("alternate"))),
-    // Urgency tag from the engine (kept for display without recomputing from
-    // the production each time the history page renders).
     urgency: v.optional(
       v.union(
         v.literal("closing_soon"),
@@ -610,8 +599,6 @@ export default defineSchema({
         v.literal("standard")
       )
     ),
-    // Target date (YYYY-MM-DD) when the user explicitly scoped the request to
-    // a specific day. Undefined when the request was open-ended.
     targetDate: v.optional(v.string()),
   })
     .index("by_user", ["userId"])

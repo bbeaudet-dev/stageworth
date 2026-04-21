@@ -123,16 +123,14 @@ export default function RecommendationHistoryScreen() {
         ) : (
           <>
             {history.map((item) => {
-              const kind = item.kind ?? "would_i_like";
-              const hasScore = typeof item.score === "number";
-              const scoreColors = hasScore
-                ? (isDark ? SCORE_COLORS_DARK : SCORE_COLORS)[item.score as number] ??
-                  (isDark ? SCORE_COLORS_DARK[3] : SCORE_COLORS[3])
-                : null;
+              const scoreColors =
+                typeof item.score === "number"
+                  ? (isDark ? SCORE_COLORS_DARK : SCORE_COLORS)[item.score] ??
+                    (isDark ? SCORE_COLORS_DARK[3] : SCORE_COLORS[3])
+                  : null;
               const isExpanded = expandedIds.has(item._id);
-              const kindLabel = KIND_LABELS[kind] ?? "Recommendation";
-              const rankLabel =
-                item.rank === "alternate" ? "Alternate" : null;
+              const kindLabel = KIND_LABELS[item.kind];
+              const rankLabel = item.rank === "alternate" ? "Alternate" : null;
               const targetDateLabel = item.targetDate
                 ? ` · for ${formatDateShort(item.targetDate)}`
                 : "";
