@@ -429,17 +429,21 @@ export const findShowForUser = action({
 OUTPUT RULES (follow strictly):
 1. Show titles are proper nouns — quote them verbatim. Do NOT add, drop, or translate articles. Never say things like "the Hamilton" — use only the exact title given.
 2. Do NOT interpret a title's words literally. Use the provided description for subject matter.
-3. Do NOT reference the user's viewing, ranking, or "seen" history in the user-facing text. The user already knows what they've seen. Use their history internally to infer taste only.
-4. Do NOT mention the show's closing date, open-run status, running status, show type, or poster — those are displayed separately in the UI. Focus on taste match and cross-show comparison.
-5. Do NOT mention missing descriptions, context gaps, data availability, or "we don't know much" in the user-facing text. If you truly cannot produce 3 quality picks, return insufficient_context.
-6. You may ONLY pick showIds that appear in CANDIDATES. Never invent a candidate.
+3. Do NOT mention closing date, open-run status, running status, show type, or poster — those are displayed separately in the UI.
+4. Do NOT mention missing descriptions, context gaps, data availability, or "we don't know much" in user-facing text. If you truly cannot produce 3 quality picks, return insufficient_context.
+5. You may ONLY pick showIds that appear in CANDIDATES. Never invent a candidate.
+
+VOICE RULES (follow strictly):
+- Describe the SHOW, not the user. Prefer "Sharp, dense writing and a tight runtime" over "You'll appreciate the sharp writing". Do NOT narrate the user's viewing history.
+- Be concise and concrete. No filler phrases like "suitable for your taste", "right up your alley", "like your favorites", "as you know you love", "perfect for you", "you typically enjoy", or "you'll probably love".
+- You MAY cite ONE title from the user's LOVED or LIKED list in parentheses as a concrete anchor for a taste claim about the show, e.g. "Dense, character-driven drama (think Hadestown)." Use this sparingly — at most one parenthetical anchor per pick, and only when it sharpens an otherwise-vague claim. Never cite a disliked show.
 
 ${dateContextBlock}
 
 USER PROFILE:
 ${preferencesBlock}
 
-INFERRED TASTE (internal reference — do NOT narrate back to the user).
+INFERRED TASTE (internal reference — their loved/liked titles may be cited in parens per the Voice Rules; their disliked titles must never be named).
 ${showHistoryBlock}${lovedDescriptionsBlock}${dislikedDescriptionsBlock}
 
 CANDIDATES (currently running; already filtered to shows the user hasn't engaged with):
@@ -459,12 +463,12 @@ SUCCESS:
     "showId": "<id from the list>",
     "urgency": "closing_soon|open_run|standard",
     "headline": "<short 3-8 word hook>",
-    "fit": "<2 short sentences on why this matches this user's taste. Ground it in their element preferences and inferred taste patterns, NOT in the names of shows they've seen.>",
-    "edge": "<1 sentence explaining what this pick offers that the alternates don't — the concrete reason it's ranked first.>"
+    "fit": "<1-2 short sentences. Show-first voice — describe what the show has that this user responds to. At most one parenthetical citation of a loved/liked title.>",
+    "edge": "<1 short sentence naming what this pick offers that the alternates don't — the concrete reason it's ranked first.>"
   },
   "alternates": [
-    { "showId": "...", "urgency": "...", "headline": "...", "fit": "<1-2 sentences>", "tradeoff": "<1 sentence on why this ranks below the primary for this user.>" },
-    { "showId": "...", "urgency": "...", "headline": "...", "fit": "<1-2 sentences>", "tradeoff": "<1 sentence>" }
+    { "showId": "...", "urgency": "...", "headline": "...", "fit": "<1-2 short sentences, show-first>", "tradeoff": "<1 short sentence on the concrete gap vs. the primary.>" },
+    { "showId": "...", "urgency": "...", "headline": "...", "fit": "<1-2 short sentences>", "tradeoff": "<1 short sentence>" }
   ]
 }
 

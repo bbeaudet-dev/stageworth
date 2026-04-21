@@ -465,16 +465,20 @@ export const compareShowsForUser = action({
 OUTPUT RULES (follow strictly):
 1. Show titles are proper nouns \u2014 quote them verbatim. Do NOT add, drop, or translate articles. Never say things like "the Hamilton" \u2014 use only the exact title given.
 2. Do NOT interpret a title's words literally. Use each candidate's description for subject matter.
-3. Do NOT reference the user's viewing, ranking, or "seen" history in the user-facing text. They already know what they've seen. Use their history internally to infer taste only.
-4. Do NOT mention closing date, open-run status, running status, show type, or poster in your text \u2014 those render separately in the UI. Focus entirely on taste match and cross-show comparison.
-5. Do NOT mention missing descriptions, context gaps, data availability, or "we don't know much" in user-facing text. If you truly cannot distinguish the candidates for this user, return insufficient_context.
-6. You may ONLY use the showIds that appear in CANDIDATES. Never invent a candidate.
-7. Reasoning must be genuinely comparative. The winner's "edge" and each runner-up's "tradeoff" must reference WHY it ranks where it does versus the other specific candidates in this list \u2014 not generic statements.${tripContextBlock}
+3. Do NOT mention closing date, open-run status, running status, show type, or poster in your text \u2014 those render separately in the UI.
+4. Do NOT mention missing descriptions, context gaps, data availability, or "we don't know much" in user-facing text. If you truly cannot distinguish the candidates for this user, return insufficient_context.
+5. You may ONLY use the showIds that appear in CANDIDATES. Never invent a candidate.
+6. Reasoning must be genuinely comparative. The winner's "edge" and each runner-up's "tradeoff" must name what THIS show has or lacks versus the OTHER specific candidates in this list \u2014 not generic statements.
+
+VOICE RULES (follow strictly):
+- Describe the SHOWS, not the user. Prefer "Sharper writing and a tighter runtime than the others" over "You'll appreciate that this is sharper". Do NOT narrate the user's viewing history.
+- Be concise and concrete. No filler phrases like "suitable for your taste", "right up your alley", "like your favorites", "as you know you love", "perfect for you", "you typically enjoy", or "you'll probably love".
+- You MAY cite ONE title from the user's LOVED or LIKED list in parentheses as a concrete anchor for a taste claim about the show, e.g. "Dense, character-driven drama (think Hadestown)." Use this sparingly \u2014 at most one parenthetical anchor per pick, and only when it sharpens an otherwise-vague claim. Never cite a disliked show.${tripContextBlock}
 
 USER PROFILE:
 ${preferencesBlock}
 
-INFERRED TASTE (internal reference \u2014 do NOT narrate back to the user).
+INFERRED TASTE (internal reference \u2014 their loved/liked titles may be cited in parens per the Voice Rules; their disliked titles must never be named).
 ${showHistoryBlock}${lovedDescriptionsBlock}${dislikedDescriptionsBlock}
 
 CANDIDATES (the user is comparing these directly):
@@ -494,11 +498,11 @@ SUCCESS:
     "showId": "<id from the list>",
     "urgency": "closing_soon|open_run|standard",
     "headline": "<short 3-8 word hook>",
-    "fit": "<2 short sentences on why this matches this user's taste. Ground it in their element preferences and inferred taste patterns, NOT in the names of shows they've seen.>",
-    "edge": "<1 sentence naming what THIS show offers that the other candidates in this list do not \u2014 the concrete reason it wins the comparison.>"
+    "fit": "<1-2 short sentences. Show-first voice \u2014 describe what THIS show has. At most one parenthetical citation of a loved/liked title.>",
+    "edge": "<1 short sentence naming what THIS show offers that the other candidates in this list do not \u2014 the concrete reason it wins the comparison.>"
   },
   "runnersUp": [
-    { "showId": "...", "urgency": "...", "headline": "...", "fit": "<1-2 sentences>", "tradeoff": "<1 sentence on why this lost to the winner for this user. Reference the winner's edge or the specific gap.>" }
+    { "showId": "...", "urgency": "...", "headline": "...", "fit": "<1-2 short sentences, show-first>", "tradeoff": "<1 short sentence naming the concrete gap vs. the winner — e.g. 'Lighter on the character work than the winner.'>" }
   ]
 }
 

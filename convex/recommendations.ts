@@ -204,10 +204,14 @@ export const getShowRecommendation = action({
 OUTPUT RULES (follow strictly):
 1. Show titles are proper nouns — quote them verbatim. Do NOT add, drop, or translate articles. Do NOT paraphrase the title.
 2. Do NOT interpret a title's words literally (e.g. "The Unknown" is not "about the unknown" — it's a specific show with that name). Rely on the Description for subject matter.
-3. Do NOT reference the user's viewing, ranking, or "seen" history in the user-facing text. The user already knows what they've seen. Use their history internally to infer taste only.
-4. Do NOT mention the show's closing date, open-run status, or poster — those are displayed separately in the UI.
-5. Do NOT mention missing descriptions, context gaps, or "we don't know much about this show" in the user-facing text. If you genuinely cannot assess the show, return the insufficient_context shape described below.
-6. Never return a fallback score. If the signal is not there, return insufficient_context.
+3. Do NOT mention the show's closing date, open-run status, or poster — those are displayed separately in the UI.
+4. Do NOT mention missing descriptions, context gaps, or "we don't know much about this show" in the user-facing text. If you genuinely cannot assess the show, return the insufficient_context shape described below.
+5. Never return a fallback score. If the signal is not there, return insufficient_context.
+
+VOICE RULES (follow strictly):
+- Describe the SHOW, not the user. Prefer "This has sharp writing" over "You'll appreciate the sharp writing" or "You usually like shows with sharp writing". Minimize narration on what the user has seen or typically likes.
+- Be concise and concrete. No filler phrases like "suitable for your taste", "right up your alley", "like your favorites", "as you know", "perfect for you", "you typically enjoy", or "you'll probably love".
+- You MAY cite ONE title from the user's LOVED or LIKED list in parentheses as a concrete anchor for a taste claim about the show, e.g. "Sharp, character-driven storytelling (Hadestown)." Use this sparingly — at most one parenthetical anchor in the reasoning, and only when it adds concreteness. You can cite a loved or disliked show.
 
 ${typeGuidance}
 
@@ -217,10 +221,10 @@ ${showBlockLines.join("\n")}
 USER PROFILE:
 ${preferencesBlock}
 
-INFERRED TASTE (internal reference — do NOT narrate back to the user). Dislikes carry as much weight as loves for avoiding similar work.
+INFERRED TASTE (internal reference — their loved/liked titles may be cited in parens per the Voice Rules; their disliked titles must never be named).
 ${showHistoryBlock}${lovedDescriptionsBlock}${dislikedDescriptionsBlock}
 
-Assess how likely this user is to enjoy "${data.show.name}". Use the description for thematic reasoning (tone, subject matter, style) in addition to the name. If the show is similar in theme/tone to ones they disliked, weigh that heavily. If it aligns with loved/liked patterns, reflect that in your reasoning WITHOUT naming the specific shows they've seen.
+Assess how likely this user is to enjoy "${data.show.name}". Use the description for thematic reasoning (tone, subject matter, style). If the show is similar in theme/tone to ones they disliked, weigh that heavily without naming those shows. If it aligns with loved/liked patterns, describe the show's qualities directly and optionally anchor with one parenthetical example.
 
 Respond with ONLY a valid JSON object (no markdown, no code fences) matching one of these two shapes:
 
@@ -229,7 +233,7 @@ SUCCESS:
   "kind": "ok",
   "score": <integer 1-5, 1=probably won't enjoy, 3=could go either way, 5=almost certainly will love it>,
   "headline": "<short 3-8 word hook>",
-  "reasoning": "<2-3 sentences explaining why, grounded in their element preferences and inferred taste. Do not name their past shows or reference their viewing history.>",
+  "reasoning": "<2-3 short sentences describing the show and why it does or doesn't line up with this user's taste. Show-first voice. At most one parenthetical citation of a loved/liked title.>",
   "matchedElements": [<element names from their preferences that align with this show; can be empty>],
   "mismatchedElements": [<element names that might not align; can be empty>]
 }
