@@ -71,8 +71,6 @@ export default function FindShowScreen() {
           </Text>
           <Text style={[styles.introSub, { color: c.mutedText }]}>
             We&apos;ll match currently-running productions to your taste.
-            Optionally pick a date and we&apos;ll only suggest shows that are
-            playing that day.
           </Text>
         </View>
 

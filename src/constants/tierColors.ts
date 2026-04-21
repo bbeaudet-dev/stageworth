@@ -27,7 +27,7 @@ export const TIER_COLORS: Record<RankingTier, TierColorEntry> = {
   loved:    { bg: "#536DFE", border: "#3355E0", text: "#FFFFFF", label: "Loved It" },
   liked:    { bg: "#7B8EFE", border: "#536DFE", text: "#FFFFFF", label: "Liked It" },
   okay:     { bg: "#B9C2FD", border: "#8B9AFE", text: "#1E3399", label: "It Was Okay" },
-  disliked: { bg: "#ECE8F6", border: "#C4B8E8", text: "#6B51A8", label: "Didn't Like It" },
+  disliked: { bg: "#ECE8F6", border: "#C4B8E8", text: "#6B51A8", label: "Disliked It" },
   unranked: { bg: "#EBEBED", border: "#D1D5DB", text: "#7B7B86", label: "Unranked" },
 };
 
