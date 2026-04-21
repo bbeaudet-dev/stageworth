@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 import { requireConvexUserId } from "../auth";
 import { resolveShowImageUrls } from "../helpers";
 
@@ -94,6 +94,17 @@ export const getGlobalFeed = query({
       .order("desc")
       .take(limit);
     return await hydratePosts(ctx, posts, currentUserId);
+  },
+});
+
+export const deleteMyPost = mutation({
+  args: { postId: v.id("activityPosts") },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+    const post = await ctx.db.get(args.postId);
+    if (!post) throw new Error("Post not found");
+    if (post.actorUserId !== userId) throw new Error("Not authorized");
+    await ctx.db.delete(args.postId);
   },
 });
 

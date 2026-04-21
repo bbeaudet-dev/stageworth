@@ -1,4 +1,4 @@
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
@@ -11,6 +11,7 @@ import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { FeedPostCard } from "@/features/community/components/FeedPostCard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { formatRelativeVisitDate, isFutureDate } from "@/utils/dates";
@@ -114,10 +115,36 @@ export default function CommunityScreen() {
     selectedTab === "global" ? { limit: 40 } : "skip",
   );
   const unreadCount = useQuery(api.notifications.getUnreadCount) ?? 0;
+  const myProfile = useQuery(api.social.profiles.getMyProfile);
+  const deleteMyPost = useMutation(api.social.community.deleteMyPost);
   const [participantsModal, setParticipantsModal] = useState<{
     actor: TaggedUser;
     taggedUsers: TaggedUser[];
   } | null>(null);
+
+  const confirmDeletePost = (postId: Id<"activityPosts">, label: string) => {
+    Alert.alert(
+      "Delete post?",
+      `This will remove your ${label} from the community feed. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteMyPost({ postId });
+            } catch (err) {
+              Alert.alert(
+                "Couldn't delete post",
+                err instanceof Error ? err.message : "Please try again.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const posts = useMemo(
     () => (selectedTab === "following" ? (followingFeed ?? []) : (globalFeed ?? [])),
@@ -240,6 +267,18 @@ export default function CommunityScreen() {
             const actorLabel = getDisplayName(post.actor.name, post.actor.username);
             const isGlobal = selectedTab === "global";
             const tagged: TaggedUser[] = post.taggedUsers ?? [];
+            const isMine = !!myProfile && post.actor._id === myProfile._id;
+            const postLabel =
+              post.type === "visit_created"
+                ? "visit post"
+                : "challenge post";
+            const onLongPressForOwner = isMine
+              ? () =>
+                  confirmDeletePost(
+                    post._id as Id<"activityPosts">,
+                    postLabel,
+                  )
+              : undefined;
 
             // ── Shared inline elements ──────────────────────────────────────
             const actorInline = (
@@ -275,6 +314,7 @@ export default function CommunityScreen() {
                   backgroundColor={cardBackground}
                   borderColor={cardBorder}
                   onPress={() => router.push("/challenges")}
+                  onLongPress={onLongPressForOwner}
                   header={headerNode}
                   title={
                     <Text style={[styles.postTitle, { color: primaryTextColor }]}>
@@ -308,6 +348,7 @@ export default function CommunityScreen() {
                   backgroundColor={cardBackground}
                   borderColor={cardBorder}
                   onPress={() => router.push("/challenges")}
+                  onLongPress={onLongPressForOwner}
                   header={headerNode}
                   title={
                     <Text style={[styles.postTitle, { color: primaryTextColor }]}>
@@ -369,6 +410,7 @@ export default function CommunityScreen() {
                   backgroundColor={cardBackground}
                   borderColor={cardBorder}
                   onPress={() => router.push("/challenges")}
+                  onLongPress={onLongPressForOwner}
                   header={headerNode}
                   title={
                     <Text style={[styles.postTitle, { color: primaryTextColor }]}>
@@ -433,6 +475,7 @@ export default function CommunityScreen() {
                 key={post._id}
                 backgroundColor={cardBackground}
                 borderColor={cardBorder}
+                onLongPress={onLongPressForOwner}
                 header={headerNode}
                 title={
                   <Text style={[styles.postTitle, { color: primaryTextColor }]}>
