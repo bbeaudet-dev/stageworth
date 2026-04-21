@@ -63,6 +63,8 @@ export default function AddVisitScreen() {
     setSearchLow,
     setSearchHigh,
     setRankingResultIndex,
+    skipComparisonIndex,
+    resetSkippedComparisons,
     resetRankingFlow,
     selectExistingShow,
     selectCustomShow,
@@ -103,18 +105,21 @@ export default function AddVisitScreen() {
   const {
     isRankingsLoading,
     rankedShowsForRanking,
-    comparisonMidIndex,
+    comparisonIndex,
     comparisonTarget,
+    canSkipComparison,
     predictedResultIndex,
     rankingPhase,
     getInsertionIndexForRelative,
   } = useAddVisitRankingFlow({
     rankedShows,
     selectedShowId: state.selectedShowId,
+    selectedShowType: selectedShow?.type,
     selectedTier: state.selectedTier,
     searchLow: state.searchLow,
     searchHigh: state.searchHigh,
     rankingResultIndex: state.rankingResultIndex,
+    skippedComparisonIndices: state.skippedComparisonIndices,
   });
 
   const hasSelectedShow = state.selectedShowId !== null || state.customShowName !== null;
@@ -165,9 +170,12 @@ export default function AddVisitScreen() {
   };
 
   const handleComparisonAnswer = (prefersNewShow: boolean) => {
-    if (comparisonMidIndex === null || !state.selectedTier) return;
+    if (comparisonIndex === null || !state.selectedTier) return;
+    // Any answer advances the search window, so the per-step "skipped" set is
+    // no longer meaningful and should be cleared.
+    resetSkippedComparisons();
     if (prefersNewShow) {
-      const nextHigh = comparisonMidIndex;
+      const nextHigh = comparisonIndex;
       setSearchHigh(nextHigh);
       if (state.searchLow >= nextHigh) {
         setRankingResultIndex(getInsertionIndexForRelative(state.selectedTier, state.searchLow));
@@ -175,11 +183,16 @@ export default function AddVisitScreen() {
       return;
     }
 
-    const nextLow = comparisonMidIndex + 1;
+    const nextLow = comparisonIndex + 1;
     setSearchLow(nextLow);
     if (nextLow >= state.searchHigh) {
       setRankingResultIndex(getInsertionIndexForRelative(state.selectedTier, nextLow));
     }
+  };
+
+  const handleSkipComparison = () => {
+    if (comparisonIndex === null) return;
+    skipComparisonIndex(comparisonIndex);
   };
 
   const handleSave = async () => {
@@ -333,6 +346,8 @@ export default function AddVisitScreen() {
                   showNameForHeader={showNameForHeader}
                   showImageForHeader={selectedShowArt?.imageUrl ?? null}
                   onComparisonAnswer={handleComparisonAnswer}
+                  onSkipComparison={handleSkipComparison}
+                  canSkipComparison={canSkipComparison}
                   predictedResultIndex={predictedResultIndex}
                   rankedShowsForRanking={rankedShowsForRanking}
                 />
