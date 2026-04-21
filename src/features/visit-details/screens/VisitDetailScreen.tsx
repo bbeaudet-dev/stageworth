@@ -1,7 +1,14 @@
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/convex/_generated/api";
@@ -20,6 +27,7 @@ export default function VisitDetailScreen() {
     api.visits.getById,
     visitId ? { visitId: visitId as Id<"visits"> } : "skip"
   ) ?? null;
+  const removeVisit = useMutation(api.visits.remove);
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -27,6 +35,33 @@ export default function VisitDetailScreen() {
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const dangerColor = Colors[theme].danger;
+
+  const confirmDelete = () => {
+    if (!visit) return;
+    Alert.alert(
+      "Delete visit?",
+      `Remove the ${formatDate(visit.date)} visit? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await removeVisit({ visitId: visit._id });
+              router.back();
+            } catch (err) {
+              Alert.alert(
+                "Couldn't delete visit",
+                err instanceof Error ? err.message : "Please try again.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["bottom"]}>
@@ -58,17 +93,8 @@ export default function VisitDetailScreen() {
           <Text style={[styles.emptyText, { color: mutedTextColor }]}>Visit not found.</Text>
         ) : (
           <>
-            {/* Show poster + title */}
-            <Pressable
+            <View
               style={[styles.showHero, { backgroundColor: playbillMatBackground(theme) }]}
-              onPress={() =>
-                visit.show?._id
-                  ? router.push({
-                      pathname: "/show/[showId]",
-                      params: { showId: String(visit.show._id), name: visit.show.name ?? "Show" },
-                    })
-                  : undefined
-              }
             >
               {visit.show?.images[0] ? (
                 <Image
@@ -81,11 +107,8 @@ export default function VisitDetailScreen() {
                 <Text style={[styles.showHeroTitle, { color: primaryTextColor }]} numberOfLines={2}>
                   {visit.show?.name ?? "Unknown Show"}
                 </Text>
-                {visit.show?._id ? (
-                  <Text style={[styles.showHeroLink, { color: accentColor }]}>View show details →</Text>
-                ) : null}
               </View>
-            </Pressable>
+            </View>
             <DetailCard title="Date">
               <Text style={[detailCardStyles.value, { color: primaryTextColor }]}>{formatDate(visit.date)}</Text>
             </DetailCard>
@@ -99,6 +122,20 @@ export default function VisitDetailScreen() {
                 <Text style={[detailCardStyles.subtle, { color: mutedTextColor }]}>{visit.notes}</Text>
               </DetailCard>
             ) : null}
+
+            <Pressable
+              onPress={confirmDelete}
+              style={({ pressed }) => [
+                styles.deleteButton,
+                { borderColor: dangerColor, opacity: pressed ? 0.7 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Delete this visit"
+            >
+              <Text style={[styles.deleteButtonText, { color: dangerColor }]}>
+                Delete Visit
+              </Text>
+            </Pressable>
           </>
         )}
       </ScrollView>
@@ -132,8 +169,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 22,
   },
-  showHeroLink: {
-    fontSize: 13,
+  deleteButton: {
+    marginTop: 16,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteButtonText: {
+    fontSize: 15,
     fontWeight: "600",
   },
 });

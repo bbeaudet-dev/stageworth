@@ -205,7 +205,22 @@ export function VisitsList({ showId }: { showId: Id<"shows"> }) {
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => removeVisit({ visitId: visit._id })}
+              onPress={() =>
+                Alert.alert(
+                  "Delete visit?",
+                  `Remove the ${formatVisitDate(visit.date)} visit? This cannot be undone.`,
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: () => {
+                        void removeVisit({ visitId: visit._id });
+                      },
+                    },
+                  ],
+                )
+              }
               hitSlop={8}
             >
               <Text style={[accordionStyles.visitRemove, { color: mutedTextColor }]}>✕</Text>
