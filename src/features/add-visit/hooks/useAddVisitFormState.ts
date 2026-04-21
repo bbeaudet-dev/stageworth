@@ -20,6 +20,8 @@ type Action =
   | { type: "SET_SEARCH_LOW"; value: number }
   | { type: "SET_SEARCH_HIGH"; value: number }
   | { type: "SET_RANKING_RESULT_INDEX"; value: number | null }
+  | { type: "SKIP_COMPARISON_INDEX"; value: number }
+  | { type: "RESET_SKIPPED_COMPARISONS" }
   | { type: "RESET_RANKING_FLOW" }
   | { type: "SELECT_EXISTING_SHOW"; showId: Id<"shows"> }
   | { type: "SELECT_CUSTOM_SHOW"; name: string }
@@ -59,8 +61,23 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
       return { ...state, searchHigh: action.value };
     case "SET_RANKING_RESULT_INDEX":
       return { ...state, rankingResultIndex: action.value };
+    case "SKIP_COMPARISON_INDEX":
+      return state.skippedComparisonIndices.includes(action.value)
+        ? state
+        : { ...state, skippedComparisonIndices: [...state.skippedComparisonIndices, action.value] };
+    case "RESET_SKIPPED_COMPARISONS":
+      return state.skippedComparisonIndices.length === 0
+        ? state
+        : { ...state, skippedComparisonIndices: [] };
     case "RESET_RANKING_FLOW":
-      return { ...state, selectedTier: null, searchLow: 0, searchHigh: 0, rankingResultIndex: null };
+      return {
+        ...state,
+        selectedTier: null,
+        searchLow: 0,
+        searchHigh: 0,
+        rankingResultIndex: null,
+        skippedComparisonIndices: [],
+      };
     case "SELECT_EXISTING_SHOW":
       return {
         ...state,
@@ -76,6 +93,7 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
         searchLow: 0,
         searchHigh: 0,
         rankingResultIndex: null,
+        skippedComparisonIndices: [],
       };
     case "SELECT_CUSTOM_SHOW":
       return {
@@ -92,6 +110,7 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
         searchLow: 0,
         searchHigh: 0,
         rankingResultIndex: null,
+        skippedComparisonIndices: [],
       };
     case "CLEAR_SELECTION":
       return {
@@ -108,6 +127,7 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
         searchLow: 0,
         searchHigh: 0,
         rankingResultIndex: null,
+        skippedComparisonIndices: [],
       };
     case "RESET_FORM":
       return getInitialAddVisitFormState();
@@ -148,6 +168,8 @@ export function useAddVisitFormState() {
     setSearchLow: (value: number) => dispatch({ type: "SET_SEARCH_LOW", value }),
     setSearchHigh: (value: number) => dispatch({ type: "SET_SEARCH_HIGH", value }),
     setRankingResultIndex: (value: number | null) => dispatch({ type: "SET_RANKING_RESULT_INDEX", value }),
+    skipComparisonIndex: (value: number) => dispatch({ type: "SKIP_COMPARISON_INDEX", value }),
+    resetSkippedComparisons: () => dispatch({ type: "RESET_SKIPPED_COMPARISONS" }),
     resetRankingFlow: () => dispatch({ type: "RESET_RANKING_FLOW" }),
     selectExistingShow: (showId: Id<"shows">) => dispatch({ type: "SELECT_EXISTING_SHOW", showId }),
     selectCustomShow: (name: string) => dispatch({ type: "SELECT_CUSTOM_SHOW", name }),

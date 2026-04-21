@@ -10,6 +10,7 @@ export type RankedShowForRanking = {
   images: string[];
   tier?: string;
   isUnranked?: boolean;
+  type?: ShowType;
 };
 
 export type UserShowStatus = {
@@ -35,5 +36,11 @@ export type AddVisitFormState = {
   searchLow: number;
   searchHigh: number;
   rankingResultIndex: number | null;
+  /**
+   * Indices (within the current tier comparison list) that the user has temporarily
+   * skipped for the *current* binary-search step. Cleared whenever the search window
+   * advances (low/high change) or the flow is reset.
+   */
+  skippedComparisonIndices: number[];
   taggedUserIds: Id<"users">[];
 };

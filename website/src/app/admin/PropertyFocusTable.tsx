@@ -131,6 +131,7 @@ export function PropertyFocusTable({
     };
 
     if (isEditing) {
+      const editingLongText = longTextField;
       return (
         <form
           className="flex flex-col gap-1"
@@ -144,14 +145,34 @@ export function PropertyFocusTable({
             }
           }}
         >
-          <input
-            ref={focusEditRef}
-            type="text"
-            value={focusEdit!.value}
-            onChange={(e) => setFocusEdit((prev) => prev ? { ...prev, value: e.target.value } : null)}
-            className="w-28 rounded border border-gray-300 px-2 py-1 text-xs focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
-            disabled={busy}
-          />
+          {editingLongText ? (
+            <textarea
+              autoFocus
+              value={focusEdit!.value}
+              onChange={(e) =>
+                setFocusEdit((prev) =>
+                  prev ? { ...prev, value: e.target.value } : null
+                )
+              }
+              rows={8}
+              className="w-full min-w-[22rem] rounded border border-gray-300 px-2 py-1.5 text-xs leading-5 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              disabled={busy}
+            />
+          ) : (
+            <input
+              ref={focusEditRef}
+              type="text"
+              autoFocus
+              value={focusEdit!.value}
+              onChange={(e) =>
+                setFocusEdit((prev) =>
+                  prev ? { ...prev, value: e.target.value } : null
+                )
+              }
+              className="w-28 rounded border border-gray-300 px-2 py-1 text-xs focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              disabled={busy}
+            />
+          )}
           <div className="flex gap-1">
             <button type="submit" disabled={busy} className="rounded bg-gray-900 px-2 py-0.5 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-50">Save</button>
             <button type="button" onClick={() => setFocusEdit(null)} disabled={busy} className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50">Cancel</button>

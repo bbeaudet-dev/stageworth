@@ -24,6 +24,7 @@ import { ShowHeroSection } from "@/features/show-details/components/ShowHeroSect
 import { ProductionsRail } from "@/features/show-details/components/ProductionsRail";
 import { ShowVisitsList } from "@/features/show-details/components/ShowVisitsList";
 import { ShowRecommendationBlock } from "@/features/show-details/components/ShowRecommendationBlock";
+import { ShowScoreBadgeRow } from "@/features/show-details/components/ShowScoreBadge";
 
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -132,7 +133,17 @@ export default function ShowDetailScreen() {
 
         <ShowVisitsList visits={visits} />
 
-        <ShowRecommendationBlock showId={showId} showName={show?.name} isSignedIn={!!session} />
+        <View style={styles.recSection}>
+          {show?.showScoreRating != null && (show?.name ?? params.name) ? (
+            <ShowScoreBadgeRow
+              showName={show.name ?? params.name ?? ""}
+              rating={show.showScoreRating}
+              reviewCount={show.showScoreCount}
+              slug={show.showScoreSlug}
+            />
+          ) : null}
+          <ShowRecommendationBlock showId={showId} showName={show?.name} isSignedIn={!!session} />
+        </View>
 
         <CatalogFeedbackLink
           source="show_detail"
@@ -215,6 +226,7 @@ export default function ShowDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, gap: 12 },
+  recSection: { gap: 10 },
   section: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, overflow: "hidden" },
   sheetOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)" },
   sheet: { maxHeight: "65%", borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12 },

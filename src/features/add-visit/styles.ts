@@ -326,6 +326,7 @@ export const styles = StyleSheet.create({
   comparisonCards: {
     flexDirection: "row",
     justifyContent: "center",
+    alignItems: "center",
     gap: 10,
   },
   playbillCard: {
@@ -361,6 +362,19 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     paddingHorizontal: 10,
     paddingTop: 8,
+  },
+  skipButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  skipButtonDisabled: {
+    opacity: 0.4,
+  },
+  skipButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   resultBlock: {
     marginTop: 8,
