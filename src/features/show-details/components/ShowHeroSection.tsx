@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { Colors } from "@/constants/theme";
@@ -9,15 +9,6 @@ import { showTypeChip, showTypeLabel } from "@/constants/showTypeColors";
 import type { Id } from "@/convex/_generated/dataModel";
 import { playbillMatBackground } from "@/features/browse/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-
-function deriveShowScoreSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/['']/g, "")
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 /** Target preview length for the collapsed description state. */
 const DESCRIPTION_PREVIEW_CHARS = 200;
@@ -68,9 +59,6 @@ interface ShowHeroSectionProps {
     name: string;
     type?: string | null;
     images?: (string | null)[] | null;
-    showScoreRating?: number | null;
-    showScoreCount?: number | string | null;
-    showScoreSlug?: string | null;
     description?: string | null;
   } | null | undefined;
   placeholderName?: string;
@@ -114,7 +102,7 @@ export function ShowHeroSection({
 
   return (
     <>
-      {/* Hero row: playbill + name/type/ShowScore */}
+      {/* Hero row: playbill + name / type / description */}
       <View style={styles.heroRow}>
         <View style={[styles.playbillWrap, { width: playbillSize, height: playbillSize * 1.4 }]}>
           {posterUrl ? (
@@ -142,24 +130,23 @@ export function ShowHeroSection({
               </Text>
             </View>
           )}
-          {show?.showScoreRating != null && (
-            <Pressable
-              onPress={() => {
-                const slug = show.showScoreSlug ?? deriveShowScoreSlug(show.name);
-                Linking.openURL(`https://www.show-score.com/broadway-shows/${slug}`);
-              }}
-              style={({ pressed }) => [
-                styles.showScoreBadge,
-                { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "#F5F5F5", opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Text style={[styles.showScoreValue, { color: c.text }]}>
-                {show.showScoreRating}%
+          {description && preview && (
+            <View style={styles.descriptionWrap}>
+              <Text style={[styles.descriptionText, { color: c.text }]}>
+                {expanded || !needsTruncate ? description : `${preview}\u2026`}
               </Text>
-              <Text style={[styles.showScoreLabel, { color: c.mutedText }]}>
-                ShowScore{show.showScoreCount ? ` · ${show.showScoreCount} reviews` : ""}
-              </Text>
-            </Pressable>
+              {needsTruncate && (
+                <Pressable
+                  onPress={() => setExpanded((v) => !v)}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.readMoreBtn, { opacity: pressed ? 0.6 : 1 }]}
+                >
+                  <Text style={[styles.readMoreText, { color: c.accent }]}>
+                    {expanded ? "Read less" : "Read more"}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
           )}
         </View>
       </View>
@@ -239,25 +226,6 @@ export function ShowHeroSection({
           );
         })()}
       </View>
-
-      {description && preview && (
-        <View style={styles.descriptionWrap}>
-          <Text style={[styles.descriptionText, { color: c.text }]}>
-            {expanded || !needsTruncate ? description : `${preview}\u2026`}
-          </Text>
-          {needsTruncate && (
-            <Pressable
-              onPress={() => setExpanded((v) => !v)}
-              hitSlop={8}
-              style={({ pressed }) => [styles.readMoreBtn, { opacity: pressed ? 0.6 : 1 }]}
-            >
-              <Text style={[styles.readMoreText, { color: c.accent }]}>
-                {expanded ? "Read less" : "Read more"}
-              </Text>
-            </Pressable>
-          )}
-        </View>
-      )}
     </>
   );
 }
@@ -270,9 +238,6 @@ const styles = StyleSheet.create({
   showName: { fontSize: 22, fontWeight: "800", lineHeight: 26 },
   typeBadge: { alignSelf: "flex-start", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
   typeBadgeText: { fontSize: 12, fontWeight: "700", letterSpacing: 0.3 },
-  showScoreBadge: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginTop: 2 },
-  showScoreValue: { fontSize: 15, fontWeight: "800" },
-  showScoreLabel: { fontSize: 12, fontWeight: "500" },
   primaryBtn: { borderRadius: 10, alignItems: "center", justifyContent: "center", paddingVertical: 13 },
   primaryBtnText: { fontWeight: "700", fontSize: 15 },
   secondaryBtnRow: { flexDirection: "row", gap: 10 },
