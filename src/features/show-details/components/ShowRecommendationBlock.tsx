@@ -24,6 +24,15 @@ type RecInsufficient = {
 
 type RecResult = RecOk | RecInsufficient;
 
+// Older saved responses sometimes echoed the full preference phrase.
+// Strip common sentence wrappers so chips show just the element name.
+function cleanElementLabel(raw: string): string {
+  return raw
+    .replace(/\s+is important to me$/i, "")
+    .replace(/^"|"$/g, "")
+    .trim();
+}
+
 interface ShowRecommendationBlockProps {
   showId: Id<"shows"> | "";
   showName?: string;
@@ -153,7 +162,7 @@ export function ShowRecommendationBlock({ showId, showName, isSignedIn }: ShowRe
               key={el}
               style={[styles.recChip, { backgroundColor: isDark ? "rgba(16,185,129,0.15)" : "#ECFDF5", borderColor: isDark ? "rgba(16,185,129,0.3)" : "#A7F3D0" }]}
             >
-              <Text style={[styles.recChipText, { color: isDark ? "#6EE7B7" : "#065F46" }]}>{el}</Text>
+              <Text style={[styles.recChipText, { color: isDark ? "#6EE7B7" : "#065F46" }]}>{cleanElementLabel(el)}</Text>
             </View>
           ))}
         </View>
@@ -165,7 +174,7 @@ export function ShowRecommendationBlock({ showId, showName, isSignedIn }: ShowRe
               key={el}
               style={[styles.recChip, { backgroundColor: isDark ? "rgba(239,68,68,0.12)" : "#FEF2F2", borderColor: isDark ? "rgba(239,68,68,0.25)" : "#FECACA" }]}
             >
-              <Text style={[styles.recChipText, { color: isDark ? "#FCA5A5" : "#991B1B" }]}>{el}</Text>
+              <Text style={[styles.recChipText, { color: isDark ? "#FCA5A5" : "#991B1B" }]}>{cleanElementLabel(el)}</Text>
             </View>
           ))}
         </View>
