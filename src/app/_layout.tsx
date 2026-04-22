@@ -86,6 +86,10 @@ export default function RootLayout() {
                     options={{ presentation: "modal", headerShown: false }}
                   />
                   <Stack.Screen
+                    name="accept-visit/[visitId]"
+                    options={{ presentation: "modal", headerShown: false }}
+                  />
+                  <Stack.Screen
                     name="edit-profile"
                     options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
                   />

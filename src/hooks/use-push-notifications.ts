@@ -50,6 +50,15 @@ function getRouteFromNotificationData(
 ): { pathname: string; params?: Record<string, string> } | null {
   switch (data.type) {
     case "visit_tag":
+      // From a push we can't check participant status cheaply — send users
+      // to the accept screen by default. If they've already accepted, that
+      // screen redirects them to the normal visit detail view.
+      if (data.visitId) {
+        return { pathname: "/accept-visit/[visitId]", params: { visitId: data.visitId } };
+      }
+      return null;
+    case "visit_tag_accepted":
+    case "visit_tag_declined":
       if (data.visitId) {
         return { pathname: "/visit/[visitId]", params: { visitId: data.visitId } };
       }

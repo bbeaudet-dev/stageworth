@@ -27,6 +27,7 @@ type NotificationListItem = {
   postId?: string | null;
   tripId?: Id<"trips"> | null;
   myTripMembershipStatus?: string | null;
+  myVisitParticipantStatus?: string | null;
   actor: { _id: Id<"users">; username: string; name?: string | null; avatarUrl: string | null } | null;
   show: { _id: Id<"shows">; name: string; images: string[] } | null;
   trip: { _id: Id<"trips">; name: string } | null;
@@ -54,6 +55,8 @@ function inboxForType(type: string): InboxTab | null {
     case "post_like":
       return "posts";
     case "visit_tag":
+    case "visit_tag_accepted":
+    case "visit_tag_declined":
       return "tags";
     case "new_follow":
       return "follows";
@@ -80,7 +83,9 @@ export default function NotificationsScreen() {
   const markAllAsRead = useMutation(api.notifications.markAllAsRead);
   const markAsRead = useMutation(api.notifications.markAsRead);
   const respondToTripInvitation = useMutation(api.trips.trips.respondToTripInvitation);
+  const declineVisitTag = useMutation(api.visitParticipants.declineVisitTag);
   const [inviteResponding, setInviteResponding] = useState<string | null>(null);
+  const [visitTagResponding, setVisitTagResponding] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<InboxTab>("all");
   const guard = useNavGuard();
   const onAccent = Colors[theme].onAccent;
@@ -120,7 +125,7 @@ export default function NotificationsScreen() {
       case "posts":
         return ["post_like"];
       case "tags":
-        return ["visit_tag"];
+        return ["visit_tag", "visit_tag_accepted", "visit_tag_declined"];
       case "follows":
         return ["new_follow"];
       case "trips":
@@ -155,6 +160,20 @@ export default function NotificationsScreen() {
       await markAsRead({ notificationId: notif._id });
     }
     if (notif.type === "visit_tag" && notif.visitId) {
+      // Pending invites route to the accept screen; accepted/declined go to
+      // the standard visit detail view.
+      if (notif.myVisitParticipantStatus === "pending") {
+        router.push({
+          pathname: "/accept-visit/[visitId]",
+          params: { visitId: notif.visitId },
+        });
+      } else {
+        router.push({ pathname: "/visit/[visitId]", params: { visitId: notif.visitId } });
+      }
+    } else if (
+      (notif.type === "visit_tag_accepted" || notif.type === "visit_tag_declined") &&
+      notif.visitId
+    ) {
       router.push({ pathname: "/visit/[visitId]", params: { visitId: notif.visitId } });
     } else if (notif.type === "post_like" && notif.visitId) {
       router.push({ pathname: "/visit/[visitId]", params: { visitId: notif.visitId } });
@@ -172,6 +191,40 @@ export default function NotificationsScreen() {
       router.push({ pathname: "/show/[showId]", params: { showId: notif.show._id } });
     }
   });
+
+  const handleVisitTagAccept = (notif: NotificationListItem) => {
+    if (!notif.visitId) return;
+    if (!notif.isRead) void markAsRead({ notificationId: notif._id });
+    router.push({
+      pathname: "/accept-visit/[visitId]",
+      params: { visitId: notif.visitId },
+    });
+  };
+
+  const handleVisitTagDecline = async (notif: NotificationListItem) => {
+    if (!notif.visitId) return;
+    Alert.alert("Decline visit tag?", "You won't see this visit in your list.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Decline",
+        style: "destructive",
+        onPress: async () => {
+          setVisitTagResponding(notif._id);
+          try {
+            if (!notif.isRead) await markAsRead({ notificationId: notif._id });
+            await declineVisitTag({ visitId: notif.visitId as Id<"visits"> });
+          } catch (err) {
+            Alert.alert(
+              "Couldn't decline",
+              err instanceof Error ? err.message : "Please try again.",
+            );
+          } finally {
+            setVisitTagResponding(null);
+          }
+        },
+      },
+    ]);
+  };
 
   const handleInviteRespond = async (notif: NotificationListItem, accept: boolean) => {
     if (!notif.tripId) return;
@@ -321,6 +374,14 @@ export default function NotificationsScreen() {
                       <>{" tagged you in their visit to "}<Text style={styles.boldName}>{notif.show.name}</Text></>
                     )}
                     {notif.type === "visit_tag" && !notif.show && " tagged you in a visit"}
+                    {notif.type === "visit_tag_accepted" && notif.show && (
+                      <>{" accepted your tag on "}<Text style={styles.boldName}>{notif.show.name}</Text></>
+                    )}
+                    {notif.type === "visit_tag_accepted" && !notif.show && " accepted your visit tag"}
+                    {notif.type === "visit_tag_declined" && notif.show && (
+                      <>{" declined your tag on "}<Text style={styles.boldName}>{notif.show.name}</Text></>
+                    )}
+                    {notif.type === "visit_tag_declined" && !notif.show && " declined your visit tag"}
                     {notif.type === "post_like" && notif.show && (
                       <>{" liked your post about "}<Text style={styles.boldName}>{notif.show.name}</Text></>
                     )}
@@ -372,9 +433,54 @@ export default function NotificationsScreen() {
                     <Text style={[styles.inviteRespondedLabel, { color: mutedText }]}>
                       {notif.myTripMembershipStatus === "accepted" ? "✓ Joined" : "Declined"}
                     </Text>
+                  ) : notif.type === "visit_tag" &&
+                    notif.visitId &&
+                    notif.myVisitParticipantStatus === "pending" ? (
+                    <View style={styles.inviteActions}>
+                      <Pressable
+                        style={[
+                          styles.inviteBtn,
+                          { backgroundColor: accent, opacity: visitTagResponding === notif._id ? 0.5 : 1 },
+                        ]}
+                        disabled={visitTagResponding === notif._id}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          handleVisitTagAccept(notif);
+                        }}
+                      >
+                        <Text style={[styles.inviteBtnText, { color: onAccent }]}>Accept</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[
+                          styles.inviteBtn,
+                          styles.inviteBtnOutline,
+                          { borderColor: cardBorder, opacity: visitTagResponding === notif._id ? 0.5 : 1 },
+                        ]}
+                        disabled={visitTagResponding === notif._id}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          handleVisitTagDecline(notif);
+                        }}
+                      >
+                        {visitTagResponding === notif._id ? (
+                          <ActivityIndicator size="small" color={mutedText} />
+                        ) : (
+                          <Text style={[styles.inviteBtnText, { color: mutedText }]}>Decline</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  ) : notif.type === "visit_tag" &&
+                    (notif.myVisitParticipantStatus === "accepted" ||
+                      notif.myVisitParticipantStatus === "declined") ? (
+                    <Text style={[styles.inviteRespondedLabel, { color: mutedText }]}>
+                      {notif.myVisitParticipantStatus === "accepted" ? "✓ Accepted" : "Declined"}
+                    </Text>
                   ) : null}
                 </View>
-                {(notif.type === "visit_tag" || notif.type === "post_like") && notif.show?.images[0] && (
+                {(notif.type === "visit_tag" ||
+                  notif.type === "visit_tag_accepted" ||
+                  notif.type === "visit_tag_declined" ||
+                  notif.type === "post_like") && notif.show?.images[0] && (
                   <Image
                     source={{ uri: notif.show.images[0] }}
                     style={[styles.showThumb, { backgroundColor: playbillMatBackground(theme) }]}
