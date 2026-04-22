@@ -17,6 +17,7 @@ import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { FeedPostCard } from "@/features/community/components/FeedPostCard";
+import { LikeButton } from "@/features/community/components/LikeButton";
 import { ReportSheet } from "@/features/safety/components/ReportSheet";
 import { useSafetyActions } from "@/features/safety/components/useSafetyActions";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -143,6 +144,8 @@ export default function CommunityScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
   const [selectedTab, setSelectedTab] = useState<FeedTab>("global");
+  const [feedLimit, setFeedLimit] = useState(20);
+  const FEED_PAGE_SIZE = 20;
 
   const handlePlusPress = () => {
     Alert.alert("Quick Actions", undefined, [
@@ -158,11 +161,11 @@ export default function CommunityScreen() {
 
   const followingFeed = useQuery(
     api.social.community.getFollowingFeed,
-    selectedTab === "following" ? { limit: 40 } : "skip",
+    selectedTab === "following" ? { limit: feedLimit } : "skip",
   );
   const globalFeed = useQuery(
     api.social.community.getGlobalFeed,
-    selectedTab === "global" ? { limit: 40 } : "skip",
+    selectedTab === "global" ? { limit: feedLimit } : "skip",
   );
   const unreadCount = useQuery(api.notifications.getUnreadCount) ?? 0;
   const myProfile = useQuery(api.social.profiles.getMyProfile);
@@ -284,7 +287,10 @@ export default function CommunityScreen() {
                   { borderColor: segmentBorder, backgroundColor: segmentBackground },
                   active && { backgroundColor: segmentBgActive, borderColor: segmentBgActive },
                 ]}
-                onPress={() => setSelectedTab(tab)}
+                onPress={() => {
+                  setSelectedTab(tab);
+                  setFeedLimit(FEED_PAGE_SIZE);
+                }}
               >
                 <Text
                   style={[
@@ -403,6 +409,13 @@ export default function CommunityScreen() {
                         </Text>
                       </>
                     }
+                    footer={
+                      <LikeButton
+                        postId={post._id as Id<"activityPosts">}
+                        liked={post.likedByViewer ?? false}
+                        likeCount={post.likeCount ?? 0}
+                      />
+                    }
                   />
                 </OwnerSwipeable>
               );
@@ -471,6 +484,13 @@ export default function CommunityScreen() {
                       ) : undefined
                     }
                     posterBackground={posterBackground}
+                    footer={
+                      <LikeButton
+                        postId={post._id as Id<"activityPosts">}
+                        liked={post.likedByViewer ?? false}
+                        likeCount={post.likeCount ?? 0}
+                      />
+                    }
                   />
                 </OwnerSwipeable>
               );
@@ -542,6 +562,13 @@ export default function CommunityScreen() {
                       ) : undefined
                     }
                     posterBackground={posterBackground}
+                    footer={
+                      <LikeButton
+                        postId={post._id as Id<"activityPosts">}
+                        liked={post.likedByViewer ?? false}
+                        likeCount={post.likeCount ?? 0}
+                      />
+                    }
                   />
                 </OwnerSwipeable>
               );
@@ -665,10 +692,28 @@ export default function CommunityScreen() {
                     </Pressable>
                   }
                   posterBackground={posterBackground}
+                  footer={
+                    <LikeButton
+                      postId={post._id as Id<"activityPosts">}
+                      liked={post.likedByViewer ?? false}
+                      likeCount={post.likeCount ?? 0}
+                    />
+                  }
                 />
               </OwnerSwipeable>
             );
           })}
+
+        {!isLoading && posts.length > 0 && posts.length >= feedLimit && (
+          <Pressable
+            style={[styles.loadMoreBtn, { borderColor: cardBorder }]}
+            onPress={() => setFeedLimit((prev) => prev + FEED_PAGE_SIZE)}
+          >
+            <Text style={[styles.loadMoreText, { color: Colors[theme].accent }]}>
+              Load more
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
 
       <ParticipantsSheet
@@ -774,6 +819,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: "center",
     marginTop: 40,
+  },
+  loadMoreBtn: {
+    alignItems: "center",
+    paddingVertical: 12,
+    marginTop: 4,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   // ── Text styles shared across post types ───────────────────────────────────
   postTitle: {

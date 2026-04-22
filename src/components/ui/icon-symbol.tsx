@@ -41,6 +41,8 @@ const MAPPING = {
   'exclamationmark.2': 'priority-high',
   'hand.thumbsup.fill': 'thumb-up',
   'hand.thumbsup': 'thumb-up-off-alt',
+  heart: 'favorite-border',
+  'heart.fill': 'favorite',
   'hand.thumbsdown.fill': 'thumb-down',
   'hand.thumbsdown': 'thumb-down-off-alt',
   'minus.circle': 'remove-circle-outline',

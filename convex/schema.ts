@@ -419,6 +419,7 @@ export default defineSchema({
       v.literal("trip_invite"),
       v.literal("trip_invite_accepted"),
       v.literal("trip_invite_declined"),
+      v.literal("post_like"),
       // system-actor types
       v.literal("show_announced"),
       v.literal("closing_soon"),
@@ -426,6 +427,7 @@ export default defineSchema({
     visitId: v.optional(v.id("visits")),
     showId: v.optional(v.id("shows")),
     productionId: v.optional(v.id("productions")),
+    postId: v.optional(v.id("activityPosts")),
     tripId: v.optional(v.id("trips")),
     isRead: v.boolean(),
     createdAt: v.number(),
@@ -455,10 +457,24 @@ export default defineSchema({
     challengeYear: v.optional(v.number()),
     challengeTarget: v.optional(v.number()),
     challengeProgress: v.optional(v.number()),
+    // Denormalized like count — kept in sync by postLikes mutations so feeds
+    // don't have to aggregate on every read.
+    likeCount: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_createdAt", ["createdAt"])
     .index("by_actor_createdAt", ["actorUserId", "createdAt"]),
+
+  // One row per (post, liker). Insert = liked, delete = unliked.
+  // `by_post_user` enables idempotent toggling; `by_post` powers "likers" lists.
+  postLikes: defineTable({
+    postId: v.id("activityPosts"),
+    userId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_post", ["postId"])
+    .index("by_post_user", ["postId", "userId"])
+    .index("by_user", ["userId"]),
 
   trips: defineTable({
     userId: v.id("users"),
@@ -622,6 +638,7 @@ export default defineSchema({
       tripInvites: v.boolean(),
       closingSoon: v.boolean(),
       showAnnounced: v.boolean(),
+      postLikes: v.boolean(),
     })),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),

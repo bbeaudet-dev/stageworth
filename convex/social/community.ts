@@ -4,7 +4,7 @@ import { requireConvexUserId } from "../auth";
 import { resolveShowImageUrls } from "../helpers";
 import { getBlockEdgeSets } from "./safety";
 
-const MAX_LIMIT = 50;
+const MAX_LIMIT = 200;
 
 async function resolveActor(ctx: any, userId: string) {
   const user = await ctx.db.get(userId);
@@ -38,23 +38,30 @@ async function hydratePosts(
 ) {
   const hydrated = await Promise.all(
     posts.map(async (post) => {
-      const [actor, show, rankings, viewerFollowRow, visit] = await Promise.all([
-        resolveActor(ctx, post.actorUserId),
-        post.showId ? resolveShow(ctx, post.showId) : Promise.resolve(null),
-        ctx.db
-          .query("userRankings")
-          .withIndex("by_user", (q: any) => q.eq("userId", post.actorUserId))
-          .first(),
-        post.actorUserId === viewerUserId
-          ? Promise.resolve(null)
-          : ctx.db
-              .query("follows")
-              .withIndex("by_follower_following", (q: any) =>
-                q.eq("followerUserId", viewerUserId).eq("followingUserId", post.actorUserId)
-              )
-              .first(),
-        post.visitId ? ctx.db.get(post.visitId) : Promise.resolve(null),
-      ]);
+      const [actor, show, rankings, viewerFollowRow, visit, viewerLikeRow] =
+        await Promise.all([
+          resolveActor(ctx, post.actorUserId),
+          post.showId ? resolveShow(ctx, post.showId) : Promise.resolve(null),
+          ctx.db
+            .query("userRankings")
+            .withIndex("by_user", (q: any) => q.eq("userId", post.actorUserId))
+            .first(),
+          post.actorUserId === viewerUserId
+            ? Promise.resolve(null)
+            : ctx.db
+                .query("follows")
+                .withIndex("by_follower_following", (q: any) =>
+                  q.eq("followerUserId", viewerUserId).eq("followingUserId", post.actorUserId)
+                )
+                .first(),
+          post.visitId ? ctx.db.get(post.visitId) : Promise.resolve(null),
+          ctx.db
+            .query("postLikes")
+            .withIndex("by_post_user", (q: any) =>
+              q.eq("postId", post._id).eq("userId", viewerUserId),
+            )
+            .first(),
+        ]);
 
       if (!actor) return null;
       // visit_created posts always need a show; challenge posts may not have one.
@@ -80,6 +87,8 @@ async function hydratePosts(
         rankAtPost: post.rankAtPost ?? null,
         rankingTotal: rankings?.showIds.length ?? 0,
         viewerFollowsActor: viewerFollowRow !== null,
+        likeCount: post.likeCount ?? 0,
+        likedByViewer: viewerLikeRow !== null,
         challengeYear: post.challengeYear ?? null,
         challengeTarget: post.challengeTarget ?? null,
         challengeProgress: post.challengeProgress ?? null,

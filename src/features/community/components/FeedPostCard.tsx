@@ -45,6 +45,11 @@ export type FeedPostCardProps = {
   poster?: ReactNode;
   /** Background color of the poster slot container. */
   posterBackground?: string;
+  /**
+   * Optional content rendered below the main row, e.g. a like / comment bar.
+   * Kept outside the Pressable on parent screens via stopPropagation as needed.
+   */
+  footer?: ReactNode;
 };
 
 export function FeedPostCard({
@@ -58,6 +63,7 @@ export function FeedPostCard({
   body,
   poster,
   posterBackground = "#efefef",
+  footer,
 }: FeedPostCardProps) {
   const inner = (
     <>
@@ -77,6 +83,7 @@ export function FeedPostCard({
           {header ? <View style={cardStyles.headerSlot}>{header}</View> : null}
           <View style={cardStyles.titleSlot}>{title}</View>
           {body ? <View style={cardStyles.bodySlot}>{body}</View> : null}
+          {footer ? <View style={cardStyles.footerSlot}>{footer}</View> : null}
         </View>
 
         {poster !== undefined && poster !== null ? (
@@ -147,5 +154,8 @@ export const cardStyles = StyleSheet.create({
     height: 92,
     borderRadius: 8,
     overflow: "hidden",
+  },
+  footerSlot: {
+    marginTop: 2,
   },
 });
