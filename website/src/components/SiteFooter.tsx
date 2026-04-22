@@ -9,6 +9,9 @@ export function SiteFooter() {
           <Link href="/about" className="hover:text-gray-900">
             About
           </Link>
+          <Link href="/support" className="hover:text-gray-900">
+            Support
+          </Link>
           <Link href="/privacy" className="hover:text-gray-900">
             Privacy Policy
           </Link>
