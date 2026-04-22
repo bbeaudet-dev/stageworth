@@ -44,6 +44,7 @@ export default function ShowDetailScreen() {
     activeTrips,
     broadwayShowtimes,
     personalRank,
+    myTier,
     addShowToList,
     addShowToTrip,
     removeShowFromTrip,
@@ -192,7 +193,7 @@ export default function ShowDetailScreen() {
           </View>
         ) : null}
 
-        <ShowVisitsList visits={visits} personalRank={personalRank} />
+        <ShowVisitsList visits={visits} personalRank={personalRank} myTier={myTier} />
 
         <FriendsRankingsSection showId={showId} isSignedIn={!!session} />
 

@@ -15,6 +15,10 @@ export function useShowDetail(showId: Id<"shows"> | "") {
     api.rankings.get,
     !isPending && session ? {} : "skip",
   );
+  const myTier = useQuery(
+    api.rankings.getMyTierForShow,
+    !isPending && session && showId ? { showId: showId as Id<"shows"> } : "skip"
+  );
   const myLists = useQuery(
     api.lists.getProfileLists,
     !isPending && session && showId ? { showId: showId as Id<"shows"> } : "skip"
@@ -77,6 +81,7 @@ export function useShowDetail(showId: Id<"shows"> | "") {
     activeTrips,
     broadwayShowtimes,
     personalRank,
+    myTier,
     addShowToList,
     addShowToTrip,
     removeShowFromTrip,
