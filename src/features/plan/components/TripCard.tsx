@@ -26,6 +26,7 @@ interface TripCardProps {
   memberCount: number;
   memberAvatars: string[];
   onPress: () => void;
+  onLongPress?: () => void;
 }
 
 export function TripCard({
@@ -37,6 +38,7 @@ export function TripCard({
   memberCount,
   memberAvatars,
   onPress,
+  onLongPress,
 }: TripCardProps) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -79,6 +81,8 @@ export function TripCard({
           : { backgroundColor: surfaceColor, borderColor },
       ]}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={350}
       onLayout={(e) => {
         if (!isActive) return;
         const { width, height } = e.nativeEvent.layout;

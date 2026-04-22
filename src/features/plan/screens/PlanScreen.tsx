@@ -2,8 +2,10 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ActionSheetIOS,
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -70,7 +72,7 @@ export default function PlanScreen() {
     useProfileListsData();
   const [pendingVisibilityIds, setPendingVisibilityIds] = useState<Set<string>>(() => new Set());
 
-  const { trips, createTrip, respondToTripInvitation } = useTripData();
+  const { trips, createTrip, respondToTripInvitation, leaveTrip } = useTripData();
   const [respondingId, setRespondingId] = useState<string | null>(null);
 
   useEffect(() => { initializeSystemLists().catch(() => undefined); }, [initializeSystemLists]);
@@ -161,6 +163,54 @@ export default function PlanScreen() {
   const pendingInvitations = trips?.pendingInvitations ?? [];
   const isTripsLoading = trips === undefined;
   const hasAnyTrips = mainList.length > 0 || olderPast.length > 0 || pendingInvitations.length > 0;
+
+  const confirmLeaveTrip = (trip: TripSummary) => {
+    Alert.alert(
+      `Leave "${trip.name}"?`,
+      "You'll lose access to this trip's shows and schedule. The organizer can re-invite you later.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Leave Trip",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await leaveTrip({ tripId: trip._id });
+            } catch (err) {
+              const message = err instanceof Error ? err.message : "Could not leave trip.";
+              Alert.alert("Couldn't leave trip", message);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleTripLongPress = (trip: TripSummary) => {
+    if (trip.isOwner) return;
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: trip.name,
+          options: ["Cancel", "Leave Trip"],
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: 1,
+        },
+        (idx) => {
+          if (idx === 1) confirmLeaveTrip(trip);
+        },
+      );
+    } else {
+      Alert.alert(trip.name, "", [
+        {
+          text: "Leave Trip",
+          style: "destructive",
+          onPress: () => confirmLeaveTrip(trip),
+        },
+        { text: "Cancel", style: "cancel" },
+      ]);
+    }
+  };
 
   const handleRespond = async (tripId: string, accept: boolean) => {
     setRespondingId(tripId + (accept ? ":accept" : ":decline"));
@@ -261,6 +311,7 @@ export default function PlanScreen() {
                   memberCount={trip.memberCount}
                   memberAvatars={trip.memberAvatars}
                   onPress={() => openTrip(String(trip._id))}
+                  onLongPress={!trip.isOwner ? () => handleTripLongPress(trip) : undefined}
                 />
               ))}
 
@@ -301,6 +352,7 @@ export default function PlanScreen() {
                       memberCount={trip.memberCount}
                       memberAvatars={trip.memberAvatars}
                       onPress={() => openTrip(String(trip._id))}
+                      onLongPress={!trip.isOwner ? () => handleTripLongPress(trip) : undefined}
                     />
                   )) : null}
                 </>

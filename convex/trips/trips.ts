@@ -774,8 +774,48 @@ export const removeTripMember = mutation({
       throw new Error("Not authorized");
     }
     await ctx.db.delete(args.memberId);
+
+    // Clean up this user's per-trip show labels so they don't linger after leaving.
+    await deleteTripShowLabelsForUser(ctx, args.tripId, member.userId);
   },
 });
+
+// Self-service: the currently authenticated user leaves a trip they're a member of.
+// Owners cannot "leave" — they must delete the trip instead.
+export const leaveTrip = mutation({
+  args: { tripId: v.id("trips") },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+    const trip = await getTripOrThrow(ctx, args.tripId);
+    if (trip.userId === userId) {
+      throw new Error("Owners can't leave their own trip — delete it instead.");
+    }
+
+    const membership = await ctx.db
+      .query("tripMembers")
+      .withIndex("by_trip_user", (q) =>
+        q.eq("tripId", args.tripId).eq("userId", userId)
+      )
+      .first();
+    if (!membership) throw new Error("You're not a member of this trip");
+
+    await ctx.db.delete(membership._id);
+    await deleteTripShowLabelsForUser(ctx, args.tripId, userId);
+  },
+});
+
+async function deleteTripShowLabelsForUser(
+  ctx: MutationCtx,
+  tripId: Id<"trips">,
+  userId: Id<"users">,
+) {
+  const labels = await ctx.db
+    .query("tripShowLabels")
+    .withIndex("by_trip", (q) => q.eq("tripId", tripId))
+    .collect();
+  const mine = labels.filter((row) => row.userId === userId);
+  await Promise.all(mine.map((row) => ctx.db.delete(row._id)));
+}
 
 export const respondToTripInvitation = mutation({
   args: {

@@ -16,6 +16,7 @@ export function useTripData() {
   const addTripMember = useMutation(api.trips.trips.addTripMember);
   const updateTripMemberRole = useMutation(api.trips.trips.updateTripMemberRole);
   const removeTripMember = useMutation(api.trips.trips.removeTripMember);
+  const leaveTrip = useMutation(api.trips.trips.leaveTrip);
   const addTripDayNote = useMutation(api.trips.trips.addTripDayNote);
   const removeTripDayNote = useMutation(api.trips.trips.removeTripDayNote);
   const setTripShowLabel = useMutation(api.trips.tripLabels.setTripShowLabel);
@@ -34,6 +35,7 @@ export function useTripData() {
     addTripMember,
     updateTripMemberRole,
     removeTripMember,
+    leaveTrip,
     addTripDayNote,
     removeTripDayNote,
     setTripShowLabel,

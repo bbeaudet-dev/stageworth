@@ -78,7 +78,7 @@ export default function TripDetailScreen() {
   const typedTripId = tripId as Id<"trips">;
   const trip = useTripById(typedTripId);
   const closingSoon = useClosingSoonForTrip(typedTripId);
-  const { updateTrip, deleteTrip } = useTripData();
+  const { updateTrip, deleteTrip, leaveTrip } = useTripData();
 
   const tripPresenceOthers = useQuery(api.trips.tripPresence.getTripPresence, {
     tripId: typedTripId,
@@ -146,26 +146,81 @@ export default function TripDetailScreen() {
     ]);
   };
 
+  const handleLeaveTrip = () => {
+    if (!trip) return;
+    Alert.alert(
+      `Leave "${trip.name}"?`,
+      "You'll lose access to this trip's shows and schedule. The organizer can re-invite you later.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Leave Trip",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await leaveTrip({ tripId: typedTripId });
+              router.back();
+            } catch (err) {
+              const message = err instanceof Error ? err.message : "Could not leave trip.";
+              Alert.alert("Couldn't leave trip", message);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const handleThreeDot = () => {
+    const isOwner = trip?.isOwner ?? false;
+    const canLeave =
+      !isOwner && trip?.myMembershipStatus === "accepted";
+
+    if (isOwner) {
+      if (Platform.OS === "ios") {
+        ActionSheetIOS.showActionSheetWithOptions(
+          {
+            options: ["Cancel", "Edit Trip", "Delete Trip"],
+            cancelButtonIndex: 0,
+            destructiveButtonIndex: 2,
+          },
+          (idx) => {
+            if (idx === 1) setShowEditTrip(true);
+            if (idx === 2) handleDeleteTrip();
+          },
+        );
+      } else {
+        Alert.alert("Trip Options", "", [
+          { text: "Edit Trip", onPress: () => setShowEditTrip(true) },
+          {
+            text: "Delete Trip",
+            style: "destructive",
+            onPress: handleDeleteTrip,
+          },
+          { text: "Cancel", style: "cancel" },
+        ]);
+      }
+      return;
+    }
+
+    if (!canLeave) return;
+
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ["Cancel", "Edit Trip", "Delete Trip"],
+          options: ["Cancel", "Leave Trip"],
           cancelButtonIndex: 0,
-          destructiveButtonIndex: 2,
+          destructiveButtonIndex: 1,
         },
         (idx) => {
-          if (idx === 1) setShowEditTrip(true);
-          if (idx === 2) handleDeleteTrip();
+          if (idx === 1) handleLeaveTrip();
         },
       );
     } else {
       Alert.alert("Trip Options", "", [
-        { text: "Edit Trip", onPress: () => setShowEditTrip(true) },
         {
-          text: "Delete Trip",
+          text: "Leave Trip",
           style: "destructive",
-          onPress: handleDeleteTrip,
+          onPress: handleLeaveTrip,
         },
         { text: "Cancel", style: "cancel" },
       ]);
@@ -224,7 +279,7 @@ export default function TripDetailScreen() {
           </Text>
         </View>
         <View style={[styles.headerSide, { alignItems: "flex-end" }]}>
-          {trip.isOwner ? (
+          {trip.isOwner || trip.myMembershipStatus === "accepted" ? (
             <Pressable onPress={handleThreeDot} hitSlop={12}>
               <Text style={[styles.threeDot, { color: primaryTextColor }]}>
                 ···

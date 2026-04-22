@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "convex/react";
 
@@ -23,6 +24,7 @@ interface TripPartyTabProps {
 
 export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
 
@@ -31,11 +33,41 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
   const primaryTextColor = Colors[theme].text;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
+  const dangerColor = Colors[theme].danger;
 
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
+  const [isLeaving, setIsLeaving] = useState(false);
 
   const myFollowing = useQuery(api.social.social.listMyFollowing, {});
-  const { addTripMember, removeTripMember, updateTripMemberRole } = useTripData();
+  const { addTripMember, removeTripMember, updateTripMemberRole, leaveTrip } = useTripData();
+
+  const canLeave = !trip.isOwner && trip.myMembershipStatus === "accepted";
+
+  const handleLeaveTrip = () => {
+    Alert.alert(
+      `Leave "${trip.name}"?`,
+      "You'll lose access to this trip's shows and schedule. The organizer can re-invite you later.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Leave Trip",
+          style: "destructive",
+          onPress: async () => {
+            setIsLeaving(true);
+            try {
+              await leaveTrip({ tripId });
+              router.back();
+            } catch (err) {
+              const message = err instanceof Error ? err.message : "Could not leave trip.";
+              Alert.alert("Couldn't leave trip", message);
+            } finally {
+              setIsLeaving(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const existingMemberUserIds = useMemo(
     () => new Set((trip?.members ?? []).map((m: TripMember) => String(m.userId))),
@@ -113,6 +145,26 @@ export function TripPartyTab({ trip, tripId, onViewUser }: TripPartyTabProps) {
           </View>
         </>
       ) : null}
+
+      {/* ── LEAVE TRIP (non-owner accepted members) ───────────────────────── */}
+      {canLeave ? (
+        <Pressable
+          style={[
+            styles.leaveTripBtn,
+            {
+              borderColor: dangerColor + "44",
+              opacity: isLeaving ? 0.5 : 1,
+              marginTop: 20,
+            },
+          ]}
+          disabled={isLeaving}
+          onPress={handleLeaveTrip}
+        >
+          <Text style={[styles.leaveTripBtnText, { color: dangerColor }]}>
+            {isLeaving ? "Leaving…" : "Leave Trip"}
+          </Text>
+        </Pressable>
+      ) : null}
     </ScrollView>
   );
 }
@@ -134,4 +186,11 @@ const styles = StyleSheet.create({
   memberUsername: { fontSize: 12 },
   rolePill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth },
   rolePillText: { fontSize: 11, fontWeight: "700" },
+  leaveTripBtn: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  leaveTripBtnText: { fontSize: 14, fontWeight: "700" },
 });
