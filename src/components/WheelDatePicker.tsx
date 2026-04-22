@@ -113,9 +113,19 @@ interface WheelDatePickerProps {
   value: Date;
   onChange: (date: Date) => void;
   minimumDate?: Date;
+  /** Years shown before current year (default 10). */
+  yearsBack?: number;
+  /** Number of years shown after the current year. */
+  yearsForward?: number;
 }
 
-export function WheelDatePicker({ value, onChange, minimumDate }: WheelDatePickerProps) {
+export function WheelDatePicker({
+  value,
+  onChange,
+  minimumDate,
+  yearsBack = 10,
+  yearsForward = 5,
+}: WheelDatePickerProps) {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const textColor = Colors[theme].text;
@@ -127,9 +137,14 @@ export function WheelDatePicker({ value, onChange, minimumDate }: WheelDatePicke
   const day = value.getDate();       // 1-N
   const year = value.getFullYear();
 
-  // Year range: today's year - 1 to today + 5
   const thisYear = new Date().getFullYear();
-  const years = Array.from({ length: 8 }, (_, i) => String(thisYear - 1 + i));
+  const totalYears = yearsBack + yearsForward + 1;
+  // Earliest year first → newest year last. This matches the "scroll down for
+  // more recent" affordance of the other wheels and lets `indexOf` pick the
+  // selected year directly.
+  const years = Array.from({ length: totalYears }, (_, i) =>
+    String(thisYear - yearsBack + i),
+  );
   const yearIndex = years.indexOf(String(year));
 
   const numDays = daysInMonth(month, year);
