@@ -191,7 +191,11 @@ export const hydrateSocialIdentity = mutation({
     imageUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await requireConvexUserId(ctx);
+    // The social sign-in flow fires this as soon as the auth client resolves,
+    // but there's a small window where the Convex session hasn't propagated
+    // yet. Silently no-op in that case — the client retries via onboarding.
+    const userId = await getConvexUserId(ctx);
+    if (!userId) return;
     const user = await ctx.db.get(userId);
     if (!user) return;
 
