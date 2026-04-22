@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { requireConvexUserId } from "../auth";
 import { resolveShowImageUrls } from "../helpers";
+import { getBlockEdgeSets } from "./safety";
 
 const MAX_LIMIT = 50;
 
@@ -29,7 +30,12 @@ async function resolveShow(ctx: any, showId: string) {
   };
 }
 
-async function hydratePosts(ctx: any, posts: any[], viewerUserId: string) {
+async function hydratePosts(
+  ctx: any,
+  posts: any[],
+  viewerUserId: string,
+  hiddenIds: Set<string>
+) {
   const hydrated = await Promise.all(
     posts.map(async (post) => {
       const [actor, show, rankings, viewerFollowRow, visit] = await Promise.all([
@@ -56,6 +62,7 @@ async function hydratePosts(ctx: any, posts: any[], viewerUserId: string) {
 
       const taggedUsers: { _id: string; username: string; name?: string | null }[] = [];
       for (const uid of post.taggedUserIds ?? []) {
+        if (hiddenIds.has(uid)) continue;
         const user = await ctx.db.get(uid);
         if (user) taggedUsers.push({ _id: user._id, username: user.username, name: user.name });
       }
@@ -91,12 +98,18 @@ export const getGlobalFeed = query({
   handler: async (ctx, args) => {
     const currentUserId = await requireConvexUserId(ctx);
     const limit = Math.max(1, Math.min(args.limit ?? 30, MAX_LIMIT));
-    const posts = await ctx.db
+    const { hiddenIds } = await getBlockEdgeSets(ctx, currentUserId);
+    // Overfetch so the filter doesn't starve the feed when a viewer has
+    // blocked several active posters.
+    const recent = await ctx.db
       .query("activityPosts")
       .withIndex("by_createdAt")
       .order("desc")
-      .take(limit);
-    return await hydratePosts(ctx, posts, currentUserId);
+      .take(MAX_LIMIT * 5);
+    const filtered = recent
+      .filter((post) => !hiddenIds.has(post.actorUserId))
+      .slice(0, limit);
+    return await hydratePosts(ctx, filtered, currentUserId, hiddenIds);
   },
 });
 
@@ -117,6 +130,8 @@ export const getFollowingFeed = query({
     const currentUserId = await requireConvexUserId(ctx);
     const limit = Math.max(1, Math.min(args.limit ?? 30, MAX_LIMIT));
 
+    const { hiddenIds } = await getBlockEdgeSets(ctx, currentUserId);
+
     const followRows = await ctx.db
       .query("follows")
       .withIndex("by_follower", (q) => q.eq("followerUserId", currentUserId))
@@ -133,9 +148,12 @@ export const getFollowingFeed = query({
       .take(MAX_LIMIT * 5);
 
     const filtered = recent
-      .filter((post) => actorIds.has(post.actorUserId))
+      .filter(
+        (post) =>
+          actorIds.has(post.actorUserId) && !hiddenIds.has(post.actorUserId)
+      )
       .slice(0, limit);
 
-    return await hydratePosts(ctx, filtered, currentUserId);
+    return await hydratePosts(ctx, filtered, currentUserId, hiddenIds);
   },
 });
