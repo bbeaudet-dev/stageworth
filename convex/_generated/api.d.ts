@@ -66,6 +66,7 @@ import type * as trips_trips from "../trips/trips.js";
 import type * as userPreferences from "../userPreferences.js";
 import type * as userStats from "../userStats.js";
 import type * as venues from "../venues.js";
+import type * as visitParticipants from "../visitParticipants.js";
 import type * as visits from "../visits.js";
 
 import type {
@@ -133,6 +134,7 @@ declare const fullApi: ApiFromModules<{
   userPreferences: typeof userPreferences;
   userStats: typeof userStats;
   venues: typeof venues;
+  visitParticipants: typeof visitParticipants;
   visits: typeof visits;
 }>;
 
