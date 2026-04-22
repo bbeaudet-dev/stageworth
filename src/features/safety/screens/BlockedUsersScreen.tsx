@@ -39,7 +39,7 @@ export default function BlockedUsersScreen() {
       />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={[styles.intro, { color: c.mutedText }]}>
-          Blocked users can't see your posts or profile, and you won't see
+          Blocked users cannot see your posts or profile, and you will not see
           theirs. You both stop following each other automatically.
         </Text>
 
@@ -49,7 +49,7 @@ export default function BlockedUsersScreen() {
 
         {blocks && blocks.length === 0 && (
           <Text style={[styles.empty, { color: c.mutedText }]}>
-            You haven't blocked anyone.
+            You have not blocked anyone.
           </Text>
         )}
 
