@@ -39,10 +39,10 @@ module.exports = {
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
   ios: {
-    supportsTablet: true,
+    supportsTablet: false,
     bundleIdentifier: "com.theatrediary.app",
     icon: "./assets/icon-kitchen-v1/ios/AppIcon~ios-marketing.png",
-    buildNumber: "3",
+    buildNumber: "4",
     usesAppleSignIn: true,
     appleTeamId: "M8M7T576K8",
     config: {
