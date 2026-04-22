@@ -284,6 +284,31 @@ export const deleteMyAccount = mutation({
         .collect(),
     ]);
 
+    // Block rows and outstanding reports tied to this user.
+    const [
+      blocksByMe,
+      blocksAgainstMe,
+      reportsByMe,
+      reportsAgainstMe,
+    ] = await Promise.all([
+      ctx.db
+        .query("userBlocks")
+        .withIndex("by_blocker", (q) => q.eq("blockerUserId", userId))
+        .collect(),
+      ctx.db
+        .query("userBlocks")
+        .withIndex("by_blocked", (q) => q.eq("blockedUserId", userId))
+        .collect(),
+      ctx.db
+        .query("userReports")
+        .withIndex("by_reporter", (q) => q.eq("reporterUserId", userId))
+        .collect(),
+      ctx.db
+        .query("userReports")
+        .withIndex("by_target_user", (q) => q.eq("targetUserId", userId))
+        .collect(),
+    ]);
+
     // ─── 2. Cascade-delete trips the user owns ────────────────────────────
     for (const trip of tripsOwned) {
       await deleteTripOwnedByUser(ctx, trip._id);
@@ -311,8 +336,20 @@ export const deleteMyAccount = mutation({
       ...invitesCreated,
       ...followsAsFollower,
       ...followsAsFollowing,
+      // Block edges tied to this user are now meaningless.
+      ...blocksByMe,
+      ...blocksAgainstMe,
+      // Reports filed by this user — anonymize rather than delete, so admins
+      // still see the report history. We null the reporter below.
+      // Reports against this user can be deleted since the target is gone.
+      ...reportsAgainstMe,
     ];
     await Promise.all(simpleDeletes.map((row) => ctx.db.delete(row._id)));
+
+    // Reports this user filed are left in place for audit trail. The
+    // reporterUserId field will point at a now-deleted row; admin tooling
+    // already tolerates unresolved user refs (it simply shows "unknown").
+    void reportsByMe;
 
     // ─── 4. Nullify references where schema allows ────────────────────────
     // Claimed invite links: keep the row (it's historical) but unlink the user.

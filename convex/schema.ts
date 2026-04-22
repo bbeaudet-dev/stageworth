@@ -355,6 +355,58 @@ export default defineSchema({
     .index("by_following", ["followingUserId"])
     .index("by_follower_following", ["followerUserId", "followingUserId"]),
 
+  // Symmetric user blocks. Insertion by A blocking B hides both directions
+  // of content/social surfaces. See convex/social/safety.ts.
+  userBlocks: defineTable({
+    blockerUserId: v.id("users"),
+    blockedUserId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_blocker", ["blockerUserId"])
+    .index("by_blocked", ["blockedUserId"])
+    .index("by_blocker_blocked", ["blockerUserId", "blockedUserId"]),
+
+  // User-submitted reports of content or users for safety review.
+  // targetUserId is always set to the user being reported (actor of the post
+  // for activityPost/visit reports), so admins can slice by target user.
+  userReports: defineTable({
+    reporterUserId: v.id("users"),
+    targetKind: v.union(
+      v.literal("user"),
+      v.literal("activityPost"),
+      v.literal("visit")
+    ),
+    targetUserId: v.id("users"),
+    targetPostId: v.optional(v.id("activityPosts")),
+    targetVisitId: v.optional(v.id("visits")),
+    reason: v.union(
+      v.literal("spam"),
+      v.literal("harassment"),
+      v.literal("hate"),
+      v.literal("sexual"),
+      v.literal("violence"),
+      v.literal("self_harm"),
+      v.literal("impersonation"),
+      v.literal("other")
+    ),
+    details: v.optional(v.string()),
+    status: v.union(
+      v.literal("open"),
+      v.literal("reviewed"),
+      v.literal("actioned"),
+      v.literal("dismissed")
+    ),
+    // Denormalized content at report time so admin can see what was reported
+    // even if the target is later deleted or edited.
+    contentSnapshot: v.optional(v.string()),
+    createdAt: v.number(),
+    reviewedAt: v.optional(v.number()),
+    reviewerNote: v.optional(v.string()),
+  })
+    .index("by_status_createdAt", ["status", "createdAt"])
+    .index("by_target_user", ["targetUserId"])
+    .index("by_reporter", ["reporterUserId"]),
+
   notifications: defineTable({
     recipientUserId: v.id("users"),
     // "user" = triggered by another user; "system" = bot/cron-generated
