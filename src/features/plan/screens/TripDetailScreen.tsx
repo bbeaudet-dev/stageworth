@@ -20,7 +20,6 @@ import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { CreateTripSheet } from "@/features/plan/components/CreateTripSheet";
-import { TripChatTab } from "@/features/plan/components/TripChatTab";
 import { TripPartyTab } from "@/features/plan/components/TripPartyTab";
 import { TripScheduleTab } from "@/features/plan/components/TripScheduleTab";
 import { TripShowsTab } from "@/features/plan/components/TripShowsTab";
@@ -34,9 +33,9 @@ import { formatDateRange } from "@/utils/dates";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-type Tab = "shows" | "schedule" | "party" | "chat";
+type Tab = "shows" | "schedule" | "party";
 
-const TRIP_TABS: Tab[] = ["shows", "schedule", "party", "chat"];
+const TRIP_TABS: Tab[] = ["shows", "schedule", "party"];
 
 function tabLabel(t: Tab): string {
   switch (t) {
@@ -46,8 +45,6 @@ function tabLabel(t: Tab): string {
       return "Schedule";
     case "party":
       return "Party";
-    case "chat":
-      return "Chat";
   }
 }
 
@@ -447,7 +444,7 @@ export default function TripDetailScreen() {
           />
         ) : activeTab === "schedule" ? (
           <TripScheduleTab trip={trip} tripId={typedTripId} />
-        ) : activeTab === "party" ? (
+        ) : (
           <TripPartyTab
             trip={trip}
             tripId={typedTripId}
@@ -458,8 +455,6 @@ export default function TripDetailScreen() {
               })
             }
           />
-        ) : (
-          <TripChatTab />
         )}
       </View>
 
