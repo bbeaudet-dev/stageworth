@@ -1,3 +1,4 @@
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -9,6 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BrandGradientTitle } from "@/components/BrandGradientTitle";
 import { BottomSheet } from "@/components/bottom-sheet";
+import { NotesText } from "@/components/NotesText";
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
@@ -137,6 +139,7 @@ function OwnerSwipeable({
 
 export default function CommunityScreen() {
   const router = useRouter();
+  const tabBarHeight = useBottomTabBarHeight();
   const [selectedTab, setSelectedTab] = useState<FeedTab>("global");
 
   const handlePlusPress = () => {
@@ -295,7 +298,12 @@ export default function CommunityScreen() {
       </View>
 
       {/* Feed */}
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: tabBarHeight + 24 },
+        ]}
+      >
         {isLoading && (
           <Text style={[styles.emptyText, { color: emptyTextColor }]}>Loading posts…</Text>
         )}
@@ -536,6 +544,14 @@ export default function CommunityScreen() {
             const visitIsUpcoming = post.visitDate ? isFutureDate(post.visitDate) : false;
             const verbPhrase = visitIsUpcoming ? "is seeing" : "saw";
 
+            const openVisitDetails = post.visitId
+              ? () =>
+                  router.push({
+                    pathname: "/visit/[visitId]",
+                    params: { visitId: String(post.visitId) },
+                  })
+              : undefined;
+
             return (
               <OwnerSwipeable
                 key={post._id}
@@ -547,6 +563,7 @@ export default function CommunityScreen() {
                 <FeedPostCard
                   backgroundColor={cardBackground}
                   borderColor={cardBorder}
+                  onPress={openVisitDetails}
                   onLongPress={onLongPressForOwner}
                   header={headerNode}
                   title={
@@ -591,10 +608,27 @@ export default function CommunityScreen() {
                     (location || post.notes || post.rankAtPost) ? (
                       <>
                         {!!location && (
-                          <Text style={[styles.subText, { color: mutedTextColor }]}>{location}</Text>
+                          <Text
+                            style={[styles.subText, { color: mutedTextColor }]}
+                            onPress={
+                              post.venueId
+                                ? () =>
+                                    router.push({
+                                      pathname: "/venue/[venueId]",
+                                      params: { venueId: String(post.venueId) },
+                                    })
+                                : undefined
+                            }
+                          >
+                            {location}
+                          </Text>
                         )}
                         {!!post.notes && (
-                          <Text style={[styles.notesText, { color: notesTextColor }]}>{post.notes}</Text>
+                          <NotesText
+                            text={post.notes}
+                            style={styles.notesText}
+                            color={notesTextColor}
+                          />
                         )}
                         {!!post.rankAtPost && (
                           <Text style={[styles.rankText, { color: mutedTextColor }]}>
@@ -702,7 +736,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
     gap: 10,
   },
   swipeDeleteAction: {

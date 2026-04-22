@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { DetailCard, detailCardStyles } from "@/components/detail-card";
+import { NotesText } from "@/components/NotesText";
 import { Colors } from "@/constants/theme";
 import { playbillMatBackground } from "@/features/browse/styles";
 import { formatDate } from "@/features/browse/logic/date";
@@ -27,7 +28,9 @@ export default function VisitDetailScreen() {
     api.visits.getById,
     visitId ? { visitId: visitId as Id<"visits"> } : "skip"
   ) ?? null;
+  const myProfile = useQuery(api.social.profiles.getMyProfile);
   const removeVisit = useMutation(api.visits.remove);
+  const isMine = !!visit && !!myProfile && visit.userId === myProfile._id;
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -70,7 +73,7 @@ export default function VisitDetailScreen() {
           title: "Visit",
           headerShown: true,
           headerBackButtonDisplayMode: "minimal",
-          headerRight: visit
+          headerRight: isMine
             ? () => (
                 <Pressable
                   hitSlop={10}
@@ -119,23 +122,29 @@ export default function VisitDetailScreen() {
             </DetailCard>
             {visit.notes ? (
               <DetailCard title="Notes">
-                <Text style={[detailCardStyles.subtle, { color: mutedTextColor }]}>{visit.notes}</Text>
+                <NotesText
+                  text={visit.notes}
+                  style={detailCardStyles.subtle}
+                  color={mutedTextColor}
+                />
               </DetailCard>
             ) : null}
 
-            <Pressable
-              onPress={confirmDelete}
-              style={({ pressed }) => [
-                styles.deleteButton,
-                { borderColor: dangerColor, opacity: pressed ? 0.7 : 1 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Delete this visit"
-            >
-              <Text style={[styles.deleteButtonText, { color: dangerColor }]}>
-                Delete Visit
-              </Text>
-            </Pressable>
+            {isMine && (
+              <Pressable
+                onPress={confirmDelete}
+                style={({ pressed }) => [
+                  styles.deleteButton,
+                  { borderColor: dangerColor, opacity: pressed ? 0.7 : 1 },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Delete this visit"
+              >
+                <Text style={[styles.deleteButtonText, { color: dangerColor }]}>
+                  Delete Visit
+                </Text>
+              </Pressable>
+            )}
           </>
         )}
       </ScrollView>

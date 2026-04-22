@@ -148,7 +148,16 @@ export function SearchResultsList({
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: text }]}>Venues</Text>
           {venueResults.slice(0, venueLimit).map((venue) => (
-            <View key={venue._id} style={[styles.venueRow, { backgroundColor: surface, borderColor: border }]}>
+            <Pressable
+              key={venue._id}
+              style={({ pressed }) => [
+                styles.venueRow,
+                { backgroundColor: surface, borderColor: border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              onPress={() =>
+                router.push({ pathname: "/venue/[venueId]", params: { venueId: venue._id } })
+              }
+            >
               <View style={[styles.venueIcon, { backgroundColor: accent + "18" }]}>
                 <IconSymbol name="building.2" size={18} color={accent} />
               </View>
@@ -159,7 +168,7 @@ export function SearchResultsList({
                   {venue.district ? ` · ${formatDistrict(venue.district)}` : ""}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           ))}
           {venueResults.length > venueLimit && (
             <Pressable style={[styles.loadMoreBtn, { borderColor: border }]} onPress={onLoadMoreVenues}>

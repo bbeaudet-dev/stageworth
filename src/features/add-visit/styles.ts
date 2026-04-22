@@ -53,6 +53,10 @@ export const styles = StyleSheet.create({
     minHeight: 84,
     textAlignVertical: "top",
   },
+  hintText: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
   selectedShowCard: {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "#d3d3d3",

@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -48,6 +48,7 @@ export default function AddVisitScreen() {
   const params = useLocalSearchParams<{ showId?: string; showName?: string }>();
   const paramShowName = routeParamString(params.showName);
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const allowRemoveRef = useRef(false);
   const { showToast } = useToast();
   const { celebrate } = useCelebration();
@@ -300,7 +301,7 @@ export default function AddVisitScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: bg }]} edges={["top", "bottom"]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: bg }]} edges={["top"]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -313,7 +314,10 @@ export default function AddVisitScreen() {
         </View>
         <ScrollView
           style={styles.flex}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + 32 },
+          ]}
           keyboardShouldPersistTaps="handled"
         >
           <ShowPickerSection

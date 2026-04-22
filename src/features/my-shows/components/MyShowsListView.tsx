@@ -198,7 +198,10 @@ export function MyShowsListView({
         }
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: (showCategoryNav ? 0 : tabBarHeight) + 24 },
+          {
+            paddingBottom:
+              tabBarHeight + (showCategoryNav ? 56 : 0) + 24,
+          },
         ]}
         onScroll={onScroll}
         scrollEventThrottle={16}

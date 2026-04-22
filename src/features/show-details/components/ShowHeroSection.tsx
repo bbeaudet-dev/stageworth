@@ -1,7 +1,15 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  LayoutChangeEvent,
+  NativeSyntheticEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextLayoutEventData,
+  View,
+} from "react-native";
 
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { Colors } from "@/constants/theme";
@@ -11,7 +19,8 @@ import { playbillMatBackground } from "@/features/browse/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 /** Target preview length for the collapsed description state. */
-const DESCRIPTION_PREVIEW_CHARS = 200;
+const DESCRIPTION_PREVIEW_CHARS = 130;
+const DESCRIPTION_LINE_HEIGHT = 20;
 
 /**
  * Truncate a description for preview. Tries to break on a sentence boundary
@@ -100,6 +109,44 @@ export function ShowHeroSection({
     ? truncateForPreview(description!, DESCRIPTION_PREVIEW_CHARS)
     : description;
 
+  // For the expanded "wrap around the playbill" layout, we measure the height
+  // available next to the image (below title + type badge) and the rendered
+  // line break points of the full description. Then we split the description
+  // into a narrow block (next to the playbill) and a full-width block (below).
+  const playbillHeight = playbillSize * 1.4;
+  const [topBlockHeight, setTopBlockHeight] = useState(0);
+  const [fullLines, setFullLines] = useState<{ text: string }[] | null>(null);
+  const heightNextToPlaybill = Math.max(0, playbillHeight - topBlockHeight);
+  const linesNextToPlaybill = Math.max(
+    0,
+    Math.floor(heightNextToPlaybill / DESCRIPTION_LINE_HEIGHT),
+  );
+  const handleTopBlockLayout = (e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (Math.abs(h - topBlockHeight) > 0.5) setTopBlockHeight(h);
+  };
+  const handleFullLines = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
+    const lines = e.nativeEvent.lines.map((l) => ({ text: l.text }));
+    if (
+      !fullLines ||
+      fullLines.length !== lines.length ||
+      fullLines.some((l, i) => l.text !== lines[i]?.text)
+    ) {
+      setFullLines(lines);
+    }
+  };
+
+  // Build the two chunks (next-to-image + overflow) from the measured lines.
+  let narrowChunk = "";
+  let overflowChunk = "";
+  if (expanded && description && fullLines && fullLines.length > 0) {
+    const splitAt = Math.min(linesNextToPlaybill, fullLines.length);
+    narrowChunk = fullLines.slice(0, splitAt).map((l) => l.text).join("");
+    overflowChunk = fullLines.slice(splitAt).map((l) => l.text).join("");
+    narrowChunk = narrowChunk.trimEnd();
+    overflowChunk = overflowChunk.trimStart();
+  }
+
   return (
     <>
       {/* Hero row: playbill + name / type / description */}
@@ -120,29 +167,54 @@ export function ShowHeroSection({
         </View>
 
         <View style={styles.heroInfo}>
-          <Text style={[styles.showName, { color: c.text }]} numberOfLines={3}>
-            {show?.name ?? (placeholderName ?? "Loading…")}
-          </Text>
-          {showType !== null && (
-            <View style={[styles.typeBadge, { backgroundColor: typeColors.bg }]}>
-              <Text style={[styles.typeBadgeText, { color: typeColors.text }]}>
-                {showTypeLabel(showType)}
-              </Text>
-            </View>
-          )}
+          <View onLayout={handleTopBlockLayout} style={styles.heroTopBlock}>
+            <Text style={[styles.showName, { color: c.text }]} numberOfLines={3}>
+              {show?.name ?? (placeholderName ?? "Loading…")}
+            </Text>
+            {showType !== null && (
+              <View style={[styles.typeBadge, { backgroundColor: typeColors.bg }]}>
+                <Text style={[styles.typeBadgeText, { color: typeColors.text }]}>
+                  {showTypeLabel(showType)}
+                </Text>
+              </View>
+            )}
+          </View>
           {description && preview && (
             <View style={styles.descriptionWrap}>
-              <Text style={[styles.descriptionText, { color: c.text }]}>
-                {expanded || !needsTruncate ? description : `${preview}\u2026`}
-              </Text>
-              {needsTruncate && (
+              {/* Narrow-column description. When collapsed: preview + ellipsis.
+                  When expanded: only the portion that fits next to the image.
+                  A hidden measurement pass (opacity 0) captures the full line
+                  breaks so we can split cleanly. */}
+              {expanded ? (
+                <>
+                  <Text
+                    style={[styles.descriptionText, styles.hiddenMeasure, { color: c.text }]}
+                    onTextLayout={handleFullLines}
+                  >
+                    {description}
+                  </Text>
+                  {fullLines && linesNextToPlaybill > 0 && narrowChunk.length > 0 && (
+                    <Text
+                      style={[styles.descriptionText, { color: c.text }]}
+                      numberOfLines={linesNextToPlaybill}
+                    >
+                      {narrowChunk}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <Text style={[styles.descriptionText, { color: c.text }]}>
+                  {needsTruncate ? `${preview}\u2026` : description}
+                </Text>
+              )}
+              {needsTruncate && !expanded && (
                 <Pressable
-                  onPress={() => setExpanded((v) => !v)}
+                  onPress={() => setExpanded(true)}
                   hitSlop={8}
                   style={({ pressed }) => [styles.readMoreBtn, { opacity: pressed ? 0.6 : 1 }]}
                 >
                   <Text style={[styles.readMoreText, { color: c.accent }]}>
-                    {expanded ? "Read less" : "Read more"}
+                    Read more
                   </Text>
                 </Pressable>
               )}
@@ -150,6 +222,24 @@ export function ShowHeroSection({
           )}
         </View>
       </View>
+
+      {/* Full-width remainder when expanded: wraps back under the playbill. */}
+      {expanded && description && (
+        <View style={styles.descriptionOverflowWrap}>
+          {overflowChunk.length > 0 && (
+            <Text style={[styles.descriptionText, { color: c.text }]}>
+              {overflowChunk}
+            </Text>
+          )}
+          <Pressable
+            onPress={() => setExpanded(false)}
+            hitSlop={8}
+            style={({ pressed }) => [styles.readMoreBtn, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Text style={[styles.readMoreText, { color: c.accent }]}>Read less</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Action buttons */}
       <Pressable
@@ -176,51 +266,40 @@ export function ShowHeroSection({
       <View style={styles.secondaryBtnRow}>
         {(() => {
           const listCount = countNonUncategorizedMemberships(listMemberships);
-          const inList = listCount > 0;
+          const label =
+            listCount > 0
+              ? `+ Add to List (${listCount})`
+              : "+ Add to List";
           return (
             <Pressable
               style={[
                 styles.secondaryBtn,
-                inList
-                  ? { backgroundColor: c.accent, borderColor: c.accent }
-                  : { backgroundColor: c.accent + "18", borderColor: c.accent + "40" },
+                { backgroundColor: c.accent + "18", borderColor: c.accent + "40" },
               ]}
               onPress={onOpenListSheet}
             >
-              <Text
-                style={[
-                  styles.secondaryBtnText,
-                  { color: inList ? c.onAccent : c.accent },
-                ]}
-              >
-                {inList
-                  ? `In ${listCount} ${listCount === 1 ? "list" : "lists"}`
-                  : "+ Add to List"}
+              <Text style={[styles.secondaryBtnText, { color: c.accent }]}>
+                {label}
               </Text>
             </Pressable>
           );
         })()}
         {(() => {
-          const inTrip = tripsContainingShowCount > 0;
+          const tripCount = tripsContainingShowCount;
+          const label =
+            tripCount > 0
+              ? `+ Add to Trip (${tripCount})`
+              : "+ Add to Trip";
           return (
             <Pressable
               style={[
                 styles.secondaryBtn,
-                inTrip
-                  ? { backgroundColor: c.accent, borderColor: c.accent }
-                  : { backgroundColor: c.accent + "18", borderColor: c.accent + "40" },
+                { backgroundColor: c.accent + "18", borderColor: c.accent + "40" },
               ]}
               onPress={onOpenTripSheet}
             >
-              <Text
-                style={[
-                  styles.secondaryBtnText,
-                  { color: inTrip ? c.onAccent : c.accent },
-                ]}
-              >
-                {inTrip
-                  ? `In ${tripsContainingShowCount} ${tripsContainingShowCount === 1 ? "trip" : "trips"}`
-                  : "+ Add to Trip"}
+              <Text style={[styles.secondaryBtnText, { color: c.accent }]}>
+                {label}
               </Text>
             </Pressable>
           );
@@ -243,8 +322,16 @@ const styles = StyleSheet.create({
   secondaryBtnRow: { flexDirection: "row", gap: 10 },
   secondaryBtn: { flex: 1, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingVertical: 11 },
   secondaryBtnText: { fontWeight: "600", fontSize: 14 },
-  descriptionWrap: { gap: 4 },
-  descriptionText: { fontSize: 14, lineHeight: 20 },
+  heroTopBlock: { gap: 8 },
+  descriptionWrap: { gap: 4, marginTop: 8 },
+  descriptionOverflowWrap: { gap: 4, marginTop: 4 },
+  descriptionText: { fontSize: 14, lineHeight: DESCRIPTION_LINE_HEIGHT },
+  hiddenMeasure: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    opacity: 0,
+  },
   readMoreBtn: { alignSelf: "flex-start", paddingVertical: 2 },
   readMoreText: { fontSize: 13, fontWeight: "600" },
 });
