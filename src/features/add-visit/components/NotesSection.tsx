@@ -15,7 +15,7 @@ export function NotesSection({
   const c = Colors[theme];
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: c.text }]}>Notes (optional)</Text>
+      <Text style={[styles.sectionTitle, { color: c.text }]}>Notes</Text>
       <TextInput
         style={[styles.input, styles.notesInput, { backgroundColor: c.surface, borderColor: c.border, color: c.text }]}
         placeholderTextColor={c.mutedText}
