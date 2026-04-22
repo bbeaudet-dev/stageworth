@@ -22,9 +22,9 @@ export function DetailCard({
 }
 
 /**
- * Groups multiple `DetailRow` children under a single shared border, separating
- * rows with a hairline divider. Use for tightly related facts (e.g. location,
- * dates) so they read as one grouped record instead of a wall of cards.
+ * Groups multiple `DetailRow` children under a single shared border. Use for
+ * tightly related facts (e.g. location, dates) so they read as one grouped
+ * record instead of a wall of cards.
  */
 export function DetailGroup({ children }: { children: ReactNode }) {
   const theme = useColorScheme() ?? "light";
@@ -35,14 +35,7 @@ export function DetailGroup({ children }: { children: ReactNode }) {
     <View
       style={[styles.group, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
     >
-      {rows.map((child, idx) => (
-        <View
-          key={idx}
-          style={idx > 0 ? [styles.rowDivider, { borderTopColor: c.border }] : undefined}
-        >
-          {child}
-        </View>
-      ))}
+      {rows}
     </View>
   );
 }
@@ -82,11 +75,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   row: {
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     gap: 4,
-  },
-  rowDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
   },
   heading: { fontSize: 12, textTransform: "uppercase", letterSpacing: 0.4 },
 });

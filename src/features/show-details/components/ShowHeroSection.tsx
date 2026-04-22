@@ -259,7 +259,7 @@ export function ShowHeroSection({
         }}
       >
         <Text style={[styles.primaryBtnText, { color: c.onAccent }]}>
-          {visitCount > 0 ? `Add Visit (Existing: ${visitCount})` : "Add a Visit"}
+          {visitCount > 0 ? `Add Visit (${visitCount})` : "Add a Visit"}
         </Text>
       </Pressable>
 
