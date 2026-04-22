@@ -4,7 +4,7 @@ import type { ShowType } from "@/features/add-visit/types";
 import type { RankedTier, RankingTier } from "@/types/ranking";
 
 export type { RankedTier, RankingTier };
-export type ViewMode = "list" | "cloud" | "diary" | "genre";
+export type ViewMode = "rank" | "cloud" | "diary" | "genre";
 export type SpecialLine = "wouldSeeAgain" | "stayedHome";
 
 export type ListItem =
