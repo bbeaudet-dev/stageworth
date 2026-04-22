@@ -65,7 +65,7 @@ function stringSimilarity(a: string, b: string) {
   return (2 * overlap) / (aGrams.size + bGrams.size);
 }
 
-async function resolveVenueIdForVisit(
+export async function resolveVenueIdForVisit(
   ctx: any,
   theatre: string | undefined,
   city: string | undefined

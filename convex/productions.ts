@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { isCatalogPublished } from "./catalogVisibility";
 import { requireConvexUserId } from "./auth";
 import { resolveProductionPosterUrl, resolveShowImageUrls } from "./helpers";
+import { resolveVenueIdForVisit } from "./visits";
 import {
   getProductionStatus,
   upcomingProductionSortKey,
@@ -236,7 +237,14 @@ export const getById = query({
   handler: async (ctx, args) => {
     const production = await ctx.db.get(args.id);
     if (!production) return null;
-    return withShow(ctx, production);
+    const base = await withShow(ctx, production);
+    if (!base) return null;
+    const venueId = await resolveVenueIdForVisit(
+      ctx,
+      production.theatre,
+      production.city
+    );
+    return { ...base, venueId: venueId ?? null };
   },
 });
 

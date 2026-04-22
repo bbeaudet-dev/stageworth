@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Colors } from "@/constants/theme";
 import { playbillMatBackground } from "@/features/browse/styles";
@@ -84,6 +85,7 @@ export function ProductionsRail({ productions, todayStr }: ProductionsRailProps)
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const c = Colors[theme];
+  const router = useRouter();
 
   if (productions !== undefined && productions.length === 0) return null;
 
@@ -114,7 +116,25 @@ export function ProductionsRail({ productions, todayStr }: ProductionsRailProps)
             const warmClosing = isActive && Boolean(p.closingDate) && statusLine.startsWith("Closes");
             const locationLine = [p.city, districtLabel(p.district)].filter(Boolean).join(" · ");
             return (
-              <View key={p._id} style={[styles.prodCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+              <Pressable
+                key={p._id}
+                onPress={() =>
+                  router.push({
+                    pathname: "/production/[productionId]",
+                    params: { productionId: String(p._id) },
+                  })
+                }
+                style={({ pressed }) => [
+                  styles.prodCard,
+                  {
+                    backgroundColor: c.surface,
+                    borderColor: c.border,
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Open production details${p.theatre ? ` at ${p.theatre}` : ""}`}
+              >
                 {p.posterUrl ? (
                   <Image
                     source={{ uri: p.posterUrl }}
@@ -136,7 +156,7 @@ export function ProductionsRail({ productions, todayStr }: ProductionsRailProps)
                     {statusLine}
                   </Text>
                 </View>
-              </View>
+              </Pressable>
             );
           })
         )}
