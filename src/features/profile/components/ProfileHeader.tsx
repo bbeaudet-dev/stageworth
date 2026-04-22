@@ -244,9 +244,6 @@ export function ProfileHeader({
               </View>
               <Text style={[styles.activitySub, { color: mutedTextColor }]}>
                 {activitySummary.seasonLabel}
-                {" · "}
-                {activitySummary.showCount}{" "}
-                {activitySummary.showCount === 1 ? "show" : "shows"}
               </Text>
             </>
           )}

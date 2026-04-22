@@ -17,6 +17,7 @@ import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { FeedPostCard } from "@/features/community/components/FeedPostCard";
+import { LikeButton } from "@/features/community/components/LikeButton";
 import { ReportSheet } from "@/features/safety/components/ReportSheet";
 import { useSafetyActions } from "@/features/safety/components/useSafetyActions";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -42,6 +43,7 @@ type ParticipantsSheetProps = {
   onClose: () => void;
   actor: { _id: string; username: string; name?: string | null };
   taggedUsers: TaggedUser[];
+  taggedGuestNames: string[];
   onNavigate: (username: string) => void;
   theme: "light" | "dark";
 };
@@ -51,6 +53,7 @@ function ParticipantsSheet({
   onClose,
   actor,
   taggedUsers,
+  taggedGuestNames,
   onNavigate,
   theme,
 }: ParticipantsSheetProps) {
@@ -89,12 +92,29 @@ function ParticipantsSheet({
             </View>
           </Pressable>
         ))}
+        {taggedGuestNames.map((name, i) => (
+          <View
+            key={`guest-${name}-${i}`}
+            style={[
+              styles.sheetRow,
+              { borderTopColor: border },
+              all.length === 0 && i === 0 && { borderTopWidth: 0 },
+            ]}
+          >
+            <View style={styles.sheetRowText}>
+              <Text style={[styles.sheetRowName, { color: text }]}>{name}</Text>
+              <Text style={[styles.sheetRowHandle, { color: muted }]}>
+                Not on Stageworth
+              </Text>
+            </View>
+          </View>
+        ))}
       </View>
     </BottomSheet>
   );
 }
 
-/** Swipe left to reveal Delete — same pattern as list view show rows. */
+/** Swipe left to reveal Delete — same pattern as rank view show rows. */
 function OwnerSwipeable({
   enabled,
   onDeletePress,
@@ -143,6 +163,8 @@ export default function CommunityScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
   const [selectedTab, setSelectedTab] = useState<FeedTab>("global");
+  const [feedLimit, setFeedLimit] = useState(20);
+  const FEED_PAGE_SIZE = 20;
 
   const handlePlusPress = () => {
     Alert.alert("Quick Actions", undefined, [
@@ -158,11 +180,11 @@ export default function CommunityScreen() {
 
   const followingFeed = useQuery(
     api.social.community.getFollowingFeed,
-    selectedTab === "following" ? { limit: 40 } : "skip",
+    selectedTab === "following" ? { limit: feedLimit } : "skip",
   );
   const globalFeed = useQuery(
     api.social.community.getGlobalFeed,
-    selectedTab === "global" ? { limit: 40 } : "skip",
+    selectedTab === "global" ? { limit: feedLimit } : "skip",
   );
   const unreadCount = useQuery(api.notifications.getUnreadCount) ?? 0;
   const myProfile = useQuery(api.social.profiles.getMyProfile);
@@ -172,6 +194,7 @@ export default function CommunityScreen() {
   const [participantsModal, setParticipantsModal] = useState<{
     actor: TaggedUser;
     taggedUsers: TaggedUser[];
+    taggedGuestNames: string[];
   } | null>(null);
 
   const confirmDeletePost = (postId: Id<"activityPosts">, label: string) => {
@@ -284,7 +307,10 @@ export default function CommunityScreen() {
                   { borderColor: segmentBorder, backgroundColor: segmentBackground },
                   active && { backgroundColor: segmentBgActive, borderColor: segmentBgActive },
                 ]}
-                onPress={() => setSelectedTab(tab)}
+                onPress={() => {
+                  setSelectedTab(tab);
+                  setFeedLimit(FEED_PAGE_SIZE);
+                }}
               >
                 <Text
                   style={[
@@ -324,6 +350,8 @@ export default function CommunityScreen() {
             const actorLabel = getDisplayName(post.actor.name, post.actor.username);
             const isGlobal = selectedTab === "global";
             const tagged: TaggedUser[] = post.taggedUsers ?? [];
+            const guestNames: string[] = post.taggedGuestNames ?? [];
+            const totalTagged = tagged.length + guestNames.length;
             const isMine = !!myProfile && post.actor._id === myProfile._id;
             const postLabel =
               post.type === "visit_created"
@@ -403,6 +431,13 @@ export default function CommunityScreen() {
                         </Text>
                       </>
                     }
+                    footer={
+                      <LikeButton
+                        postId={post._id as Id<"activityPosts">}
+                        liked={post.likedByViewer ?? false}
+                        likeCount={post.likeCount ?? 0}
+                      />
+                    }
                   />
                 </OwnerSwipeable>
               );
@@ -471,6 +506,13 @@ export default function CommunityScreen() {
                       ) : undefined
                     }
                     posterBackground={posterBackground}
+                    footer={
+                      <LikeButton
+                        postId={post._id as Id<"activityPosts">}
+                        liked={post.likedByViewer ?? false}
+                        likeCount={post.likeCount ?? 0}
+                      />
+                    }
                   />
                 </OwnerSwipeable>
               );
@@ -542,6 +584,13 @@ export default function CommunityScreen() {
                       ) : undefined
                     }
                     posterBackground={posterBackground}
+                    footer={
+                      <LikeButton
+                        postId={post._id as Id<"activityPosts">}
+                        liked={post.likedByViewer ?? false}
+                        likeCount={post.likeCount ?? 0}
+                      />
+                    }
                   />
                 </OwnerSwipeable>
               );
@@ -552,7 +601,11 @@ export default function CommunityScreen() {
             if (!visitShow) return null;
             const location = formatVisitLocation(post.visitDate ?? "", post.theatre, post.city);
             const openParticipants = () =>
-              setParticipantsModal({ actor: post.actor, taggedUsers: tagged });
+              setParticipantsModal({
+                actor: post.actor,
+                taggedUsers: tagged,
+                taggedGuestNames: guestNames,
+              });
             const visitIsUpcoming = post.visitDate ? isFutureDate(post.visitDate) : false;
             const verbPhrase = visitIsUpcoming ? "is seeing" : "saw";
 
@@ -589,7 +642,7 @@ export default function CommunityScreen() {
                       >
                         {visitShow.name}
                       </Text>
-                      {tagged.length === 1 && (
+                      {totalTagged === 1 && tagged.length === 1 && (
                         <>
                           {" with "}
                           <Text
@@ -602,14 +655,22 @@ export default function CommunityScreen() {
                           </Text>
                         </>
                       )}
-                      {tagged.length >= 2 && (
+                      {totalTagged === 1 && guestNames.length === 1 && (
+                        <>
+                          {" with "}
+                          <Text style={[styles.actorText, { color: primaryTextColor }]}>
+                            {guestNames[0]}
+                          </Text>
+                        </>
+                      )}
+                      {totalTagged >= 2 && (
                         <>
                           {" with "}
                           <Text
                             style={[styles.actorText, { color: actorLinkColor }]}
                             onPress={openParticipants}
                           >
-                            {tagged.length} others
+                            {totalTagged} others
                           </Text>
                         </>
                       )}
@@ -665,10 +726,28 @@ export default function CommunityScreen() {
                     </Pressable>
                   }
                   posterBackground={posterBackground}
+                  footer={
+                    <LikeButton
+                      postId={post._id as Id<"activityPosts">}
+                      liked={post.likedByViewer ?? false}
+                      likeCount={post.likeCount ?? 0}
+                    />
+                  }
                 />
               </OwnerSwipeable>
             );
           })}
+
+        {!isLoading && posts.length > 0 && posts.length >= feedLimit && (
+          <Pressable
+            style={[styles.loadMoreBtn, { borderColor: cardBorder }]}
+            onPress={() => setFeedLimit((prev) => prev + FEED_PAGE_SIZE)}
+          >
+            <Text style={[styles.loadMoreText, { color: Colors[theme].accent }]}>
+              Load more
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
 
       <ParticipantsSheet
@@ -676,6 +755,7 @@ export default function CommunityScreen() {
         onClose={() => setParticipantsModal(null)}
         actor={participantsModal?.actor ?? { _id: "", username: "" }}
         taggedUsers={participantsModal?.taggedUsers ?? []}
+        taggedGuestNames={participantsModal?.taggedGuestNames ?? []}
         onNavigate={(username) =>
           router.push({ pathname: "/user/[username]", params: { username } })
         }
@@ -774,6 +854,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: "center",
     marginTop: 40,
+  },
+  loadMoreBtn: {
+    alignItems: "center",
+    paddingVertical: 12,
+    marginTop: 4,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   // ── Text styles shared across post types ───────────────────────────────────
   postTitle: {

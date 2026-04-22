@@ -16,6 +16,13 @@ type Production = {
 
 type VenueSuggestion = { name: string; city: string; state?: string };
 
+const MAX_THEATRE_CHARS = 24;
+
+function truncateTheatreName(name: string) {
+  if (name.length <= MAX_THEATRE_CHARS) return name;
+  return `${name.slice(0, MAX_THEATRE_CHARS - 1).trimEnd()}…`;
+}
+
 export function LocationSection({
   selectedShowId,
   productions,
@@ -105,7 +112,9 @@ export function LocationSection({
             >
               {productionOptions.map((production) => {
                 const selected = selectedProductionId === production._id && !useOtherProduction;
-                const labelParts = [production.theatre?.trim() || "Venue"];
+                const rawTheatre = production.theatre?.trim() || "Venue";
+                const theatreLabel = truncateTheatreName(rawTheatre);
+                const labelParts = [theatreLabel];
                 if (production.city) labelParts.push(production.city);
                 return (
                   <Pressable
@@ -121,6 +130,7 @@ export function LocationSection({
                     }}
                   >
                     <Text
+                      numberOfLines={1}
                       style={[
                         styles.productionChipText,
                         { color: c.mutedText },

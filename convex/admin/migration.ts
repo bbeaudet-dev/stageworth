@@ -1005,3 +1005,36 @@ export const backfillIsClosed = mutation({
   },
 });
 
+// Backfill missing notificationSettings.postLikes to true.
+export const backfillPostLikesPref = internalMutation({
+  args: { dryRun: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const all = await ctx.db.query("userPreferences").collect();
+
+    let patched = 0;
+    let alreadySet = 0;
+    let noSettings = 0;
+
+    for (const row of all) {
+      const settings = row.notificationSettings;
+      if (!settings) {
+        noSettings++;
+        continue;
+      }
+      if (typeof (settings as any).postLikes === "boolean") {
+        alreadySet++;
+        continue;
+      }
+      if (!dryRun) {
+        await ctx.db.patch(row._id, {
+          notificationSettings: { ...settings, postLikes: true },
+        });
+      }
+      patched++;
+    }
+
+    return { dryRun, total: all.length, patched, alreadySet, noSettings };
+  },
+});
+

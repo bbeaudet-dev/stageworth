@@ -189,16 +189,23 @@ export function MyShowsMapView({
       ).slice(0, 4);
     }
 
-    return clusters.map((cluster, index) => ({
-      key: `${Math.round(cluster.latitude * 10000)}:${Math.round(cluster.longitude * 10000)}:${index}`,
-      latitude: cluster.latitude,
-      longitude: cluster.longitude,
-      visitCount: cluster.visitCount,
-      theatreCount: cluster.count,
-      theatres: cluster.theatres,
-      city: cluster.city,
-      previewImages: cluster.previewImages,
-    }));
+    return clusters.map((cluster) => {
+      // Stable content-based keys keep React from remounting markers when the
+      // user zooms — unmounting many native Marker views in a frame is what
+      // occasionally crashes react-native-maps at deep zoom.
+      const sortedTheatres = [...cluster.theatres].sort();
+      const key = `${sortedTheatres.join("|")}::${cluster.city ?? ""}`;
+      return {
+        key,
+        latitude: cluster.latitude,
+        longitude: cluster.longitude,
+        visitCount: cluster.visitCount,
+        theatreCount: cluster.count,
+        theatres: cluster.theatres,
+        city: cluster.city,
+        previewImages: cluster.previewImages,
+      };
+    });
   }, [mapRegion.latitudeDelta, mapRegion.longitudeDelta, markers]);
 
   const scopeOptions: { value: MapScope; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
@@ -272,6 +279,7 @@ export function MyShowsMapView({
                         ? `${marker.city} - ${marker.visitCount} visits`
                         : `${marker.visitCount} visits`
                     }
+                    tracksViewChanges={false}
                   >
                     {marker.previewImages[0] ? (
                       <View style={styles.playbillPinWrap}>

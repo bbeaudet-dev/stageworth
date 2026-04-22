@@ -18,6 +18,7 @@ export function getInitialAddVisitFormState(): AddVisitFormState {
     useOtherProduction: false,
     city: "",
     theatre: "",
+    seat: "",
     notes: "",
     isSaving: false,
     keepCurrentRanking: true,
@@ -27,6 +28,7 @@ export function getInitialAddVisitFormState(): AddVisitFormState {
     rankingResultIndex: null,
     skippedComparisonIndices: [],
     taggedUserIds: [],
+    taggedGuestNames: [],
   };
 }
 
@@ -40,11 +42,14 @@ export function hasUnsavedAddVisitChanges(state: AddVisitFormState) {
     state.useOtherProduction ||
     state.city.trim().length > 0 ||
     state.theatre.trim().length > 0 ||
+    state.seat.trim().length > 0 ||
     state.notes.trim().length > 0 ||
     state.keepCurrentRanking !== true ||
     state.selectedTier !== null ||
     state.searchLow !== 0 ||
     state.searchHigh !== 0 ||
-    state.rankingResultIndex !== null
+    state.rankingResultIndex !== null ||
+    state.taggedUserIds.length > 0 ||
+    state.taggedGuestNames.length > 0
   );
 }

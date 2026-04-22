@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { getConvexUserId, requireConvexUserId } from "../auth";
 import { getBlockEdgeSets, isBlockedEitherWay } from "./safety";
+import { collectVisitsForUser } from "../visits";
 
 const MAX_BIO_LENGTH = 280;
 const MAX_LOCATION_LENGTH = 80;
@@ -201,10 +202,7 @@ export const getProfileStats = query({
         .query("userRankings")
         .withIndex("by_user", (q: any) => q.eq("userId", targetUserId))
         .first(),
-      ctx.db
-        .query("visits")
-        .withIndex("by_user", (q: any) => q.eq("userId", targetUserId))
-        .collect(),
+      collectVisitsForUser(ctx, targetUserId),
     ]);
 
     return {

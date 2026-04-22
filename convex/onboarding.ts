@@ -1,6 +1,12 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import {
+  internalAction,
+  internalMutation,
+  mutation,
+  query,
+} from "./_generated/server";
 import { getConvexUserId, requireConvexUserId } from "./auth";
 
 const MAX_NAME_LENGTH = 80;
@@ -123,15 +129,17 @@ export const generateAvatarUploadUrl = mutation({
 
 export const completeProfilePhase = mutation({
   args: {
-    name: v.string(),
+    // Name is optional per Apple Sign-in HIG: when the auth provider already
+    // gave us a name we must not re-require it, and when it didn't we still
+    // don't gate onboarding on it.
+    name: v.optional(v.string()),
     username: v.string(),
     avatarImage: v.optional(v.union(v.id("_storage"), v.null())),
   },
   handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
 
-    const trimmedName = args.name.trim();
-    if (!trimmedName) throw new Error("Name is required");
+    const trimmedName = args.name?.trim() ?? "";
     if (trimmedName.length > MAX_NAME_LENGTH) {
       throw new Error("Name is too long");
     }
@@ -153,13 +161,122 @@ export const completeProfilePhase = mutation({
     }
 
     await ctx.db.patch(userId, {
-      name: trimmedName,
+      name: trimmedName ? trimmedName : undefined,
       username: candidateUsername,
       avatarImage:
         args.avatarImage === null
           ? undefined
           : args.avatarImage ?? user.avatarImage,
       onboardingPhase: "shows",
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Hydrates fields that social providers gave us but that better-auth can't
+ * thread through `signIn.social` directly — specifically Apple's `fullName`
+ * (returned only on the very first sign-in, never embedded in the id token)
+ * and the provider's profile picture URL.
+ *
+ * Called by the client immediately after `authClient.signIn.social` resolves.
+ *
+ * Idempotent: we only patch `name` when it's currently empty, and only kick
+ * off an avatar import when the user has no uploaded `avatarImage` yet, so
+ * repeat sign-ins never clobber fields the user has curated.
+ */
+export const hydrateSocialIdentity = mutation({
+  args: {
+    name: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // The social sign-in flow fires this as soon as the auth client resolves,
+    // but there's a small window where the Convex session hasn't propagated
+    // yet. Silently no-op in that case — the client retries via onboarding.
+    const userId = await getConvexUserId(ctx);
+    if (!userId) return;
+    const user = await ctx.db.get(userId);
+    if (!user) return;
+
+    const patch: { name?: string; updatedAt?: number } = {};
+
+    const trimmedName = args.name?.trim();
+    if (trimmedName && trimmedName.length <= MAX_NAME_LENGTH && !user.name) {
+      patch.name = trimmedName;
+    }
+
+    if (Object.keys(patch).length > 0) {
+      patch.updatedAt = Date.now();
+      await ctx.db.patch(userId, patch);
+    }
+
+    if (
+      !user.avatarImage &&
+      args.imageUrl &&
+      typeof args.imageUrl === "string" &&
+      args.imageUrl.startsWith("https://")
+    ) {
+      await ctx.scheduler.runAfter(0, internal.onboarding.importAvatarFromUrl, {
+        userId,
+        imageUrl: args.imageUrl,
+      });
+    }
+  },
+});
+
+/**
+ * Fetches an OAuth-provided profile image, stores the bytes in Convex storage,
+ * and patches `avatarImage` on the user row. Runs only when no custom avatar
+ * has been set, so user-curated images are never overwritten.
+ *
+ * Runs in an action because mutations can't make outbound HTTP requests.
+ */
+export const importAvatarFromUrl = internalAction({
+  args: {
+    userId: v.id("users"),
+    imageUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const response = await fetch(args.imageUrl);
+      if (!response.ok) return;
+      const contentType = response.headers.get("content-type") ?? "image/jpeg";
+      // Guard against accidentally fetching something huge.
+      const contentLengthHeader = response.headers.get("content-length");
+      const contentLength = contentLengthHeader
+        ? Number(contentLengthHeader)
+        : null;
+      if (contentLength !== null && contentLength > 5 * 1024 * 1024) return;
+
+      const blob = await response.blob();
+      if (blob.size > 5 * 1024 * 1024) return;
+
+      const storageId = await ctx.storage.store(blob);
+      await ctx.runMutation(internal.onboarding.setAvatarFromImport, {
+        userId: args.userId,
+        avatarImage: storageId,
+      });
+    } catch {
+      // Best-effort import — if it fails we just leave the session image as a
+      // visual fallback and the user can pick one manually.
+    }
+  },
+});
+
+export const setAvatarFromImport = internalMutation({
+  args: {
+    userId: v.id("users"),
+    avatarImage: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) return;
+    // Race guard: if the user already picked a custom avatar between when we
+    // scheduled the fetch and when it completed, keep the user's choice.
+    if (user.avatarImage) return;
+    await ctx.db.patch(args.userId, {
+      avatarImage: args.avatarImage,
       updatedAt: Date.now(),
     });
   },

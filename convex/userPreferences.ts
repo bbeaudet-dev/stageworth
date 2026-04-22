@@ -61,6 +61,7 @@ export const updateNotificationSettings = mutation({
     tripInvites: v.boolean(),
     closingSoon: v.boolean(),
     showAnnounced: v.boolean(),
+    postLikes: v.boolean(),
   },
   handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
@@ -75,6 +76,7 @@ export const updateNotificationSettings = mutation({
       tripInvites: args.tripInvites,
       closingSoon: args.closingSoon,
       showAnnounced: args.showAnnounced,
+      postLikes: args.postLikes,
     };
 
     if (existing) {

@@ -21,6 +21,7 @@ import { styles as addVisitStyles } from "@/features/add-visit/styles";
 import { VisitDateSection } from "@/features/add-visit/components/VisitDateSection";
 import { LocationSection } from "@/features/add-visit/components/LocationSection";
 import { NotesSection } from "@/features/add-visit/components/NotesSection";
+import { SeatSection } from "@/features/add-visit/components/SeatSection";
 import { TagFriendsSection } from "@/features/add-visit/components/TagFriendsSection";
 import { useEditVisitData } from "@/features/edit-visit/hooks/useEditVisitData";
 import { useEditVisitFormState } from "@/features/edit-visit/hooks/useEditVisitFormState";
@@ -46,16 +47,21 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
     setUseOtherProduction,
     setCity,
     setTheatre,
+    setSeat,
     setNotes,
     setIsSaving,
     toggleTaggedUser,
+    addTaggedGuest,
+    removeTaggedGuest,
   } = useEditVisitFormState({
     date: "",
     productionId: null,
     city: null,
     theatre: null,
+    seat: null,
     notes: null,
     taggedUserIds: null,
+    taggedGuestNames: null,
   });
 
   useEffect(() => {
@@ -65,8 +71,10 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
       productionId: visit.productionId ?? null,
       city: visit.city ?? null,
       theatre: visit.theatre ?? null,
+      seat: visit.seat ?? null,
       notes: visit.notes ?? null,
       taggedUserIds: (visit.taggedUserIds as Id<"users">[] | undefined) ?? null,
+      taggedGuestNames: (visit.taggedGuestNames as string[] | undefined) ?? null,
     });
     setInitialized(true);
   }, [visit, initialized, reinitialize]);
@@ -78,9 +86,12 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
       state.selectedProductionId !== (visit.productionId ?? null) ||
       state.city !== (visit.city ?? "") ||
       state.theatre !== (visit.theatre ?? "") ||
+      state.seat !== (visit.seat ?? "") ||
       state.notes !== (visit.notes ?? "") ||
       JSON.stringify([...state.taggedUserIds].sort()) !==
-        JSON.stringify([...(visit.taggedUserIds ?? [])].sort()));
+        JSON.stringify([...(visit.taggedUserIds ?? [])].sort()) ||
+      JSON.stringify([...state.taggedGuestNames].sort()) !==
+        JSON.stringify([...(visit.taggedGuestNames ?? [])].sort()));
 
   usePreventRemove(hasUnsavedChanges && !state.isSaving && !allowRemoveRef.current, (event) => {
     Alert.alert("Discard changes?", "You have unsaved edits to this visit.", [
@@ -106,8 +117,11 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
         productionId: state.useOtherProduction ? undefined : (state.selectedProductionId ?? undefined),
         city: state.useOtherProduction ? state.city.trim() || undefined : undefined,
         theatre: state.useOtherProduction ? state.theatre.trim() || undefined : undefined,
+        seat: state.seat.trim() || undefined,
         notes: state.notes.trim() || undefined,
         taggedUserIds: state.taggedUserIds.length > 0 ? state.taggedUserIds : undefined,
+        taggedGuestNames:
+          state.taggedGuestNames.length > 0 ? state.taggedGuestNames : undefined,
       });
       allowRemoveRef.current = true;
       router.back();
@@ -178,12 +192,16 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
             setTheatre={setTheatre}
           />
 
+          <SeatSection seat={state.seat} setSeat={setSeat} />
           <NotesSection notes={state.notes} setNotes={setNotes} />
 
           <TagFriendsSection
             following={myFollowing}
             taggedUserIds={state.taggedUserIds}
             onToggle={toggleTaggedUser}
+            guestNames={state.taggedGuestNames}
+            onAddGuest={addTaggedGuest}
+            onRemoveGuest={removeTaggedGuest}
           />
 
           <Pressable

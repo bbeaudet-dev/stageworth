@@ -134,9 +134,9 @@ export const getShowRecommendation = action({
     if (data.preferences && data.preferences.length > 0) {
       const lines = data.preferences.map(
         (p: { element: string; rating: number }) =>
-          `- "${p.element} is important to me": ${RATING_LABELS[p.rating] ?? p.rating} (${p.rating}/5)`
+          `- "${p.element}": ${RATING_LABELS[p.rating] ?? p.rating} (${p.rating}/5)`
       );
-      preferencesBlock = `The user's theatre element preferences:\n${lines.join("\n")}`;
+      preferencesBlock = `The user's theatre element preferences (use element NAMES exactly as written — never wrap them in a sentence):\n${lines.join("\n")}`;
     } else {
       preferencesBlock =
         "The user has not set any theatre preferences yet. Make a general assessment.";
@@ -235,8 +235,8 @@ SUCCESS:
   "score": <integer 1-5, 1=probably won't enjoy, 3=could go either way, 5=almost certainly will love it>,
   "headline": "<short 3-8 word taste-match hook — NOT a plot descriptor>",
   "reasoning": "<2-3 short sentences of ANALYSIS — why this show's qualities line up (or don't) with the reader's taste. Address the reader as 'you' when needed; NEVER use third person. NEVER summarize the plot/setting/characters. At most one parenthetical citation of a loved/liked/disliked title per Voice Rules.>",
-  "matchedElements": [<element names from their preferences that align with this show; can be empty>],
-  "mismatchedElements": [<element names that might not align; can be empty>]
+  "matchedElements": [<element names from the list above that align with this show; copy the NAME ONLY, not a sentence; can be empty>],
+  "mismatchedElements": [<element names from the list above that might not align; NAME ONLY, not a sentence; can be empty>]
 }
 
 INSUFFICIENT-CONTEXT (use ONLY when you genuinely cannot assess this show — e.g. title is ambiguous and no description is provided):

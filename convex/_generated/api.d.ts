@@ -27,6 +27,7 @@ import type * as challenges from "../challenges.js";
 import type * as compareShows from "../compareShows.js";
 import type * as crons from "../crons.js";
 import type * as findShow from "../findShow.js";
+import type * as friendsRankings from "../friendsRankings.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as imageEnrichment_mutations from "../imageEnrichment/mutations.js";
@@ -38,6 +39,7 @@ import type * as invites from "../invites.js";
 import type * as leaderboard from "../leaderboard.js";
 import type * as listRules from "../listRules.js";
 import type * as lists from "../lists.js";
+import type * as notificationDispatch from "../notificationDispatch.js";
 import type * as notifications from "../notifications.js";
 import type * as onboarding from "../onboarding.js";
 import type * as playbill from "../playbill.js";
@@ -52,6 +54,7 @@ import type * as showNormalization from "../showNormalization.js";
 import type * as shows from "../shows.js";
 import type * as showtimes from "../showtimes.js";
 import type * as social_community from "../social/community.js";
+import type * as social_likes from "../social/likes.js";
 import type * as social_profiles from "../social/profiles.js";
 import type * as social_safety from "../social/safety.js";
 import type * as social_social from "../social/social.js";
@@ -63,6 +66,7 @@ import type * as trips_trips from "../trips/trips.js";
 import type * as userPreferences from "../userPreferences.js";
 import type * as userStats from "../userStats.js";
 import type * as venues from "../venues.js";
+import type * as visitParticipants from "../visitParticipants.js";
 import type * as visits from "../visits.js";
 
 import type {
@@ -91,6 +95,7 @@ declare const fullApi: ApiFromModules<{
   compareShows: typeof compareShows;
   crons: typeof crons;
   findShow: typeof findShow;
+  friendsRankings: typeof friendsRankings;
   helpers: typeof helpers;
   http: typeof http;
   "imageEnrichment/mutations": typeof imageEnrichment_mutations;
@@ -102,6 +107,7 @@ declare const fullApi: ApiFromModules<{
   leaderboard: typeof leaderboard;
   listRules: typeof listRules;
   lists: typeof lists;
+  notificationDispatch: typeof notificationDispatch;
   notifications: typeof notifications;
   onboarding: typeof onboarding;
   playbill: typeof playbill;
@@ -116,6 +122,7 @@ declare const fullApi: ApiFromModules<{
   shows: typeof shows;
   showtimes: typeof showtimes;
   "social/community": typeof social_community;
+  "social/likes": typeof social_likes;
   "social/profiles": typeof social_profiles;
   "social/safety": typeof social_safety;
   "social/social": typeof social_social;
@@ -127,6 +134,7 @@ declare const fullApi: ApiFromModules<{
   userPreferences: typeof userPreferences;
   userStats: typeof userStats;
   venues: typeof venues;
+  visitParticipants: typeof visitParticipants;
   visits: typeof visits;
 }>;
 

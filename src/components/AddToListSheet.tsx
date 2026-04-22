@@ -23,12 +23,13 @@ export function AddToListSheet({ visible, showId, showName, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
 
-  const [addingToList, setAddingToList] = useState(false);
+  const [busyListId, setBusyListId] = useState<Id<"userLists"> | null>(null);
   const [optimisticallyInLists, setOptimisticallyInLists] = useState<Set<string>>(new Set());
+  const [optimisticallyOutOfLists, setOptimisticallyOutOfLists] = useState<Set<string>>(new Set());
 
-  // Reset optimistic state whenever the sheet opens for a different show
   useEffect(() => {
     setOptimisticallyInLists(new Set());
+    setOptimisticallyOutOfLists(new Set());
   }, [showId]);
 
   const myLists = useQuery(
@@ -43,39 +44,47 @@ export function AddToListSheet({ visible, showId, showName, onClose }: Props) {
     ...(myLists?.customLists ?? []),
   ];
 
-  async function handleAddToList(listId: Id<"userLists">, listName: string) {
-    if (!showId || addingToList) return;
-    setOptimisticallyInLists((prev) => new Set([...prev, listId]));
-    onClose();
-    showToast({ message: `Added "${showName}" to ${listName}` });
-    setAddingToList(true);
-    try {
-      await addShowToList({ listId, showId });
-    } catch {
+  async function handleToggle(listId: Id<"userLists">, listName: string, alreadyIn: boolean) {
+    if (!showId || busyListId) return;
+    setBusyListId(listId);
+    if (alreadyIn) {
       setOptimisticallyInLists((prev) => {
         const next = new Set(prev);
         next.delete(listId);
         return next;
       });
-    } finally {
-      setAddingToList(false);
-    }
-  }
-
-  async function handleRemoveFromList(listId: Id<"userLists">, listName: string) {
-    if (!showId || addingToList) return;
-    setOptimisticallyInLists((prev) => {
-      const next = new Set(prev);
-      next.delete(listId);
-      return next;
-    });
-    onClose();
-    showToast({ message: `Removed "${showName}" from ${listName}` });
-    setAddingToList(true);
-    try {
-      await removeShowFromList({ listId, showId });
-    } finally {
-      setAddingToList(false);
+      setOptimisticallyOutOfLists((prev) => new Set([...prev, listId]));
+      try {
+        await removeShowFromList({ listId, showId });
+        showToast({ message: `Removed "${showName}" from ${listName}` });
+      } catch {
+        setOptimisticallyOutOfLists((prev) => {
+          const next = new Set(prev);
+          next.delete(listId);
+          return next;
+        });
+      } finally {
+        setBusyListId(null);
+      }
+    } else {
+      setOptimisticallyOutOfLists((prev) => {
+        const next = new Set(prev);
+        next.delete(listId);
+        return next;
+      });
+      setOptimisticallyInLists((prev) => new Set([...prev, listId]));
+      try {
+        await addShowToList({ listId, showId });
+        showToast({ message: `Added "${showName}" to ${listName}` });
+      } catch {
+        setOptimisticallyInLists((prev) => {
+          const next = new Set(prev);
+          next.delete(listId);
+          return next;
+        });
+      } finally {
+        setBusyListId(null);
+      }
     }
   }
 
@@ -97,7 +106,11 @@ export function AddToListSheet({ visible, showId, showName, onClose }: Props) {
             </View>
           ) : (
             allLists.map((list) => {
-              const alreadyIn = (list.containsShow ?? false) || optimisticallyInLists.has(list._id);
+              const baseIn = list.containsShow ?? false;
+              const alreadyIn =
+                (baseIn && !optimisticallyOutOfLists.has(list._id)) ||
+                optimisticallyInLists.has(list._id);
+              const isBusy = busyListId === list._id;
               return (
                 <Pressable
                   key={list._id}
@@ -105,17 +118,15 @@ export function AddToListSheet({ visible, showId, showName, onClose }: Props) {
                     s.row,
                     { borderBottomColor: c.border, opacity: pressed ? 0.7 : 1 },
                   ]}
-                  onPress={() =>
-                    alreadyIn
-                      ? handleRemoveFromList(list._id as Id<"userLists">, list.name)
-                      : handleAddToList(list._id as Id<"userLists">, list.name)
-                  }
-                  disabled={addingToList}
+                  onPress={() => handleToggle(list._id as Id<"userLists">, list.name, alreadyIn)}
+                  disabled={isBusy}
                 >
                   <Text style={[s.rowText, { color: alreadyIn ? c.mutedText : c.text }]}>
                     {list.name}
                   </Text>
-                  {alreadyIn ? (
+                  {isBusy ? (
+                    <ActivityIndicator size="small" color={c.mutedText} />
+                  ) : alreadyIn ? (
                     <Text style={[s.rowCheck, { color: c.accent }]}>✓</Text>
                   ) : (
                     <Text style={[s.rowCount, { color: c.mutedText }]}>{list.showCount}</Text>

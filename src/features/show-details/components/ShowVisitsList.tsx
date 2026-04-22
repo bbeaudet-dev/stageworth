@@ -5,6 +5,7 @@ import { Colors } from "@/constants/theme";
 import type { Id } from "@/convex/_generated/dataModel";
 import { formatDate } from "@/features/browse/logic/date";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import type { RankingTier } from "@/types/ranking";
 
 interface Visit {
   _id: Id<"visits">;
@@ -14,16 +15,24 @@ interface Visit {
 interface ShowVisitsListProps {
   visits: Visit[] | undefined;
   personalRank?: { rank: number; total: number } | null;
+  myTier?: RankingTier | null;
 }
 
-export function ShowVisitsList({ visits, personalRank }: ShowVisitsListProps) {
+export function ShowVisitsList({
+  visits,
+  personalRank,
+  myTier,
+}: ShowVisitsListProps) {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const c = Colors[theme];
 
   const hasVisits = !!visits && visits.length > 0;
-  if (!hasVisits && !personalRank) return null;
+  const showUnrankedRow =
+    !personalRank && (myTier === "unranked" || hasVisits);
+
+  if (!hasVisits && !personalRank && !showUnrankedRow) return null;
 
   return (
     <View style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
@@ -33,6 +42,19 @@ export function ShowVisitsList({ visits, personalRank }: ShowVisitsListProps) {
           <Text style={[styles.rankValue, { color: c.text }]}>
             #{personalRank.rank} of {personalRank.total}
           </Text>
+        </View>
+      ) : showUnrankedRow ? (
+        <View
+          style={[
+            styles.rankRow,
+            hasVisits && {
+              borderBottomColor: c.border,
+              borderBottomWidth: StyleSheet.hairlineWidth,
+            },
+          ]}
+        >
+          <Text style={[styles.rankLabel, { color: c.mutedText }]}>Your Rank</Text>
+          <Text style={[styles.rankUnranked, { color: c.mutedText }]}>Unranked</Text>
         </View>
       ) : null}
 
@@ -78,5 +100,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
+  },
+  rankUnranked: {
+    fontSize: 13,
+    fontWeight: "600",
+    fontStyle: "italic",
   },
 });

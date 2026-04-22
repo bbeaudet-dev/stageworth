@@ -1,10 +1,11 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { getConvexUserId, requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
 import { removeShowFromSystemLists } from "./listRules";
+import { notifyUser } from "./notificationDispatch";
 import { normalizeShowName, normalizeCityName } from "./showNormalization";
 import { computeTheatreScore } from "./scoreUtils";
 import { getBlockEdgeSets } from "./social/safety";
@@ -31,6 +32,197 @@ const mapScopeValidator = v.union(v.literal("mine"), v.literal("following"), v.l
 
 function getTierRank(tier: Tier): number {
   return TIER_ORDER.indexOf(tier);
+}
+
+const MAX_GUEST_NAME_LENGTH = 40;
+const MAX_GUEST_NAMES_PER_VISIT = 20;
+
+// Trim, drop empties, cap length, and de-dupe (case-insensitive) while
+// preserving caller's casing/ordering for display purposes.
+function sanitizeGuestNames(
+  raw: readonly string[] | undefined
+): string[] {
+  if (!raw || raw.length === 0) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const name of raw) {
+    const trimmed = name.trim().slice(0, MAX_GUEST_NAME_LENGTH);
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+    if (out.length >= MAX_GUEST_NAMES_PER_VISIT) break;
+  }
+  return out;
+}
+
+/**
+ * Recompute a user's stats and bump theatre-challenge progress after a visit
+ * action (create or accepted-tag). Mirrors the inline logic in createVisit so
+ * accepted participants get the same score/challenge/streak treatment.
+ */
+export async function applyPostVisitUpdatesForUser(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    visitDate: string;
+    showId: Id<"shows">;
+    visitId: Id<"visits">;
+    uniqueShowCount: number;
+  },
+) {
+  const { userId, visitDate, showId, visitId, uniqueShowCount } = args;
+  const userVisits = await collectVisitsForUser(ctx, userId);
+  const totalVisits = userVisits.length;
+  const visitsWithNotes = userVisits.filter((vis) => vis.notes?.trim()).length;
+  const visitTagCounts = userVisits.map(
+    (vis) => vis.taggedUserIds?.length ?? 0,
+  );
+  const [followerRows, followingRows, existingStats] = await Promise.all([
+    ctx.db
+      .query("follows")
+      .withIndex("by_following", (q) => q.eq("followingUserId", userId))
+      .collect(),
+    ctx.db
+      .query("follows")
+      .withIndex("by_follower", (q) => q.eq("followerUserId", userId))
+      .collect(),
+    ctx.db
+      .query("userStats")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first(),
+  ]);
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const visitIsInFuture = visitDate > todayIso;
+
+  const visitWeekObj = new Date(visitDate + "T00:00:00Z");
+  const thursday = new Date(visitWeekObj);
+  thursday.setUTCDate(visitWeekObj.getUTCDate() + (3 - ((visitWeekObj.getUTCDay() + 6) % 7)));
+  const yearStart = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1));
+  const weekNumber = Math.ceil(((thursday.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  const currentWeek = `${thursday.getUTCFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
+
+  let streakWeeks = existingStats?.currentStreakWeeks ?? 0;
+  let longestStreak = existingStats?.longestStreakWeeks ?? 0;
+  let lastActiveWeek = existingStats?.lastActiveWeek ?? "";
+  if (!visitIsInFuture) {
+    if (lastActiveWeek === "") {
+      streakWeeks = 1;
+      lastActiveWeek = currentWeek;
+    } else if (currentWeek !== lastActiveWeek && currentWeek > lastActiveWeek) {
+      streakWeeks = currentWeek <= lastActiveWeek ? streakWeeks : 1;
+      lastActiveWeek = currentWeek;
+    }
+    if (streakWeeks > longestStreak) longestStreak = streakWeeks;
+  }
+
+  const theatreScore = computeTheatreScore({
+    uniqueShows: uniqueShowCount,
+    totalVisits,
+    visitsWithNotes,
+    visitTagCounts,
+    followerCount: followerRows.length,
+    followingCount: followingRows.length,
+    currentStreakWeeks: streakWeeks,
+  });
+
+  if (existingStats) {
+    await ctx.db.patch(existingStats._id, {
+      theatreScore,
+      currentStreakWeeks: streakWeeks,
+      longestStreakWeeks: longestStreak,
+      lastActiveWeek,
+      updatedAt: Date.now(),
+    });
+  } else {
+    await ctx.db.insert("userStats", {
+      userId,
+      theatreScore,
+      currentStreakWeeks: streakWeeks,
+      longestStreakWeeks: longestStreak,
+      lastActiveWeek,
+      updatedAt: Date.now(),
+    });
+  }
+
+  const visitYear = new Date(visitDate + "T00:00:00Z").getUTCFullYear();
+  const yearVisits = userVisits.filter((vis) => {
+    const visYear = new Date(vis.date + "T00:00:00Z").getUTCFullYear();
+    return visYear === visitYear && vis.showId === showId;
+  });
+  if (!visitIsInFuture && yearVisits.length === 1) {
+    const challenge = await ctx.db
+      .query("theatreChallenges")
+      .withIndex("by_user_year", (q) =>
+        q.eq("userId", userId).eq("year", visitYear),
+      )
+      .first();
+    if (challenge) {
+      const newCount = challenge.currentCount + 1;
+      await ctx.db.patch(challenge._id, {
+        currentCount: newCount,
+        updatedAt: Date.now(),
+      });
+
+      const milestones = [0.25, 0.5, 0.75, 1.0];
+      const progress = newCount / challenge.targetCount;
+      const prevProgress = (newCount - 1) / challenge.targetCount;
+      for (const milestone of milestones) {
+        if (prevProgress < milestone && progress >= milestone) {
+          const isCompleted = milestone === 1.0;
+          await ctx.db.insert("activityPosts", {
+            actorUserId: userId,
+            type: isCompleted ? "challenge_completed" : "challenge_milestone",
+            visitId,
+            showId,
+            visitDate,
+            challengeYear: visitYear,
+            challengeTarget: challenge.targetCount,
+            challengeProgress: newCount,
+            createdAt: Date.now(),
+          });
+          break;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Unions visits owned by the user with visits the user has accepted as a
+ * shared-visit participant. Use this for stats/counts that should reflect
+ * both "I ran this visit" and "I accepted an invite to this visit".
+ *
+ * NOTE: This intentionally ignores pending/declined participant rows.
+ */
+export async function collectVisitsForUser(
+  ctx: any,
+  userId: Id<"users">,
+): Promise<Doc<"visits">[]> {
+  const [owned, participations] = await Promise.all([
+    ctx.db
+      .query("visits")
+      .withIndex("by_user", (q: any) => q.eq("userId", userId))
+      .collect(),
+    ctx.db
+      .query("visitParticipants")
+      .withIndex("by_user_status", (q: any) =>
+        q.eq("userId", userId).eq("status", "accepted"),
+      )
+      .collect(),
+  ]);
+  const ownedIds = new Set(owned.map((v: any) => v._id));
+  const sharedVisits = (
+    await Promise.all(
+      participations.map(async (p: any) => {
+        if (ownedIds.has(p.visitId)) return null;
+        return (await ctx.db.get(p.visitId)) as Doc<"visits"> | null;
+      }),
+    )
+  ).filter((v): v is Doc<"visits"> => v !== null);
+  return [...owned, ...sharedVisits];
 }
 
 function normalizeVenueName(name: string) {
@@ -65,7 +257,7 @@ function stringSimilarity(a: string, b: string) {
   return (2 * overlap) / (aGrams.size + bGrams.size);
 }
 
-async function resolveVenueIdForVisit(
+export async function resolveVenueIdForVisit(
   ctx: any,
   theatre: string | undefined,
   city: string | undefined
@@ -158,6 +350,114 @@ function getBottomInsertionIndexForTier(
   return showIds.length;
 }
 
+/**
+ * Shared ranking application for visit create / accept. Mirrors the behavior
+ * of the original inline block in createVisit — centralizing so the
+ * accept-tag flow uses identical semantics (keep-current / new-rank / re-rank).
+ */
+export async function applyRankingForVisit(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    showId: Id<"shows">;
+    selectedTier?: RankedTier;
+    completedInsertionIndex?: number;
+    keepCurrentRanking?: boolean;
+  },
+): Promise<{ finalRankingShowIds: Id<"shows">[] }> {
+  const { userId, showId, selectedTier, completedInsertionIndex, keepCurrentRanking } = args;
+  let rankings = await ctx.db
+    .query("userRankings")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .first();
+  if (!rankings) {
+    const newId = await ctx.db.insert("userRankings", { userId, showIds: [] });
+    rankings = (await ctx.db.get(newId))!;
+  }
+  let finalRankingShowIds: Id<"shows">[] = [...rankings.showIds];
+
+  const alreadyRanked = rankings.showIds.includes(showId);
+  const allUserShows = await ctx.db
+    .query("userShows")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  const tierByShowId = new Map(
+    allUserShows.map((userShow) => [userShow.showId, userShow.tier as Tier]),
+  );
+  const existingUserShow = allUserShows.find((userShow) => userShow.showId === showId);
+  const shouldRank = selectedTier !== undefined || completedInsertionIndex !== undefined;
+
+  if (!alreadyRanked) {
+    if (!shouldRank) {
+      if (!existingUserShow) {
+        await ctx.db.insert("userShows", {
+          userId,
+          showId,
+          tier: "unranked",
+          addedAt: Date.now(),
+        });
+      } else if (existingUserShow.tier !== "unranked") {
+        await ctx.db.patch(existingUserShow._id, { tier: "unranked" });
+      }
+    } else {
+      const effectiveTier = selectedTier ?? "liked";
+      const defaultInsertionIndex = getBottomInsertionIndexForTier(
+        rankings.showIds,
+        tierByShowId,
+        effectiveTier,
+      );
+      const insertionIndex = Math.max(
+        0,
+        Math.min(
+          completedInsertionIndex ?? defaultInsertionIndex,
+          rankings.showIds.length,
+        ),
+      );
+      const nextShowIds = [...rankings.showIds];
+      nextShowIds.splice(insertionIndex, 0, showId);
+
+      await ctx.db.patch(rankings._id, { showIds: nextShowIds });
+      finalRankingShowIds = nextShowIds;
+      if (!existingUserShow) {
+        await ctx.db.insert("userShows", {
+          userId,
+          showId,
+          tier: effectiveTier,
+          addedAt: Date.now(),
+        });
+      } else if (existingUserShow.tier !== effectiveTier) {
+        await ctx.db.patch(existingUserShow._id, { tier: effectiveTier });
+      }
+    }
+  } else if (keepCurrentRanking) {
+    // Intentional no-op — preserve existing ranking position.
+  } else {
+    const effectiveTier = selectedTier ?? "liked";
+    const nextShowIds = rankings.showIds.filter((id) => id !== showId);
+    const tierByShowIdWithoutCurrent = new Map(tierByShowId);
+    tierByShowIdWithoutCurrent.delete(showId);
+
+    const defaultInsertionIndex = getBottomInsertionIndexForTier(
+      nextShowIds,
+      tierByShowIdWithoutCurrent,
+      effectiveTier,
+    );
+    const insertionIndex = Math.max(
+      0,
+      Math.min(completedInsertionIndex ?? defaultInsertionIndex, nextShowIds.length),
+    );
+
+    nextShowIds.splice(insertionIndex, 0, showId);
+    await ctx.db.patch(rankings._id, { showIds: nextShowIds });
+    finalRankingShowIds = nextShowIds;
+    if (existingUserShow && existingUserShow.tier !== effectiveTier) {
+      await ctx.db.patch(existingUserShow._id, { tier: effectiveTier });
+    }
+  }
+
+  return { finalRankingShowIds };
+}
+
 export const getById = query({
   args: { visitId: v.id("visits") },
   handler: async (ctx, args) => {
@@ -167,8 +467,15 @@ export const getById = query({
 
     const isOwner = visit.userId === viewerId;
     const isTagged = visit.taggedUserIds?.includes(viewerId) ?? false;
+    const myParticipant = await ctx.db
+      .query("visitParticipants")
+      .withIndex("by_visit_user", (q) =>
+        q.eq("visitId", args.visitId).eq("userId", viewerId),
+      )
+      .first();
+    const isParticipant = Boolean(myParticipant);
 
-    if (!isOwner && !isTagged) {
+    if (!isOwner && !isTagged && !isParticipant) {
       // Visits are only visible to non-owners/non-tagged viewers when they've
       // been promoted to the activity feed. This matches what the client is
       // already allowed to see via the community feed.
@@ -191,7 +498,12 @@ export const getById = query({
     if (!show) return null;
 
     const images = await resolveShowImageUrls(ctx, show);
-    return { ...visit, show: { ...show, images } };
+    return {
+      ...visit,
+      show: { ...show, images },
+      viewerParticipantStatus: myParticipant?.status ?? null,
+      viewerParticipantNotes: myParticipant?.notes ?? null,
+    };
   },
 });
 
@@ -214,10 +526,29 @@ export const listAllWithShows = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireConvexUserId(ctx);
-    const visits = await ctx.db
+    const ownedVisits = await ctx.db
       .query("visits")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
+
+    // Also include visits the viewer has accepted via shared-visit tag.
+    const acceptedParticipations = await ctx.db
+      .query("visitParticipants")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", userId).eq("status", "accepted"),
+      )
+      .collect();
+    const seen = new Set(ownedVisits.map((v) => v._id));
+    const participantVisits: Doc<"visits">[] = [];
+    for (const p of acceptedParticipations) {
+      if (seen.has(p.visitId)) continue;
+      const v = await ctx.db.get(p.visitId);
+      if (v) {
+        participantVisits.push(v);
+        seen.add(v._id);
+      }
+    }
+    const visits = [...ownedVisits, ...participantVisits];
 
     const showCache = new Map<string, any>();
     const results = await Promise.all(
@@ -233,7 +564,9 @@ export const listAllWithShows = query({
             showCache.set(visit.showId, show);
           }
         }
-        return show ? { ...visit, show } : null;
+        if (!show) return null;
+        const isSharedGuest = visit.userId !== userId;
+        return { ...visit, show, isSharedGuest };
       })
     );
 
@@ -243,6 +576,74 @@ export const listAllWithShows = query({
   },
 });
 
+async function resolveVisitCoordinates(
+  ctx: any,
+  visit: { venueId?: Id<"venues">; theatre?: string; city?: string }
+): Promise<{ latitude?: number; longitude?: number }> {
+  if (visit.venueId) {
+    const venue = await ctx.db.get(visit.venueId);
+    if (venue?.latitude !== undefined && venue?.longitude !== undefined) {
+      return { latitude: venue.latitude, longitude: venue.longitude };
+    }
+  }
+  const theatre = visit.theatre?.trim();
+  if (!theatre) return {};
+  const normalizedName = normalizeVenueName(theatre);
+  if (!normalizedName) return {};
+  const city = visit.city?.trim();
+  const matched = city
+    ? await ctx.db
+        .query("venues")
+        .withIndex("by_city_normalized_name", (q: any) =>
+          q.eq("city", city).eq("normalizedName", normalizedName),
+        )
+        .first()
+    : await ctx.db
+        .query("venues")
+        .withIndex("by_normalized_name", (q: any) =>
+          q.eq("normalizedName", normalizedName),
+        )
+        .first();
+  if (matched?.latitude !== undefined && matched?.longitude !== undefined) {
+    return { latitude: matched.latitude, longitude: matched.longitude };
+  }
+  return {};
+}
+
+async function loadVisitsForMapScope(
+  ctx: any,
+  scope: "mine" | "following" | "all",
+  userId: Id<"users">,
+  hiddenIds: Set<string>,
+) {
+  if (scope === "mine") {
+    return await ctx.db
+      .query("visits")
+      .withIndex("by_user", (q: any) => q.eq("userId", userId))
+      .collect();
+  }
+  if (scope === "following") {
+    const followRows = await ctx.db
+      .query("follows")
+      .withIndex("by_follower", (q: any) => q.eq("followerUserId", userId))
+      .collect();
+    const followingIds = followRows
+      .map((row: any) => row.followingUserId)
+      .filter((id: string) => !hiddenIds.has(id));
+    const groups = await Promise.all(
+      followingIds.map((followingUserId: Id<"users">) =>
+        ctx.db
+          .query("visits")
+          .withIndex("by_user", (q: any) => q.eq("userId", followingUserId))
+          .collect(),
+      ),
+    );
+    return groups.flat();
+  }
+  const all = await ctx.db.query("visits").collect();
+  return all.filter((v: any) => !hiddenIds.has(v.userId));
+}
+
 export const listMapPins = query({
   args: { scope: mapScopeValidator },
   handler: async (ctx, args) => {
@@ -251,34 +652,12 @@ export const listMapPins = query({
       return [];
     }
     const { hiddenIds } = await getBlockEdgeSets(ctx, userId);
-    let visits: Doc<"visits">[] = [];
-
-    if (args.scope === "mine") {
-      visits = await ctx.db
-        .query("visits")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect();
-    } else if (args.scope === "following") {
-      const followRows = await ctx.db
-        .query("follows")
-        .withIndex("by_follower", (q) => q.eq("followerUserId", userId))
-        .collect();
-      const followingIds = followRows
-        .map((row) => row.followingUserId)
-        .filter((id) => !hiddenIds.has(id));
-      const groupedVisits = await Promise.all(
-        followingIds.map((followingUserId) =>
-          ctx.db
-            .query("visits")
-            .withIndex("by_user", (q) => q.eq("userId", followingUserId))
-            .collect()
-        )
-      );
-      visits = groupedVisits.flat();
-    } else {
-      const all = await ctx.db.query("visits").collect();
-      visits = all.filter((v) => !hiddenIds.has(v.userId));
-    }
+    const visits: Doc<"visits">[] = await loadVisitsForMapScope(
+      ctx,
+      args.scope,
+      userId,
+      hiddenIds,
+    );
 
     const rows = new Map<
       string,
@@ -304,42 +683,17 @@ export const listMapPins = query({
         existing.visitCount += 1;
         existing.uniqueUserIds.add(visit.userId);
         existing.showIds.add(visit.showId);
-        if (existing.latitude === undefined && visit.venueId) {
-          const venue = await ctx.db.get(visit.venueId);
-          if (venue?.latitude !== undefined && venue?.longitude !== undefined) {
-            existing.latitude = venue.latitude;
-            existing.longitude = venue.longitude;
+        if (existing.latitude === undefined) {
+          const { latitude, longitude } = await resolveVisitCoordinates(ctx, visit);
+          if (latitude !== undefined && longitude !== undefined) {
+            existing.latitude = latitude;
+            existing.longitude = longitude;
           }
         }
         continue;
       }
 
-      let latitude: number | undefined;
-      let longitude: number | undefined;
-      if (visit.venueId) {
-        const venue = await ctx.db.get(visit.venueId);
-        if (venue?.latitude !== undefined && venue?.longitude !== undefined) {
-          latitude = venue.latitude;
-          longitude = venue.longitude;
-        }
-      } else {
-        const normalizedName = normalizeVenueName(theatre);
-        const matchedVenue = city
-          ? await ctx.db
-              .query("venues")
-              .withIndex("by_city_normalized_name", (q) =>
-                q.eq("city", city).eq("normalizedName", normalizedName)
-              )
-              .first()
-          : await ctx.db
-              .query("venues")
-              .withIndex("by_normalized_name", (q) => q.eq("normalizedName", normalizedName))
-              .first();
-        if (matchedVenue?.latitude !== undefined && matchedVenue?.longitude !== undefined) {
-          latitude = matchedVenue.latitude;
-          longitude = matchedVenue.longitude;
-        }
-      }
+      const { latitude, longitude } = await resolveVisitCoordinates(ctx, visit);
 
       rows.set(mapKey, {
         mapKey,
@@ -394,57 +748,32 @@ export const getMapCoverageStats = query({
         visitsWithValidLocation: 0,
         visitsMissingLocation: 0,
         uniqueShowsMissingLocation: 0,
+        uniqueCities: 0,
+        uniqueTheatres: 0,
       };
     }
     const { hiddenIds } = await getBlockEdgeSets(ctx, userId);
-    let visits: Array<{
-      userId: string;
-      showId: Id<"shows">;
-      venueId?: Id<"venues">;
-      theatre?: string;
-    }> = [];
-
-    if (args.scope === "mine") {
-      visits = await ctx.db
-        .query("visits")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect();
-    } else if (args.scope === "following") {
-      const followRows = await ctx.db
-        .query("follows")
-        .withIndex("by_follower", (q) => q.eq("followerUserId", userId))
-        .collect();
-      const followingIds = followRows
-        .map((row) => row.followingUserId)
-        .filter((id) => !hiddenIds.has(id));
-      const groupedVisits = await Promise.all(
-        followingIds.map((followingUserId) =>
-          ctx.db
-            .query("visits")
-            .withIndex("by_user", (q) => q.eq("userId", followingUserId))
-            .collect()
-        )
-      );
-      visits = groupedVisits.flat();
-    } else {
-      const all = await ctx.db.query("visits").collect();
-      visits = all.filter((v) => !hiddenIds.has(v.userId as any));
-    }
+    const visits = await loadVisitsForMapScope(ctx, args.scope, userId, hiddenIds);
 
     let visitsWithValidLocation = 0;
     const missingShowIds = new Set<Id<"shows">>();
+    // Profile totals should include all visits, not only geocoded ones.
+    const citySet = new Set<string>();
+    const theatreSet = new Set<string>();
 
     for (const visit of visits) {
-      const hasTheatre = Boolean(visit.theatre?.trim());
-      let hasVenueCoordinates = false;
-      if (visit.venueId) {
-        const venue = await ctx.db.get(visit.venueId);
-        hasVenueCoordinates = Boolean(
-          venue?.latitude !== undefined && venue?.longitude !== undefined
-        );
+      const theatre = visit.theatre?.trim();
+      const rawCity = visit.city?.trim();
+      if (theatre) {
+        const theatreKey = `${theatre.toLowerCase()}::${(rawCity ?? "").toLowerCase()}`;
+        theatreSet.add(theatreKey);
+      }
+      if (rawCity) {
+        citySet.add(normalizeCityName(rawCity).toLowerCase());
       }
 
-      if (hasVenueCoordinates || hasTheatre) {
+      const { latitude, longitude } = await resolveVisitCoordinates(ctx, visit);
+      if (latitude !== undefined && longitude !== undefined) {
         visitsWithValidLocation += 1;
       } else {
         missingShowIds.add(visit.showId);
@@ -456,6 +785,8 @@ export const getMapCoverageStats = query({
       visitsWithValidLocation,
       visitsMissingLocation: visits.length - visitsWithValidLocation,
       uniqueShowsMissingLocation: missingShowIds.size,
+      uniqueCities: citySet.size,
+      uniqueTheatres: theatreSet.size,
     };
   },
 });
@@ -561,10 +892,12 @@ export const createVisit = mutation({
       )
     ),
     notes: v.optional(v.string()),
+    seat: v.optional(v.string()),
     keepCurrentRanking: v.optional(v.boolean()),
     selectedTier: v.optional(rankedTierValidator),
     completedInsertionIndex: v.optional(v.number()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    taggedGuestNames: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
@@ -611,97 +944,19 @@ export const createVisit = mutation({
 
     if (!showId) throw new Error("Unable to resolve show");
 
-    let rankings = await ctx.db
+    const rankingsRow = await ctx.db
       .query("userRankings")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();
-    if (!rankings) {
-      const newId = await ctx.db.insert("userRankings", { userId, showIds: [] });
-      rankings = (await ctx.db.get(newId))!;
-    }
-    let finalRankingShowIds = [...rankings.showIds];
+    const alreadyRanked = rankingsRow?.showIds.includes(showId) ?? false;
 
-    const alreadyRanked = rankings.showIds.includes(showId);
-    const selectedTier = args.selectedTier as RankedTier | undefined;
-    const allUserShows = await ctx.db
-      .query("userShows")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    const tierByShowId = new Map(
-      allUserShows.map((userShow) => [userShow.showId, userShow.tier as Tier])
-    );
-    const existingUserShow = allUserShows.find((userShow) => userShow.showId === showId);
-    const shouldRank = selectedTier !== undefined || args.completedInsertionIndex !== undefined;
-
-    if (!alreadyRanked) {
-      if (!shouldRank) {
-        if (!existingUserShow) {
-          await ctx.db.insert("userShows", {
-            userId,
-            showId,
-            tier: "unranked",
-            addedAt: Date.now(),
-          });
-        } else if (existingUserShow.tier !== "unranked") {
-          await ctx.db.patch(existingUserShow._id, { tier: "unranked" });
-        }
-      } else {
-        const effectiveTier = selectedTier ?? "liked";
-        const defaultInsertionIndex = getBottomInsertionIndexForTier(
-          rankings.showIds,
-          tierByShowId,
-          effectiveTier
-        );
-        const insertionIndex = Math.max(
-          0,
-          Math.min(
-            args.completedInsertionIndex ?? defaultInsertionIndex,
-            rankings.showIds.length
-          )
-        );
-        const nextShowIds = [...rankings.showIds];
-        nextShowIds.splice(insertionIndex, 0, showId);
-
-        await ctx.db.patch(rankings._id, {
-          showIds: nextShowIds,
-        });
-        finalRankingShowIds = nextShowIds;
-        if (!existingUserShow) {
-          await ctx.db.insert("userShows", {
-            userId,
-            showId,
-            tier: effectiveTier,
-            addedAt: Date.now(),
-          });
-        } else if (existingUserShow.tier !== effectiveTier) {
-          await ctx.db.patch(existingUserShow._id, { tier: effectiveTier });
-        }
-      }
-    } else if (args.keepCurrentRanking) {
-      // Intentionally no-op for now. Ranking comparison flow arrives in issue #15.
-    } else {
-      const effectiveTier = selectedTier ?? "liked";
-      const nextShowIds = rankings.showIds.filter((id) => id !== showId);
-      const tierByShowIdWithoutCurrent = new Map(tierByShowId);
-      tierByShowIdWithoutCurrent.delete(showId);
-
-      const defaultInsertionIndex = getBottomInsertionIndexForTier(
-        nextShowIds,
-        tierByShowIdWithoutCurrent,
-        effectiveTier
-      );
-      const insertionIndex = Math.max(
-        0,
-        Math.min(args.completedInsertionIndex ?? defaultInsertionIndex, nextShowIds.length)
-      );
-
-      nextShowIds.splice(insertionIndex, 0, showId);
-      await ctx.db.patch(rankings._id, { showIds: nextShowIds });
-      finalRankingShowIds = nextShowIds;
-      if (existingUserShow && existingUserShow.tier !== effectiveTier) {
-        await ctx.db.patch(existingUserShow._id, { tier: effectiveTier });
-      }
-    }
+    const { finalRankingShowIds } = await applyRankingForVisit(ctx, {
+      userId,
+      showId,
+      selectedTier: args.selectedTier as RankedTier | undefined,
+      completedInsertionIndex: args.completedInsertionIndex,
+      keepCurrentRanking: args.keepCurrentRanking,
+    });
 
     const { hiddenIds: blockHiddenIds } = await getBlockEdgeSets(ctx, userId);
     const validTaggedUserIds = (args.taggedUserIds ?? []).filter(
@@ -714,6 +969,8 @@ export const createVisit = mutation({
     const district = args.district ?? production?.district;
     const venueId = args.venueId ?? (await resolveVenueIdForVisit(ctx, theatre, city));
 
+    const cleanGuestNames = sanitizeGuestNames(args.taggedGuestNames);
+
     const visitId = await ctx.db.insert("visits", {
       userId,
       showId,
@@ -723,35 +980,39 @@ export const createVisit = mutation({
       city,
       theatre,
       district,
+      seat: args.seat,
       notes: args.notes,
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
+      taggedGuestNames: cleanGuestNames.length > 0 ? cleanGuestNames : undefined,
     });
 
-    const now = Date.now();
     const show = await ctx.db.get(showId);
     const showName = show?.name ?? "a show";
     const actor = await ctx.db.get(userId);
     const actorLabel = actor?.name?.split(" ")[0] ?? actor?.username ?? "Someone";
 
     await Promise.all(
-      validTaggedUserIds.flatMap((recipientId) => [
-        ctx.db.insert("notifications", {
+      validTaggedUserIds.map(async (recipientId) => {
+        await ctx.db.insert("visitParticipants", {
+          visitId,
+          userId: recipientId,
+          status: "pending",
+          invitedAt: Date.now(),
+        });
+        await notifyUser(ctx, {
           recipientUserId: recipientId,
           actorKind: "user",
           actorUserId: userId,
           type: "visit_tag",
           visitId,
           showId,
-          isRead: false,
-          createdAt: now,
-        }),
-        ctx.scheduler.runAfter(0, internal.notifications.sendPushNotification, {
-          recipientUserId: recipientId,
-          title: "You were tagged in a visit",
-          body: `${actorLabel} tagged you in their visit to ${showName}`,
-          data: { type: "visit_tag", visitId },
-        }),
-      ])
+          push: {
+            title: "You were tagged in a visit",
+            body: `${actorLabel} tagged you in their visit to ${showName}`,
+            data: { type: "visit_tag", visitId },
+          },
+        });
+      }),
     );
 
     const rankingIndex = finalRankingShowIds.indexOf(showId);
@@ -768,6 +1029,7 @@ export const createVisit = mutation({
       theatre,
       rankAtPost: rankingIndex === -1 ? undefined : rankingIndex + 1,
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
+      taggedGuestNames: cleanGuestNames.length > 0 ? cleanGuestNames : undefined,
       createdAt: Date.now(),
     });
 
@@ -968,6 +1230,7 @@ export const updateVisit = mutation({
     theatre: v.optional(v.string()),
     notes: v.optional(v.string()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    taggedGuestNames: v.optional(v.array(v.string())),
     seat: v.optional(v.string()),
     isMatinee: v.optional(v.boolean()),
     isPreview: v.optional(v.boolean()),
@@ -990,10 +1253,28 @@ export const updateVisit = mutation({
 
     const previousTaggedIds = visit.taggedUserIds ?? [];
     const { hiddenIds: blockHiddenIds } = await getBlockEdgeSets(ctx, userId);
-    const validTaggedUserIds = (args.taggedUserIds ?? []).filter(
+    const requestedTaggedUserIds = (args.taggedUserIds ?? []).filter(
       (id) => id !== userId && !blockHiddenIds.has(id)
     );
+
+    // Accepted participants can only be removed by leaving the visit themselves.
+    // If the creator tries to drop an accepted participant, keep them tagged.
+    const existingParticipants = await ctx.db
+      .query("visitParticipants")
+      .withIndex("by_visit", (q) => q.eq("visitId", args.visitId))
+      .collect();
+    const acceptedIds = new Set(
+      existingParticipants.filter((p) => p.status === "accepted").map((p) => p.userId),
+    );
+    const preservedAccepted = previousTaggedIds.filter((id) => acceptedIds.has(id));
+    const validTaggedUserIds = Array.from(
+      new Set([...requestedTaggedUserIds, ...preservedAccepted]),
+    );
+
     const newlyTaggedIds = validTaggedUserIds.filter((id) => !previousTaggedIds.includes(id));
+    const removedTaggedIds = previousTaggedIds.filter((id) => !validTaggedUserIds.includes(id));
+
+    const cleanGuestNames = sanitizeGuestNames(args.taggedGuestNames);
 
     await ctx.db.patch(args.visitId, {
       date: args.date,
@@ -1004,6 +1285,7 @@ export const updateVisit = mutation({
       district,
       notes: args.notes,
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
+      taggedGuestNames: cleanGuestNames.length > 0 ? cleanGuestNames : undefined,
       seat: args.seat,
       isMatinee: args.isMatinee,
       isPreview: args.isPreview,
@@ -1011,31 +1293,53 @@ export const updateVisit = mutation({
       cast: args.cast,
     });
 
+    // Drop pending participant rows for users the creator untagged.
+    if (removedTaggedIds.length > 0) {
+      const removedSet = new Set(removedTaggedIds);
+      await Promise.all(
+        existingParticipants
+          .filter((p) => removedSet.has(p.userId) && p.status === "pending")
+          .map((p) => ctx.db.delete(p._id)),
+      );
+    }
+
     if (newlyTaggedIds.length > 0) {
       const show = await ctx.db.get(visit.showId);
       const showName = show?.name ?? "a show";
       const actor = await ctx.db.get(userId);
       const actorLabel = actor?.name?.split(" ")[0] ?? actor?.username ?? "Someone";
-      const now = Date.now();
       await Promise.all(
-        newlyTaggedIds.flatMap((recipientId) => [
-          ctx.db.insert("notifications", {
+        newlyTaggedIds.map(async (recipientId) => {
+          // If a prior decline/pending row exists, reset it to pending; else insert.
+          const existing = existingParticipants.find((p) => p.userId === recipientId);
+          if (existing) {
+            await ctx.db.patch(existing._id, {
+              status: "pending",
+              invitedAt: Date.now(),
+              respondedAt: undefined,
+            });
+          } else {
+            await ctx.db.insert("visitParticipants", {
+              visitId: args.visitId,
+              userId: recipientId,
+              status: "pending",
+              invitedAt: Date.now(),
+            });
+          }
+          await notifyUser(ctx, {
             recipientUserId: recipientId,
             actorKind: "user",
             actorUserId: userId,
             type: "visit_tag",
             visitId: args.visitId,
             showId: visit.showId,
-            isRead: false,
-            createdAt: now,
-          }),
-          ctx.scheduler.runAfter(0, internal.notifications.sendPushNotification, {
-            recipientUserId: recipientId,
-            title: "You were tagged in a visit",
-            body: `${actorLabel} tagged you in their visit to ${showName}`,
-            data: { type: "visit_tag", visitId: args.visitId },
-          }),
-        ])
+            push: {
+              title: "You were tagged in a visit",
+              body: `${actorLabel} tagged you in their visit to ${showName}`,
+              data: { type: "visit_tag", visitId: args.visitId },
+            },
+          });
+        }),
       );
     }
   },
@@ -1048,6 +1352,13 @@ export const remove = mutation({
     const visit = await ctx.db.get(args.visitId);
     if (!visit) throw new Error("Visit not found");
     if (visit.userId !== userId) throw new Error("Not authorized");
+
+    const participants = await ctx.db
+      .query("visitParticipants")
+      .withIndex("by_visit", (q) => q.eq("visitId", args.visitId))
+      .collect();
+    await Promise.all(participants.map((p) => ctx.db.delete(p._id)));
+
     await ctx.db.delete(args.visitId);
   },
 });

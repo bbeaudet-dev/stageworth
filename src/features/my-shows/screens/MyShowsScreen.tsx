@@ -11,7 +11,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { MyShowsCloudView } from "@/features/my-shows/components/MyShowsCloudView";
 import { MyShowsGenreView } from "@/features/my-shows/components/MyShowsGenreView";
 import { MyShowsHeader } from "@/features/my-shows/components/MyShowsHeader";
-import { MyShowsListView } from "@/features/my-shows/components/MyShowsListView";
+import { MyShowsRankView } from "@/features/my-shows/components/MyShowsRankView";
 import { ViewModeSelector } from "@/features/my-shows/components/ViewModeSelector";
 import { useMyShowsData } from "@/features/my-shows/hooks/useMyShowsData";
 import { useRankedListItems } from "@/features/my-shows/hooks/useRankedListItems";
@@ -19,7 +19,7 @@ import { buildMyShowsGenreItems } from "@/features/my-shows/logic/genre-list-ite
 import type { RankingTier, ViewMode } from "@/features/my-shows/types";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
-// Map shared TIER_COLORS into the shape MyShowsListView expects.
+// Map shared TIER_COLORS into the shape MyShowsRankView expects.
 const TIER_HEADERS: Record<RankingTier, { label: string; color: string; textColor: string }> =
   Object.fromEntries(
     (Object.keys(TIER_COLORS) as RankingTier[]).map((t) => [
@@ -37,7 +37,7 @@ const LINE_META = {
 const CATEGORY_NAV_UNLOCK_THRESHOLD = 20;
 /**
  * Minimum number of ranked shows before the "Would See Again" / "Should've
- * Stayed Home" divider lines start appearing in the List view. Below this we
+ * Stayed Home" divider lines start appearing in the Rank view. Below this we
  * keep the list a single uninterrupted ranking.
  */
 const RANKING_LINES_UNLOCK_THRESHOLD = 40;
@@ -45,7 +45,7 @@ const RANKING_LINES_UNLOCK_THRESHOLD = 40;
 export default function MyShowsScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("rank");
   const [expandedShowId, setExpandedShowId] = useState<Id<"shows"> | null>(null);
   const [selectedShowId, setSelectedShowId] = useState<Id<"shows"> | null>(null);
 
@@ -128,7 +128,7 @@ export default function MyShowsScreen() {
         ) : listItems === undefined ? (
           <Text style={[styles.loading, { color: loadingTextColor }]}>Loading...</Text>
         ) : (
-          <MyShowsListView
+          <MyShowsRankView
             listItems={listItems}
             expandedShowId={expandedShowId}
             setExpandedShowId={setExpandedShowId}

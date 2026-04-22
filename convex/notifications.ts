@@ -41,6 +41,35 @@ export const getUserPushToken = internalQuery({
   },
 });
 
+/**
+ * Reads a specific notification-type preference. Used from internal actions
+ * (which can't use the `notifyUser` helper directly because they don't hold a
+ * MutationCtx) to skip push fan-out for users who have opted out.
+ */
+export const isUserNotifTypeEnabled = internalQuery({
+  args: {
+    userId: v.id("users"),
+    settingKey: v.union(
+      v.literal("follows"),
+      v.literal("visitTags"),
+      v.literal("tripInvites"),
+      v.literal("closingSoon"),
+      v.literal("showAnnounced"),
+      v.literal("postLikes"),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const prefs = await ctx.db
+      .query("userPreferences")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+    const settings = prefs?.notificationSettings;
+    if (!settings) return true;
+    const value = (settings as Record<string, boolean | undefined>)[args.settingKey];
+    return value !== false;
+  },
+});
+
 export const sendPushNotification = internalAction({
   args: {
     recipientUserId: v.id("users"),
@@ -142,6 +171,17 @@ export const listForCurrentUser = query({
           myTripMembershipStatus = membership?.status ?? null;
         }
 
+        let myVisitParticipantStatus: string | null = null;
+        if (notif.type === "visit_tag" && notif.visitId) {
+          const participant = await ctx.db
+            .query("visitParticipants")
+            .withIndex("by_visit_user", (q: any) =>
+              q.eq("visitId", notif.visitId).eq("userId", userId),
+            )
+            .first();
+          myVisitParticipantStatus = participant?.status ?? null;
+        }
+
         return {
           _id: notif._id,
           type: notif.type,
@@ -149,8 +189,10 @@ export const listForCurrentUser = query({
           createdAt: notif.createdAt,
           visitId: notif.visitId,
           productionId: notif.productionId ?? null,
+          postId: notif.postId ?? null,
           tripId: notif.tripId ?? null,
           myTripMembershipStatus,
+          myVisitParticipantStatus,
           actor,
           show,
           trip,
@@ -194,8 +236,11 @@ export const markAsRead = mutation({
 });
 
 export const markAllAsRead = mutation({
-  args: {},
-  handler: async (ctx) => {
+  // Accept an optional set of types so the notifications screen can mark only
+  // the active inbox tab (e.g. just "post_like" on the Posts tab) as read.
+  // Omitting `types` marks every unread notification as read.
+  args: { types: v.optional(v.array(v.string())) },
+  handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
     const unread = await ctx.db
       .query("notifications")
@@ -203,6 +248,10 @@ export const markAllAsRead = mutation({
         q.eq("recipientUserId", userId).eq("isRead", false)
       )
       .collect();
-    await Promise.all(unread.map((n) => ctx.db.patch(n._id, { isRead: true })));
+    const filtered =
+      args.types && args.types.length > 0
+        ? unread.filter((n) => args.types!.includes(n.type))
+        : unread;
+    await Promise.all(filtered.map((n) => ctx.db.patch(n._id, { isRead: true })));
   },
 });

@@ -23,7 +23,7 @@ import type { LineMeta, ListItem, RankingTier, TierHeaderMeta } from "@/features
 
 const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 10 } as const;
 
-export function MyShowsListView({
+export function MyShowsRankView({
   listItems,
   expandedShowId,
   setExpandedShowId,

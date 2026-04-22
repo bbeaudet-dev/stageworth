@@ -20,6 +20,7 @@ import { useToast } from "@/components/Toast";
 import { useCelebration } from "@/components/CelebrationContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { isFutureDate } from "@/utils/dates";
+import { getProductionStatus } from "@/utils/productions";
 import {
   getBottomInsertionIndexForTier,
   getInsertionIndexForTierAndRelative,
@@ -34,6 +35,7 @@ import { VisitDateSection } from "@/features/add-visit/components/VisitDateSecti
 import { LocationSection } from "@/features/add-visit/components/LocationSection";
 import { RankingSection } from "@/features/add-visit/components/RankingSection";
 import { NotesSection } from "@/features/add-visit/components/NotesSection";
+import { SeatSection } from "@/features/add-visit/components/SeatSection";
 import { SaveVisitButton } from "@/features/add-visit/components/SaveVisitButton";
 import { TagFriendsSection } from "@/features/add-visit/components/TagFriendsSection";
 
@@ -61,6 +63,7 @@ export default function AddVisitScreen() {
     setUseOtherProduction,
     setCity,
     setTheatre,
+    setSeat,
     setNotes,
     setIsSaving,
     setKeepCurrentRanking,
@@ -76,6 +79,8 @@ export default function AddVisitScreen() {
     selectCustomShow,
     clearSelection,
     toggleTaggedUser,
+    addTaggedGuest,
+    removeTaggedGuest,
   } = useAddVisitFormState();
 
   const selectExistingShowRef = useRef(selectExistingShow);
@@ -177,6 +182,41 @@ export default function AddVisitScreen() {
     setSelectedProductionId(null);
   }, [setSelectedProductionId, setUseOtherProduction, shouldForceOtherLocation]);
 
+  // Auto-select a production when available. Preference:
+  //   1. Any currently-running production (open / open_run / in_previews)
+  //   2. Otherwise the first listed production
+  //   3. Skip entirely if every listed production is closed
+  // Only runs when the user hasn't already chosen one or switched to "Other".
+  const autoSelectedShowIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!state.selectedShowId) return;
+    if (state.selectedProductionId !== null) return;
+    if (state.useOtherProduction) return;
+    if (!productionOptions || productionOptions.length === 0) return;
+    // Only auto-select once per selected show to avoid clobbering if the user
+    // deselects a chip back to "nothing selected".
+    if (autoSelectedShowIdRef.current === state.selectedShowId) return;
+
+    const running = productionOptions.find((p) => {
+      const status = getProductionStatus(p);
+      return status === "open" || status === "open_run" || status === "in_previews";
+    });
+    const hasAnyNonClosed = productionOptions.some(
+      (p) => getProductionStatus(p) !== "closed",
+    );
+    const pick = running ?? (hasAnyNonClosed ? productionOptions[0] : null);
+    if (!pick) return;
+
+    autoSelectedShowIdRef.current = state.selectedShowId;
+    setSelectedProductionId(pick._id);
+  }, [
+    productionOptions,
+    setSelectedProductionId,
+    state.selectedProductionId,
+    state.selectedShowId,
+    state.useOtherProduction,
+  ]);
+
   const startTierRanking = (tier: "loved" | "liked" | "okay" | "disliked") => {
     if (isRankingsLoading) return;
     const tierShowsInRange = rankedShowsForRanking.filter((show) => show.tier === tier);
@@ -230,6 +270,7 @@ export default function AddVisitScreen() {
             : state.selectedProductionId,
         city: state.useOtherProduction ? state.city.trim() || undefined : undefined,
         theatre: state.useOtherProduction ? state.theatre.trim() || undefined : undefined,
+        seat: state.seat.trim() || undefined,
         notes: state.notes.trim() || undefined,
         keepCurrentRanking: state.keepCurrentRanking,
         selectedTier: shouldShowRankingSection && state.selectedTier ? state.selectedTier : undefined,
@@ -240,6 +281,8 @@ export default function AddVisitScreen() {
             ? predictedResultIndex
             : undefined,
         taggedUserIds: state.taggedUserIds.length > 0 ? state.taggedUserIds : undefined,
+        taggedGuestNames:
+          state.taggedGuestNames.length > 0 ? state.taggedGuestNames : undefined,
       });
       const isNewShow = state.customShowName !== null || !showContext?.hasVisit;
       const celebrationData = isNewShow
@@ -379,11 +422,15 @@ export default function AddVisitScreen() {
                   onRefreshSuggestedRanking={refreshSuggestedRanking}
                 />
               )}
+              <SeatSection seat={state.seat} setSeat={setSeat} />
               <NotesSection notes={state.notes} setNotes={setNotes} />
               <TagFriendsSection
                 following={myFollowing}
                 taggedUserIds={state.taggedUserIds}
                 onToggle={toggleTaggedUser}
+                guestNames={state.taggedGuestNames}
+                onAddGuest={addTaggedGuest}
+                onRemoveGuest={removeTaggedGuest}
               />
               <SaveVisitButton isSaving={state.isSaving} onSave={handleSave} />
             </>

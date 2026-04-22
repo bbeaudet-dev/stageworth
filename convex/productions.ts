@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { isCatalogPublished } from "./catalogVisibility";
 import { requireConvexUserId } from "./auth";
 import { resolveProductionPosterUrl, resolveShowImageUrls } from "./helpers";
+import { resolveVenueIdForVisit } from "./visits";
 import {
   getProductionStatus,
   upcomingProductionSortKey,
@@ -114,6 +115,93 @@ export const listClosingSoon = query({
   },
 });
 
+function normalizeVenueMatchName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/['']/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * All productions whose `theatre` string matches the given venue (by normalized
+ * name, and city if available). Groups chronologically with poster URLs so the
+ * venue page can show a list of shows that have played there.
+ */
+export const listByVenue = query({
+  args: { venueId: v.id("venues") },
+  handler: async (ctx, args) => {
+    const venue = await ctx.db.get(args.venueId);
+    if (!venue) return [];
+
+    const venueNames = new Set<string>([
+      normalizeVenueMatchName(venue.name),
+      ...(venue.aliases ?? []).map(normalizeVenueMatchName),
+    ]);
+    const venueCity = venue.city?.toLowerCase();
+
+    const productions = await ctx.db.query("productions").collect();
+    const matches = productions.filter((p) => {
+      if (!isCatalogPublished(p.dataStatus)) return false;
+      if (!p.theatre) return false;
+      const normalized = normalizeVenueMatchName(p.theatre);
+      if (!venueNames.has(normalized)) return false;
+      if (venueCity && p.city) {
+        return p.city.toLowerCase() === venueCity;
+      }
+      return true;
+    });
+
+    const results = await Promise.all(
+      matches.map(async (p) => {
+        const show = await ctx.db.get(p.showId);
+        if (!show || !isCatalogPublished(show.dataStatus)) return null;
+        const posterUrl = await resolveProductionPosterUrl(ctx, p);
+        const showImages = await resolveShowImageUrls(ctx, show);
+        return {
+          _id: p._id,
+          showId: p.showId,
+          showName: show.name,
+          showType: show.type,
+          showImages,
+          theatre: p.theatre ?? null,
+          city: p.city ?? null,
+          productionType: p.productionType,
+          previewDate: p.previewDate ?? null,
+          openingDate: p.openingDate ?? null,
+          closingDate: p.closingDate ?? null,
+          isOpenRun: p.isOpenRun ?? false,
+          isClosed: p.isClosed ?? false,
+          posterUrl,
+        };
+      }),
+    );
+
+    const visible = results.filter(
+      (r): r is NonNullable<typeof r> => r !== null,
+    );
+
+    const today = new Date().toISOString().split("T")[0];
+    const rank: Record<string, number> = {
+      open: 0,
+      open_run: 0,
+      in_previews: 1,
+      announced: 2,
+      closed: 3,
+    };
+    return visible.sort((a, b) => {
+      const statusA = getProductionStatus(a, today);
+      const statusB = getProductionStatus(b, today);
+      if (rank[statusA] !== rank[statusB]) return rank[statusA] - rank[statusB];
+      const aKey = a.openingDate ?? a.previewDate ?? a.closingDate ?? "";
+      const bKey = b.openingDate ?? b.previewDate ?? b.closingDate ?? "";
+      return bKey.localeCompare(aKey);
+    });
+  },
+});
+
 /** All productions for a given show (raw, no image resolution). */
 export const listByShow = query({
   args: { showId: v.id("shows") },
@@ -149,7 +237,14 @@ export const getById = query({
   handler: async (ctx, args) => {
     const production = await ctx.db.get(args.id);
     if (!production) return null;
-    return withShow(ctx, production);
+    const base = await withShow(ctx, production);
+    if (!base) return null;
+    const venueId = await resolveVenueIdForVisit(
+      ctx,
+      production.theatre,
+      production.city
+    );
+    return { ...base, venueId: venueId ?? null };
   },
 });
 

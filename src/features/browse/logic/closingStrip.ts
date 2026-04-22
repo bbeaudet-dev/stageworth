@@ -223,8 +223,8 @@ export function fullStatusBadgeForProduction(
   let secondary: ClosingStripBadge | undefined;
   if (status === "in_previews") {
     secondary = isDark
-      ? { label: "In Previews", bg: "rgba(255,255,255,0.18)", text: "rgba(255,255,255,0.80)" }
-      : { label: "In Previews", bg: "rgba(0,0,0,0.12)", text: "rgba(0,0,0,0.65)" };
+      ? { label: "In Previews", bg: "rgba(20,20,25,0.85)", text: "#ffffff" }
+      : { label: "In Previews", bg: "rgba(245,245,245,0.92)", text: "#111111" };
   }
 
   return { primary, secondary };

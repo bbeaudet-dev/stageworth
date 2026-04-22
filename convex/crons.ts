@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { isCatalogPublished } from "./catalogVisibility";
+import { notifyUser } from "./notificationDispatch";
 
 const crons = cronJobs();
 
@@ -68,16 +69,24 @@ export const insertClosingSoonNotification = internalMutation({
     recipientUserId: v.id("users"),
     showId: v.id("shows"),
     productionId: v.id("productions"),
+    daysLeft: v.number(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("notifications", {
+    await notifyUser(ctx, {
       recipientUserId: args.recipientUserId,
       actorKind: "system",
       type: "closing_soon",
       showId: args.showId,
       productionId: args.productionId,
-      isRead: false,
-      createdAt: Date.now(),
+      push: {
+        title: "Closing soon",
+        body: `A show on your list closes in ${args.daysLeft} day${args.daysLeft === 1 ? "" : "s"}.`,
+        data: {
+          type: "closing_soon",
+          showId: args.showId,
+          productionId: args.productionId,
+        },
+      },
     });
   },
 });
@@ -115,26 +124,18 @@ export const sendClosingSoonAlerts = internalAction({
         );
         if (alreadySent) continue;
 
+        const daysLeft = Math.ceil(
+          (new Date(production.closingDate!).getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24),
+        );
+
+        // `insertClosingSoonNotification` uses the shared `notifyUser` helper
+        // which gates on preferences and schedules the push in one step.
         await ctx.runMutation(internal.crons.insertClosingSoonNotification, {
           recipientUserId: userId,
           showId: production.showId,
           productionId: production._id,
-        });
-
-        const daysLeft = Math.ceil(
-          (new Date(production.closingDate!).getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24)
-        );
-
-        await ctx.runAction(internal.notifications.sendPushNotification, {
-          recipientUserId: userId,
-          title: "Closing soon",
-          body: `A show on your list closes in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`,
-          data: {
-            type: "closing_soon",
-            showId: production.showId,
-            productionId: production._id,
-          },
+          daysLeft,
         });
       }
 

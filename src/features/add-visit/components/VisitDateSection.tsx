@@ -52,6 +52,8 @@ export function VisitDateSection({
             <WheelDatePicker
               value={parseISODate(date)}
               onChange={(nextDate) => setDate(toISODate(nextDate))}
+              yearsBack={80}
+              yearsForward={3}
             />
             <Pressable
               onPress={() => setPickerOpen(false)}

@@ -340,11 +340,33 @@ export default defineSchema({
     cast: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    // Free-text labels for people not on the app (e.g. "mom", "dad"). These
+    // are not linked to any user record and never trigger notifications.
+    taggedGuestNames: v.optional(v.array(v.string())),
   })
     .index("by_user_show", ["userId", "showId"])
     .index("by_user", ["userId"])
     .index("by_user_production", ["userId", "productionId"])
     .index("by_venue", ["venueId"]),
+
+  // Tracks a tagged user's relationship to a shared visit. The visit's
+  // `taggedUserIds` cache stays canonical for "who was tagged"; this table
+  // owns acceptance state and per-user notes.
+  visitParticipants: defineTable({
+    visitId: v.id("visits"),
+    userId: v.id("users"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("accepted"),
+      v.literal("declined")
+    ),
+    notes: v.optional(v.string()),
+    invitedAt: v.number(),
+    respondedAt: v.optional(v.number()),
+  })
+    .index("by_visit", ["visitId"])
+    .index("by_user_status", ["userId", "status"])
+    .index("by_visit_user", ["visitId", "userId"]),
 
   follows: defineTable({
     followerUserId: v.id("users"),
@@ -415,10 +437,13 @@ export default defineSchema({
     type: v.union(
       // user-actor types
       v.literal("visit_tag"),
+      v.literal("visit_tag_accepted"),
+      v.literal("visit_tag_declined"),
       v.literal("new_follow"),
       v.literal("trip_invite"),
       v.literal("trip_invite_accepted"),
       v.literal("trip_invite_declined"),
+      v.literal("post_like"),
       // system-actor types
       v.literal("show_announced"),
       v.literal("closing_soon"),
@@ -426,6 +451,7 @@ export default defineSchema({
     visitId: v.optional(v.id("visits")),
     showId: v.optional(v.id("shows")),
     productionId: v.optional(v.id("productions")),
+    postId: v.optional(v.id("activityPosts")),
     tripId: v.optional(v.id("trips")),
     isRead: v.boolean(),
     createdAt: v.number(),
@@ -451,14 +477,30 @@ export default defineSchema({
     theatre: v.optional(v.string()),
     rankAtPost: v.optional(v.number()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    // Free-text guest names carried over from the visit for feed display.
+    taggedGuestNames: v.optional(v.array(v.string())),
     // Challenge-specific metadata (present on challenge_started / challenge_milestone / challenge_completed).
     challengeYear: v.optional(v.number()),
     challengeTarget: v.optional(v.number()),
     challengeProgress: v.optional(v.number()),
+    // Denormalized like count — kept in sync by postLikes mutations so feeds
+    // don't have to aggregate on every read.
+    likeCount: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_createdAt", ["createdAt"])
     .index("by_actor_createdAt", ["actorUserId", "createdAt"]),
+
+  // One row per (post, liker). Insert = liked, delete = unliked.
+  // `by_post_user` enables idempotent toggling; `by_post` powers "likers" lists.
+  postLikes: defineTable({
+    postId: v.id("activityPosts"),
+    userId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_post", ["postId"])
+    .index("by_post_user", ["postId", "userId"])
+    .index("by_user", ["userId"]),
 
   trips: defineTable({
     userId: v.id("users"),
@@ -622,6 +664,7 @@ export default defineSchema({
       tripInvites: v.boolean(),
       closingSoon: v.boolean(),
       showAnnounced: v.boolean(),
+      postLikes: v.boolean(),
     })),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),

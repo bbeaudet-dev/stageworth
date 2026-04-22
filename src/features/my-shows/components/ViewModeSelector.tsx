@@ -5,7 +5,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { ViewMode } from "@/features/my-shows/types";
 
 const VIEW_MODE_OPTIONS = [
-  { value: "list",  label: "List"  },
+  { value: "rank",  label: "Rank"  },
   { value: "genre", label: "Genre" },
   { value: "diary", label: "Diary" },
   { value: "cloud", label: "Cloud" },

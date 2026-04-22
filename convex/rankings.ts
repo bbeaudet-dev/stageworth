@@ -62,6 +62,26 @@ export const get = query({
   },
 });
 
+/**
+ * Returns the current user's tier for a specific show ("loved"|"liked"|
+ * "okay"|"disliked"|"unranked"), or `null` when the show isn't in their
+ * library at all. Used by Show Details to render a "Your Rank: Unranked"
+ * state so users remember to rank shows they've added but not scored.
+ */
+export const getMyTierForShow = query({
+  args: { showId: v.id("shows") },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+    const userShow = await ctx.db
+      .query("userShows")
+      .withIndex("by_user_show", (q) =>
+        q.eq("userId", userId).eq("showId", args.showId)
+      )
+      .first();
+    return userShow?.tier ?? null;
+  },
+});
+
 export const getRankedShows = query({
   args: {},
   handler: async (ctx) => {
