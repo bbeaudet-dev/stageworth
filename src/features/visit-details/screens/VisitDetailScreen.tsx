@@ -184,6 +184,14 @@ export default function VisitDetailScreen() {
               )}
             </DetailCard>
 
+            {visit.seat ? (
+              <DetailCard title="Seat">
+                <Text style={[detailCardStyles.value, { color: c.text }]}>
+                  {visit.seat}
+                </Text>
+              </DetailCard>
+            ) : null}
+
             {visit.notes ? (
               <DetailCard title="Notes">
                 <NotesText

@@ -29,6 +29,7 @@ export type AddVisitFormState = {
   useOtherProduction: boolean;
   city: string;
   theatre: string;
+  seat: string;
   notes: string;
   isSaving: boolean;
   keepCurrentRanking: boolean;

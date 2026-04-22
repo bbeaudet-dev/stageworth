@@ -8,6 +8,7 @@ export type EditVisitFormState = {
   useOtherProduction: boolean;
   city: string;
   theatre: string;
+  seat: string;
   notes: string;
   isSaving: boolean;
   taggedUserIds: Id<"users">[];
@@ -18,6 +19,7 @@ type InitialValues = {
   productionId?: Id<"productions"> | null;
   city?: string | null;
   theatre?: string | null;
+  seat?: string | null;
   notes?: string | null;
   taggedUserIds?: Id<"users">[] | null;
 };
@@ -29,6 +31,7 @@ function buildInitialState(initial: InitialValues): EditVisitFormState {
     useOtherProduction: !initial.productionId,
     city: initial.city ?? "",
     theatre: initial.theatre ?? "",
+    seat: initial.seat ?? "",
     notes: initial.notes ?? "",
     isSaving: false,
     taggedUserIds: initial.taggedUserIds ?? [],
@@ -41,6 +44,7 @@ type Action =
   | { type: "SET_USE_OTHER_PRODUCTION"; value: boolean }
   | { type: "SET_CITY"; value: string }
   | { type: "SET_THEATRE"; value: string }
+  | { type: "SET_SEAT"; value: string }
   | { type: "SET_NOTES"; value: string }
   | { type: "SET_IS_SAVING"; value: boolean }
   | { type: "TOGGLE_TAGGED_USER"; userId: Id<"users"> }
@@ -58,6 +62,8 @@ function reducer(state: EditVisitFormState, action: Action): EditVisitFormState 
       return { ...state, city: action.value };
     case "SET_THEATRE":
       return { ...state, theatre: action.value };
+    case "SET_SEAT":
+      return { ...state, seat: action.value };
     case "SET_NOTES":
       return { ...state, notes: action.value };
     case "SET_IS_SAVING":
@@ -96,6 +102,7 @@ export function useEditVisitFormState(initial: InitialValues) {
       dispatch({ type: "SET_USE_OTHER_PRODUCTION", value }),
     setCity: (value: string) => dispatch({ type: "SET_CITY", value }),
     setTheatre: (value: string) => dispatch({ type: "SET_THEATRE", value }),
+    setSeat: (value: string) => dispatch({ type: "SET_SEAT", value }),
     setNotes: (value: string) => dispatch({ type: "SET_NOTES", value }),
     setIsSaving: (value: boolean) => dispatch({ type: "SET_IS_SAVING", value }),
     toggleTaggedUser: (userId: Id<"users">) =>

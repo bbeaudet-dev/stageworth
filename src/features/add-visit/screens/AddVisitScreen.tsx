@@ -35,6 +35,7 @@ import { VisitDateSection } from "@/features/add-visit/components/VisitDateSecti
 import { LocationSection } from "@/features/add-visit/components/LocationSection";
 import { RankingSection } from "@/features/add-visit/components/RankingSection";
 import { NotesSection } from "@/features/add-visit/components/NotesSection";
+import { SeatSection } from "@/features/add-visit/components/SeatSection";
 import { SaveVisitButton } from "@/features/add-visit/components/SaveVisitButton";
 import { TagFriendsSection } from "@/features/add-visit/components/TagFriendsSection";
 
@@ -62,6 +63,7 @@ export default function AddVisitScreen() {
     setUseOtherProduction,
     setCity,
     setTheatre,
+    setSeat,
     setNotes,
     setIsSaving,
     setKeepCurrentRanking,
@@ -266,6 +268,7 @@ export default function AddVisitScreen() {
             : state.selectedProductionId,
         city: state.useOtherProduction ? state.city.trim() || undefined : undefined,
         theatre: state.useOtherProduction ? state.theatre.trim() || undefined : undefined,
+        seat: state.seat.trim() || undefined,
         notes: state.notes.trim() || undefined,
         keepCurrentRanking: state.keepCurrentRanking,
         selectedTier: shouldShowRankingSection && state.selectedTier ? state.selectedTier : undefined,
@@ -415,6 +418,7 @@ export default function AddVisitScreen() {
                   onRefreshSuggestedRanking={refreshSuggestedRanking}
                 />
               )}
+              <SeatSection seat={state.seat} setSeat={setSeat} />
               <NotesSection notes={state.notes} setNotes={setNotes} />
               <TagFriendsSection
                 following={myFollowing}

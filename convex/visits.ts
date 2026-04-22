@@ -559,6 +559,7 @@ export const createVisit = mutation({
       )
     ),
     notes: v.optional(v.string()),
+    seat: v.optional(v.string()),
     keepCurrentRanking: v.optional(v.boolean()),
     selectedTier: v.optional(rankedTierValidator),
     completedInsertionIndex: v.optional(v.number()),
@@ -721,6 +722,7 @@ export const createVisit = mutation({
       city,
       theatre,
       district,
+      seat: args.seat,
       notes: args.notes,
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
     });

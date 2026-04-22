@@ -18,6 +18,7 @@ export function getInitialAddVisitFormState(): AddVisitFormState {
     useOtherProduction: false,
     city: "",
     theatre: "",
+    seat: "",
     notes: "",
     isSaving: false,
     keepCurrentRanking: true,
@@ -40,6 +41,7 @@ export function hasUnsavedAddVisitChanges(state: AddVisitFormState) {
     state.useOtherProduction ||
     state.city.trim().length > 0 ||
     state.theatre.trim().length > 0 ||
+    state.seat.trim().length > 0 ||
     state.notes.trim().length > 0 ||
     state.keepCurrentRanking !== true ||
     state.selectedTier !== null ||

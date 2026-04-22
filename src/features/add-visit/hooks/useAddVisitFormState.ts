@@ -13,6 +13,7 @@ type Action =
   | { type: "SET_USE_OTHER_PRODUCTION"; value: boolean }
   | { type: "SET_CITY"; value: string }
   | { type: "SET_THEATRE"; value: string }
+  | { type: "SET_SEAT"; value: string }
   | { type: "SET_NOTES"; value: string }
   | { type: "SET_IS_SAVING"; value: boolean }
   | { type: "SET_KEEP_CURRENT_RANKING"; value: boolean }
@@ -52,6 +53,8 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
       return { ...state, city: action.value };
     case "SET_THEATRE":
       return { ...state, theatre: action.value };
+    case "SET_SEAT":
+      return { ...state, seat: action.value };
     case "SET_NOTES":
       return { ...state, notes: action.value };
     case "SET_IS_SAVING":
@@ -135,6 +138,7 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
         useOtherProduction: false,
         city: "",
         theatre: "",
+        seat: "",
         notes: "",
         keepCurrentRanking: true,
         selectedTier: null,
@@ -175,6 +179,7 @@ export function useAddVisitFormState() {
     setUseOtherProduction: (value: boolean) => dispatch({ type: "SET_USE_OTHER_PRODUCTION", value }),
     setCity: (value: string) => dispatch({ type: "SET_CITY", value }),
     setTheatre: (value: string) => dispatch({ type: "SET_THEATRE", value }),
+    setSeat: (value: string) => dispatch({ type: "SET_SEAT", value }),
     setNotes: (value: string) => dispatch({ type: "SET_NOTES", value }),
     setIsSaving: (value: boolean) => dispatch({ type: "SET_IS_SAVING", value }),
     setKeepCurrentRanking: (value: boolean) => dispatch({ type: "SET_KEEP_CURRENT_RANKING", value }),
