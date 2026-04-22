@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { getConvexUserId, requireConvexUserId } from "../auth";
+import { getBlockEdgeSets, isBlockedEitherWay } from "./safety";
 
 const MAX_BIO_LENGTH = 280;
 const MAX_LOCATION_LENGTH = 80;
@@ -18,6 +19,28 @@ async function getPublicProfileData(
 ) {
   const user = await ctx.db.get(targetUserId);
   if (!user) return null;
+
+  // Symmetric block: if either side has blocked the other, hide the profile.
+  // We still return a minimal stub so deep-link URLs don't crash the client;
+  // the UI can show "User unavailable" based on viewerIsBlocked.
+  if (viewerUserId && viewerUserId !== targetUserId) {
+    const blocked = await isBlockedEitherWay(ctx, viewerUserId, targetUserId);
+    if (blocked) {
+      return {
+        _id: user._id,
+        username: user.username,
+        name: null,
+        bio: null,
+        location: null,
+        avatarUrl: null,
+        followerCount: 0,
+        followingCount: 0,
+        viewerIsSelf: false,
+        viewerFollows: false,
+        viewerIsBlocked: true,
+      };
+    }
+  }
 
   const [followers, following] = await Promise.all([
     ctx.db
@@ -56,6 +79,7 @@ async function getPublicProfileData(
     followingCount: following.length,
     viewerIsSelf: viewerUserId === user._id,
     viewerFollows,
+    viewerIsBlocked: false,
   };
 }
 
@@ -231,18 +255,21 @@ export const searchUsers = query({
   handler: async (ctx, args) => {
     const currentUserId = await getConvexUserId(ctx);
     const trimmed = args.q.trim().toLowerCase().replace(/^@/, "");
+    const { hiddenIds } = await getBlockEdgeSets(ctx, currentUserId);
 
     const users = await ctx.db.query("users").collect();
 
     let matched: any[];
     if (!trimmed) {
       matched = users
+        .filter((u: any) => !hiddenIds.has(u._id))
         .sort((a: any, b: any) => b._creationTime - a._creationTime)
         .slice(0, SUGGESTED_USERS_LIMIT);
     } else {
       matched = users
         .filter((u: any) => {
           if (currentUserId && u._id === currentUserId) return false;
+          if (hiddenIds.has(u._id)) return false;
           return userMatchesNeedle(u, trimmed);
         })
         .slice(0, SEARCH_USERS_LIMIT);

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { getConvexUserId, requireConvexUserId } from "../auth";
+import { getBlockEdgeSets, isBlockedEitherWay } from "./safety";
 
 async function resolveFollowUserRow(ctx: any, userId: string) {
   const user = await ctx.db.get(userId);
@@ -27,6 +28,10 @@ export const followUser = mutation({
 
     const target = await ctx.db.get(args.userId);
     if (!target) throw new Error("User not found");
+
+    if (await isBlockedEitherWay(ctx, currentUserId, args.userId)) {
+      throw new Error("You cannot follow this user");
+    }
 
     const existing = await ctx.db
       .query("follows")
@@ -106,12 +111,16 @@ export const listFollowers = query({
   handler: async (ctx, args) => {
     const viewerUserId = await getConvexUserId(ctx);
     const limit = Math.max(1, Math.min(args.limit ?? 50, 100));
+    const { hiddenIds } = await getBlockEdgeSets(ctx, viewerUserId);
     const rows = await ctx.db
       .query("follows")
       .withIndex("by_following", (q) => q.eq("followingUserId", args.userId))
       .collect();
 
-    const sorted = rows.sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+    const filtered = rows.filter((row) => !hiddenIds.has(row.followerUserId));
+    const sorted = filtered
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, limit);
     const users = await Promise.all(
       sorted.map(async (row) => {
         const user = await resolveFollowUserRow(ctx, row.followerUserId);
@@ -132,12 +141,16 @@ export const listFollowing = query({
   handler: async (ctx, args) => {
     const viewerUserId = await getConvexUserId(ctx);
     const limit = Math.max(1, Math.min(args.limit ?? 50, 100));
+    const { hiddenIds } = await getBlockEdgeSets(ctx, viewerUserId);
     const rows = await ctx.db
       .query("follows")
       .withIndex("by_follower", (q) => q.eq("followerUserId", args.userId))
       .collect();
 
-    const sorted = rows.sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+    const filtered = rows.filter((row) => !hiddenIds.has(row.followingUserId));
+    const sorted = filtered
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, limit);
     const users = await Promise.all(
       sorted.map(async (row) => {
         const user = await resolveFollowUserRow(ctx, row.followingUserId);
@@ -155,12 +168,16 @@ export const listMyFollowing = query({
   handler: async (ctx, args) => {
     const currentUserId = await requireConvexUserId(ctx);
     const limit = Math.max(1, Math.min(args.limit ?? 100, 200));
+    const { hiddenIds } = await getBlockEdgeSets(ctx, currentUserId);
     const rows = await ctx.db
       .query("follows")
       .withIndex("by_follower", (q) => q.eq("followerUserId", currentUserId))
       .collect();
 
-    const sorted = rows.sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+    const filtered = rows.filter((row) => !hiddenIds.has(row.followingUserId));
+    const sorted = filtered
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, limit);
     const users = await Promise.all(
       sorted.map(async (row) => {
         const user = await resolveFollowUserRow(ctx, row.followingUserId);

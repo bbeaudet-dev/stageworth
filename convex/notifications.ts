@@ -3,6 +3,7 @@ import { internalAction, internalQuery, mutation, query } from "./_generated/ser
 import { internal } from "./_generated/api";
 import { getConvexUserId, requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
+import { getBlockEdgeSets } from "./social/safety";
 
 // ─── Push helpers ────────────────────────────────────────────────────────────
 
@@ -89,6 +90,7 @@ export const listForCurrentUser = query({
     const userId = await getConvexUserId(ctx);
     if (!userId) return [];
     const limit = Math.max(1, Math.min(args.limit ?? 50, 100));
+    const { hiddenIds } = await getBlockEdgeSets(ctx, userId);
 
     const notifications = await ctx.db
       .query("notifications")
@@ -101,6 +103,7 @@ export const listForCurrentUser = query({
         let actor = null;
         if (notif.actorKind === "user") {
           if (!notif.actorUserId) return null; // malformed — skip
+          if (hiddenIds.has(notif.actorUserId)) return null; // blocked either way
           const actorDoc = await ctx.db.get(notif.actorUserId);
           if (!actorDoc) return null; // actor deleted — drop notification
           const avatarUrl = actorDoc.avatarImage
@@ -164,13 +167,18 @@ export const getUnreadCount = query({
   handler: async (ctx) => {
     const userId = await getConvexUserId(ctx);
     if (!userId) return 0;
+    const { hiddenIds } = await getBlockEdgeSets(ctx, userId);
     const unread = await ctx.db
       .query("notifications")
       .withIndex("by_recipient_isRead", (q) =>
         q.eq("recipientUserId", userId).eq("isRead", false)
       )
       .collect();
-    return unread.length;
+    // Don't show badge counts from blocked users.
+    const visible = unread.filter(
+      (n) => !(n.actorKind === "user" && n.actorUserId && hiddenIds.has(n.actorUserId))
+    );
+    return visible.length;
   },
 });
 
