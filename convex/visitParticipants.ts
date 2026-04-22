@@ -3,7 +3,7 @@ import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { requireConvexUserId } from "./auth";
 import { notifyUser } from "./notificationDispatch";
-import { applyRankingForVisit } from "./visits";
+import { applyRankingForVisit, applyPostVisitUpdatesForUser } from "./visits";
 
 const rankedTierValidator = v.union(
   v.literal("loved"),
@@ -123,6 +123,14 @@ export const acceptVisitTag = mutation({
       respondedAt: Date.now(),
     });
 
+    await applyPostVisitUpdatesForUser(ctx, {
+      userId,
+      visitDate: visit.date,
+      showId: visit.showId,
+      visitId: args.visitId,
+      uniqueShowCount: finalRankingShowIds.length,
+    });
+
     const rankingIndex = finalRankingShowIds.indexOf(visit.showId);
     await ctx.db.insert("activityPosts", {
       actorUserId: userId,
@@ -237,6 +245,19 @@ export const leaveVisit = mutation({
         await ctx.db.delete(post._id);
       }
     }
+
+    // Recompute the leaver's score so their totals reflect the drop.
+    const rankings = await ctx.db
+      .query("userRankings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    await applyPostVisitUpdatesForUser(ctx, {
+      userId,
+      visitDate: visit.date,
+      showId: visit.showId,
+      visitId: args.visitId,
+      uniqueShowCount: rankings?.showIds.length ?? 0,
+    });
   },
 });
 

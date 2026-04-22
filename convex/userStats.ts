@@ -3,6 +3,7 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import { getConvexUserId, requireConvexUserId } from "./auth";
 import { computeTheatreScore } from "./scoreUtils";
 import { getBlockEdgeSets } from "./social/safety";
+import { collectVisitsForUser } from "./visits";
 
 function getISOWeek(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00Z");
@@ -37,10 +38,7 @@ export const recomputeUserScore = mutation({
         .query("userRankings")
         .withIndex("by_user", (q: any) => q.eq("userId", targetUserId))
         .first(),
-      ctx.db
-        .query("visits")
-        .withIndex("by_user", (q: any) => q.eq("userId", targetUserId))
-        .collect(),
+      collectVisitsForUser(ctx, targetUserId),
       ctx.db
         .query("follows")
         .withIndex("by_following", (q: any) => q.eq("followingUserId", targetUserId))
@@ -154,10 +152,7 @@ export const recomputeAllScores = internalMutation({
           .query("userRankings")
           .withIndex("by_user", (q: any) => q.eq("userId", userId))
           .first(),
-        ctx.db
-          .query("visits")
-          .withIndex("by_user", (q: any) => q.eq("userId", userId))
-          .collect(),
+        collectVisitsForUser(ctx, userId),
         ctx.db
           .query("follows")
           .withIndex("by_following", (q: any) => q.eq("followingUserId", userId))

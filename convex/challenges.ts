@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getConvexUserId, requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
+import { collectVisitsForUser } from "./visits";
 import type { Id } from "./_generated/dataModel";
 
 export const create = mutation({
@@ -32,10 +33,7 @@ export const create = mutation({
     }
 
     // Count unique shows visited in the target year (retroactive backfill).
-    const allVisits = await ctx.db
-      .query("visits")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const allVisits = await collectVisitsForUser(ctx, userId);
     const uniqueShowsThisYear = new Set(
       allVisits
         .filter((v) => new Date(v.date + "T00:00:00Z").getUTCFullYear() === args.year)
@@ -99,10 +97,7 @@ export const getMyYearSeenCount = query({
     const userId = await getConvexUserId(ctx);
     if (!userId) return 0;
 
-    const allVisits = await ctx.db
-      .query("visits")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const allVisits = await collectVisitsForUser(ctx, userId);
     const uniqueShowsThisYear = new Set(
       allVisits
         .filter((v) => new Date(v.date + "T00:00:00Z").getUTCFullYear() === args.year)
@@ -141,10 +136,7 @@ async function hydrateChallenge(ctx: any, challenge: any, viewerUserId: string) 
   const avatarUrl = user.avatarImage ? await ctx.storage.getUrl(user.avatarImage) : null;
 
   // Collect unique shows visited by this user in the challenge year.
-  const allVisits = await ctx.db
-    .query("visits")
-    .withIndex("by_user", (q: any) => q.eq("userId", challenge.userId))
-    .collect();
+  const allVisits = await collectVisitsForUser(ctx, challenge.userId);
   const yearVisits = allVisits.filter((v: any) => {
     return new Date(v.date + "T00:00:00Z").getUTCFullYear() === challenge.year;
   });

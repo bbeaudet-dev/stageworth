@@ -57,6 +57,174 @@ function sanitizeGuestNames(
   return out;
 }
 
+/**
+ * Recompute a user's stats and bump theatre-challenge progress after a visit
+ * action (create or accepted-tag). Mirrors the inline logic in createVisit so
+ * accepted participants get the same score/challenge/streak treatment.
+ */
+export async function applyPostVisitUpdatesForUser(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    visitDate: string;
+    showId: Id<"shows">;
+    visitId: Id<"visits">;
+    uniqueShowCount: number;
+  },
+) {
+  const { userId, visitDate, showId, visitId, uniqueShowCount } = args;
+  const userVisits = await collectVisitsForUser(ctx, userId);
+  const totalVisits = userVisits.length;
+  const visitsWithNotes = userVisits.filter((vis) => vis.notes?.trim()).length;
+  const visitTagCounts = userVisits.map(
+    (vis) => vis.taggedUserIds?.length ?? 0,
+  );
+  const [followerRows, followingRows, existingStats] = await Promise.all([
+    ctx.db
+      .query("follows")
+      .withIndex("by_following", (q) => q.eq("followingUserId", userId))
+      .collect(),
+    ctx.db
+      .query("follows")
+      .withIndex("by_follower", (q) => q.eq("followerUserId", userId))
+      .collect(),
+    ctx.db
+      .query("userStats")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first(),
+  ]);
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const visitIsInFuture = visitDate > todayIso;
+
+  const visitWeekObj = new Date(visitDate + "T00:00:00Z");
+  const thursday = new Date(visitWeekObj);
+  thursday.setUTCDate(visitWeekObj.getUTCDate() + (3 - ((visitWeekObj.getUTCDay() + 6) % 7)));
+  const yearStart = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1));
+  const weekNumber = Math.ceil(((thursday.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  const currentWeek = `${thursday.getUTCFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
+
+  let streakWeeks = existingStats?.currentStreakWeeks ?? 0;
+  let longestStreak = existingStats?.longestStreakWeeks ?? 0;
+  let lastActiveWeek = existingStats?.lastActiveWeek ?? "";
+  if (!visitIsInFuture) {
+    if (lastActiveWeek === "") {
+      streakWeeks = 1;
+      lastActiveWeek = currentWeek;
+    } else if (currentWeek !== lastActiveWeek && currentWeek > lastActiveWeek) {
+      streakWeeks = currentWeek <= lastActiveWeek ? streakWeeks : 1;
+      lastActiveWeek = currentWeek;
+    }
+    if (streakWeeks > longestStreak) longestStreak = streakWeeks;
+  }
+
+  const theatreScore = computeTheatreScore({
+    uniqueShows: uniqueShowCount,
+    totalVisits,
+    visitsWithNotes,
+    visitTagCounts,
+    followerCount: followerRows.length,
+    followingCount: followingRows.length,
+    currentStreakWeeks: streakWeeks,
+  });
+
+  if (existingStats) {
+    await ctx.db.patch(existingStats._id, {
+      theatreScore,
+      currentStreakWeeks: streakWeeks,
+      longestStreakWeeks: longestStreak,
+      lastActiveWeek,
+      updatedAt: Date.now(),
+    });
+  } else {
+    await ctx.db.insert("userStats", {
+      userId,
+      theatreScore,
+      currentStreakWeeks: streakWeeks,
+      longestStreakWeeks: longestStreak,
+      lastActiveWeek,
+      updatedAt: Date.now(),
+    });
+  }
+
+  const visitYear = new Date(visitDate + "T00:00:00Z").getUTCFullYear();
+  const yearVisits = userVisits.filter((vis) => {
+    const visYear = new Date(vis.date + "T00:00:00Z").getUTCFullYear();
+    return visYear === visitYear && vis.showId === showId;
+  });
+  if (!visitIsInFuture && yearVisits.length === 1) {
+    const challenge = await ctx.db
+      .query("theatreChallenges")
+      .withIndex("by_user_year", (q) =>
+        q.eq("userId", userId).eq("year", visitYear),
+      )
+      .first();
+    if (challenge) {
+      const newCount = challenge.currentCount + 1;
+      await ctx.db.patch(challenge._id, {
+        currentCount: newCount,
+        updatedAt: Date.now(),
+      });
+
+      const milestones = [0.25, 0.5, 0.75, 1.0];
+      const progress = newCount / challenge.targetCount;
+      const prevProgress = (newCount - 1) / challenge.targetCount;
+      for (const milestone of milestones) {
+        if (prevProgress < milestone && progress >= milestone) {
+          const isCompleted = milestone === 1.0;
+          await ctx.db.insert("activityPosts", {
+            actorUserId: userId,
+            type: isCompleted ? "challenge_completed" : "challenge_milestone",
+            visitId,
+            showId,
+            visitDate,
+            challengeYear: visitYear,
+            challengeTarget: challenge.targetCount,
+            challengeProgress: newCount,
+            createdAt: Date.now(),
+          });
+          break;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Unions visits owned by the user with visits the user has accepted as a
+ * shared-visit participant. Use this for stats/counts that should reflect
+ * both "I ran this visit" and "I accepted an invite to this visit".
+ *
+ * NOTE: This intentionally ignores pending/declined participant rows.
+ */
+export async function collectVisitsForUser(
+  ctx: any,
+  userId: Id<"users">,
+): Promise<Doc<"visits">[]> {
+  const [owned, participations] = await Promise.all([
+    ctx.db
+      .query("visits")
+      .withIndex("by_user", (q: any) => q.eq("userId", userId))
+      .collect(),
+    ctx.db
+      .query("visitParticipants")
+      .withIndex("by_user_status", (q: any) =>
+        q.eq("userId", userId).eq("status", "accepted"),
+      )
+      .collect(),
+  ]);
+  const ownedIds = new Set(owned.map((v: any) => v._id));
+  const sharedVisits = (
+    await Promise.all(
+      participations.map(async (p: any) => {
+        if (ownedIds.has(p.visitId)) return null;
+        return (await ctx.db.get(p.visitId)) as Doc<"visits"> | null;
+      }),
+    )
+  ).filter((v): v is Doc<"visits"> => v !== null);
+  return [...owned, ...sharedVisits];
+}
+
 function normalizeVenueName(name: string) {
   return name
     .toLowerCase()
