@@ -23,11 +23,10 @@ export function ProfileMapSection({ userId }: ProfileMapSectionProps) {
   const accentColor = Colors[theme].accent;
 
   const mapStats = useQuery(api.visits.getMapCoverageStats, { scope: "mine" });
-  const pins = useQuery(api.visits.listMapPins, { scope: "mine" });
 
-  const theatreCount = pins?.length ?? 0;
-  const citySet = new Set(pins?.map((p) => p.city).filter(Boolean));
-  const cityCount = citySet.size;
+  // Use all visits (not only geocoded pins) for totals.
+  const theatreCount = mapStats?.uniqueTheatres ?? 0;
+  const cityCount = mapStats?.uniqueCities ?? 0;
   const totalVisits = mapStats?.totalVisits ?? 0;
 
   if (totalVisits === 0) return null;

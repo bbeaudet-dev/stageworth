@@ -1,10 +1,10 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getConvexUserId, requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
 import { removeShowFromSystemLists } from "./listRules";
+import { notifyUser } from "./notificationDispatch";
 import { normalizeShowName, normalizeCityName } from "./showNormalization";
 import { computeTheatreScore } from "./scoreUtils";
 import { getBlockEdgeSets } from "./social/safety";
@@ -243,6 +243,74 @@ export const listAllWithShows = query({
   },
 });
 
+async function resolveVisitCoordinates(
+  ctx: any,
+  visit: { venueId?: Id<"venues">; theatre?: string; city?: string }
+): Promise<{ latitude?: number; longitude?: number }> {
+  if (visit.venueId) {
+    const venue = await ctx.db.get(visit.venueId);
+    if (venue?.latitude !== undefined && venue?.longitude !== undefined) {
+      return { latitude: venue.latitude, longitude: venue.longitude };
+    }
+  }
+  const theatre = visit.theatre?.trim();
+  if (!theatre) return {};
+  const normalizedName = normalizeVenueName(theatre);
+  if (!normalizedName) return {};
+  const city = visit.city?.trim();
+  const matched = city
+    ? await ctx.db
+        .query("venues")
+        .withIndex("by_city_normalized_name", (q: any) =>
+          q.eq("city", city).eq("normalizedName", normalizedName),
+        )
+        .first()
+    : await ctx.db
+        .query("venues")
+        .withIndex("by_normalized_name", (q: any) =>
+          q.eq("normalizedName", normalizedName),
+        )
+        .first();
+  if (matched?.latitude !== undefined && matched?.longitude !== undefined) {
+    return { latitude: matched.latitude, longitude: matched.longitude };
+  }
+  return {};
+}
+
+async function loadVisitsForMapScope(
+  ctx: any,
+  scope: "mine" | "following" | "all",
+  userId: Id<"users">,
+  hiddenIds: Set<string>,
+) {
+  if (scope === "mine") {
+    return await ctx.db
+      .query("visits")
+      .withIndex("by_user", (q: any) => q.eq("userId", userId))
+      .collect();
+  }
+  if (scope === "following") {
+    const followRows = await ctx.db
+      .query("follows")
+      .withIndex("by_follower", (q: any) => q.eq("followerUserId", userId))
+      .collect();
+    const followingIds = followRows
+      .map((row: any) => row.followingUserId)
+      .filter((id: string) => !hiddenIds.has(id));
+    const groups = await Promise.all(
+      followingIds.map((followingUserId: Id<"users">) =>
+        ctx.db
+          .query("visits")
+          .withIndex("by_user", (q: any) => q.eq("userId", followingUserId))
+          .collect(),
+      ),
+    );
+    return groups.flat();
+  }
+  const all = await ctx.db.query("visits").collect();
+  return all.filter((v: any) => !hiddenIds.has(v.userId));
+}
+
 export const listMapPins = query({
   args: { scope: mapScopeValidator },
   handler: async (ctx, args) => {
@@ -251,34 +319,12 @@ export const listMapPins = query({
       return [];
     }
     const { hiddenIds } = await getBlockEdgeSets(ctx, userId);
-    let visits: Doc<"visits">[] = [];
-
-    if (args.scope === "mine") {
-      visits = await ctx.db
-        .query("visits")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect();
-    } else if (args.scope === "following") {
-      const followRows = await ctx.db
-        .query("follows")
-        .withIndex("by_follower", (q) => q.eq("followerUserId", userId))
-        .collect();
-      const followingIds = followRows
-        .map((row) => row.followingUserId)
-        .filter((id) => !hiddenIds.has(id));
-      const groupedVisits = await Promise.all(
-        followingIds.map((followingUserId) =>
-          ctx.db
-            .query("visits")
-            .withIndex("by_user", (q) => q.eq("userId", followingUserId))
-            .collect()
-        )
-      );
-      visits = groupedVisits.flat();
-    } else {
-      const all = await ctx.db.query("visits").collect();
-      visits = all.filter((v) => !hiddenIds.has(v.userId));
-    }
+    const visits: Doc<"visits">[] = await loadVisitsForMapScope(
+      ctx,
+      args.scope,
+      userId,
+      hiddenIds,
+    );
 
     const rows = new Map<
       string,
@@ -304,42 +350,17 @@ export const listMapPins = query({
         existing.visitCount += 1;
         existing.uniqueUserIds.add(visit.userId);
         existing.showIds.add(visit.showId);
-        if (existing.latitude === undefined && visit.venueId) {
-          const venue = await ctx.db.get(visit.venueId);
-          if (venue?.latitude !== undefined && venue?.longitude !== undefined) {
-            existing.latitude = venue.latitude;
-            existing.longitude = venue.longitude;
+        if (existing.latitude === undefined) {
+          const { latitude, longitude } = await resolveVisitCoordinates(ctx, visit);
+          if (latitude !== undefined && longitude !== undefined) {
+            existing.latitude = latitude;
+            existing.longitude = longitude;
           }
         }
         continue;
       }
 
-      let latitude: number | undefined;
-      let longitude: number | undefined;
-      if (visit.venueId) {
-        const venue = await ctx.db.get(visit.venueId);
-        if (venue?.latitude !== undefined && venue?.longitude !== undefined) {
-          latitude = venue.latitude;
-          longitude = venue.longitude;
-        }
-      } else {
-        const normalizedName = normalizeVenueName(theatre);
-        const matchedVenue = city
-          ? await ctx.db
-              .query("venues")
-              .withIndex("by_city_normalized_name", (q) =>
-                q.eq("city", city).eq("normalizedName", normalizedName)
-              )
-              .first()
-          : await ctx.db
-              .query("venues")
-              .withIndex("by_normalized_name", (q) => q.eq("normalizedName", normalizedName))
-              .first();
-        if (matchedVenue?.latitude !== undefined && matchedVenue?.longitude !== undefined) {
-          latitude = matchedVenue.latitude;
-          longitude = matchedVenue.longitude;
-        }
-      }
+      const { latitude, longitude } = await resolveVisitCoordinates(ctx, visit);
 
       rows.set(mapKey, {
         mapKey,
@@ -394,57 +415,32 @@ export const getMapCoverageStats = query({
         visitsWithValidLocation: 0,
         visitsMissingLocation: 0,
         uniqueShowsMissingLocation: 0,
+        uniqueCities: 0,
+        uniqueTheatres: 0,
       };
     }
     const { hiddenIds } = await getBlockEdgeSets(ctx, userId);
-    let visits: Array<{
-      userId: string;
-      showId: Id<"shows">;
-      venueId?: Id<"venues">;
-      theatre?: string;
-    }> = [];
-
-    if (args.scope === "mine") {
-      visits = await ctx.db
-        .query("visits")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect();
-    } else if (args.scope === "following") {
-      const followRows = await ctx.db
-        .query("follows")
-        .withIndex("by_follower", (q) => q.eq("followerUserId", userId))
-        .collect();
-      const followingIds = followRows
-        .map((row) => row.followingUserId)
-        .filter((id) => !hiddenIds.has(id));
-      const groupedVisits = await Promise.all(
-        followingIds.map((followingUserId) =>
-          ctx.db
-            .query("visits")
-            .withIndex("by_user", (q) => q.eq("userId", followingUserId))
-            .collect()
-        )
-      );
-      visits = groupedVisits.flat();
-    } else {
-      const all = await ctx.db.query("visits").collect();
-      visits = all.filter((v) => !hiddenIds.has(v.userId as any));
-    }
+    const visits = await loadVisitsForMapScope(ctx, args.scope, userId, hiddenIds);
 
     let visitsWithValidLocation = 0;
     const missingShowIds = new Set<Id<"shows">>();
+    // Profile totals should include all visits, not only geocoded ones.
+    const citySet = new Set<string>();
+    const theatreSet = new Set<string>();
 
     for (const visit of visits) {
-      const hasTheatre = Boolean(visit.theatre?.trim());
-      let hasVenueCoordinates = false;
-      if (visit.venueId) {
-        const venue = await ctx.db.get(visit.venueId);
-        hasVenueCoordinates = Boolean(
-          venue?.latitude !== undefined && venue?.longitude !== undefined
-        );
+      const theatre = visit.theatre?.trim();
+      const rawCity = visit.city?.trim();
+      if (theatre) {
+        const theatreKey = `${theatre.toLowerCase()}::${(rawCity ?? "").toLowerCase()}`;
+        theatreSet.add(theatreKey);
+      }
+      if (rawCity) {
+        citySet.add(normalizeCityName(rawCity).toLowerCase());
       }
 
-      if (hasVenueCoordinates || hasTheatre) {
+      const { latitude, longitude } = await resolveVisitCoordinates(ctx, visit);
+      if (latitude !== undefined && longitude !== undefined) {
         visitsWithValidLocation += 1;
       } else {
         missingShowIds.add(visit.showId);
@@ -456,6 +452,8 @@ export const getMapCoverageStats = query({
       visitsWithValidLocation,
       visitsMissingLocation: visits.length - visitsWithValidLocation,
       uniqueShowsMissingLocation: missingShowIds.size,
+      uniqueCities: citySet.size,
+      uniqueTheatres: theatreSet.size,
     };
   },
 });
@@ -727,31 +725,27 @@ export const createVisit = mutation({
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
     });
 
-    const now = Date.now();
     const show = await ctx.db.get(showId);
     const showName = show?.name ?? "a show";
     const actor = await ctx.db.get(userId);
     const actorLabel = actor?.name?.split(" ")[0] ?? actor?.username ?? "Someone";
 
     await Promise.all(
-      validTaggedUserIds.flatMap((recipientId) => [
-        ctx.db.insert("notifications", {
+      validTaggedUserIds.map((recipientId) =>
+        notifyUser(ctx, {
           recipientUserId: recipientId,
           actorKind: "user",
           actorUserId: userId,
           type: "visit_tag",
           visitId,
           showId,
-          isRead: false,
-          createdAt: now,
+          push: {
+            title: "You were tagged in a visit",
+            body: `${actorLabel} tagged you in their visit to ${showName}`,
+            data: { type: "visit_tag", visitId },
+          },
         }),
-        ctx.scheduler.runAfter(0, internal.notifications.sendPushNotification, {
-          recipientUserId: recipientId,
-          title: "You were tagged in a visit",
-          body: `${actorLabel} tagged you in their visit to ${showName}`,
-          data: { type: "visit_tag", visitId },
-        }),
-      ])
+      ),
     );
 
     const rankingIndex = finalRankingShowIds.indexOf(showId);
@@ -1016,26 +1010,22 @@ export const updateVisit = mutation({
       const showName = show?.name ?? "a show";
       const actor = await ctx.db.get(userId);
       const actorLabel = actor?.name?.split(" ")[0] ?? actor?.username ?? "Someone";
-      const now = Date.now();
       await Promise.all(
-        newlyTaggedIds.flatMap((recipientId) => [
-          ctx.db.insert("notifications", {
+        newlyTaggedIds.map((recipientId) =>
+          notifyUser(ctx, {
             recipientUserId: recipientId,
             actorKind: "user",
             actorUserId: userId,
             type: "visit_tag",
             visitId: args.visitId,
             showId: visit.showId,
-            isRead: false,
-            createdAt: now,
+            push: {
+              title: "You were tagged in a visit",
+              body: `${actorLabel} tagged you in their visit to ${showName}`,
+              data: { type: "visit_tag", visitId: args.visitId },
+            },
           }),
-          ctx.scheduler.runAfter(0, internal.notifications.sendPushNotification, {
-            recipientUserId: recipientId,
-            title: "You were tagged in a visit",
-            body: `${actorLabel} tagged you in their visit to ${showName}`,
-            data: { type: "visit_tag", visitId: args.visitId },
-          }),
-        ])
+        ),
       );
     }
   },
