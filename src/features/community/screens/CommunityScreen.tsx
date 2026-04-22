@@ -104,7 +104,7 @@ function ParticipantsSheet({
             <View style={styles.sheetRowText}>
               <Text style={[styles.sheetRowName, { color: text }]}>{name}</Text>
               <Text style={[styles.sheetRowHandle, { color: muted }]}>
-                Not on Theatre Diary
+                Not on Stageworth
               </Text>
             </View>
           </View>
