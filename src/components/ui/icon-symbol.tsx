@@ -78,6 +78,13 @@ const MAPPING = {
   'tag.fill': 'label',
   'calendar.badge.exclamationmark': 'event-busy',
   'megaphone.fill': 'campaign',
+  'ellipsis': 'more-horiz',
+  'ellipsis.circle': 'more-horiz',
+  'flag': 'flag',
+  'flag.fill': 'flag',
+  'hand.raised.fill': 'pan-tool',
+  'shield': 'shield',
+  'doc.text': 'description',
 } as IconMapping;
 
 /**
