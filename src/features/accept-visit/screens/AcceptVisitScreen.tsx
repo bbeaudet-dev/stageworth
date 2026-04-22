@@ -9,6 +9,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -247,7 +248,7 @@ export default function AcceptVisitScreen() {
           ) : visit.viewerParticipantStatus === "accepted" ? (
             <View style={{ paddingTop: 40, gap: 12 }}>
               <Text style={[styles.title, { color: c.text, textAlign: "center" }]}>
-                You've already accepted this visit.
+                You&rsquo;ve already accepted this visit.
               </Text>
               <Pressable
                 style={[styles.saveButton, { backgroundColor: c.accent }]}
@@ -370,8 +371,6 @@ export default function AcceptVisitScreen() {
     </SafeAreaView>
   );
 }
-
-import { StyleSheet } from "react-native";
 
 const localStyles = StyleSheet.create({
   hero: {

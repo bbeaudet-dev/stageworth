@@ -2,7 +2,6 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { requireConvexUserId } from "./auth";
-import { resolveShowImageUrls } from "./helpers";
 import { notifyUser } from "./notificationDispatch";
 import { applyRankingForVisit } from "./visits";
 

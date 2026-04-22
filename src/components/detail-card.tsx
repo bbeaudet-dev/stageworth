@@ -7,15 +7,20 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 export function DetailCard({
   title,
   children,
+  rightAccessory,
 }: {
   title: string;
   children: ReactNode;
+  rightAccessory?: ReactNode;
 }) {
   const theme = useColorScheme() ?? "light";
   const c = Colors[theme];
   return (
     <View style={[styles.card, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
-      <Text style={[styles.heading, { color: c.mutedText }]}>{title}</Text>
+      <View style={styles.cardHeader}>
+        <Text style={[styles.heading, { color: c.mutedText }]}>{title}</Text>
+        {rightAccessory ? <View>{rightAccessory}</View> : null}
+      </View>
       {children}
     </View>
   );
@@ -68,6 +73,12 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 12,
     gap: 4,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
   },
   group: {
     borderRadius: 10,
