@@ -192,6 +192,32 @@ export default function VisitDetailScreen() {
               </DetailCard>
             ) : null}
 
+            {visit.taggedGuestNames && visit.taggedGuestNames.length > 0 ? (
+              <DetailCard title="With">
+                <View style={styles.guestWrap}>
+                  {visit.taggedGuestNames.map((name) => (
+                    <View
+                      key={name}
+                      style={[
+                        styles.guestChip,
+                        {
+                          backgroundColor: c.surface,
+                          borderColor: c.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.guestChipText, { color: c.text }]}
+                        numberOfLines={1}
+                      >
+                        {name}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </DetailCard>
+            ) : null}
+
             {visit.notes ? (
               <DetailCard title="Notes">
                 <NotesText
@@ -236,5 +262,21 @@ const styles = StyleSheet.create({
   },
   locationLink: {
     textDecorationLine: "underline",
+  },
+  guestWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  guestChip: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  guestChipText: {
+    fontSize: 14,
+    fontWeight: "600",
+    maxWidth: 180,
   },
 });
