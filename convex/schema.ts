@@ -477,6 +477,8 @@ export default defineSchema({
     theatre: v.optional(v.string()),
     rankAtPost: v.optional(v.number()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    // Free-text guest names carried over from the visit for feed display.
+    taggedGuestNames: v.optional(v.array(v.string())),
     // Challenge-specific metadata (present on challenge_started / challenge_milestone / challenge_completed).
     challengeYear: v.optional(v.number()),
     challengeTarget: v.optional(v.number()),

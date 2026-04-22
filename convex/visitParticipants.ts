@@ -32,7 +32,12 @@ async function actorLabelFor(ctx: any, userId: Id<"users">) {
   return actor?.name?.split(" ")[0] ?? actor?.username ?? "Someone";
 }
 
-/** List participants for a visit. Visible to the creator and any participant. */
+/**
+ * List participants for a visit. Visible to the creator and any participant.
+ * Also synthesizes "pending" rows for any userId in `visit.taggedUserIds`
+ * that doesn't yet have a participant row (legacy visits created before
+ * the shared-visit flow landed).
+ */
 export const listByVisit = query({
   args: { visitId: v.id("visits") },
   handler: async (ctx, args) => {
@@ -46,26 +51,57 @@ export const listByVisit = query({
       .collect();
     const isOwner = visit.userId === viewerId;
     const isParticipant = participants.some((p) => p.userId === viewerId);
-    if (!isOwner && !isParticipant) return [];
+    const isTagged = (visit.taggedUserIds ?? []).includes(viewerId);
+    if (!isOwner && !isParticipant && !isTagged) return [];
 
-    return await Promise.all(
+    const participantUserIds = new Set(
+      participants.map((p) => String(p.userId)),
+    );
+    const syntheticUserIds = (visit.taggedUserIds ?? []).filter(
+      (id) => !participantUserIds.has(String(id)),
+    );
+
+    const real = await Promise.all(
       participants.map(async (p) => {
         const user = await ctx.db.get(p.userId);
         const avatarUrl = user?.avatarImage
           ? await ctx.storage.getUrl(user.avatarImage)
           : null;
         return {
-          _id: p._id,
+          _id: p._id as string,
           userId: p.userId,
-          status: p.status,
+          status: p.status as "pending" | "accepted" | "declined",
           notes: p.notes ?? null,
           respondedAt: p.respondedAt ?? null,
+          isSynthetic: false,
           user: user
             ? { _id: user._id, name: user.name, username: user.username, avatarUrl }
             : null,
         };
       }),
     );
+
+    const synthetic = await Promise.all(
+      syntheticUserIds.map(async (uid) => {
+        const user = await ctx.db.get(uid);
+        const avatarUrl = user?.avatarImage
+          ? await ctx.storage.getUrl(user.avatarImage)
+          : null;
+        return {
+          _id: `synthetic-${uid}`,
+          userId: uid,
+          status: "pending" as const,
+          notes: null,
+          respondedAt: null,
+          isSynthetic: true,
+          user: user
+            ? { _id: user._id, name: user.name, username: user.username, avatarUrl }
+            : null,
+        };
+      }),
+    );
+
+    return [...real, ...synthetic];
   },
 });
 
@@ -144,6 +180,7 @@ export const acceptVisitTag = mutation({
       theatre: visit.theatre,
       rankAtPost: rankingIndex === -1 ? undefined : rankingIndex + 1,
       taggedUserIds: visit.taggedUserIds,
+      taggedGuestNames: visit.taggedGuestNames,
       createdAt: Date.now(),
     });
 

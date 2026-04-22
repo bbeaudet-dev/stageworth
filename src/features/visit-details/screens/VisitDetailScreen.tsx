@@ -320,38 +320,47 @@ export default function VisitDetailScreen() {
             (visit.taggedGuestNames && visit.taggedGuestNames.length > 0) ? (
               <DetailCard title="With">
                 <View style={styles.guestWrap}>
-                  {(participants ?? []).map((p) => (
-                    <View
-                      key={p._id}
-                      style={[
-                        styles.guestChip,
-                        {
-                          backgroundColor: c.surface,
-                          borderColor: c.border,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[styles.guestChipText, { color: c.text }]}
-                        numberOfLines={1}
+                  {(participants ?? []).map((p) => {
+                    const isPending = p.status === "pending";
+                    const isDeclined = p.status === "declined";
+                    return (
+                      <View
+                        key={p._id}
+                        style={[
+                          styles.guestChip,
+                          {
+                            backgroundColor: isPending ? c.surface : c.surface,
+                            borderColor: isPending
+                              ? c.accent
+                              : isDeclined
+                                ? c.border
+                                : c.border,
+                            borderStyle: isPending ? "dashed" : "solid",
+                            opacity: isDeclined ? 0.55 : 1,
+                          },
+                        ]}
                       >
-                        {p.user?.name ?? p.user?.username ?? "Someone"}
-                      </Text>
-                      {p.status !== "accepted" ? (
                         <Text
-                          style={[
-                            styles.participantStatus,
-                            {
-                              color:
-                                p.status === "declined" ? c.mutedText : c.accent,
-                            },
-                          ]}
+                          style={[styles.guestChipText, { color: c.text }]}
+                          numberOfLines={1}
                         >
-                          {p.status === "pending" ? "pending" : "declined"}
+                          {p.user?.name ?? p.user?.username ?? "Someone"}
                         </Text>
-                      ) : null}
-                    </View>
-                  ))}
+                        {p.status !== "accepted" ? (
+                          <Text
+                            style={[
+                              styles.participantStatus,
+                              {
+                                color: isDeclined ? c.mutedText : c.accent,
+                              },
+                            ]}
+                          >
+                            {isPending ? "pending" : "declined"}
+                          </Text>
+                        ) : null}
+                      </View>
+                    );
+                  })}
                   {(visit.taggedGuestNames ?? []).map((name) => (
                     <View
                       key={`guest-${name}`}

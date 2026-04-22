@@ -95,6 +95,10 @@ async function hydratePosts(
         actor,
         show,
         taggedUsers,
+        // Fall back to the visit's guest names for posts created before
+        // activityPosts carried them inline.
+        taggedGuestNames:
+          post.taggedGuestNames ?? visit?.taggedGuestNames ?? [],
       };
     })
   );

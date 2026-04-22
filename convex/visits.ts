@@ -1029,6 +1029,7 @@ export const createVisit = mutation({
       theatre,
       rankAtPost: rankingIndex === -1 ? undefined : rankingIndex + 1,
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
+      taggedGuestNames: cleanGuestNames.length > 0 ? cleanGuestNames : undefined,
       createdAt: Date.now(),
     });
 

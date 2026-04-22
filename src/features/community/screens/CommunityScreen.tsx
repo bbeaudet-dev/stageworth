@@ -43,6 +43,7 @@ type ParticipantsSheetProps = {
   onClose: () => void;
   actor: { _id: string; username: string; name?: string | null };
   taggedUsers: TaggedUser[];
+  taggedGuestNames: string[];
   onNavigate: (username: string) => void;
   theme: "light" | "dark";
 };
@@ -52,6 +53,7 @@ function ParticipantsSheet({
   onClose,
   actor,
   taggedUsers,
+  taggedGuestNames,
   onNavigate,
   theme,
 }: ParticipantsSheetProps) {
@@ -89,6 +91,23 @@ function ParticipantsSheet({
               </Text>
             </View>
           </Pressable>
+        ))}
+        {taggedGuestNames.map((name, i) => (
+          <View
+            key={`guest-${name}-${i}`}
+            style={[
+              styles.sheetRow,
+              { borderTopColor: border },
+              all.length === 0 && i === 0 && { borderTopWidth: 0 },
+            ]}
+          >
+            <View style={styles.sheetRowText}>
+              <Text style={[styles.sheetRowName, { color: text }]}>{name}</Text>
+              <Text style={[styles.sheetRowHandle, { color: muted }]}>
+                Not on Theatre Diary
+              </Text>
+            </View>
+          </View>
         ))}
       </View>
     </BottomSheet>
@@ -175,6 +194,7 @@ export default function CommunityScreen() {
   const [participantsModal, setParticipantsModal] = useState<{
     actor: TaggedUser;
     taggedUsers: TaggedUser[];
+    taggedGuestNames: string[];
   } | null>(null);
 
   const confirmDeletePost = (postId: Id<"activityPosts">, label: string) => {
@@ -330,6 +350,8 @@ export default function CommunityScreen() {
             const actorLabel = getDisplayName(post.actor.name, post.actor.username);
             const isGlobal = selectedTab === "global";
             const tagged: TaggedUser[] = post.taggedUsers ?? [];
+            const guestNames: string[] = post.taggedGuestNames ?? [];
+            const totalTagged = tagged.length + guestNames.length;
             const isMine = !!myProfile && post.actor._id === myProfile._id;
             const postLabel =
               post.type === "visit_created"
@@ -579,7 +601,11 @@ export default function CommunityScreen() {
             if (!visitShow) return null;
             const location = formatVisitLocation(post.visitDate ?? "", post.theatre, post.city);
             const openParticipants = () =>
-              setParticipantsModal({ actor: post.actor, taggedUsers: tagged });
+              setParticipantsModal({
+                actor: post.actor,
+                taggedUsers: tagged,
+                taggedGuestNames: guestNames,
+              });
             const visitIsUpcoming = post.visitDate ? isFutureDate(post.visitDate) : false;
             const verbPhrase = visitIsUpcoming ? "is seeing" : "saw";
 
@@ -616,7 +642,7 @@ export default function CommunityScreen() {
                       >
                         {visitShow.name}
                       </Text>
-                      {tagged.length === 1 && (
+                      {totalTagged === 1 && tagged.length === 1 && (
                         <>
                           {" with "}
                           <Text
@@ -629,14 +655,22 @@ export default function CommunityScreen() {
                           </Text>
                         </>
                       )}
-                      {tagged.length >= 2 && (
+                      {totalTagged === 1 && guestNames.length === 1 && (
+                        <>
+                          {" with "}
+                          <Text style={[styles.actorText, { color: primaryTextColor }]}>
+                            {guestNames[0]}
+                          </Text>
+                        </>
+                      )}
+                      {totalTagged >= 2 && (
                         <>
                           {" with "}
                           <Text
                             style={[styles.actorText, { color: actorLinkColor }]}
                             onPress={openParticipants}
                           >
-                            {tagged.length} others
+                            {totalTagged} others
                           </Text>
                         </>
                       )}
@@ -721,6 +755,7 @@ export default function CommunityScreen() {
         onClose={() => setParticipantsModal(null)}
         actor={participantsModal?.actor ?? { _id: "", username: "" }}
         taggedUsers={participantsModal?.taggedUsers ?? []}
+        taggedGuestNames={participantsModal?.taggedGuestNames ?? []}
         onNavigate={(username) =>
           router.push({ pathname: "/user/[username]", params: { username } })
         }
