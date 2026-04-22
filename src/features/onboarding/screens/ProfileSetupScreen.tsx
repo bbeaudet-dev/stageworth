@@ -52,10 +52,16 @@ export default function ProfileSetupScreen() {
 
   useEffect(() => {
     if (!profile || didInitialize) return;
-    setName(profile.name ?? "");
+    // Prefer whatever's already persisted on the user row; otherwise fall back
+    // to what the auth provider (Apple `fullName` via `hydrateSocialIdentity`,
+    // or Google via better-auth) put on the session so we don't re-prompt.
+    const sessionName =
+      typeof session?.user?.name === "string" ? session.user.name : "";
+    const sessionLooksLikeEmail = sessionName.includes("@");
+    setName(profile.name ?? (sessionLooksLikeEmail ? "" : sessionName));
     setUsername(profile.username ?? "");
     setDidInitialize(true);
-  }, [profile, didInitialize]);
+  }, [profile, didInitialize, session]);
 
   const sessionImageUrl =
     typeof session?.user?.image === "string" ? session.user.image : undefined;
@@ -115,18 +121,18 @@ export default function ProfileSetupScreen() {
   };
 
   const trimmedName = name.trim();
+  // Name is intentionally optional — Apple Sign-in HIG / App Store Guideline
+  // 4.8 forbid re-requiring info the auth provider already supplied. We
+  // pre-fill it when available but never gate Confirm on it.
   const canConfirm =
-    !!trimmedName &&
-    usernameAvailability.isAcceptable &&
-    !isUploading &&
-    !isSaving;
+    usernameAvailability.isAcceptable && !isUploading && !isSaving;
 
   const handleConfirm = async () => {
     if (!canConfirm) return;
     setIsSaving(true);
     try {
       await completeProfilePhase({
-        name: trimmedName,
+        name: trimmedName ? trimmedName : undefined,
         username: usernameAvailability.sanitized || username,
         avatarImage: uploadedAvatarId ?? undefined,
       });
@@ -203,7 +209,9 @@ export default function ProfileSetupScreen() {
           </View>
 
           <View style={styles.field}>
-            <Text style={[styles.label, { color: c.mutedText }]}>Full name</Text>
+            <Text style={[styles.label, { color: c.mutedText }]}>
+              Display name (optional)
+            </Text>
             <TextInput
               style={[
                 styles.input,

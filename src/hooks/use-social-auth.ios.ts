@@ -2,14 +2,19 @@ import {
   GoogleSignin,
   statusCodes,
 } from "@react-native-google-signin/google-signin";
+import { useMutation } from "convex/react";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useState } from "react";
 import { Alert } from "react-native";
+import { api } from "@/convex/_generated/api";
 import { authClient } from "@/lib/auth-client";
 
 export function useSocialAuth() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
+  const hydrateSocialIdentity = useMutation(
+    api.onboarding.hydrateSocialIdentity
+  );
 
   const signInWithGoogle = async () => {
     try {
@@ -30,7 +35,20 @@ export function useSocialAuth() {
           throw new Error(authResult.error.message || "Google sign-in failed");
         }
 
-        return { success: true, email: data.user?.email };
+        // Google already populates `name` via better-auth, but we still need to
+        // kick off the OAuth avatar import so the profile picture persists in
+        // Convex storage instead of relying on the session-scoped URL.
+        const googleUser = data.user;
+        const googleName = googleUser?.name ?? undefined;
+        const googleImage = googleUser?.photo ?? undefined;
+        void hydrateSocialIdentity({
+          name: googleName,
+          imageUrl: googleImage ?? undefined,
+        }).catch(() => {
+          // Non-fatal; sign-in still succeeded.
+        });
+
+        return { success: true, email: googleUser?.email };
       }
 
       return null;
@@ -78,6 +96,26 @@ export function useSocialAuth() {
 
       if (authResult.error) {
         throw new Error(authResult.error.message || "Apple sign-in failed");
+      }
+
+      // Apple returns `fullName` only on the very first sign-in, and it's not
+      // embedded in the ID token — better-auth therefore can't populate the
+      // user's name on its own. We forward it here so the onboarding screen
+      // can pre-fill from Apple instead of re-prompting the user (required by
+      // Apple Sign-in HIG / App Store Review Guideline 4.8).
+      const fullName = [
+        credential.fullName?.givenName,
+        credential.fullName?.familyName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+      if (fullName) {
+        void hydrateSocialIdentity({ name: fullName }).catch(() => {
+          // Non-fatal; sign-in still succeeded and the user can set their name
+          // from the onboarding screen if they want to.
+        });
       }
 
       return { success: true, email: credential.email };

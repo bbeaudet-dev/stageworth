@@ -2,14 +2,19 @@ import {
   GoogleSignin,
   statusCodes,
 } from "@react-native-google-signin/google-signin";
+import { useMutation } from "convex/react";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useState } from "react";
 import { Alert, Platform } from "react-native";
+import { api } from "@/convex/_generated/api";
 import { authClient } from "@/lib/auth-client";
 
 export function useSocialAuth() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
+  const hydrateSocialIdentity = useMutation(
+    api.onboarding.hydrateSocialIdentity
+  );
 
   const signInWithGoogle = async () => {
     let authSucceeded = false;
@@ -31,8 +36,19 @@ export function useSocialAuth() {
           throw new Error(authResult.error.message || "Google sign-in failed");
         }
 
+        // Better-auth already populates `name` from Google's ID token; this
+        // call persists the OAuth avatar into Convex storage so it survives
+        // the session-scoped URL expiring.
+        const googleUser = data.user;
+        void hydrateSocialIdentity({
+          name: googleUser?.name ?? undefined,
+          imageUrl: googleUser?.photo ?? undefined,
+        }).catch(() => {
+          // Non-fatal; sign-in still succeeded.
+        });
+
         authSucceeded = true;
-        return { success: true, email: data.user?.email };
+        return { success: true, email: googleUser?.email };
       }
 
       return null;
@@ -88,9 +104,19 @@ export function useSocialAuth() {
         return null;
       }
 
-      // Apple returns the user's full name only on the very first sign-in. We
-      // pass it through Better Auth's optional `name` field on the social call
-      // so the user trigger can hydrate it on the Convex user row.
+      const authResult = await authClient.signIn.social({
+        provider: "apple",
+        idToken: { token: credential.identityToken },
+      });
+
+      if (authResult.error) {
+        throw new Error(authResult.error.message || "Apple sign-in failed");
+      }
+
+      // Apple only returns the user's `fullName` on the very first sign-in and
+      // never embeds it in the ID token, so better-auth can't populate it on
+      // its own. Hydrate the Convex user row ourselves so onboarding doesn't
+      // re-prompt the user (App Store Guideline 4.8 / Apple Sign-in HIG).
       const fullName = [
         credential.fullName?.givenName,
         credential.fullName?.familyName,
@@ -99,16 +125,10 @@ export function useSocialAuth() {
         .join(" ")
         .trim();
 
-      const authResult = await authClient.signIn.social({
-        provider: "apple",
-        idToken: {
-          token: credential.identityToken,
-          ...(fullName ? { nonce: undefined } : {}),
-        },
-      });
-
-      if (authResult.error) {
-        throw new Error(authResult.error.message || "Apple sign-in failed");
+      if (fullName) {
+        void hydrateSocialIdentity({ name: fullName }).catch(() => {
+          // Non-fatal; sign-in still succeeded.
+        });
       }
 
       authSucceeded = true;
