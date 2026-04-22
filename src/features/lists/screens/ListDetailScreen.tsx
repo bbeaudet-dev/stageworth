@@ -3,7 +3,10 @@ import { useMutation, useQuery } from "convex/react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ActionSheetIOS,
   ActivityIndicator,
+  Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -54,6 +57,7 @@ export default function ListDetailScreen() {
 
   const updateCustomListDescription = useMutation(api.lists.updateCustomListDescription);
   const addShowToList = useMutation(api.lists.addShowToList);
+  const removeShowFromList = useMutation(api.lists.removeShowFromList);
 
   const seenList = useQuery(api.lists.getSeenDerivedList, isSeen ? {} : "skip");
   const regularList = useQuery(
@@ -124,6 +128,37 @@ export default function ListDetailScreen() {
       setShowQuery("");
     } finally {
       setIsAddingShow(false);
+    }
+  };
+
+  const onShowLongPress = (showId: string, showName: string) => {
+    if (isSeen || !regularList) return;
+    const doRemove = async () => {
+      try {
+        await removeShowFromList({
+          listId: regularList._id,
+          showId: showId as Id<"shows">,
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Cancel", `Remove ${showName} from list`],
+          destructiveButtonIndex: 1,
+          cancelButtonIndex: 0,
+        },
+        (i) => {
+          if (i === 1) doRemove();
+        }
+      );
+    } else {
+      Alert.alert(showName, undefined, [
+        { text: "Cancel", style: "cancel" },
+        { text: "Remove from list", style: "destructive", onPress: doRemove },
+      ]);
     }
   };
 
@@ -293,6 +328,8 @@ export default function ListDetailScreen() {
                         params: { showId: String(show._id), name: show.name },
                       })
                     }
+                    onLongPress={() => onShowLongPress(show._id, show.name)}
+                    delayLongPress={350}
                   >
                     {image ? (
                       <Image

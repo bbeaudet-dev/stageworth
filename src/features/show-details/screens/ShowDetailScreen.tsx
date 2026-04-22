@@ -12,6 +12,8 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useToast } from "@/components/Toast";
@@ -43,7 +45,9 @@ export default function ShowDetailScreen() {
     personalRank,
     addShowToList,
     addShowToTrip,
+    removeShowFromTrip,
   } = useShowDetail(showId);
+  const removeShowFromList = useMutation(api.lists.removeShowFromList);
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -52,48 +56,103 @@ export default function ShowDetailScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  // Add to List sheet state
   const [listSheetOpen, setListSheetOpen] = useState(false);
-  const [addingToList, setAddingToList] = useState(false);
+  const [busyListId, setBusyListId] = useState<Id<"userLists"> | null>(null);
   const [optimisticallyInLists, setOptimisticallyInLists] = useState<Set<string>>(new Set());
+  const [optimisticallyOutOfLists, setOptimisticallyOutOfLists] = useState<Set<string>>(new Set());
 
-  // Add to Trip sheet state
   const [tripSheetOpen, setTripSheetOpen] = useState(false);
-  const [addingToTrip, setAddingToTrip] = useState<Id<"trips"> | null>(null);
+  const [busyTripId, setBusyTripId] = useState<Id<"trips"> | null>(null);
+  const [optimisticallyInTrips, setOptimisticallyInTrips] = useState<Set<string>>(new Set());
+  const [optimisticallyOutOfTrips, setOptimisticallyOutOfTrips] = useState<Set<string>>(new Set());
 
   const todayStr = today();
 
-  async function handleAddToList(listId: Id<"userLists">, listName: string) {
-    if (!showId || addingToList) return;
-    setOptimisticallyInLists((prev) => new Set([...prev, listId]));
-    setListSheetOpen(false);
-    showToast({ message: `Added "${show?.name ?? "show"}" to ${listName}` });
-    setAddingToList(true);
-    try {
-      await addShowToList({ listId, showId });
-    } catch {
+  async function handleToggleList(listId: Id<"userLists">, listName: string, alreadyIn: boolean) {
+    if (!showId || busyListId) return;
+    setBusyListId(listId);
+    if (alreadyIn) {
       setOptimisticallyInLists((prev) => {
         const next = new Set(prev);
         next.delete(listId);
         return next;
       });
-    } finally {
-      setAddingToList(false);
+      setOptimisticallyOutOfLists((prev) => new Set([...prev, listId]));
+      try {
+        await removeShowFromList({ listId, showId });
+        showToast({ message: `Removed from ${listName}` });
+      } catch {
+        setOptimisticallyOutOfLists((prev) => {
+          const next = new Set(prev);
+          next.delete(listId);
+          return next;
+        });
+      } finally {
+        setBusyListId(null);
+      }
+    } else {
+      setOptimisticallyOutOfLists((prev) => {
+        const next = new Set(prev);
+        next.delete(listId);
+        return next;
+      });
+      setOptimisticallyInLists((prev) => new Set([...prev, listId]));
+      try {
+        await addShowToList({ listId, showId });
+        showToast({ message: `Added to ${listName}` });
+      } catch {
+        setOptimisticallyInLists((prev) => {
+          const next = new Set(prev);
+          next.delete(listId);
+          return next;
+        });
+      } finally {
+        setBusyListId(null);
+      }
     }
   }
 
-  async function handleAddToTrip(tripId: Id<"trips">) {
-    if (!showId || addingToTrip) return;
-    const trip = activeTrips.find((t) => t._id === tripId);
-    setAddingToTrip(tripId);
-    try {
-      await addShowToTrip({ tripId, showId });
-      setTripSheetOpen(false);
-      showToast({ message: `Added "${show?.name ?? "show"}" to ${trip?.name ?? "trip"}` });
-    } catch {
-      setTripSheetOpen(false);
-    } finally {
-      setAddingToTrip(null);
+  async function handleToggleTrip(tripId: Id<"trips">, tripName: string, alreadyIn: boolean) {
+    if (!showId || busyTripId) return;
+    setBusyTripId(tripId);
+    if (alreadyIn) {
+      setOptimisticallyInTrips((prev) => {
+        const next = new Set(prev);
+        next.delete(tripId);
+        return next;
+      });
+      setOptimisticallyOutOfTrips((prev) => new Set([...prev, tripId]));
+      try {
+        await removeShowFromTrip({ tripId, showId });
+        showToast({ message: `Removed from ${tripName}` });
+      } catch {
+        setOptimisticallyOutOfTrips((prev) => {
+          const next = new Set(prev);
+          next.delete(tripId);
+          return next;
+        });
+      } finally {
+        setBusyTripId(null);
+      }
+    } else {
+      setOptimisticallyOutOfTrips((prev) => {
+        const next = new Set(prev);
+        next.delete(tripId);
+        return next;
+      });
+      setOptimisticallyInTrips((prev) => new Set([...prev, tripId]));
+      try {
+        await addShowToTrip({ tripId, showId });
+        showToast({ message: `Added to ${tripName}` });
+      } catch {
+        setOptimisticallyInTrips((prev) => {
+          const next = new Set(prev);
+          next.delete(tripId);
+          return next;
+        });
+      } finally {
+        setBusyTripId(null);
+      }
     }
   }
 
@@ -157,7 +216,6 @@ export default function ShowDetailScreen() {
         />
       </ScrollView>
 
-      {/* ── Add to List Sheet ──────────────────────────────────────────────── */}
       <Modal visible={listSheetOpen} transparent animationType="slide" onRequestClose={() => setListSheetOpen(false)}>
         <Pressable style={styles.sheetOverlay} onPress={() => setListSheetOpen(false)} />
         <View style={[styles.sheet, { backgroundColor: c.background, paddingBottom: insets.bottom + 12 }]}>
@@ -167,16 +225,25 @@ export default function ShowDetailScreen() {
             {allLists.length === 0 ? (
               <Text style={[styles.sheetEmpty, { color: c.mutedText }]}>No lists found.</Text>
             ) : allLists.map((list) => {
-              const alreadyIn = (list.containsShow ?? false) || optimisticallyInLists.has(list._id);
+              const baseIn = list.containsShow ?? false;
+              const alreadyIn =
+                (baseIn && !optimisticallyOutOfLists.has(list._id)) ||
+                optimisticallyInLists.has(list._id);
+              const isBusy = busyListId === list._id;
               return (
                 <Pressable
                   key={list._id}
-                  style={({ pressed }) => [styles.sheetRow, { borderBottomColor: c.border, opacity: pressed && !alreadyIn ? 0.7 : 1 }]}
-                  onPress={() => !alreadyIn && handleAddToList(list._id as Id<"userLists">, list.name)}
-                  disabled={addingToList}
+                  style={({ pressed }) => [
+                    styles.sheetRow,
+                    { borderBottomColor: c.border, opacity: pressed ? 0.7 : 1 },
+                  ]}
+                  onPress={() => handleToggleList(list._id as Id<"userLists">, list.name, alreadyIn)}
+                  disabled={isBusy}
                 >
                   <Text style={[styles.sheetRowText, { color: alreadyIn ? c.mutedText : c.text }]}>{list.name}</Text>
-                  {alreadyIn ? (
+                  {isBusy ? (
+                    <ActivityIndicator size="small" color={c.mutedText} />
+                  ) : alreadyIn ? (
                     <Text style={[styles.sheetRowCheck, { color: c.accent }]}>✓</Text>
                   ) : (
                     <Text style={[styles.sheetRowCount, { color: c.mutedText }]}>{list.showCount}</Text>
@@ -188,7 +255,6 @@ export default function ShowDetailScreen() {
         </View>
       </Modal>
 
-      {/* ── Add to Trip Sheet ──────────────────────────────────────────────── */}
       <Modal visible={tripSheetOpen} transparent animationType="slide" onRequestClose={() => setTripSheetOpen(false)}>
         <Pressable style={styles.sheetOverlay} onPress={() => setTripSheetOpen(false)} />
         <View style={[styles.sheet, { backgroundColor: c.background, paddingBottom: insets.bottom + 12 }]}>
@@ -197,25 +263,38 @@ export default function ShowDetailScreen() {
           <ScrollView>
             {activeTrips.length === 0 ? (
               <Text style={[styles.sheetEmpty, { color: c.mutedText }]}>No upcoming trips.</Text>
-            ) : activeTrips.map((trip) => (
-              <Pressable
-                key={trip._id}
-                style={[styles.sheetRow, { borderBottomColor: c.border }]}
-                onPress={() => handleAddToTrip(trip._id as Id<"trips">)}
-              >
-                <View>
-                  <Text style={[styles.sheetRowText, { color: c.text }]}>{trip.name}</Text>
-                  <Text style={[styles.sheetRowMeta, { color: c.mutedText }]}>
-                    {formatDate(trip.startDate) ?? trip.startDate} – {formatDate(trip.endDate) ?? trip.endDate}
-                  </Text>
-                </View>
-                {addingToTrip === trip._id ? (
-                  <ActivityIndicator size="small" color={c.mutedText} />
-                ) : (
-                  <Text style={[styles.sheetRowChevron, { color: c.mutedText }]}>›</Text>
-                )}
-              </Pressable>
-            ))}
+            ) : activeTrips.map((trip) => {
+              const baseIn = trip.containsShow ?? false;
+              const alreadyIn =
+                (baseIn && !optimisticallyOutOfTrips.has(trip._id)) ||
+                optimisticallyInTrips.has(trip._id);
+              const isBusy = busyTripId === trip._id;
+              return (
+                <Pressable
+                  key={trip._id}
+                  style={({ pressed }) => [
+                    styles.sheetRow,
+                    { borderBottomColor: c.border, opacity: pressed ? 0.7 : 1 },
+                  ]}
+                  onPress={() => handleToggleTrip(trip._id as Id<"trips">, trip.name, alreadyIn)}
+                  disabled={isBusy}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.sheetRowText, { color: alreadyIn ? c.mutedText : c.text }]}>{trip.name}</Text>
+                    <Text style={[styles.sheetRowMeta, { color: c.mutedText }]}>
+                      {formatDate(trip.startDate) ?? trip.startDate} – {formatDate(trip.endDate) ?? trip.endDate}
+                    </Text>
+                  </View>
+                  {isBusy ? (
+                    <ActivityIndicator size="small" color={c.mutedText} />
+                  ) : alreadyIn ? (
+                    <Text style={[styles.sheetRowCheck, { color: c.accent }]}>✓</Text>
+                  ) : (
+                    <Text style={[styles.sheetRowChevron, { color: c.mutedText }]}>+</Text>
+                  )}
+                </Pressable>
+              );
+            })}
           </ScrollView>
         </View>
       </Modal>

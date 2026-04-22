@@ -30,6 +30,7 @@ export function useShowDetail(showId: Id<"shows"> | "") {
 
   const addShowToList = useMutation(api.lists.addShowToList);
   const addShowToTrip = useMutation(api.trips.trips.addShowToTrip);
+  const removeShowFromTrip = useMutation(api.trips.trips.removeShowFromTrip);
   const enrichShowScore = useAction(api.admin.showScore.enrichShowWithShowScore);
   const getRecommendation = useAction(api.recommendations.getShowRecommendation);
 
@@ -78,6 +79,7 @@ export function useShowDetail(showId: Id<"shows"> | "") {
     personalRank,
     addShowToList,
     addShowToTrip,
+    removeShowFromTrip,
     getRecommendation,
   };
 }
