@@ -2,7 +2,7 @@
  * Shared tier badge colour scale.
  *
  * Used wherever show quality tiers (Loved It → Unranked) appear:
- *   - My Shows list view section header pills  (MyShowsScreen)
+ *   - My Shows rank view section header pills  (MyShowsScreen)
  *   - Add Visit ranking selection buttons       (RankingSection)
  *   - Any future show-card tier indicator
  *

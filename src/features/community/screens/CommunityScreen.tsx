@@ -95,7 +95,7 @@ function ParticipantsSheet({
   );
 }
 
-/** Swipe left to reveal Delete — same pattern as list view show rows. */
+/** Swipe left to reveal Delete — same pattern as rank view show rows. */
 function OwnerSwipeable({
   enabled,
   onDeletePress,

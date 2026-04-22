@@ -37,7 +37,7 @@ const LINE_META = {
 const CATEGORY_NAV_UNLOCK_THRESHOLD = 20;
 /**
  * Minimum number of ranked shows before the "Would See Again" / "Should've
- * Stayed Home" divider lines start appearing in the List view. Below this we
+ * Stayed Home" divider lines start appearing in the Rank view. Below this we
  * keep the list a single uninterrupted ranking.
  */
 const RANKING_LINES_UNLOCK_THRESHOLD = 40;
