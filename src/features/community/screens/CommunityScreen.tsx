@@ -15,8 +15,6 @@ import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { FeedPostCard } from "@/features/community/components/FeedPostCard";
-import { ReportSheet } from "@/features/safety/components/ReportSheet";
-import { useSafetyActions } from "@/features/safety/components/useSafetyActions";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { formatRelativeVisitDate, isFutureDate } from "@/utils/dates";
 import { getDisplayName } from "@/utils/user";
@@ -164,8 +162,6 @@ export default function CommunityScreen() {
   const unreadCount = useQuery(api.notifications.getUnreadCount) ?? 0;
   const myProfile = useQuery(api.social.profiles.getMyProfile);
   const deleteMyPost = useMutation(api.social.community.deleteMyPost);
-  const { openSafetyActions, reportTarget, closeReportSheet } =
-    useSafetyActions();
   const [participantsModal, setParticipantsModal] = useState<{
     actor: TaggedUser;
     taggedUsers: TaggedUser[];
@@ -327,15 +323,7 @@ export default function CommunityScreen() {
                     post._id as Id<"activityPosts">,
                     postLabel,
                   )
-              : () =>
-                  openSafetyActions({
-                    kind: "post",
-                    postId: post._id as Id<"activityPosts">,
-                    author: {
-                      userId: post.actor._id as Id<"users">,
-                      username: post.actor.username,
-                    },
-                  });
+              : undefined;
 
             // ── Shared inline elements ──────────────────────────────────────
             const actorInline = (
@@ -647,14 +635,6 @@ export default function CommunityScreen() {
         }
         theme={theme}
       />
-
-      {reportTarget && (
-        <ReportSheet
-          visible={reportTarget !== null}
-          onClose={closeReportSheet}
-          target={reportTarget}
-        />
-      )}
     </SafeAreaView>
   );
 }

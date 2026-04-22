@@ -2,22 +2,18 @@ import { useQuery } from "convex/react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { ProfileHeader } from "@/features/profile/components/ProfileHeader";
 import { PublicShowsGrid } from "@/features/profile/components/PublicShowsGrid";
 import { TasteProfile } from "@/features/profile/components/TasteProfile";
 import { TheatreChallenge } from "@/features/profile/components/TheatreChallenge";
-import { ReportSheet } from "@/features/safety/components/ReportSheet";
-import { useSafetyActions } from "@/features/safety/components/useSafetyActions";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useFollowToggle } from "@/hooks/use-follow-toggle";
 
@@ -30,35 +26,29 @@ export default function PublicProfileScreen() {
     api.social.profiles.getPublicProfileByUsername,
     username ? { username } : "skip",
   );
-  const isBlockedProfile = profile?.viewerIsBlocked ?? false;
   const stats = useQuery(
     api.social.profiles.getProfileStats,
-    profile && !isBlockedProfile ? { userId: profile._id } : "skip",
+    profile ? { userId: profile._id } : "skip",
   );
   const userStats = useQuery(
     api.userStats.getUserStats,
-    profile && !isBlockedProfile ? { userId: profile._id } : "skip",
+    profile ? { userId: profile._id } : "skip",
   );
   const recentActivity = useQuery(
     api.tasteProfile.getRecentActivity,
-    profile && !isBlockedProfile ? { userId: profile._id } : "skip",
+    profile ? { userId: profile._id } : "skip",
   );
   const { toggleFollow, isFollowPending } = useFollowToggle();
-  const { openSafetyActions, reportTarget, closeReportSheet } =
-    useSafetyActions();
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const backgroundColor = Colors[theme].background;
   const mutedTextColor = Colors[theme].mutedText;
   const accentColor = Colors[theme].accent;
-  const textColor = Colors[theme].text;
 
   const displayName = profile?.viewerIsSelf
     ? "Me"
     : (profile?.name?.trim() || profile?.username || "Profile");
-
-  const showOverflow = !!profile && !profile.viewerIsSelf && !isBlockedProfile;
 
   return (
     <SafeAreaView
@@ -70,26 +60,6 @@ export default function PublicProfileScreen() {
           headerShown: true,
           title: displayName,
           headerBackButtonDisplayMode: "minimal",
-          headerRight: showOverflow
-            ? () => (
-                <Pressable
-                  hitSlop={10}
-                  accessibilityLabel="More actions"
-                  onPress={() =>
-                    openSafetyActions({
-                      kind: "user",
-                      user: {
-                        userId: profile!._id,
-                        username: profile!.username,
-                      },
-                    })
-                  }
-                  style={styles.headerRight}
-                >
-                  <IconSymbol name="ellipsis" size={22} color={textColor} />
-                </Pressable>
-              )
-            : undefined,
         }}
       />
       <ScrollView
@@ -104,12 +74,7 @@ export default function PublicProfileScreen() {
             User not found.
           </Text>
         )}
-        {profile && isBlockedProfile && (
-          <Text style={[styles.emptyText, { color: mutedTextColor }]}>
-            This profile is unavailable.
-          </Text>
-        )}
-        {profile && !isBlockedProfile && (
+        {profile && (
           <>
             <ProfileHeader
               profile={profile}
@@ -143,13 +108,6 @@ export default function PublicProfileScreen() {
           </>
         )}
       </ScrollView>
-      {reportTarget && (
-        <ReportSheet
-          visible={reportTarget !== null}
-          onClose={closeReportSheet}
-          target={reportTarget}
-        />
-      )}
     </SafeAreaView>
   );
 }
@@ -167,5 +125,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 40,
   },
-  headerRight: { paddingHorizontal: 8 },
 });

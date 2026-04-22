@@ -2,7 +2,6 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { getConvexUserId, requireConvexUserId } from "./auth";
 import { computeTheatreScore } from "./scoreUtils";
-import { getBlockEdgeSets } from "./social/safety";
 
 function getISOWeek(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00Z");
@@ -233,23 +232,15 @@ export const getTopTheatregoers = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 10;
-    const viewerUserId = await getConvexUserId(ctx);
-    const { hiddenIds } = await getBlockEdgeSets(ctx, viewerUserId);
 
-    // Overfetch so the filter doesn't starve the list when the viewer has
-    // blocked users near the top.
     const topStats = await ctx.db
       .query("userStats")
       .withIndex("by_theatreScore")
       .order("desc")
-      .take(limit + hiddenIds.size + 10);
-
-    const filtered = topStats
-      .filter((s) => !hiddenIds.has(s.userId))
-      .slice(0, limit);
+      .take(limit);
 
     const results = await Promise.all(
-      filtered.map(async (stats) => {
+      topStats.map(async (stats) => {
         const user = await ctx.db.get(stats.userId);
         if (!user) return null;
         const avatarUrl = user.avatarImage

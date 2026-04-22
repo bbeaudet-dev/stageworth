@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
-  Linking,
   Modal,
   Pressable,
   StyleSheet,
@@ -15,7 +14,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconSymbol, type IconSymbolName } from "@/components/ui/icon-symbol";
-import { LEGAL_URLS } from "@/constants/urls";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -221,42 +219,6 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
               icon="person.fill.badge.plus"
               label="Invite a Friend"
               onPress={() => navigate("/invite-friend")}
-              textColor={c.text}
-              mutedColor={c.mutedText}
-              borderColor={c.border}
-              surfaceColor={c.surfaceElevated}
-              iconColor={iconColor}
-            />
-            <MenuRow
-              icon="hand.raised.fill"
-              label="Blocked Users"
-              onPress={() => navigate("/blocked-users")}
-              textColor={c.text}
-              mutedColor={c.mutedText}
-              borderColor={c.border}
-              surfaceColor={c.surfaceElevated}
-              iconColor={iconColor}
-            />
-            <MenuRow
-              icon="shield"
-              label="Privacy Policy"
-              onPress={() => {
-                onClose();
-                void Linking.openURL(LEGAL_URLS.privacyPolicy);
-              }}
-              textColor={c.text}
-              mutedColor={c.mutedText}
-              borderColor={c.border}
-              surfaceColor={c.surfaceElevated}
-              iconColor={iconColor}
-            />
-            <MenuRow
-              icon="doc.text"
-              label="Terms of Service"
-              onPress={() => {
-                onClose();
-                void Linking.openURL(LEGAL_URLS.termsOfService);
-              }}
               textColor={c.text}
               mutedColor={c.mutedText}
               borderColor={c.border}

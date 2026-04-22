@@ -7,7 +7,6 @@ import { resolveShowImageUrls } from "./helpers";
 import { removeShowFromSystemLists } from "./listRules";
 import { normalizeShowName, normalizeCityName } from "./showNormalization";
 import { computeTheatreScore } from "./scoreUtils";
-import { getBlockEdgeSets } from "./social/safety";
 
 const TIER_ORDER = ["loved", "liked", "okay", "disliked", "unranked"] as const;
 type Tier = (typeof TIER_ORDER)[number];
@@ -161,31 +160,9 @@ function getBottomInsertionIndexForTier(
 export const getById = query({
   args: { visitId: v.id("visits") },
   handler: async (ctx, args) => {
-    const viewerId = await requireConvexUserId(ctx);
+    await requireConvexUserId(ctx);
     const visit = await ctx.db.get(args.visitId);
     if (!visit) return null;
-
-    const isOwner = visit.userId === viewerId;
-    const isTagged = visit.taggedUserIds?.includes(viewerId) ?? false;
-
-    if (!isOwner && !isTagged) {
-      // Visits are only visible to non-owners/non-tagged viewers when they've
-      // been promoted to the activity feed. This matches what the client is
-      // already allowed to see via the community feed.
-      const post = await ctx.db
-        .query("activityPosts")
-        .withIndex("by_actor_createdAt", (q) =>
-          q.eq("actorUserId", visit.userId)
-        )
-        .filter((q) => q.eq(q.field("visitId"), args.visitId))
-        .first();
-      if (!post) return null;
-
-      // Respect symmetric blocks: blocked users shouldn't see each other's
-      // visits even through a feed deep-link.
-      const { hiddenIds } = await getBlockEdgeSets(ctx, viewerId);
-      if (hiddenIds.has(visit.userId)) return null;
-    }
 
     const show = await ctx.db.get(visit.showId);
     if (!show) return null;
@@ -250,7 +227,6 @@ export const listMapPins = query({
     if (!userId) {
       return [];
     }
-    const { hiddenIds } = await getBlockEdgeSets(ctx, userId);
     let visits: Doc<"visits">[] = [];
 
     if (args.scope === "mine") {
@@ -263,9 +239,7 @@ export const listMapPins = query({
         .query("follows")
         .withIndex("by_follower", (q) => q.eq("followerUserId", userId))
         .collect();
-      const followingIds = followRows
-        .map((row) => row.followingUserId)
-        .filter((id) => !hiddenIds.has(id));
+      const followingIds = followRows.map((row) => row.followingUserId);
       const groupedVisits = await Promise.all(
         followingIds.map((followingUserId) =>
           ctx.db
@@ -276,8 +250,7 @@ export const listMapPins = query({
       );
       visits = groupedVisits.flat();
     } else {
-      const all = await ctx.db.query("visits").collect();
-      visits = all.filter((v) => !hiddenIds.has(v.userId));
+      visits = await ctx.db.query("visits").collect();
     }
 
     const rows = new Map<
@@ -396,7 +369,6 @@ export const getMapCoverageStats = query({
         uniqueShowsMissingLocation: 0,
       };
     }
-    const { hiddenIds } = await getBlockEdgeSets(ctx, userId);
     let visits: Array<{
       userId: string;
       showId: Id<"shows">;
@@ -414,9 +386,7 @@ export const getMapCoverageStats = query({
         .query("follows")
         .withIndex("by_follower", (q) => q.eq("followerUserId", userId))
         .collect();
-      const followingIds = followRows
-        .map((row) => row.followingUserId)
-        .filter((id) => !hiddenIds.has(id));
+      const followingIds = followRows.map((row) => row.followingUserId);
       const groupedVisits = await Promise.all(
         followingIds.map((followingUserId) =>
           ctx.db
@@ -427,8 +397,7 @@ export const getMapCoverageStats = query({
       );
       visits = groupedVisits.flat();
     } else {
-      const all = await ctx.db.query("visits").collect();
-      visits = all.filter((v) => !hiddenIds.has(v.userId as any));
+      visits = await ctx.db.query("visits").collect();
     }
 
     let visitsWithValidLocation = 0;
@@ -703,9 +672,8 @@ export const createVisit = mutation({
       }
     }
 
-    const { hiddenIds: blockHiddenIds } = await getBlockEdgeSets(ctx, userId);
     const validTaggedUserIds = (args.taggedUserIds ?? []).filter(
-      (id) => id !== userId && !blockHiddenIds.has(id)
+      (id) => id !== userId
     );
     const production = args.productionId ? await ctx.db.get(args.productionId) : null;
     const theatre = args.theatre?.trim() || production?.theatre?.trim();
@@ -989,10 +957,7 @@ export const updateVisit = mutation({
     const venueId = resolvedVenueId ?? visit.venueId;
 
     const previousTaggedIds = visit.taggedUserIds ?? [];
-    const { hiddenIds: blockHiddenIds } = await getBlockEdgeSets(ctx, userId);
-    const validTaggedUserIds = (args.taggedUserIds ?? []).filter(
-      (id) => id !== userId && !blockHiddenIds.has(id)
-    );
+    const validTaggedUserIds = (args.taggedUserIds ?? []).filter((id) => id !== userId);
     const newlyTaggedIds = validTaggedUserIds.filter((id) => !previousTaggedIds.includes(id));
 
     await ctx.db.patch(args.visitId, {

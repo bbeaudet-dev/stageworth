@@ -3,7 +3,6 @@ import { query } from "./_generated/server";
 import { getConvexUserId } from "./auth";
 import type { Id } from "./_generated/dataModel";
 import { resolveShowImageUrls } from "./helpers";
-import { getBlockEdgeSets } from "./social/safety";
 
 async function getFriendIds(ctx: any, viewerUserId: string | null): Promise<string[] | null> {
   if (!viewerUserId) return null;
@@ -48,7 +47,6 @@ export const getByShows = query({
   },
   handler: async (ctx, args) => {
     const viewerUserId = await getConvexUserId(ctx);
-    const { hiddenIds } = await getBlockEdgeSets(ctx, viewerUserId);
     let targetUserIds: string[] | null = null;
 
     if (args.scope === "friends" && viewerUserId) {
@@ -60,11 +58,9 @@ export const getByShows = query({
     }
 
     const allRankings = await ctx.db.query("userRankings").collect();
-    const filtered = allRankings.filter((r: any) => {
-      if (hiddenIds.has(r.userId)) return false;
-      if (targetUserIds && !targetUserIds.includes(r.userId)) return false;
-      return true;
-    });
+    const filtered = targetUserIds
+      ? allRankings.filter((r: any) => targetUserIds!.includes(r.userId))
+      : allRankings;
 
     const results: Array<{ userId: string; count: number }> = [];
 
@@ -101,7 +97,6 @@ export const getByVisits = query({
   },
   handler: async (ctx, args) => {
     const viewerUserId = await getConvexUserId(ctx);
-    const { hiddenIds } = await getBlockEdgeSets(ctx, viewerUserId);
     let targetUserIds: string[] | null = null;
 
     if (args.scope === "friends" && viewerUserId) {
@@ -113,11 +108,9 @@ export const getByVisits = query({
     }
 
     const allVisits = await ctx.db.query("visits").collect();
-    const filtered = allVisits.filter((v: any) => {
-      if (hiddenIds.has(v.userId)) return false;
-      if (targetUserIds && !targetUserIds.includes(v.userId)) return false;
-      return true;
-    });
+    const filtered = targetUserIds
+      ? allVisits.filter((v: any) => targetUserIds!.includes(v.userId))
+      : allVisits;
 
     // Per-show leaderboard: rank users by visits to a specific show
     if (args.mode === "per_show" && args.showId) {
@@ -211,7 +204,6 @@ export const getByTheatres = query({
   },
   handler: async (ctx, args) => {
     const viewerUserId = await getConvexUserId(ctx);
-    const { hiddenIds } = await getBlockEdgeSets(ctx, viewerUserId);
     let targetUserIds: string[] | null = null;
 
     if (args.scope === "friends" && viewerUserId) {
@@ -223,11 +215,9 @@ export const getByTheatres = query({
     }
 
     const allVisits = await ctx.db.query("visits").collect();
-    let filtered = allVisits.filter((v: any) => {
-      if (hiddenIds.has(v.userId)) return false;
-      if (targetUserIds && !targetUserIds.includes(v.userId)) return false;
-      return true;
-    });
+    let filtered = targetUserIds
+      ? allVisits.filter((v: any) => targetUserIds!.includes(v.userId))
+      : allVisits;
 
     if (args.city) {
       const cityLower = args.city.toLowerCase();
@@ -266,7 +256,6 @@ export const getBySignups = query({
   },
   handler: async (ctx, args) => {
     const viewerUserId = await getConvexUserId(ctx);
-    const { hiddenIds } = await getBlockEdgeSets(ctx, viewerUserId);
     let targetUserIds: string[] | null = null;
 
     if (args.scope === "friends" && viewerUserId) {
@@ -285,7 +274,6 @@ export const getBySignups = query({
     const countByCreator = new Map<string, number>();
     for (const link of claimedLinks) {
       const creatorId = link.createdByUserId as string;
-      if (hiddenIds.has(creatorId as any)) continue;
       if (targetUserIds && !targetUserIds.includes(creatorId)) continue;
       countByCreator.set(creatorId, (countByCreator.get(creatorId) ?? 0) + 1);
     }
@@ -311,18 +299,15 @@ export const getByStreak = query({
   },
   handler: async (ctx, args) => {
     const viewerUserId = await getConvexUserId(ctx);
-    const { hiddenIds } = await getBlockEdgeSets(ctx, viewerUserId);
     const targetUserIds =
       args.scope === "friends" && viewerUserId
         ? await getFriendIds(ctx, viewerUserId)
         : null;
 
     const allStats = await ctx.db.query("userStats").collect();
-    const filtered = allStats.filter((s: any) => {
-      if (hiddenIds.has(s.userId)) return false;
-      if (targetUserIds && !targetUserIds.includes(s.userId)) return false;
-      return true;
-    });
+    const filtered = targetUserIds
+      ? allStats.filter((s: any) => targetUserIds.includes(s.userId))
+      : allStats;
 
     const withStreak = filtered
       .filter((s: any) => (s.currentStreakWeeks ?? 0) > 0)
@@ -347,7 +332,6 @@ export const getByScore = query({
   },
   handler: async (ctx, args) => {
     const viewerUserId = await getConvexUserId(ctx);
-    const { hiddenIds } = await getBlockEdgeSets(ctx, viewerUserId);
     const targetUserIds =
       args.scope === "friends" && viewerUserId
         ? await getFriendIds(ctx, viewerUserId)
@@ -357,19 +341,15 @@ export const getByScore = query({
     if (targetUserIds) {
       const allStats = await ctx.db.query("userStats").collect();
       statsRows = allStats
-        .filter((s: any) => !hiddenIds.has(s.userId) && targetUserIds.includes(s.userId))
+        .filter((s: any) => targetUserIds.includes(s.userId))
         .sort((a: any, b: any) => b.theatreScore - a.theatreScore)
         .slice(0, LEADERBOARD_LIMIT);
     } else {
-      // Overfetch to survive block filtering.
-      const raw = await ctx.db
+      statsRows = await ctx.db
         .query("userStats")
         .withIndex("by_theatreScore")
         .order("desc")
-        .take(LEADERBOARD_LIMIT + hiddenIds.size + 10);
-      statsRows = raw
-        .filter((s: any) => !hiddenIds.has(s.userId))
-        .slice(0, LEADERBOARD_LIMIT);
+        .take(LEADERBOARD_LIMIT);
     }
 
     return Promise.all(
