@@ -23,6 +23,8 @@ import type { MutationCtx } from "./_generated/server";
 
 export type NotifType =
   | "visit_tag"
+  | "visit_tag_accepted"
+  | "visit_tag_declined"
   | "new_follow"
   | "trip_invite"
   | "trip_invite_accepted"
@@ -41,6 +43,8 @@ type NotifSettingsKey =
 
 const PREF_KEY_BY_TYPE: Record<NotifType, NotifSettingsKey | null> = {
   visit_tag: "visitTags",
+  visit_tag_accepted: "visitTags",
+  visit_tag_declined: "visitTags",
   new_follow: "follows",
   trip_invite: "tripInvites",
   trip_invite_accepted: "tripInvites",

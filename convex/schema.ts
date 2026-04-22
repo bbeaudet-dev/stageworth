@@ -349,6 +349,25 @@ export default defineSchema({
     .index("by_user_production", ["userId", "productionId"])
     .index("by_venue", ["venueId"]),
 
+  // Tracks a tagged user's relationship to a shared visit. The visit's
+  // `taggedUserIds` cache stays canonical for "who was tagged"; this table
+  // owns acceptance state and per-user notes.
+  visitParticipants: defineTable({
+    visitId: v.id("visits"),
+    userId: v.id("users"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("accepted"),
+      v.literal("declined")
+    ),
+    notes: v.optional(v.string()),
+    invitedAt: v.number(),
+    respondedAt: v.optional(v.number()),
+  })
+    .index("by_visit", ["visitId"])
+    .index("by_user_status", ["userId", "status"])
+    .index("by_visit_user", ["visitId", "userId"]),
+
   follows: defineTable({
     followerUserId: v.id("users"),
     followingUserId: v.id("users"),
@@ -418,6 +437,8 @@ export default defineSchema({
     type: v.union(
       // user-actor types
       v.literal("visit_tag"),
+      v.literal("visit_tag_accepted"),
+      v.literal("visit_tag_declined"),
       v.literal("new_follow"),
       v.literal("trip_invite"),
       v.literal("trip_invite_accepted"),
