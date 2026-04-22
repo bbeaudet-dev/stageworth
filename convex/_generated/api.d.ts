@@ -27,7 +27,7 @@ import type * as challenges from "../challenges.js";
 import type * as compareShows from "../compareShows.js";
 import type * as crons from "../crons.js";
 import type * as findShow from "../findShow.js";
-import type * as friendsThink from "../friendsThink.js";
+import type * as friendsRankings from "../friendsRankings.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as imageEnrichment_mutations from "../imageEnrichment/mutations.js";
@@ -94,7 +94,7 @@ declare const fullApi: ApiFromModules<{
   compareShows: typeof compareShows;
   crons: typeof crons;
   findShow: typeof findShow;
-  friendsThink: typeof friendsThink;
+  friendsRankings: typeof friendsRankings;
   helpers: typeof helpers;
   http: typeof http;
   "imageEnrichment/mutations": typeof imageEnrichment_mutations;

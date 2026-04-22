@@ -28,13 +28,13 @@ type Row = {
   hasVisit: boolean;
 };
 
-export function FriendsThinkSection({ showId, isSignedIn }: Props) {
+export function FriendsRankingsSection({ showId, isSignedIn }: Props) {
   const router = useRouter();
   const theme = useColorScheme() ?? "light";
   const c = Colors[theme];
 
   const rows = useQuery(
-    api.friendsThink.listForShow,
+    api.friendsRankings.listForShow,
     isSignedIn && showId ? { showId: showId as Id<"shows"> } : "skip"
   ) as Row[] | undefined;
 

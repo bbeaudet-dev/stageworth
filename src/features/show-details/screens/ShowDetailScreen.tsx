@@ -25,7 +25,7 @@ import { useShowDetail } from "@/features/show-details/hooks/useShowDetail";
 import { ShowHeroSection } from "@/features/show-details/components/ShowHeroSection";
 import { ProductionsRail } from "@/features/show-details/components/ProductionsRail";
 import { ShowVisitsList } from "@/features/show-details/components/ShowVisitsList";
-import { FriendsThinkSection } from "@/features/show-details/components/FriendsThinkSection";
+import { FriendsRankingsSection } from "@/features/show-details/components/FriendsRankingsSection";
 import { ShowRecommendationBlock } from "@/features/show-details/components/ShowRecommendationBlock";
 import { ShowScoreBadgeRow } from "@/features/show-details/components/ShowScoreBadge";
 
@@ -194,7 +194,7 @@ export default function ShowDetailScreen() {
 
         <ShowVisitsList visits={visits} personalRank={personalRank} />
 
-        <FriendsThinkSection showId={showId} isSignedIn={!!session} />
+        <FriendsRankingsSection showId={showId} isSignedIn={!!session} />
 
         <View style={styles.recSection}>
           {show?.showScoreRating != null && (show?.name ?? params.name) ? (
