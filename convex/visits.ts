@@ -33,6 +33,29 @@ function getTierRank(tier: Tier): number {
   return TIER_ORDER.indexOf(tier);
 }
 
+const MAX_GUEST_NAME_LENGTH = 40;
+const MAX_GUEST_NAMES_PER_VISIT = 20;
+
+// Trim, drop empties, cap length, and de-dupe (case-insensitive) while
+// preserving caller's casing/ordering for display purposes.
+function sanitizeGuestNames(
+  raw: readonly string[] | undefined
+): string[] {
+  if (!raw || raw.length === 0) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const name of raw) {
+    const trimmed = name.trim().slice(0, MAX_GUEST_NAME_LENGTH);
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+    if (out.length >= MAX_GUEST_NAMES_PER_VISIT) break;
+  }
+  return out;
+}
+
 function normalizeVenueName(name: string) {
   return name
     .toLowerCase()
@@ -564,6 +587,7 @@ export const createVisit = mutation({
     selectedTier: v.optional(rankedTierValidator),
     completedInsertionIndex: v.optional(v.number()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    taggedGuestNames: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
@@ -713,6 +737,8 @@ export const createVisit = mutation({
     const district = args.district ?? production?.district;
     const venueId = args.venueId ?? (await resolveVenueIdForVisit(ctx, theatre, city));
 
+    const cleanGuestNames = sanitizeGuestNames(args.taggedGuestNames);
+
     const visitId = await ctx.db.insert("visits", {
       userId,
       showId,
@@ -725,6 +751,7 @@ export const createVisit = mutation({
       seat: args.seat,
       notes: args.notes,
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
+      taggedGuestNames: cleanGuestNames.length > 0 ? cleanGuestNames : undefined,
     });
 
     const show = await ctx.db.get(showId);
@@ -964,6 +991,7 @@ export const updateVisit = mutation({
     theatre: v.optional(v.string()),
     notes: v.optional(v.string()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    taggedGuestNames: v.optional(v.array(v.string())),
     seat: v.optional(v.string()),
     isMatinee: v.optional(v.boolean()),
     isPreview: v.optional(v.boolean()),
@@ -991,6 +1019,8 @@ export const updateVisit = mutation({
     );
     const newlyTaggedIds = validTaggedUserIds.filter((id) => !previousTaggedIds.includes(id));
 
+    const cleanGuestNames = sanitizeGuestNames(args.taggedGuestNames);
+
     await ctx.db.patch(args.visitId, {
       date: args.date,
       productionId: args.productionId,
@@ -1000,6 +1030,7 @@ export const updateVisit = mutation({
       district,
       notes: args.notes,
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
+      taggedGuestNames: cleanGuestNames.length > 0 ? cleanGuestNames : undefined,
       seat: args.seat,
       isMatinee: args.isMatinee,
       isPreview: args.isPreview,

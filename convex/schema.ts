@@ -340,6 +340,9 @@ export default defineSchema({
     cast: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    // Free-text labels for people not on the app (e.g. "mom", "dad"). These
+    // are not linked to any user record and never trigger notifications.
+    taggedGuestNames: v.optional(v.array(v.string())),
   })
     .index("by_user_show", ["userId", "showId"])
     .index("by_user", ["userId"])
