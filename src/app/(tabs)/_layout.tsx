@@ -49,19 +49,45 @@ export default function TabLayout() {
     if (!isPending && !hasAuthResolvedOnce) setHasAuthResolvedOnce(true);
   }, [isPending, hasAuthResolvedOnce]);
 
+  // Track whether we have ever had a session in this mount. On app foreground,
+  // better-auth briefly reports (session=null, isPending=false) while it
+  // revalidates; without this guard that window redirects to /sign-in and the
+  // user sees the login screen flash.
+  const hadSessionRef = useRef(false);
+  const [lostSessionAt, setLostSessionAt] = useState<number | null>(null);
+  useEffect(() => {
+    if (session) {
+      hadSessionRef.current = true;
+      setLostSessionAt(null);
+    } else if (hadSessionRef.current && lostSessionAt === null) {
+      setLostSessionAt(Date.now());
+    }
+  }, [session, lostSessionAt]);
+  useEffect(() => {
+    if (lostSessionAt === null) return;
+    const remaining = 1500 - (Date.now() - lostSessionAt);
+    if (remaining <= 0) return;
+    const t = setTimeout(() => setLostSessionAt((prev) => (prev === null ? null : prev)), remaining);
+    return () => clearTimeout(t);
+  }, [lostSessionAt]);
+
   const c = Colors[colorScheme ?? "light"];
 
-  if (!session && isPending) {
-    if (!hasAuthResolvedOnce) {
-      return (
-        <View style={[styles.authGate, { backgroundColor: c.background }]}>
-          <ActivityIndicator size="large" color={c.accent} />
-        </View>
-      );
+  if (!session) {
+    const withinRevalidationGrace =
+      lostSessionAt !== null && Date.now() - lostSessionAt < 1500;
+    if (isPending || withinRevalidationGrace) {
+      if (!hasAuthResolvedOnce) {
+        return (
+          <View style={[styles.authGate, { backgroundColor: c.background }]}>
+            <ActivityIndicator size="large" color={c.accent} />
+          </View>
+        );
+      }
+      return <View style={[styles.authGate, { backgroundColor: c.background }]} />;
     }
-    return <View style={[styles.authGate, { backgroundColor: c.background }]} />;
+    return <Redirect href="/sign-in" />;
   }
-  if (!session) return <Redirect href="/sign-in" />;
 
   if (onboardingState?.phase === "profile") {
     return <Redirect href="/(onboarding)/profile" />;
