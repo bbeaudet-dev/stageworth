@@ -105,14 +105,20 @@ export function usePushNotifications(enabled: boolean = true) {
   useEffect(() => {
     if (!enabled) return;
 
+    // `registerForPushNotifications` is async. If the user signs out before it
+    // resolves we must NOT call `savePushToken` — Convex has already dropped
+    // auth and the mutation would log "Not authenticated" server-side.
+    let cancelled = false;
+
     registerForPushNotifications()
       .then((token) => {
-        if (token) savePushToken({ token }).catch(console.error);
+        if (cancelled || !token) return;
+        savePushToken({ token }).catch(console.error);
       })
       .catch(console.error);
 
     Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (!response) return;
+      if (cancelled || !response) return;
       const data = response.notification.request.content.data as Record<string, string>;
       const route = getRouteFromNotificationData(data);
       if (route) router.push(route as any);
@@ -131,6 +137,7 @@ export function usePushNotifications(enabled: boolean = true) {
     );
 
     return () => {
+      cancelled = true;
       notificationListener.current?.remove();
       responseListener.current?.remove();
     };

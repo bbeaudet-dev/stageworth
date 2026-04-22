@@ -19,7 +19,7 @@ import { LEGAL_URLS } from "@/constants/urls";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { authClient, useSession } from "@/lib/auth-client";
+import { authClient, markIntentionalSignOut, useSession } from "@/lib/auth-client";
 
 const DRAWER_WIDTH = Dimensions.get("window").width * 0.82;
 
@@ -132,6 +132,9 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
       await removePushToken().catch(() => {});
       onClose();
       await new Promise((resolve) => setTimeout(resolve, 220));
+      // Tell the tabs layout this null-session is deliberate so it skips the
+      // revalidation grace and redirects to /sign-in immediately.
+      markIntentionalSignOut();
       await authClient.signOut();
     } finally {
       setIsSigningOut(false);

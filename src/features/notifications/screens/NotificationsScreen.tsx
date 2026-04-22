@@ -83,9 +83,7 @@ export default function NotificationsScreen() {
   const markAllAsRead = useMutation(api.notifications.markAllAsRead);
   const markAsRead = useMutation(api.notifications.markAsRead);
   const respondToTripInvitation = useMutation(api.trips.trips.respondToTripInvitation);
-  const declineVisitTag = useMutation(api.visitParticipants.declineVisitTag);
   const [inviteResponding, setInviteResponding] = useState<string | null>(null);
-  const [visitTagResponding, setVisitTagResponding] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<InboxTab>("all");
   const guard = useNavGuard();
   const onAccent = Colors[theme].onAccent;
@@ -192,38 +190,13 @@ export default function NotificationsScreen() {
     }
   });
 
-  const handleVisitTagAccept = (notif: NotificationListItem) => {
+  const handleVisitTagView = (notif: NotificationListItem) => {
     if (!notif.visitId) return;
     if (!notif.isRead) void markAsRead({ notificationId: notif._id });
     router.push({
       pathname: "/accept-visit/[visitId]",
       params: { visitId: notif.visitId },
     });
-  };
-
-  const handleVisitTagDecline = async (notif: NotificationListItem) => {
-    if (!notif.visitId) return;
-    Alert.alert("Decline visit tag?", "You won't see this visit in your list.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Decline",
-        style: "destructive",
-        onPress: async () => {
-          setVisitTagResponding(notif._id);
-          try {
-            if (!notif.isRead) await markAsRead({ notificationId: notif._id });
-            await declineVisitTag({ visitId: notif.visitId as Id<"visits"> });
-          } catch (err) {
-            Alert.alert(
-              "Couldn't decline",
-              err instanceof Error ? err.message : "Please try again.",
-            );
-          } finally {
-            setVisitTagResponding(null);
-          }
-        },
-      },
-    ]);
   };
 
   const handleInviteRespond = async (notif: NotificationListItem, accept: boolean) => {
@@ -438,35 +411,13 @@ export default function NotificationsScreen() {
                     notif.myVisitParticipantStatus === "pending" ? (
                     <View style={styles.inviteActions}>
                       <Pressable
-                        style={[
-                          styles.inviteBtn,
-                          { backgroundColor: accent, opacity: visitTagResponding === notif._id ? 0.5 : 1 },
-                        ]}
-                        disabled={visitTagResponding === notif._id}
+                        style={[styles.inviteBtn, { backgroundColor: accent }]}
                         onPress={(e) => {
                           e.stopPropagation?.();
-                          handleVisitTagAccept(notif);
+                          handleVisitTagView(notif);
                         }}
                       >
-                        <Text style={[styles.inviteBtnText, { color: onAccent }]}>Accept</Text>
-                      </Pressable>
-                      <Pressable
-                        style={[
-                          styles.inviteBtn,
-                          styles.inviteBtnOutline,
-                          { borderColor: cardBorder, opacity: visitTagResponding === notif._id ? 0.5 : 1 },
-                        ]}
-                        disabled={visitTagResponding === notif._id}
-                        onPress={(e) => {
-                          e.stopPropagation?.();
-                          handleVisitTagDecline(notif);
-                        }}
-                      >
-                        {visitTagResponding === notif._id ? (
-                          <ActivityIndicator size="small" color={mutedText} />
-                        ) : (
-                          <Text style={[styles.inviteBtnText, { color: mutedText }]}>Decline</Text>
-                        )}
+                        <Text style={[styles.inviteBtnText, { color: onAccent }]}>View</Text>
                       </Pressable>
                     </View>
                   ) : notif.type === "visit_tag" &&

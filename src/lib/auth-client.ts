@@ -19,3 +19,24 @@ export const authClient = createAuthClient({
 });
 
 export const useSession = authClient.useSession;
+
+// ─── Intentional sign-out signal ───────────────────────────────────────────────
+// The `(tabs)` layout keeps a short grace window between "session became null"
+// and "redirect to /sign-in" to absorb the revalidation flap that better-auth
+// produces when the app returns from the background. During a deliberate sign
+// out we don't want that grace — the user tapped the button, they want off the
+// app immediately — so call `markIntentionalSignOut()` right before
+// `authClient.signOut()` and the layout will bypass the grace window.
+let intentionalSignOut = false;
+
+export function markIntentionalSignOut() {
+  intentionalSignOut = true;
+}
+
+export function wasIntentionalSignOut(): boolean {
+  return intentionalSignOut;
+}
+
+export function clearIntentionalSignOut() {
+  intentionalSignOut = false;
+}

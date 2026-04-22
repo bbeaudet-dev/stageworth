@@ -11,7 +11,11 @@ import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { usePendingInvite } from "@/hooks/use-pending-invite";
-import { useSession } from "@/lib/auth-client";
+import {
+  clearIntentionalSignOut,
+  useSession,
+  wasIntentionalSignOut,
+} from "@/lib/auth-client";
 
 function renderTabIcon(focused: boolean, accentColor: string, icon: ReactNode) {
   return (
@@ -52,30 +56,44 @@ export default function TabLayout() {
   // Track whether we have ever had a session in this mount. On app foreground,
   // better-auth briefly reports (session=null, isPending=false) while it
   // revalidates; without this guard that window redirects to /sign-in and the
-  // user sees the login screen flash.
+  // user sees the login screen flash. A deliberate sign-out sets a flag on the
+  // auth client so we can skip the grace and redirect immediately.
   const hadSessionRef = useRef(false);
   const [lostSessionAt, setLostSessionAt] = useState<number | null>(null);
+  const [graceExpired, setGraceExpired] = useState(false);
+  const [signOutRedirect, setSignOutRedirect] = useState(false);
   useEffect(() => {
     if (session) {
       hadSessionRef.current = true;
       setLostSessionAt(null);
+      setGraceExpired(false);
+      setSignOutRedirect(false);
     } else if (hadSessionRef.current && lostSessionAt === null) {
-      setLostSessionAt(Date.now());
+      if (wasIntentionalSignOut()) {
+        clearIntentionalSignOut();
+        setSignOutRedirect(true);
+      } else {
+        setLostSessionAt(Date.now());
+        setGraceExpired(false);
+      }
     }
   }, [session, lostSessionAt]);
   useEffect(() => {
     if (lostSessionAt === null) return;
     const remaining = 1500 - (Date.now() - lostSessionAt);
-    if (remaining <= 0) return;
-    const t = setTimeout(() => setLostSessionAt((prev) => (prev === null ? null : prev)), remaining);
+    if (remaining <= 0) {
+      setGraceExpired(true);
+      return;
+    }
+    const t = setTimeout(() => setGraceExpired(true), remaining);
     return () => clearTimeout(t);
   }, [lostSessionAt]);
 
   const c = Colors[colorScheme ?? "light"];
 
   if (!session) {
-    const withinRevalidationGrace =
-      lostSessionAt !== null && Date.now() - lostSessionAt < 1500;
+    if (signOutRedirect) return <Redirect href="/sign-in" />;
+    const withinRevalidationGrace = lostSessionAt !== null && !graceExpired;
     if (isPending || withinRevalidationGrace) {
       if (!hasAuthResolvedOnce) {
         return (

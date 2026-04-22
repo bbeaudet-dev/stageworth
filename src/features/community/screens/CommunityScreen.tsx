@@ -3,8 +3,8 @@ import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { ScrollView, Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -21,6 +21,7 @@ import { LikeButton } from "@/features/community/components/LikeButton";
 import { ReportSheet } from "@/features/safety/components/ReportSheet";
 import { useSafetyActions } from "@/features/safety/components/useSafetyActions";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useSession } from "@/lib/auth-client";
 import { formatRelativeVisitDate, isFutureDate } from "@/utils/dates";
 import { getDisplayName } from "@/utils/user";
 
@@ -178,16 +179,26 @@ export default function CommunityScreen() {
     ]);
   };
 
+  // The `(tabs)` layout unmounts this screen on sign-out, but between
+  // `authClient.signOut()` clearing Convex's auth state and React actually
+  // unmounting the subtree there's a brief window where live subscriptions
+  // re-fire unauthenticated and the server logs "Not authenticated". Gate
+  // every authenticated query on the session to avoid that noise.
+  const { data: session } = useSession();
   const followingFeed = useQuery(
     api.social.community.getFollowingFeed,
-    selectedTab === "following" ? { limit: feedLimit } : "skip",
+    session && selectedTab === "following" ? { limit: feedLimit } : "skip",
   );
   const globalFeed = useQuery(
     api.social.community.getGlobalFeed,
-    selectedTab === "global" ? { limit: feedLimit } : "skip",
+    session && selectedTab === "global" ? { limit: feedLimit } : "skip",
   );
-  const unreadCount = useQuery(api.notifications.getUnreadCount) ?? 0;
-  const myProfile = useQuery(api.social.profiles.getMyProfile);
+  const unreadCount =
+    useQuery(api.notifications.getUnreadCount, session ? {} : "skip") ?? 0;
+  const myProfile = useQuery(
+    api.social.profiles.getMyProfile,
+    session ? {} : "skip",
+  );
   const deleteMyPost = useMutation(api.social.community.deleteMyPost);
   const { openSafetyActions, reportTarget, closeReportSheet } =
     useSafetyActions();
@@ -221,13 +232,27 @@ export default function CommunityScreen() {
     );
   };
 
-  const posts = useMemo(
-    () => (selectedTab === "following" ? (followingFeed ?? []) : (globalFeed ?? [])),
-    [followingFeed, globalFeed, selectedTab],
-  );
+  // Convex `useQuery` returns `undefined` while it re-fetches after the limit
+  // changes (i.e. "Load more"). If we rendered that directly, the list would
+  // blank out mid-scroll and the ScrollView would snap back to the top. Cache
+  // the last-known results per tab so the existing list stays mounted through
+  // the transition; swap in fresh data as soon as it arrives.
+  const liveFeed = selectedTab === "following" ? followingFeed : globalFeed;
+  const [cachedPosts, setCachedPosts] = useState<typeof liveFeed>(undefined);
+  useEffect(() => {
+    setCachedPosts(undefined);
+  }, [selectedTab]);
+  useEffect(() => {
+    if (liveFeed !== undefined) setCachedPosts(liveFeed);
+  }, [liveFeed]);
 
-  const isLoading =
-    selectedTab === "following" ? followingFeed === undefined : globalFeed === undefined;
+  const posts = useMemo(() => cachedPosts ?? [], [cachedPosts]);
+  const isLoading = cachedPosts === undefined;
+  // True while the user has asked for a bigger page but the new page hasn't
+  // arrived yet. We keep the "Load more" row visible (with a spinner) so they
+  // have feedback while Convex refetches.
+  const isFetchingMore =
+    cachedPosts !== undefined && liveFeed === undefined && posts.length < feedLimit;
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -738,16 +763,23 @@ export default function CommunityScreen() {
             );
           })}
 
-        {!isLoading && posts.length > 0 && posts.length >= feedLimit && (
-          <Pressable
-            style={[styles.loadMoreBtn, { borderColor: cardBorder }]}
-            onPress={() => setFeedLimit((prev) => prev + FEED_PAGE_SIZE)}
-          >
-            <Text style={[styles.loadMoreText, { color: Colors[theme].accent }]}>
-              Load more
-            </Text>
-          </Pressable>
-        )}
+        {!isLoading &&
+          posts.length > 0 &&
+          (posts.length >= feedLimit || isFetchingMore) && (
+            <Pressable
+              style={[styles.loadMoreBtn, { borderColor: cardBorder }]}
+              onPress={() => setFeedLimit((prev) => prev + FEED_PAGE_SIZE)}
+              disabled={isFetchingMore}
+            >
+              {isFetchingMore ? (
+                <ActivityIndicator size="small" color={Colors[theme].accent} />
+              ) : (
+                <Text style={[styles.loadMoreText, { color: Colors[theme].accent }]}>
+                  Load more
+                </Text>
+              )}
+            </Pressable>
+          )}
       </ScrollView>
 
       <ParticipantsSheet

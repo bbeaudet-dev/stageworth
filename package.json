@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "convex dev & env -u CI expo start --dev-client",
     "dev:convex": "convex dev",
+    "kill:convex": "pkill -TERM -f 'node_modules/.bin/convex dev' || true",
     "dev:expo": "env -u CI expo start --dev-client",
     "start": "env -u CI expo start",
     "reset-project": "node ./scripts/reset-project.js",
