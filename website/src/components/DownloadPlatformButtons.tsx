@@ -72,13 +72,3 @@ export function AndroidApkButton({ className }: { className?: string }) {
     </a>
   );
 }
-
-/** iOS + optional Android; Android hidden until `NEXT_PUBLIC_ANDROID_APK_URL` is set (Expo build page). */
-export function DownloadButtonRow() {
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
-      <TestFlightButton />
-      <AndroidApkButton />
-    </div>
-  );
-}

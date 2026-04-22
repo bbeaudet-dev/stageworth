@@ -7,7 +7,6 @@
  * active; callers just render <ReportSheet /> from the returned `reportSheet`
  * handle (or use the imperative `close`).
  */
-import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActionSheetIOS, Alert, Platform } from "react-native";
 
@@ -30,7 +29,6 @@ export type SafetyActionTarget =
     };
 
 export function useSafetyActions() {
-  const router = useRouter();
   const { confirmBlock } = useBlockUser();
   const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
 
@@ -106,7 +104,7 @@ export function useSafetyActions() {
         );
       }
     },
-    [confirmBlock, router]
+    [confirmBlock]
   );
 
   return {

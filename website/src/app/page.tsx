@@ -1,5 +1,8 @@
 import Image from "next/image";
-import { DownloadButtonRow } from "@/components/DownloadPlatformButtons";
+import {
+  AndroidApkButton,
+  TestFlightButton,
+} from "@/components/DownloadPlatformButtons";
 import { getAndroidApkUrl } from "@/lib/app-downloads";
 import { BRAND_PURPLE, BRAND_GRADIENT_STYLE } from "@/lib/brand-colors";
 
@@ -68,8 +71,9 @@ export default function HomePage() {
             favorites, plan trips with friends, and stay on top of what&apos;s
             playing.
           </p>
-          <div className="flex justify-center">
-            <DownloadButtonRow />
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
+            <TestFlightButton />
+            <AndroidApkButton />
           </div>
         </div>
       </section>
@@ -104,35 +108,44 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA — TestFlight (iOS) + optional Expo build page (Android) */}
+      {/* CTA — per-platform instructions */}
       <section className="border-t border-gray-200 bg-linear-to-b from-gray-50 to-white py-16">
         <div className="mx-auto max-w-5xl px-4 text-center">
-          <h2 className="text-2xl font-bold mb-4 text-gray-900">
+          <h2 className="text-2xl font-bold mb-12 text-gray-900">
             Get the beta
           </h2>
-          <p className="text-gray-600 mb-8 max-w-xl mx-auto text-[15px] leading-relaxed">
-            {hasAndroidApk ? (
-              <>
-                <span className="font-medium text-gray-800">iPhone:</span> install{" "}
-                Apple&apos;s <span className="font-medium text-gray-800">TestFlight</span>{" "}
-                app, then use the black button.{" "}
-                <span className="font-medium text-gray-800">Android:</span> the white
-                button opens your build on{" "}
-                <span className="font-medium text-gray-800">Expo</span>. Download
-                the <span className="font-medium text-gray-800">.apk</span> from
-                that page, then install it (you may need to allow installs from
-                unknown sources). The site link is updated by hand when we ship a new
-                build.
-              </>
-            ) : (
-              <>
+
+          <div
+            className={`mx-auto grid max-w-3xl gap-10 ${
+              hasAndroidApk ? "md:grid-cols-2" : "md:max-w-md md:grid-cols-1"
+            }`}
+          >
+            {/* iOS */}
+            <div className="flex flex-col items-center text-center gap-4">
+              <h3 className="text-lg font-semibold text-gray-900">iPhone &amp; iPad</h3>
+              <p className="text-gray-600 text-[15px] leading-relaxed max-w-xs">
                 Install Apple&apos;s{" "}
-                <span className="font-medium text-gray-800">TestFlight</span> app,
-                then tap the black button to install Stageworth.
-              </>
-            )}
-          </p>
-          <DownloadButtonRow />
+                <span className="font-medium text-gray-800">TestFlight</span>{" "}
+                app from the App Store, then tap below to join the beta.
+              </p>
+              <TestFlightButton />
+            </div>
+
+            {/* Android */}
+            {hasAndroidApk ? (
+              <div className="flex flex-col items-center text-center gap-4">
+                <h3 className="text-lg font-semibold text-gray-900">Android</h3>
+                <p className="text-gray-600 text-[15px] leading-relaxed max-w-xs">
+                  Opens the latest build on{" "}
+                  <span className="font-medium text-gray-800">Expo</span>.
+                  Download the <span className="font-medium text-gray-800">.apk</span>{" "}
+                  and install it &mdash; you may need to allow installs from
+                  unknown sources.
+                </p>
+                <AndroidApkButton />
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
 

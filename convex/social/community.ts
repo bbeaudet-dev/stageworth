@@ -38,7 +38,7 @@ async function hydratePosts(
 ) {
   const hydrated = await Promise.all(
     posts.map(async (post) => {
-      const [actor, show, rankings, viewerFollowRow] = await Promise.all([
+      const [actor, show, rankings, viewerFollowRow, visit] = await Promise.all([
         resolveActor(ctx, post.actorUserId),
         post.showId ? resolveShow(ctx, post.showId) : Promise.resolve(null),
         ctx.db
@@ -53,6 +53,7 @@ async function hydratePosts(
                 q.eq("followerUserId", viewerUserId).eq("followingUserId", post.actorUserId)
               )
               .first(),
+        post.visitId ? ctx.db.get(post.visitId) : Promise.resolve(null),
       ]);
 
       if (!actor) return null;
@@ -70,6 +71,8 @@ async function hydratePosts(
         _id: post._id,
         createdAt: post.createdAt,
         type: post.type,
+        visitId: post.visitId ?? null,
+        venueId: visit?.venueId ?? null,
         visitDate: post.visitDate ?? null,
         notes: post.notes ?? null,
         city: post.city ?? null,

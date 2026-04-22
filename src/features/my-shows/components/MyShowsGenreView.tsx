@@ -149,7 +149,10 @@ export function MyShowsGenreView({
         }
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: (showCategoryNav ? 0 : tabBarHeight) + 24 },
+          {
+            paddingBottom:
+              tabBarHeight + (showCategoryNav ? 56 : 0) + 24,
+          },
         ]}
         onViewableItemsChanged={handleViewableItemsChanged}
         viewabilityConfig={VIEWABILITY_CONFIG}

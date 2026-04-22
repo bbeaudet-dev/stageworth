@@ -85,6 +85,26 @@ export const search = query({
   },
 });
 
+export const getById = query({
+  args: { venueId: v.id("venues") },
+  handler: async (ctx, args) => {
+    const venue = await ctx.db.get(args.venueId);
+    if (!venue || !venue.isActive) return null;
+    return {
+      _id: venue._id,
+      name: venue.name,
+      addressLine1: venue.addressLine1 ?? null,
+      city: venue.city,
+      state: venue.state ?? null,
+      country: venue.country,
+      district: venue.district,
+      latitude: venue.latitude ?? null,
+      longitude: venue.longitude ?? null,
+      googlePlaceId: venue.googlePlaceId ?? null,
+    };
+  },
+});
+
 export const list = query({
   args: {
     district: v.optional(

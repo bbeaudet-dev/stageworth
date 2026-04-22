@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
@@ -28,6 +28,7 @@ import { useEditVisitFormState } from "@/features/edit-visit/hooks/useEditVisitF
 export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) {
   const router = useRouter();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const theme = useColorScheme() ?? "light";
   const c = Colors[theme];
 
@@ -117,7 +118,7 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
 
   if (!visit || !initialized) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={["top", "bottom"]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={["top"]}>
         <View style={[addVisitStyles.header, { borderBottomColor: c.border }]}>
           <Text style={[addVisitStyles.title, { color: c.text }]}>Edit Visit</Text>
           <Pressable onPress={() => router.back()} hitSlop={10}>
@@ -132,7 +133,7 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={["top", "bottom"]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={["top"]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -146,7 +147,10 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
 
         <ScrollView
           style={styles.flex}
-          contentContainerStyle={addVisitStyles.content}
+          contentContainerStyle={[
+            addVisitStyles.content,
+            { paddingBottom: insets.bottom + 32 },
+          ]}
           keyboardShouldPersistTaps="handled"
         >
           <View style={addVisitStyles.section}>

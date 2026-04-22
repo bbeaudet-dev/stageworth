@@ -24,6 +24,9 @@ export function NotesSection({
         placeholder="Any extra details..."
         multiline
       />
+      <Text style={[styles.hintText, { color: c.mutedText }]}>
+        Tip: wrap text in ||pipes|| to mark it as a spoiler.
+      </Text>
     </View>
   );
 }
