@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { normalizeShowName, mapExternalTypeToShowType } from "./showNormalization";
 import { addShowToAllUsersUncategorizedIfEligible } from "./listRules";
+import { notifyUser } from "./notificationDispatch";
 import { getProductionStatus } from "../src/utils/productions";
 
 const NYC_DISTRICTS = new Set(["broadway", "off_broadway", "off_off_broadway"]);
@@ -300,27 +301,18 @@ export const fanOutShowAnnouncedNotifications = internalAction({
     )) as UserWithToken[];
 
     await Promise.allSettled(
-      users.map(async (user) => {
-        // Insert a notification row for inbox display.
-        await ctx.runMutation(internal.botIngestion.insertSystemNotification, {
+      users.map((user) =>
+        // `insertSystemNotification` now uses the shared `notifyUser` helper
+        // which gates on preferences and fans out the push in a single step.
+        ctx.runMutation(internal.botIngestion.insertSystemNotification, {
           recipientUserId: user._id,
           type: "show_announced",
           showId: args.showId,
           productionId: args.productionId,
-        });
-
-        // Send push.
-        await ctx.runAction(internal.notifications.sendPushNotification, {
-          recipientUserId: user._id,
-          title: "New show announced",
-          body: args.summary,
-          data: {
-            type: "show_announced",
-            showId: args.showId,
-            productionId: args.productionId,
-          },
-        });
-      })
+          pushTitle: "New show announced",
+          pushBody: args.summary,
+        }),
+      ),
     );
   },
 });
@@ -341,8 +333,13 @@ export const fanOutDateChangedNotifications = internalAction({
     )) as UserWithToken[];
 
     await Promise.allSettled(
-      users.map((user) =>
-        ctx.runAction(internal.notifications.sendPushNotification, {
+      users.map(async (user) => {
+        const enabled = await ctx.runQuery(
+          internal.notifications.isUserNotifTypeEnabled,
+          { userId: user._id, settingKey: "showAnnounced" },
+        );
+        if (!enabled) return;
+        await ctx.runAction(internal.notifications.sendPushNotification, {
           recipientUserId: user._id,
           title: `${args.showName} — dates updated`,
           body: args.summary,
@@ -351,8 +348,8 @@ export const fanOutDateChangedNotifications = internalAction({
             showId: args.showId,
             productionId: args.productionId,
           },
-        })
-      )
+        });
+      }),
     );
   },
 });
@@ -418,16 +415,30 @@ export const insertSystemNotification = internalMutation({
     type: v.union(v.literal("show_announced"), v.literal("closing_soon")),
     showId: v.optional(v.id("shows")),
     productionId: v.optional(v.id("productions")),
+    pushTitle: v.optional(v.string()),
+    pushBody: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("notifications", {
+    await notifyUser(ctx, {
       recipientUserId: args.recipientUserId,
       actorKind: "system",
       type: args.type,
       showId: args.showId,
       productionId: args.productionId,
-      isRead: false,
-      createdAt: Date.now(),
+      push:
+        args.pushTitle && args.pushBody
+          ? {
+              title: args.pushTitle,
+              body: args.pushBody,
+              data: {
+                type: args.type,
+                ...(args.showId ? { showId: args.showId } : {}),
+                ...(args.productionId
+                  ? { productionId: args.productionId }
+                  : {}),
+              },
+            }
+          : undefined,
     });
   },
 });

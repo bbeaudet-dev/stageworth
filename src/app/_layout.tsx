@@ -13,6 +13,7 @@ import { CelebrationContext, type CelebrationData } from "@/components/Celebrati
 import { CelebrationOverlay } from "@/components/CelebrationModal";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { authClient, useSession } from "@/lib/auth-client";
 import { convex } from "@/lib/convex";
 import { ProfileSettingsDrawerProvider } from "@/features/profile/ProfileSettingsDrawerProvider";
@@ -34,6 +35,20 @@ function OnboardingPrefetcher() {
   return null;
 }
 
+/**
+ * Registers the device's Expo push token with Convex, wires foreground /
+ * background tap handlers, and routes cold-start notification taps.
+ *
+ * Gated on a valid session so unauthenticated users never call the push-token
+ * save mutation. Lives in its own component so the hook's effects unmount
+ * cleanly when the user signs out.
+ */
+function PushNotificationsBridge() {
+  const { data: session } = useSession();
+  usePushNotifications(session ? true : false);
+  return null;
+}
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [celebration, setCelebration] = useState<CelebrationData | null>(null);
@@ -50,6 +65,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ConvexBetterAuthProvider client={convex} authClient={authClient}>
         <OnboardingPrefetcher />
+        <PushNotificationsBridge />
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
           <ToastProvider>
             <CelebrationContext.Provider value={{ celebrate }}>

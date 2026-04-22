@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internal } from "../_generated/api";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import { isCatalogPublished } from "../catalogVisibility";
@@ -8,6 +7,7 @@ import { requireConvexUserId } from "../auth";
 import type { ProductionStatus } from "../../src/utils/productions";
 import { getProductionStatus } from "../../src/utils/productions";
 import { resolveShowImageUrls } from "../helpers";
+import { notifyUser } from "../notificationDispatch";
 import {
   deleteTripShowLabelsForTripShow,
   enrichTripShowRowsWithLabels,
@@ -723,20 +723,17 @@ export const addTripMember = mutation({
 
     // Send a notification to the invited user
     const trip = await getTripOrThrow(ctx, args.tripId);
-    await ctx.db.insert("notifications", {
+    await notifyUser(ctx, {
       recipientUserId: targetUser._id,
       actorKind: "user",
       actorUserId: userId as Id<"users">,
       type: "trip_invite",
       tripId: args.tripId,
-      isRead: false,
-      createdAt: Date.now(),
-    });
-    await ctx.scheduler.runAfter(0, internal.notifications.sendPushNotification, {
-      recipientUserId: targetUser._id,
-      title: "Trip invitation",
-      body: `You've been invited to join "${trip.name}"`,
-      data: { type: "trip_invite", tripId: args.tripId },
+      push: {
+        title: "Trip invitation",
+        body: `You've been invited to join "${trip.name}"`,
+        data: { type: "trip_invite", tripId: args.tripId },
+      },
     });
 
     return existing?._id ?? null;
@@ -843,22 +840,22 @@ export const respondToTripInvitation = mutation({
     const responder = await ctx.db.get(userId as Id<"users">);
     const responderName = responder?.name ?? responder?.username ?? "Someone";
 
-    await ctx.db.insert("notifications", {
+    await notifyUser(ctx, {
       recipientUserId: trip.userId,
       actorKind: "user",
       actorUserId: userId as Id<"users">,
       type: args.accept ? "trip_invite_accepted" : "trip_invite_declined",
       tripId: args.tripId,
-      isRead: false,
-      createdAt: Date.now(),
-    });
-    await ctx.scheduler.runAfter(0, internal.notifications.sendPushNotification, {
-      recipientUserId: trip.userId,
-      title: args.accept ? "Invitation accepted" : "Invitation declined",
-      body: args.accept
-        ? `${responderName} joined "${trip.name}"`
-        : `${responderName} declined to join "${trip.name}"`,
-      data: { type: args.accept ? "trip_invite_accepted" : "trip_invite_declined", tripId: args.tripId },
+      push: {
+        title: args.accept ? "Invitation accepted" : "Invitation declined",
+        body: args.accept
+          ? `${responderName} joined "${trip.name}"`
+          : `${responderName} declined to join "${trip.name}"`,
+        data: {
+          type: args.accept ? "trip_invite_accepted" : "trip_invite_declined",
+          tripId: args.tripId,
+        },
+      },
     });
   },
 });

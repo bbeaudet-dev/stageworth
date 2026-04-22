@@ -24,6 +24,7 @@ type NotifSettings = {
   tripInvites: boolean;
   closingSoon: boolean;
   showAnnounced: boolean;
+  postLikes: boolean;
 };
 
 const DEFAULT_SETTINGS: NotifSettings = {
@@ -32,6 +33,7 @@ const DEFAULT_SETTINGS: NotifSettings = {
   tripInvites: true,
   closingSoon: true,
   showAnnounced: true,
+  postLikes: true,
 };
 
 type ToggleRowProps = {
@@ -100,7 +102,7 @@ export default function NotificationPreferencesScreen() {
   useEffect(() => {
     if (initialized || prefs === undefined) return;
     if (prefs?.notificationSettings) {
-      setSettings(prefs.notificationSettings);
+      setSettings({ ...DEFAULT_SETTINGS, ...prefs.notificationSettings });
     }
     setInitialized(true);
   }, [prefs, initialized]);
@@ -157,6 +159,14 @@ export default function NotificationPreferencesScreen() {
             subtitle="When someone follows you"
             value={settings.follows}
             onValueChange={() => toggle("follows")}
+            {...commonProps}
+          />
+          <ToggleRow
+            icon="heart.fill"
+            label="Post Likes"
+            subtitle="When someone likes your community post"
+            value={settings.postLikes}
+            onValueChange={() => toggle("postLikes")}
             {...commonProps}
           />
           <ToggleRow

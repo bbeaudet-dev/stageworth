@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useNavGuard } from "@/hooks/use-nav-guard";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -24,12 +24,50 @@ type NotificationListItem = {
   visitId?: string | null;
   showId?: string | null;
   productionId?: string | null;
+  postId?: string | null;
   tripId?: Id<"trips"> | null;
   myTripMembershipStatus?: string | null;
   actor: { _id: Id<"users">; username: string; name?: string | null; avatarUrl: string | null } | null;
   show: { _id: Id<"shows">; name: string; images: string[] } | null;
   trip: { _id: Id<"trips">; name: string } | null;
 };
+
+// ─── Inbox tabs ───────────────────────────────────────────────────────────────
+//
+// Every notification type has exactly one home inbox. The "All" tab shows
+// everything. Tab order is optimized for how often each inbox fills up based
+// on user behavior: likes/tags are the highest-volume, show alerts less so.
+
+type InboxTab = "all" | "shows" | "follows" | "tags" | "posts" | "trips";
+
+const INBOX_TABS: { id: InboxTab; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "shows", label: "Shows" },
+  { id: "follows", label: "Follows" },
+  { id: "tags", label: "Tags" },
+  { id: "posts", label: "Posts" },
+  { id: "trips", label: "Trips" },
+];
+
+function inboxForType(type: string): InboxTab | null {
+  switch (type) {
+    case "post_like":
+      return "posts";
+    case "visit_tag":
+      return "tags";
+    case "new_follow":
+      return "follows";
+    case "trip_invite":
+    case "trip_invite_accepted":
+    case "trip_invite_declined":
+      return "trips";
+    case "show_announced":
+    case "closing_soon":
+      return "shows";
+    default:
+      return null;
+  }
+}
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -43,8 +81,54 @@ export default function NotificationsScreen() {
   const markAsRead = useMutation(api.notifications.markAsRead);
   const respondToTripInvitation = useMutation(api.trips.trips.respondToTripInvitation);
   const [inviteResponding, setInviteResponding] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<InboxTab>("all");
   const guard = useNavGuard();
   const onAccent = Colors[theme].onAccent;
+
+  // Per-tab unread counts drive both the filter logic and the little badge
+  // dots rendered next to each tab label.
+  const unreadByTab = useMemo(() => {
+    const counts: Record<InboxTab, number> = {
+      all: 0,
+      posts: 0,
+      tags: 0,
+      follows: 0,
+      trips: 0,
+      shows: 0,
+    };
+    for (const n of notifications ?? []) {
+      if (n.isRead) continue;
+      counts.all += 1;
+      const inbox = inboxForType(n.type);
+      if (inbox) counts[inbox] += 1;
+    }
+    return counts;
+  }, [notifications]);
+
+  const filteredNotifications = useMemo(() => {
+    if (!notifications) return notifications;
+    if (activeTab === "all") return notifications;
+    return notifications.filter((n) => inboxForType(n.type) === activeTab);
+  }, [notifications, activeTab]);
+
+  // Map active tab → the set of notification types it covers. Used so "Mark
+  // all read" only marks the current inbox, matching user expectations.
+  const typesForActiveTab = useMemo((): string[] | undefined => {
+    switch (activeTab) {
+      case "all":
+        return undefined;
+      case "posts":
+        return ["post_like"];
+      case "tags":
+        return ["visit_tag"];
+      case "follows":
+        return ["new_follow"];
+      case "trips":
+        return ["trip_invite", "trip_invite_accepted", "trip_invite_declined"];
+      case "shows":
+        return ["show_announced", "closing_soon"];
+    }
+  }, [activeTab]);
 
   const bg = Colors[theme].background;
   const text = Colors[theme].text;
@@ -55,14 +139,24 @@ export default function NotificationsScreen() {
   const unreadIndicator = accent;
   const avatarFallbackBg = theme === "dark" ? "#3a3a50" : "#d4d4f0";
   const emptyTextColor = theme === "dark" ? "#9ca3af" : "#808080";
+  const tabBg = theme === "dark" ? "#111115" : "#fff";
+  const tabBorder = theme === "dark" ? "#3a3a44" : "#d6d6d6";
+  const tabActiveBg = theme === "dark" ? "#fff" : "#1f1f1f";
+  const tabTextColor = theme === "dark" ? "#b0b4bc" : "#444";
+  const tabTextActive = theme === "dark" ? "#111" : "#fff";
 
-  const hasUnread = (notifications ?? []).some((n) => !n.isRead);
+  const hasUnreadInActiveTab =
+    activeTab === "all"
+      ? (notifications ?? []).some((n) => !n.isRead)
+      : unreadByTab[activeTab] > 0;
 
   const handleNotificationPress = guard(async (notif: NotificationListItem) => {
     if (!notif.isRead) {
       await markAsRead({ notificationId: notif._id });
     }
     if (notif.type === "visit_tag" && notif.visitId) {
+      router.push({ pathname: "/visit/[visitId]", params: { visitId: notif.visitId } });
+    } else if (notif.type === "post_like" && notif.visitId) {
       router.push({ pathname: "/visit/[visitId]", params: { visitId: notif.visitId } });
     } else if (notif.type === "new_follow" && notif.actor) {
       router.push({ pathname: "/user/[username]", params: { username: notif.actor.username } });
@@ -102,15 +196,72 @@ export default function NotificationsScreen() {
         options={{
           title: "Notifications",
           headerBackButtonDisplayMode: "minimal",
-          headerRight: hasUnread
+          headerRight: hasUnreadInActiveTab
             ? () => (
-                <Pressable onPress={() => markAllAsRead()} hitSlop={10}>
+                <Pressable
+                  onPress={() =>
+                    markAllAsRead(
+                      typesForActiveTab ? { types: typesForActiveTab } : {},
+                    )
+                  }
+                  hitSlop={10}
+                >
                   <Text style={[styles.markAllText, { color: accent }]}>Mark all read</Text>
                 </Pressable>
               )
             : undefined,
         }}
       />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabRowScroll}
+        contentContainerStyle={styles.tabRowContent}
+      >
+        {INBOX_TABS.map((tab) => {
+          const active = activeTab === tab.id;
+          const badge = unreadByTab[tab.id];
+          return (
+            <Pressable
+              key={tab.id}
+              onPress={() => setActiveTab(tab.id)}
+              style={[
+                styles.tabButton,
+                { borderColor: tabBorder, backgroundColor: tabBg },
+                active && { backgroundColor: tabActiveBg, borderColor: tabActiveBg },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: tabTextColor },
+                  active && { color: tabTextActive },
+                ]}
+              >
+                {tab.label}
+              </Text>
+              {badge > 0 ? (
+                <View
+                  style={[
+                    styles.tabBadge,
+                    { backgroundColor: active ? tabTextActive : accent },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.tabBadgeText,
+                      { color: active ? tabActiveBg : onAccent },
+                    ]}
+                  >
+                    {badge > 99 ? "99+" : badge}
+                  </Text>
+                </View>
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       <ScrollView contentContainerStyle={styles.content}>
         {notifications === undefined && (
           <Text style={[styles.emptyText, { color: emptyTextColor }]}>Loading...</Text>
@@ -118,7 +269,14 @@ export default function NotificationsScreen() {
         {notifications !== undefined && notifications.length === 0 && (
           <EmptyState icon="bell.fill" title="No notifications yet" subtitle="You'll be notified when someone follows you or tags you in a visit." />
         )}
-        {(notifications ?? []).map((notif) => {
+        {notifications !== undefined &&
+          notifications.length > 0 &&
+          (filteredNotifications?.length ?? 0) === 0 && (
+            <Text style={[styles.emptyText, { color: emptyTextColor }]}>
+              Nothing here yet.
+            </Text>
+          )}
+        {(filteredNotifications ?? []).map((notif) => {
           const timeStr = formatRelativeTime(notif.createdAt);
           const isSystemNotif = notif.type === "closing_soon" || notif.type === "show_announced";
           const actorLabel = isSystemNotif
@@ -163,6 +321,10 @@ export default function NotificationsScreen() {
                       <>{" tagged you in their visit to "}<Text style={styles.boldName}>{notif.show.name}</Text></>
                     )}
                     {notif.type === "visit_tag" && !notif.show && " tagged you in a visit"}
+                    {notif.type === "post_like" && notif.show && (
+                      <>{" liked your post about "}<Text style={styles.boldName}>{notif.show.name}</Text></>
+                    )}
+                    {notif.type === "post_like" && !notif.show && " liked your post"}
                     {notif.type === "new_follow" && " started following you"}
                     {isTripInvite && (
                       <>{" invited you to join their trip "}<Text style={styles.boldName}>{notif.trip?.name ?? "a trip"}</Text></>
@@ -212,7 +374,7 @@ export default function NotificationsScreen() {
                     </Text>
                   ) : null}
                 </View>
-                {notif.type === "visit_tag" && notif.show?.images[0] && (
+                {(notif.type === "visit_tag" || notif.type === "post_like") && notif.show?.images[0] && (
                   <Image
                     source={{ uri: notif.show.images[0] }}
                     style={[styles.showThumb, { backgroundColor: playbillMatBackground(theme) }]}
@@ -310,4 +472,39 @@ const styles = StyleSheet.create({
   inviteBtnOutline: { borderWidth: StyleSheet.hairlineWidth },
   inviteBtnText: { fontSize: 13, fontWeight: "700" },
   inviteRespondedLabel: { fontSize: 13, fontWeight: "600", marginTop: 2 },
+  tabRowScroll: {
+    flexGrow: 0,
+  },
+  tabRowContent: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  tabButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  tabBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 13,
+  },
 });
