@@ -53,13 +53,14 @@ export function ShowCard({
           uri={image}
           style={styles.playbillImage}
           matBackground={playbillMatBackground(theme)}
+          loadingTitle={show.name}
           onError={() => setImageFailed(true)}
         />
       ) : (
         <ShowPlaceholder name={show.name} type={show.type} />
       )}
       {badge ? (
-        <View style={badge.secondary ? cardBadge.badgeOverlay : undefined}>
+        <View style={cardBadge.badgeOverlay} pointerEvents="none">
           {badge.secondary ? (
             <View style={[cardBadge.badgeStrip, cardBadge.badgeSecondary, { backgroundColor: badge.secondary.bg }]}>
               <Text style={[cardBadge.badgeText, { color: badge.secondary.text }]}>{badge.secondary.label}</Text>
@@ -96,7 +97,6 @@ const cardBadge = StyleSheet.create({
     alignItems: "center",
   },
   badgeSecondary: {
-    opacity: 0.85,
     paddingVertical: 3,
   },
   badgeText: { fontSize: 9, fontWeight: "700" },

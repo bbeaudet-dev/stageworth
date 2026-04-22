@@ -52,6 +52,8 @@ export function ShowPlaceholder({ name, style }: ShowPlaceholderProps) {
   const minSide = size ? Math.min(size.width, size.height) : 0;
   const watermarkSize =
     minSide > 0 ? Math.min(72, Math.max(36, Math.round(minSide * 0.34))) : 44;
+  // Hide the title on tiny thumbs where text is unreadable.
+  const showTitle = !size || size.width >= 72;
 
   return (
     <View style={[s.container, style]} onLayout={onLayout}>
@@ -69,10 +71,11 @@ export function ShowPlaceholder({ name, style }: ShowPlaceholderProps) {
         />
       </View>
 
-      {/* No `numberOfLines`: iOS can reserve extra line-box height; strip uses maxHeight + overflow. */}
-      <View style={s.titleStrip} pointerEvents="none">
-        <Text style={s.name}>{title}</Text>
-      </View>
+      {showTitle ? (
+        <View style={s.titleStrip} pointerEvents="none">
+          <Text style={s.name}>{title}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
