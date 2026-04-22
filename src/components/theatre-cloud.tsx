@@ -462,6 +462,10 @@ export function TheatreCloud({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    // Panned placeholder playbills are absolutely positioned inside this
+    // container and can end up with negative offsets. Clip them so they
+    // never paint over the view-mode selector / header above the cloud.
+    overflow: "hidden",
   },
   empty: {
     flex: 1,
