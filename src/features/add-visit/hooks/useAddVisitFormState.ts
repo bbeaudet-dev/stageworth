@@ -33,7 +33,9 @@ type Action =
   | { type: "SELECT_CUSTOM_SHOW"; name: string }
   | { type: "CLEAR_SELECTION" }
   | { type: "RESET_FORM" }
-  | { type: "TOGGLE_TAGGED_USER"; userId: Id<"users"> };
+  | { type: "TOGGLE_TAGGED_USER"; userId: Id<"users"> }
+  | { type: "ADD_TAGGED_GUEST"; name: string }
+  | { type: "REMOVE_TAGGED_GUEST"; name: string };
 
 function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
   switch (action.type) {
@@ -158,6 +160,20 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
           : [...state.taggedUserIds, action.userId],
       };
     }
+    case "ADD_TAGGED_GUEST": {
+      const trimmed = action.name.trim();
+      if (!trimmed) return state;
+      const exists = state.taggedGuestNames.some(
+        (n) => n.toLowerCase() === trimmed.toLowerCase()
+      );
+      if (exists) return state;
+      return { ...state, taggedGuestNames: [...state.taggedGuestNames, trimmed] };
+    }
+    case "REMOVE_TAGGED_GUEST":
+      return {
+        ...state,
+        taggedGuestNames: state.taggedGuestNames.filter((n) => n !== action.name),
+      };
     default:
       return state;
   }
@@ -197,5 +213,7 @@ export function useAddVisitFormState() {
     clearSelection: () => dispatch({ type: "CLEAR_SELECTION" }),
     resetForm: () => dispatch({ type: "RESET_FORM" }),
     toggleTaggedUser: (userId: Id<"users">) => dispatch({ type: "TOGGLE_TAGGED_USER", userId }),
+    addTaggedGuest: (name: string) => dispatch({ type: "ADD_TAGGED_GUEST", name }),
+    removeTaggedGuest: (name: string) => dispatch({ type: "REMOVE_TAGGED_GUEST", name }),
   };
 }

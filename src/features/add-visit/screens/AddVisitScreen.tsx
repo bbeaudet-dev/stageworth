@@ -79,6 +79,8 @@ export default function AddVisitScreen() {
     selectCustomShow,
     clearSelection,
     toggleTaggedUser,
+    addTaggedGuest,
+    removeTaggedGuest,
   } = useAddVisitFormState();
 
   const selectExistingShowRef = useRef(selectExistingShow);
@@ -279,6 +281,8 @@ export default function AddVisitScreen() {
             ? predictedResultIndex
             : undefined,
         taggedUserIds: state.taggedUserIds.length > 0 ? state.taggedUserIds : undefined,
+        taggedGuestNames:
+          state.taggedGuestNames.length > 0 ? state.taggedGuestNames : undefined,
       });
       const isNewShow = state.customShowName !== null || !showContext?.hasVisit;
       const celebrationData = isNewShow
@@ -424,6 +428,9 @@ export default function AddVisitScreen() {
                 following={myFollowing}
                 taggedUserIds={state.taggedUserIds}
                 onToggle={toggleTaggedUser}
+                guestNames={state.taggedGuestNames}
+                onAddGuest={addTaggedGuest}
+                onRemoveGuest={removeTaggedGuest}
               />
               <SaveVisitButton isSaving={state.isSaving} onSave={handleSave} />
             </>

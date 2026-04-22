@@ -51,6 +51,8 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
     setNotes,
     setIsSaving,
     toggleTaggedUser,
+    addTaggedGuest,
+    removeTaggedGuest,
   } = useEditVisitFormState({
     date: "",
     productionId: null,
@@ -59,6 +61,7 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
     seat: null,
     notes: null,
     taggedUserIds: null,
+    taggedGuestNames: null,
   });
 
   useEffect(() => {
@@ -71,6 +74,7 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
       seat: visit.seat ?? null,
       notes: visit.notes ?? null,
       taggedUserIds: (visit.taggedUserIds as Id<"users">[] | undefined) ?? null,
+      taggedGuestNames: (visit.taggedGuestNames as string[] | undefined) ?? null,
     });
     setInitialized(true);
   }, [visit, initialized, reinitialize]);
@@ -85,7 +89,9 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
       state.seat !== (visit.seat ?? "") ||
       state.notes !== (visit.notes ?? "") ||
       JSON.stringify([...state.taggedUserIds].sort()) !==
-        JSON.stringify([...(visit.taggedUserIds ?? [])].sort()));
+        JSON.stringify([...(visit.taggedUserIds ?? [])].sort()) ||
+      JSON.stringify([...state.taggedGuestNames].sort()) !==
+        JSON.stringify([...(visit.taggedGuestNames ?? [])].sort()));
 
   usePreventRemove(hasUnsavedChanges && !state.isSaving && !allowRemoveRef.current, (event) => {
     Alert.alert("Discard changes?", "You have unsaved edits to this visit.", [
@@ -114,6 +120,8 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
         seat: state.seat.trim() || undefined,
         notes: state.notes.trim() || undefined,
         taggedUserIds: state.taggedUserIds.length > 0 ? state.taggedUserIds : undefined,
+        taggedGuestNames:
+          state.taggedGuestNames.length > 0 ? state.taggedGuestNames : undefined,
       });
       allowRemoveRef.current = true;
       router.back();
@@ -191,6 +199,9 @@ export default function EditVisitScreen({ visitId }: { visitId: Id<"visits"> }) 
             following={myFollowing}
             taggedUserIds={state.taggedUserIds}
             onToggle={toggleTaggedUser}
+            guestNames={state.taggedGuestNames}
+            onAddGuest={addTaggedGuest}
+            onRemoveGuest={removeTaggedGuest}
           />
 
           <Pressable

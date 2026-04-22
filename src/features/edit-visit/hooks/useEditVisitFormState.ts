@@ -12,6 +12,7 @@ export type EditVisitFormState = {
   notes: string;
   isSaving: boolean;
   taggedUserIds: Id<"users">[];
+  taggedGuestNames: string[];
 };
 
 type InitialValues = {
@@ -22,6 +23,7 @@ type InitialValues = {
   seat?: string | null;
   notes?: string | null;
   taggedUserIds?: Id<"users">[] | null;
+  taggedGuestNames?: string[] | null;
 };
 
 function buildInitialState(initial: InitialValues): EditVisitFormState {
@@ -35,6 +37,7 @@ function buildInitialState(initial: InitialValues): EditVisitFormState {
     notes: initial.notes ?? "",
     isSaving: false,
     taggedUserIds: initial.taggedUserIds ?? [],
+    taggedGuestNames: initial.taggedGuestNames ?? [],
   };
 }
 
@@ -48,6 +51,8 @@ type Action =
   | { type: "SET_NOTES"; value: string }
   | { type: "SET_IS_SAVING"; value: boolean }
   | { type: "TOGGLE_TAGGED_USER"; userId: Id<"users"> }
+  | { type: "ADD_TAGGED_GUEST"; name: string }
+  | { type: "REMOVE_TAGGED_GUEST"; name: string }
   | { type: "REINITIALIZE"; initial: InitialValues };
 
 function reducer(state: EditVisitFormState, action: Action): EditVisitFormState {
@@ -77,6 +82,20 @@ function reducer(state: EditVisitFormState, action: Action): EditVisitFormState 
           : [...state.taggedUserIds, action.userId],
       };
     }
+    case "ADD_TAGGED_GUEST": {
+      const trimmed = action.name.trim();
+      if (!trimmed) return state;
+      const exists = state.taggedGuestNames.some(
+        (n) => n.toLowerCase() === trimmed.toLowerCase()
+      );
+      if (exists) return state;
+      return { ...state, taggedGuestNames: [...state.taggedGuestNames, trimmed] };
+    }
+    case "REMOVE_TAGGED_GUEST":
+      return {
+        ...state,
+        taggedGuestNames: state.taggedGuestNames.filter((n) => n !== action.name),
+      };
     case "REINITIALIZE":
       return buildInitialState(action.initial);
     default:
@@ -107,5 +126,8 @@ export function useEditVisitFormState(initial: InitialValues) {
     setIsSaving: (value: boolean) => dispatch({ type: "SET_IS_SAVING", value }),
     toggleTaggedUser: (userId: Id<"users">) =>
       dispatch({ type: "TOGGLE_TAGGED_USER", userId }),
+    addTaggedGuest: (name: string) => dispatch({ type: "ADD_TAGGED_GUEST", name }),
+    removeTaggedGuest: (name: string) =>
+      dispatch({ type: "REMOVE_TAGGED_GUEST", name }),
   };
 }

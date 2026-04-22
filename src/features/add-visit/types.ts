@@ -44,4 +44,5 @@ export type AddVisitFormState = {
    */
   skippedComparisonIndices: number[];
   taggedUserIds: Id<"users">[];
+  taggedGuestNames: string[];
 };
