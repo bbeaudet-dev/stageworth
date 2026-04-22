@@ -33,9 +33,9 @@ function todayString() {
 
 export function getProductionStatus(
   production: {
-    previewDate?: string;
-    openingDate?: string;
-    closingDate?: string;
+    previewDate?: string | null;
+    openingDate?: string | null;
+    closingDate?: string | null;
     isOpenRun?: boolean | null;
     isClosed?: boolean | null;
   },

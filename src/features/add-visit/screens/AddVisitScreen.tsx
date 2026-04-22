@@ -20,6 +20,7 @@ import { useToast } from "@/components/Toast";
 import { useCelebration } from "@/components/CelebrationContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { isFutureDate } from "@/utils/dates";
+import { getProductionStatus } from "@/utils/productions";
 import {
   getBottomInsertionIndexForTier,
   getInsertionIndexForTierAndRelative,
@@ -176,6 +177,41 @@ export default function AddVisitScreen() {
     setUseOtherProduction(true);
     setSelectedProductionId(null);
   }, [setSelectedProductionId, setUseOtherProduction, shouldForceOtherLocation]);
+
+  // Auto-select a production when available. Preference:
+  //   1. Any currently-running production (open / open_run / in_previews)
+  //   2. Otherwise the first listed production
+  //   3. Skip entirely if every listed production is closed
+  // Only runs when the user hasn't already chosen one or switched to "Other".
+  const autoSelectedShowIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!state.selectedShowId) return;
+    if (state.selectedProductionId !== null) return;
+    if (state.useOtherProduction) return;
+    if (!productionOptions || productionOptions.length === 0) return;
+    // Only auto-select once per selected show to avoid clobbering if the user
+    // deselects a chip back to "nothing selected".
+    if (autoSelectedShowIdRef.current === state.selectedShowId) return;
+
+    const running = productionOptions.find((p) => {
+      const status = getProductionStatus(p);
+      return status === "open" || status === "open_run" || status === "in_previews";
+    });
+    const hasAnyNonClosed = productionOptions.some(
+      (p) => getProductionStatus(p) !== "closed",
+    );
+    const pick = running ?? (hasAnyNonClosed ? productionOptions[0] : null);
+    if (!pick) return;
+
+    autoSelectedShowIdRef.current = state.selectedShowId;
+    setSelectedProductionId(pick._id);
+  }, [
+    productionOptions,
+    setSelectedProductionId,
+    state.selectedProductionId,
+    state.selectedShowId,
+    state.useOtherProduction,
+  ]);
 
   const startTierRanking = (tier: "loved" | "liked" | "okay" | "disliked") => {
     if (isRankingsLoading) return;

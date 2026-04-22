@@ -2,7 +2,9 @@ import { useMutation, useQuery } from "convex/react";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import {
+  ActionSheetIOS,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +17,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { DetailCard, detailCardStyles } from "@/components/detail-card";
 import { NotesText } from "@/components/NotesText";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { playbillMatBackground } from "@/features/browse/styles";
 import { formatDate } from "@/features/browse/logic/date";
@@ -34,11 +37,7 @@ export default function VisitDetailScreen() {
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
-  const backgroundColor = Colors[theme].background;
-  const primaryTextColor = Colors[theme].text;
-  const mutedTextColor = Colors[theme].mutedText;
-  const accentColor = Colors[theme].accent;
-  const dangerColor = Colors[theme].danger;
+  const c = Colors[theme];
 
   const confirmDelete = () => {
     if (!visit) return;
@@ -66,8 +65,43 @@ export default function VisitDetailScreen() {
     );
   };
 
+  const goToEdit = () => {
+    router.push({
+      pathname: "/edit-visit/[visitId]",
+      params: { visitId: String(visitId) },
+    });
+  };
+
+  const openActions = () => {
+    if (!visit) return;
+    const iosOptions = ["Edit Visit", "Delete Visit", "Cancel"];
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: iosOptions,
+          cancelButtonIndex: 2,
+          destructiveButtonIndex: 1,
+        },
+        (idx) => {
+          if (idx === 0) goToEdit();
+          else if (idx === 1) confirmDelete();
+        },
+      );
+    } else {
+      Alert.alert("Visit options", undefined, [
+        { text: "Edit Visit", onPress: goToEdit },
+        { text: "Delete Visit", style: "destructive", onPress: confirmDelete },
+        { text: "Cancel", style: "cancel" },
+      ]);
+    }
+  };
+
+  const hasVenueLink = !!visit?.venueId;
+  const locationLabel =
+    [visit?.theatre, visit?.city].filter(Boolean).join(" • ") || "—";
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["bottom"]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={["bottom"]}>
       <Stack.Screen
         options={{
           title: "Visit",
@@ -77,14 +111,11 @@ export default function VisitDetailScreen() {
             ? () => (
                 <Pressable
                   hitSlop={10}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/edit-visit/[visitId]",
-                      params: { visitId: String(visitId) },
-                    })
-                  }
+                  onPress={openActions}
+                  accessibilityLabel="Visit options"
+                  accessibilityRole="button"
                 >
-                  <Text style={{ color: accentColor, fontSize: 16, fontWeight: "500" }}>Edit</Text>
+                  <IconSymbol name="ellipsis" size={22} color={c.text} />
                 </Pressable>
               )
             : undefined,
@@ -93,7 +124,7 @@ export default function VisitDetailScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         {!visit ? (
-          <Text style={[styles.emptyText, { color: mutedTextColor }]}>Visit not found.</Text>
+          <Text style={[styles.emptyText, { color: c.mutedText }]}>Visit not found.</Text>
         ) : (
           <>
             <View
@@ -107,44 +138,61 @@ export default function VisitDetailScreen() {
                 />
               ) : null}
               <View style={styles.showHeroText}>
-                <Text style={[styles.showHeroTitle, { color: primaryTextColor }]} numberOfLines={2}>
+                <Text style={[styles.showHeroTitle, { color: c.text }]} numberOfLines={2}>
                   {visit.show?.name ?? "Unknown Show"}
                 </Text>
               </View>
             </View>
+
             <DetailCard title="Date">
-              <Text style={[detailCardStyles.value, { color: primaryTextColor }]}>{formatDate(visit.date)}</Text>
-            </DetailCard>
-            <DetailCard title="Location">
-              <Text style={[detailCardStyles.subtle, { color: mutedTextColor }]}>
-                {[visit.theatre, visit.city].filter(Boolean).join(" • ") || "—"}
+              <Text style={[detailCardStyles.value, { color: c.text }]}>
+                {formatDate(visit.date)}
               </Text>
             </DetailCard>
+
+            <DetailCard title="Location">
+              {hasVenueLink ? (
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: "/venue/[venueId]",
+                      params: { venueId: String(visit.venueId) },
+                    })
+                  }
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open venue ${visit.theatre ?? ""}`}
+                >
+                  <Text
+                    style={[
+                      detailCardStyles.value,
+                      styles.locationLink,
+                      { color: c.accent },
+                    ]}
+                  >
+                    {visit.theatre ?? "Venue"}
+                  </Text>
+                  {visit.city ? (
+                    <Text style={[detailCardStyles.subtle, { color: c.mutedText }]}>
+                      {visit.city}
+                    </Text>
+                  ) : null}
+                </Pressable>
+              ) : (
+                <Text style={[detailCardStyles.value, { color: c.text }]} numberOfLines={2}>
+                  {locationLabel}
+                </Text>
+              )}
+            </DetailCard>
+
             {visit.notes ? (
               <DetailCard title="Notes">
                 <NotesText
                   text={visit.notes}
                   style={detailCardStyles.subtle}
-                  color={mutedTextColor}
+                  color={c.mutedText}
                 />
               </DetailCard>
             ) : null}
-
-            {isMine && (
-              <Pressable
-                onPress={confirmDelete}
-                style={({ pressed }) => [
-                  styles.deleteButton,
-                  { borderColor: dangerColor, opacity: pressed ? 0.7 : 1 },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Delete this visit"
-              >
-                <Text style={[styles.deleteButtonText, { color: dangerColor }]}>
-                  Delete Visit
-                </Text>
-              </Pressable>
-            )}
           </>
         )}
       </ScrollView>
@@ -174,20 +222,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   showHeroTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
-    lineHeight: 22,
+    lineHeight: 24,
   },
-  deleteButton: {
-    marginTop: 16,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  deleteButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
+  locationLink: {
+    textDecorationLine: "underline",
   },
 });
