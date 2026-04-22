@@ -4,7 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { DetailCard, detailCardStyles } from "@/components/detail-card";
+import { DetailCard, DetailGroup, DetailRow, detailCardStyles } from "@/components/detail-card";
 import { NotesText } from "@/components/NotesText";
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { Colors } from "@/constants/theme";
@@ -177,82 +177,84 @@ export default function ProductionDetailScreen() {
                 </View>
               </Pressable>
 
-              <DetailCard title="Theatre">
-                {production.venueId ? (
-                  <Pressable
-                    onPress={() =>
-                      router.push({
-                        pathname: "/venue/[venueId]",
-                        params: { venueId: String(production.venueId) },
-                      })
-                    }
-                    accessibilityRole="link"
-                    accessibilityLabel={`Open venue ${production.theatre ?? ""}`}
-                  >
-                    <Text
-                      style={[
-                        detailCardStyles.value,
-                        styles.link,
-                        { color: c.accent },
-                      ]}
-                      numberOfLines={2}
+              <DetailGroup>
+                <DetailRow title="Theatre">
+                  {production.venueId ? (
+                    <Pressable
+                      onPress={() =>
+                        router.push({
+                          pathname: "/venue/[venueId]",
+                          params: { venueId: String(production.venueId) },
+                        })
+                      }
+                      accessibilityRole="link"
+                      accessibilityLabel={`Open venue ${production.theatre ?? ""}`}
                     >
-                      {production.theatre ?? "Venue"}
-                    </Text>
-                    {production.city ? (
-                      <Text style={[detailCardStyles.subtle, { color: c.mutedText }]}>
-                        {production.city}
+                      <Text
+                        style={[
+                          detailCardStyles.value,
+                          styles.link,
+                          { color: c.accent },
+                        ]}
+                        numberOfLines={2}
+                      >
+                        {production.theatre ?? "Venue"}
                       </Text>
-                    ) : null}
-                  </Pressable>
-                ) : (
-                  <>
+                    </Pressable>
+                  ) : (
                     <Text style={[detailCardStyles.value, { color: c.text }]} numberOfLines={2}>
                       {production.theatre ?? "—"}
                     </Text>
-                    {production.city ? (
-                      <Text style={[detailCardStyles.subtle, { color: c.mutedText }]}>
-                        {production.city}
+                  )}
+                </DetailRow>
+
+                {production.city ? (
+                  <DetailRow title="City">
+                    <Text style={[detailCardStyles.value, { color: c.text }]}>
+                      {production.city}
+                    </Text>
+                  </DetailRow>
+                ) : null}
+
+                <DetailRow title="District">
+                  <Text style={[detailCardStyles.value, { color: c.text }]}>
+                    {districtLabel(production.district)}
+                  </Text>
+                </DetailRow>
+              </DetailGroup>
+
+              {previewWindow || production.previewDate || production.openingDate || closingLabel ? (
+                <DetailGroup>
+                  {previewWindow ? (
+                    <DetailRow title="Previews">
+                      <Text style={[detailCardStyles.value, { color: c.text }]}>
+                        {previewWindow}
                       </Text>
-                    ) : null}
-                  </>
-                )}
-              </DetailCard>
+                    </DetailRow>
+                  ) : production.previewDate ? (
+                    <DetailRow title="First preview">
+                      <Text style={[detailCardStyles.value, { color: c.text }]}>
+                        {formatDate(production.previewDate)}
+                      </Text>
+                    </DetailRow>
+                  ) : null}
 
-              <DetailCard title="District">
-                <Text style={[detailCardStyles.value, { color: c.text }]}>
-                  {districtLabel(production.district)}
-                </Text>
-              </DetailCard>
+                  {production.openingDate ? (
+                    <DetailRow title="Opening">
+                      <Text style={[detailCardStyles.value, { color: c.text }]}>
+                        {formatDate(production.openingDate)}
+                      </Text>
+                    </DetailRow>
+                  ) : null}
 
-              {previewWindow ? (
-                <DetailCard title="Previews">
-                  <Text style={[detailCardStyles.value, { color: c.text }]}>
-                    {previewWindow}
-                  </Text>
-                </DetailCard>
-              ) : production.previewDate ? (
-                <DetailCard title="First preview">
-                  <Text style={[detailCardStyles.value, { color: c.text }]}>
-                    {formatDate(production.previewDate)}
-                  </Text>
-                </DetailCard>
-              ) : null}
-
-              {production.openingDate ? (
-                <DetailCard title="Opening">
-                  <Text style={[detailCardStyles.value, { color: c.text }]}>
-                    {formatDate(production.openingDate)}
-                  </Text>
-                </DetailCard>
-              ) : null}
-
-              {closingLabel ? (
-                <DetailCard title="Closing">
-                  <Text style={[detailCardStyles.value, { color: c.text }]}>
-                    {closingLabel}
-                  </Text>
-                </DetailCard>
+                  {closingLabel ? (
+                    <DetailRow title="Closing">
+                      <Text style={[detailCardStyles.value, { color: c.text }]}>
+                        {closingLabel}
+                      </Text>
+                    </DetailRow>
+                  ) : null}
+                </DetailGroup>
               ) : null}
 
               {runningTime ? (
