@@ -41,6 +41,11 @@ export const metadata: Metadata = {
     title: "Stageworth",
     statusBarStyle: "default",
   },
+  verification: {
+    other: {
+      "impact-site-verification": "919ad341-4ccc-4ddd-b5f4-776a11e83069",
+    },
+  },
 };
 
 export const viewport: Viewport = {
