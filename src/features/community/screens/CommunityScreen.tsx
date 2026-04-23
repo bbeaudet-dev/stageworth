@@ -25,7 +25,7 @@ import { useSession } from "@/lib/auth-client";
 import { formatRelativeVisitDate, isFutureDate } from "@/utils/dates";
 import { getDisplayName } from "@/utils/user";
 
-type FeedTab = "following" | "global";
+type FeedTab = "following" | "popular" | "global";
 
 function formatVisitLocation(
   _dateStr: string,
@@ -163,7 +163,7 @@ function OwnerSwipeable({
 export default function CommunityScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
-  const [selectedTab, setSelectedTab] = useState<FeedTab>("global");
+  const [selectedTab, setSelectedTab] = useState<FeedTab>("following");
   const [feedLimit, setFeedLimit] = useState(20);
   const FEED_PAGE_SIZE = 20;
 
@@ -188,6 +188,10 @@ export default function CommunityScreen() {
   const followingFeed = useQuery(
     api.social.community.getFollowingFeed,
     session && selectedTab === "following" ? { limit: feedLimit } : "skip",
+  );
+  const popularFeed = useQuery(
+    api.social.community.getPopularFeed,
+    session && selectedTab === "popular" ? { limit: feedLimit } : "skip",
   );
   const globalFeed = useQuery(
     api.social.community.getGlobalFeed,
@@ -237,7 +241,12 @@ export default function CommunityScreen() {
   // blank out mid-scroll and the ScrollView would snap back to the top. Cache
   // the last-known results per tab so the existing list stays mounted through
   // the transition; swap in fresh data as soon as it arrives.
-  const liveFeed = selectedTab === "following" ? followingFeed : globalFeed;
+  const liveFeed =
+    selectedTab === "following"
+      ? followingFeed
+      : selectedTab === "popular"
+        ? popularFeed
+        : globalFeed;
   const [cachedPosts, setCachedPosts] = useState<typeof liveFeed>(undefined);
   useEffect(() => {
     setCachedPosts(undefined);
@@ -322,7 +331,7 @@ export default function CommunityScreen() {
 
         {/* Segment tabs */}
         <View style={styles.segmentRow}>
-          {(["global", "following"] as FeedTab[]).map((tab) => {
+          {(["following", "popular", "global"] as FeedTab[]).map((tab) => {
             const active = selectedTab === tab;
             return (
               <Pressable
@@ -344,7 +353,7 @@ export default function CommunityScreen() {
                     active && { color: segmentTextActive },
                   ]}
                 >
-                  {tab === "global" ? "Global" : "Friends"}
+                  {tab === "following" ? "Friends" : tab === "popular" ? "Popular" : "Global"}
                 </Text>
               </Pressable>
             );
@@ -366,14 +375,16 @@ export default function CommunityScreen() {
           <Text style={[styles.emptyText, { color: emptyTextColor }]}>
             {selectedTab === "following"
               ? "No posts yet from your friends."
-              : "No community posts yet."}
+              : selectedTab === "popular"
+                ? "No popular posts this month — check back soon."
+                : "No community posts yet."}
           </Text>
         )}
 
         {!isLoading &&
           posts.map((post) => {
             const actorLabel = getDisplayName(post.actor.name, post.actor.username);
-            const isGlobal = selectedTab === "global";
+            const isGlobal = selectedTab === "global" || selectedTab === "popular";
             const tagged: TaggedUser[] = post.taggedUsers ?? [];
             const guestNames: string[] = post.taggedGuestNames ?? [];
             const totalTagged = tagged.length + guestNames.length;
