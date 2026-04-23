@@ -6,8 +6,9 @@ import {
   View,
 } from "react-native";
 
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { RANKED_TIER_COLORS } from "@/constants/tierColors";
-import { Colors } from "@/constants/theme";
+import { BRAND_PURPLE, Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { SuggestedRankingState } from "@/features/add-visit/hooks/useSuggestedRanking";
 
@@ -97,11 +98,12 @@ export function SuggestedRankingCard({
             onPress={onUseSuggestion}
             style={({ pressed }) => [
               styles.useButton,
-              { backgroundColor: c.accent, opacity: pressed ? 0.85 : 1 },
+              { backgroundColor: BRAND_PURPLE, opacity: pressed ? 0.85 : 1 },
             ]}
             accessibilityRole="button"
             accessibilityLabel="Use this suggested ranking"
           >
+            <IconSymbol name="sparkles" size={14} color="#fff" />
             <Text style={styles.useButtonText}>Use this ranking</Text>
           </Pressable>
         )}
@@ -172,15 +174,17 @@ const styles = StyleSheet.create({
   },
   useButton: {
     marginLeft: "auto",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 14,
-    alignItems: "center",
     justifyContent: "center",
   },
   useButtonText: {
     color: "#fff",
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 });
