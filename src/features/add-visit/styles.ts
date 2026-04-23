@@ -251,6 +251,21 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    flexWrap: "wrap",
+  },
+  keepCurrentRankText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  keepCurrentTierPill: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  keepCurrentTierPillText: {
+    fontSize: 11,
+    fontWeight: "600",
   },
   checkbox: {
     width: 20,

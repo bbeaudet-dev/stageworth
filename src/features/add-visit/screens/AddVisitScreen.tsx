@@ -29,6 +29,7 @@ import { useAddVisitData } from "@/features/add-visit/hooks/useAddVisitData";
 import { useAddVisitFormState } from "@/features/add-visit/hooks/useAddVisitFormState";
 import { useAddVisitRankingFlow } from "@/features/add-visit/hooks/useAddVisitRankingFlow";
 import { useSuggestedRanking } from "@/features/add-visit/hooks/useSuggestedRanking";
+import type { RankedTier } from "@/features/add-visit/types";
 import { styles } from "@/features/add-visit/styles";
 import { ShowPickerSection } from "@/features/add-visit/components/ShowPickerSection";
 import { VisitDateSection } from "@/features/add-visit/components/VisitDateSection";
@@ -403,6 +404,9 @@ export default function AddVisitScreen() {
                   showHasVisit={Boolean(showContext?.hasVisit)}
                   keepCurrentRanking={state.keepCurrentRanking}
                   setKeepCurrentRanking={setKeepCurrentRanking}
+                  currentRankPosition={showContext?.currentRankPosition ?? null}
+                  rankingTotal={showContext?.rankingTotal ?? 0}
+                  currentTier={(showContext?.currentTier ?? null) as RankedTier | null}
                   shouldShowRankingSection={shouldShowRankingSection}
                   selectedTier={state.selectedTier}
                   onChangeTier={resetRankingFlow}

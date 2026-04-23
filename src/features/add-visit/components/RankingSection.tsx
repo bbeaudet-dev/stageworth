@@ -67,6 +67,9 @@ export function RankingSection({
   showHasVisit,
   keepCurrentRanking,
   setKeepCurrentRanking,
+  currentRankPosition,
+  rankingTotal,
+  currentTier,
   shouldShowRankingSection,
   selectedTier,
   onChangeTier,
@@ -89,6 +92,9 @@ export function RankingSection({
   showHasVisit: boolean;
   keepCurrentRanking: boolean;
   setKeepCurrentRanking: (value: boolean) => void;
+  currentRankPosition?: number | null;
+  rankingTotal?: number;
+  currentTier?: RankedTier | null;
   shouldShowRankingSection: boolean;
   selectedTier: RankedTier | null;
   onChangeTier: () => void;
@@ -134,6 +140,31 @@ export function RankingSection({
             {keepCurrentRanking && <Text style={styles.checkmark}>✓</Text>}
           </View>
           <Text style={[styles.keepCurrentText, { color: c.text }]}>Keep Current Ranking</Text>
+          {currentRankPosition != null && rankingTotal ? (
+            <Text style={[styles.keepCurrentRankText, { color: c.mutedText }]}>
+              {`#${currentRankPosition} of ${rankingTotal}`}
+            </Text>
+          ) : null}
+          {currentTier ? (
+            <View
+              style={[
+                styles.keepCurrentTierPill,
+                {
+                  backgroundColor: RANKED_TIER_COLORS[currentTier].bg,
+                  borderColor: RANKED_TIER_COLORS[currentTier].border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.keepCurrentTierPillText,
+                  { color: RANKED_TIER_COLORS[currentTier].text },
+                ]}
+              >
+                {RANKED_TIER_COLORS[currentTier].label}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
       )}
       {showHasVisit && (
