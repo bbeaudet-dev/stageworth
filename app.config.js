@@ -27,6 +27,8 @@ if (process.env.EAS_BUILD === "true" || process.env.EAS_BUILD_PROFILE) {
   }
 }
 
+const EAS_PROJECT_ID = "236dda1b-8b4c-492c-9fce-b5aac73fd282";
+
 /** @type {import('expo/config').ExpoConfig} */
 module.exports = {
   name: "Stageworth",
@@ -38,6 +40,21 @@ module.exports = {
   scheme: "stageworth",
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
+  // OTA updates via expo-updates. Channel is selected per-build-profile in
+  // eas.json (`channel: "production" | "preview" | "development"`). Runtime
+  // version is pinned to `version` above — bumping the app version forces a
+  // fresh native build, which is what we want when we change anything native.
+  // Pure JS/TS/Convex changes keep the same `appVersion` and can be shipped
+  // via `bun run ota:production` (see package.json scripts).
+  runtimeVersion: {
+    policy: "appVersion",
+  },
+  updates: {
+    url: `https://u.expo.dev/${EAS_PROJECT_ID}`,
+    // 0 = check for updates on every cold launch. Users see the latest bundle
+    // on the next full app relaunch.
+    fallbackToCacheTimeout: 0,
+  },
   ios: {
     supportsTablet: false,
     bundleIdentifier: "com.theatrediary.app",
@@ -118,7 +135,7 @@ module.exports = {
   },
   extra: {
     eas: {
-      projectId: "236dda1b-8b4c-492c-9fce-b5aac73fd282",
+      projectId: EAS_PROJECT_ID,
     },
   },
 };
