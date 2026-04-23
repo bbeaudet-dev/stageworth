@@ -19,21 +19,31 @@ export const getProductionsClosingSoon = internalQuery({
     const cutoffStr = cutoff.toISOString().split("T")[0];
 
     const productions = await ctx.db.query("productions").collect();
-    return productions.filter(
+    const eligible = productions.filter(
       (p) =>
         isCatalogPublished(p.dataStatus) &&
         p.closingDate !== undefined &&
         p.closingDate >= today &&
         p.closingDate <= cutoffStr
     );
+
+    return await Promise.all(
+      eligible.map(async (p) => {
+        const show = await ctx.db.get(p.showId);
+        return { production: p, showName: show?.name ?? null };
+      })
+    );
   },
 });
 
-export const getUserListsContainingShow = internalQuery({
+export const getWantToSeeListsContainingShow = internalQuery({
   args: { showId: v.id("shows") },
   handler: async (ctx, args) => {
     const allLists = await ctx.db.query("userLists").collect();
-    return allLists.filter((list) => list.showIds.includes(args.showId));
+    return allLists.filter(
+      (list) =>
+        list.systemKey === "want_to_see" && list.showIds.includes(args.showId)
+    );
   },
 });
 
@@ -64,14 +74,44 @@ export const hasRecentClosingSoonNotification = internalQuery({
 
 // ─── Mutations used by cron actions ──────────────────────────────────────────
 
+function buildClosingSoonCopy(
+  showName: string | null,
+  daysLeft: number
+): { title: string; body: string } {
+  const subject = showName ?? "A show on your Want to See list";
+  const safeDays = Math.max(0, daysLeft);
+
+  if (safeDays <= 1) {
+    const when = safeDays === 0 ? "closes today" : "closes tomorrow";
+    return {
+      title: "Last chance",
+      body: `${subject} ${when} — last chance to get tickets!`,
+    };
+  }
+
+  if (safeDays <= 7) {
+    return {
+      title: "Closing this week",
+      body: `${subject} closes this week — last chance to get tickets!`,
+    };
+  }
+
+  return {
+    title: "Closing soon",
+    body: `${subject} closes in ${safeDays} days — catch it before it's gone.`,
+  };
+}
+
 export const insertClosingSoonNotification = internalMutation({
   args: {
     recipientUserId: v.id("users"),
     showId: v.id("shows"),
     productionId: v.id("productions"),
     daysLeft: v.number(),
+    showName: v.union(v.string(), v.null()),
   },
   handler: async (ctx, args) => {
+    const { title, body } = buildClosingSoonCopy(args.showName, args.daysLeft);
     await notifyUser(ctx, {
       recipientUserId: args.recipientUserId,
       actorKind: "system",
@@ -79,8 +119,8 @@ export const insertClosingSoonNotification = internalMutation({
       showId: args.showId,
       productionId: args.productionId,
       push: {
-        title: "Closing soon",
-        body: `A show on your list closes in ${args.daysLeft} day${args.daysLeft === 1 ? "" : "s"}.`,
+        title,
+        body,
         data: {
           type: "closing_soon",
           showId: args.showId,
@@ -99,18 +139,22 @@ export const sendClosingSoonAlerts = internalAction({
     const CLOSE_WINDOW_DAYS = 14;
     const DEDUP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-    const productions = await ctx.runQuery(
+    const productionsWithShow = await ctx.runQuery(
       internal.crons.getProductionsClosingSoon,
       { withinDays: CLOSE_WINDOW_DAYS }
     );
 
-    for (const production of productions) {
-      // Find all users who have this show in any list.
-      const lists = await ctx.runQuery(internal.crons.getUserListsContainingShow, {
-        showId: production.showId,
-      });
+    for (const { production, showName } of productionsWithShow) {
+      // Only notify users who actively want to see this show (Want to See list),
+      // not users who have it on other lists (e.g. seen/archived/trip planning).
+      const lists = await ctx.runQuery(
+        internal.crons.getWantToSeeListsContainingShow,
+        { showId: production.showId }
+      );
 
-      const userIds = [...new Set(lists.map((l: { userId: Id<"users"> }) => l.userId))];
+      const userIds = [
+        ...new Set(lists.map((l: { userId: Id<"users"> }) => l.userId)),
+      ];
 
       for (const userId of userIds) {
         // Skip if we already sent a closing_soon notification in the last 7 days.
@@ -136,6 +180,7 @@ export const sendClosingSoonAlerts = internalAction({
           showId: production.showId,
           productionId: production._id,
           daysLeft,
+          showName,
         });
       }
 
