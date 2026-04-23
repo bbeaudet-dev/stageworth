@@ -89,16 +89,9 @@ function buildClosingSoonCopy(
     };
   }
 
-  if (safeDays <= 7) {
-    return {
-      title: "Closing this week",
-      body: `${subject} closes this week — last chance to get tickets!`,
-    };
-  }
-
   return {
-    title: "Closing soon",
-    body: `${subject} closes in ${safeDays} days — catch it before it's gone.`,
+    title: "Closing this week",
+    body: `${subject} closes this week — catch it before it's gone!`,
   };
 }
 
@@ -136,7 +129,7 @@ export const insertClosingSoonNotification = internalMutation({
 export const sendClosingSoonAlerts = internalAction({
   args: {},
   handler: async (ctx) => {
-    const CLOSE_WINDOW_DAYS = 14;
+    const CLOSE_WINDOW_DAYS = 7;
     const DEDUP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
     const productionsWithShow = await ctx.runQuery(
