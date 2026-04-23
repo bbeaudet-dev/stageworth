@@ -38,7 +38,12 @@ export default function ProfileSetupScreen() {
   const generateUploadUrl = useMutation(api.onboarding.generateAvatarUploadUrl);
   const completeProfilePhase = useMutation(api.onboarding.completeProfilePhase);
 
-  const [name, setName] = useState("");
+  // Intentionally no `name` input on this screen. Apple Sign-in HIG and App
+  // Store Guideline 4.8 forbid prompting for data the Authentication Services
+  // framework already provides — including a name field that is merely visible
+  // or optional. We capture Apple's `fullName` at sign-in via
+  // `hydrateSocialIdentity`, and users can edit their display name later from
+  // the Edit Profile screen.
   const [username, setUsername] = useState("");
   // Local preview URL (for newly picked images before upload completes).
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
@@ -52,16 +57,9 @@ export default function ProfileSetupScreen() {
 
   useEffect(() => {
     if (!profile || didInitialize) return;
-    // Prefer whatever's already persisted on the user row; otherwise fall back
-    // to what the auth provider (Apple `fullName` via `hydrateSocialIdentity`,
-    // or Google via better-auth) put on the session so we don't re-prompt.
-    const sessionName =
-      typeof session?.user?.name === "string" ? session.user.name : "";
-    const sessionLooksLikeEmail = sessionName.includes("@");
-    setName(profile.name ?? (sessionLooksLikeEmail ? "" : sessionName));
     setUsername(profile.username ?? "");
     setDidInitialize(true);
-  }, [profile, didInitialize, session]);
+  }, [profile, didInitialize]);
 
   const sessionImageUrl =
     typeof session?.user?.image === "string" ? session.user.image : undefined;
@@ -120,10 +118,6 @@ export default function ProfileSetupScreen() {
     }
   };
 
-  const trimmedName = name.trim();
-  // Name is intentionally optional — Apple Sign-in HIG / App Store Guideline
-  // 4.8 forbid re-requiring info the auth provider already supplied. We
-  // pre-fill it when available but never gate Confirm on it.
   const canConfirm =
     usernameAvailability.isAcceptable && !isUploading && !isSaving;
 
@@ -132,7 +126,8 @@ export default function ProfileSetupScreen() {
     setIsSaving(true);
     try {
       await completeProfilePhase({
-        name: trimmedName ? trimmedName : undefined,
+        // `name` is deliberately omitted — it was captured at sign-in via
+        // `hydrateSocialIdentity` and is not re-prompted here.
         username: usernameAvailability.sanitized || username,
         avatarImage: uploadedAvatarId ?? undefined,
       });
@@ -206,25 +201,6 @@ export default function ProfileSetupScreen() {
                 {displayAvatarUri ? "Change photo" : "Add photo"}
               </Text>
             </Pressable>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: c.mutedText }]}>
-              Display name (optional)
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: c.surface, borderColor: c.border, color: c.text },
-              ]}
-              value={name}
-              onChangeText={setName}
-              placeholder="Your name"
-              placeholderTextColor={c.mutedText}
-              autoCapitalize="words"
-              returnKeyType="next"
-              maxLength={80}
-            />
           </View>
 
           <View style={styles.field}>
