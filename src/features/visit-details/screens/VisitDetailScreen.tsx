@@ -240,7 +240,7 @@ export default function VisitDetailScreen() {
                 <Text style={[styles.showHeroTitle, { color: c.text }]} numberOfLines={2}>
                   {visit.show?.name ?? "Unknown Show"}
                 </Text>
-                {!isMine && (
+                {!isMine && (isPendingParticipant || isAcceptedParticipant) && (
                   <Text style={[styles.sharedByLabel, { color: c.mutedText }]}>
                     Shared visit — tagged you
                   </Text>
