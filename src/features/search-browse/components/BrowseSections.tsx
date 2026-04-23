@@ -98,22 +98,24 @@ function UserRail({
   textColor,
   accentColor,
   onPressUser,
-  onSeeLeaderboard,
+  actionLabel,
+  onActionPress,
 }: {
   title: string;
   users: UserCardUser[];
   textColor: string;
   accentColor?: string;
   onPressUser: (username: string) => void;
-  onSeeLeaderboard?: () => void;
+  actionLabel?: string;
+  onActionPress?: () => void;
 }) {
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
-        {onSeeLeaderboard && accentColor && (
-          <Pressable onPress={onSeeLeaderboard} hitSlop={8}>
-            <Text style={[styles.seeMoreText, { color: accentColor }]}>See Leaderboard</Text>
+        {onActionPress && actionLabel && accentColor && (
+          <Pressable onPress={onActionPress} hitSlop={8}>
+            <Text style={[styles.seeMoreText, { color: accentColor }]}>{actionLabel}</Text>
           </Pressable>
         )}
       </View>
@@ -229,7 +231,10 @@ export function BrowseSections({
           title="New to the House"
           users={recentUsers.slice(0, 10) as UserCardUser[]}
           textColor={text}
+          accentColor={accent}
           onPressUser={(username) => router.push({ pathname: "/user/[username]", params: { username } })}
+          actionLabel="See All Users"
+          onActionPress={() => router.push("/users")}
         />
       )}
 
@@ -240,7 +245,8 @@ export function BrowseSections({
           textColor={text}
           accentColor={accent}
           onPressUser={(username) => router.push({ pathname: "/user/[username]", params: { username } })}
-          onSeeLeaderboard={() => router.push("/leaderboard")}
+          actionLabel="See Leaderboard"
+          onActionPress={() => router.push("/leaderboard")}
         />
       )}
     </>

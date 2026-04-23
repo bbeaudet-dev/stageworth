@@ -126,6 +126,10 @@ export default function RootLayout() {
                     options={{ headerShown: false }}
                   />
                   <Stack.Screen
+                    name="users"
+                    options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+                  />
+                  <Stack.Screen
                     name="challenges"
                     options={{ headerShown: true, title: "Theatre Challenges", headerBackButtonDisplayMode: "minimal" }}
                   />
