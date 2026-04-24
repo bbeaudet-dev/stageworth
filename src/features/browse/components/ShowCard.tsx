@@ -47,45 +47,50 @@ export function ShowCard({
       style={[styles.playbillCard, { backgroundColor: c.surfaceElevated }, containerStyle]}
       onPress={onPress}
     >
-      {image && !imageFailed ? (
-        <SmartShowImage
-          key={image}
-          uri={image}
-          style={styles.playbillImage}
-          matBackground={playbillMatBackground(theme)}
-          loadingTitle={show.name}
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        <ShowPlaceholder name={show.name} type={show.type} />
-      )}
-      {badge ? (
-        <View style={cardBadge.badgeOverlay} pointerEvents="none">
-          {badge.secondary ? (
+      <View style={cardBadge.imageWrap}>
+        {image && !imageFailed ? (
+          <SmartShowImage
+            key={image}
+            uri={image}
+            style={styles.playbillImage}
+            matBackground={playbillMatBackground(theme)}
+            loadingTitle={show.name}
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <ShowPlaceholder name={show.name} type={show.type} />
+        )}
+        {badge?.secondary ? (
+          <View style={cardBadge.secondaryOverlay} pointerEvents="none">
             <View style={[cardBadge.badgeStrip, cardBadge.badgeSecondary, { backgroundColor: badge.secondary.bg }]}>
               <Text style={[cardBadge.badgeText, { color: badge.secondary.text }]}>{badge.secondary.label}</Text>
             </View>
-          ) : null}
-          <View style={[cardBadge.badgeStrip, { backgroundColor: badge.primary.bg }]}>
-            <Text style={[cardBadge.badgeText, { color: badge.primary.text }]}>{badge.primary.label}</Text>
           </View>
+        ) : null}
+        {iconName && onListIconPress ? (
+          <Pressable
+            style={cardBadge.listIconBtn}
+            onPress={(e) => { e.stopPropagation?.(); onListIconPress(); }}
+            hitSlop={6}
+          >
+            <IconSymbol name={iconName as any} size={14} color="#fff" />
+          </Pressable>
+        ) : null}
+      </View>
+      {badge ? (
+        <View style={[cardBadge.badgeStrip, { backgroundColor: badge.primary.bg }]}>
+          <Text style={[cardBadge.badgeText, { color: badge.primary.text }]}>{badge.primary.label}</Text>
         </View>
-      ) : null}
-      {iconName && onListIconPress ? (
-        <Pressable
-          style={cardBadge.listIconBtn}
-          onPress={(e) => { e.stopPropagation?.(); onListIconPress(); }}
-          hitSlop={6}
-        >
-          <IconSymbol name={iconName as any} size={14} color="#fff" />
-        </Pressable>
       ) : null}
     </Pressable>
   );
 }
 
 const cardBadge = StyleSheet.create({
-  badgeOverlay: {
+  imageWrap: {
+    position: "relative",
+  },
+  secondaryOverlay: {
     position: "absolute",
     bottom: 0,
     left: 0,

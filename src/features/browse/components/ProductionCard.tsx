@@ -68,34 +68,36 @@ export function ProductionCard({
       style={[styles.playbillCard, { backgroundColor: c.surfaceElevated }]}
       onPress={onPress}
     >
-      {image && !imageFailed ? (
-        <SmartShowImage
-          key={image}
-          uri={image}
-          style={styles.playbillImage}
-          matBackground={playbillMatBackground(isDark ? "dark" : "light")}
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        <ShowPlaceholder name={show?.name ?? ""} type={show?.type} />
-      )}
-      {production.ticketmasterEventUrl && image ? (
-        <View style={local.attributionRow}>
-          <Text style={[local.attributionText, { color: c.mutedText }]}>
-            via Ticketmaster
-          </Text>
-        </View>
-      ) : null}
-      {badgeResult ? (
-        <View style={badgeResult.secondary ? local.badgeOverlay : undefined}>
-          {badgeResult.secondary ? (
+      <View style={local.imageWrap}>
+        {image && !imageFailed ? (
+          <SmartShowImage
+            key={image}
+            uri={image}
+            style={styles.playbillImage}
+            matBackground={playbillMatBackground(isDark ? "dark" : "light")}
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <ShowPlaceholder name={show?.name ?? ""} type={show?.type} />
+        )}
+        {production.ticketmasterEventUrl && image ? (
+          <View style={local.attributionRow}>
+            <Text style={[local.attributionText, { color: c.mutedText }]}>
+              via Ticketmaster
+            </Text>
+          </View>
+        ) : null}
+        {badgeResult?.secondary ? (
+          <View style={local.secondaryOverlay} pointerEvents="none">
             <View style={[local.badgeStrip, local.secondaryBadgeStrip, { backgroundColor: badgeResult.secondary.bg }]}>
               <Text style={[local.badgeText, { color: badgeResult.secondary.text }]}>{badgeResult.secondary.label}</Text>
             </View>
-          ) : null}
-          <View style={[local.badgeStrip, { backgroundColor: badgeResult.primary.bg }]}>
-            <Text style={[local.badgeText, { color: badgeResult.primary.text }]}>{badgeResult.primary.label}</Text>
           </View>
+        ) : null}
+      </View>
+      {badgeResult ? (
+        <View style={[local.badgeStrip, { backgroundColor: badgeResult.primary.bg }]}>
+          <Text style={[local.badgeText, { color: badgeResult.primary.text }]}>{badgeResult.primary.label}</Text>
         </View>
       ) : null}
     </Pressable>
@@ -103,8 +105,12 @@ export function ProductionCard({
 }
 
 const local = StyleSheet.create({
-  /** Absolutely-positioned wrapper so secondary+primary overlay the image bottom. */
-  badgeOverlay: {
+  /** Image container — positions the "In Previews" overlay and attribution relative to the image (not the whole card). */
+  imageWrap: {
+    position: "relative",
+  },
+  /** Only the secondary "In Previews" strip overlays the image bottom — the primary banner flows below. */
+  secondaryOverlay: {
     position: "absolute",
     bottom: 0,
     left: 0,

@@ -97,6 +97,10 @@ const NYC_DISTRICTS = new Set([
 /**
  * Returns a batch of NYC productions that have no poster image (neither
  * storage nor hotlink) and are not closed. Used by the TM enrichment cron.
+ *
+ * Also excludes productions whose Ticketmaster proposal has been rejected
+ * before — admins shouldn't have to reject the same wrong-size TM image
+ * every day. Once rejected, it stays rejected.
  */
 export const productionsNeedingImages = internalQuery({
   args: {
@@ -114,6 +118,21 @@ export const productionsNeedingImages = internalQuery({
       if (p.hotlinkPosterUrl || p.posterImage) continue;
       // Skip closed productions
       if (p.closingDate && p.closingDate < today) continue;
+
+      // Skip productions with a previously rejected TM poster proposal.
+      const priorEntries = await ctx.db
+        .query("reviewQueue")
+        .withIndex("by_entity_field", (q) =>
+          q
+            .eq("entityType", "production")
+            .eq("entityId", p._id as string)
+            .eq("field", "hotlinkPosterUrl")
+        )
+        .collect();
+      const tmPreviouslyRejected = priorEntries.some(
+        (e) => e.status === "rejected" && e.source === "ticketmaster"
+      );
+      if (tmPreviouslyRejected) continue;
 
       const show = await ctx.db.get(p.showId);
       if (!show) continue;

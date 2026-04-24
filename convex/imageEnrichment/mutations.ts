@@ -5,6 +5,10 @@ import { internalMutation } from "../_generated/server";
  * Set a hotlink image URL on a show record.
  * Enforces the enrichment upgrade rule: Ticketmaster may overwrite Wikipedia,
  * but Wikipedia must not overwrite an existing Ticketmaster URL.
+ *
+ * Respects admin rejections: if an admin has previously rejected a
+ * `hotlinkImageUrl` proposal from the same source (e.g. Ticketmaster), we
+ * will NOT keep re-proposing on subsequent enrichment runs.
  */
 export const setShowHotlinkImage = internalMutation({
   args: {
@@ -21,11 +25,38 @@ export const setShowHotlinkImage = internalMutation({
     const show = await ctx.db.get(args.showId);
     if (!show) return;
 
+    const existingEntries = await ctx.db
+      .query("reviewQueue")
+      .withIndex("by_entity_field", (q) =>
+        q
+          .eq("entityType", "show")
+          .eq("entityId", args.showId)
+          .eq("field", "hotlinkImageUrl")
+      )
+      .collect();
+
+    // If admin has rejected an image from this source before, stop re-proposing.
+    // Ticketmaster images are low quality; admins should be able to reject
+    // once and have it stick rather than rejecting daily.
+    const sourcePreviouslyRejected = existingEntries.some(
+      (e) => e.status === "rejected" && e.source === args.hotlinkImageSource
+    );
+    if (sourcePreviouslyRejected) {
+      // Still keep helpful lookup metadata so we don't retry enrichment APIs.
+      const metaPatch: Record<string, unknown> = {};
+      if (args.wikipediaTitle && !show.wikipediaTitle)
+        metaPatch.wikipediaTitle = args.wikipediaTitle;
+      if (args.ticketmasterAttractionId && !show.ticketmasterAttractionId)
+        metaPatch.ticketmasterAttractionId = args.ticketmasterAttractionId;
+      if (Object.keys(metaPatch).length > 0)
+        await ctx.db.patch(args.showId, metaPatch);
+      return;
+    }
+
     // Don't overwrite an existing image from a different source.
     // Wikipedia is preferred at the show level (portrait poster art);
     // TM should only fill in when there's nothing at all.
     if (show.hotlinkImageUrl) {
-      // Still store metadata for reference.
       const metaPatch: Record<string, unknown> = {};
       if (args.wikipediaTitle && !show.wikipediaTitle)
         metaPatch.wikipediaTitle = args.wikipediaTitle;
@@ -47,16 +78,6 @@ export const setShowHotlinkImage = internalMutation({
 
     await ctx.db.patch(args.showId, patch);
 
-    // Create a review queue entry for the new image.
-    const existingEntries = await ctx.db
-      .query("reviewQueue")
-      .withIndex("by_entity_field", (q) =>
-        q
-          .eq("entityType", "show")
-          .eq("entityId", args.showId)
-          .eq("field", "hotlinkImageUrl")
-      )
-      .collect();
     if (!existingEntries.some((e) => e.status === "pending")) {
       await ctx.db.insert("reviewQueue", {
         entityType: "show",
@@ -181,6 +202,11 @@ export const markDescriptionChecked = internalMutation({
 
 /**
  * Set a hotlink poster URL on a production record from Ticketmaster.
+ *
+ * Respects admin rejections: if an admin has previously rejected a
+ * Ticketmaster `hotlinkPosterUrl` proposal for this production, we will NOT
+ * re-propose on subsequent cron runs (TM images are often the wrong aspect
+ * ratio, so admins should reject once and have it stick).
  */
 export const setProductionHotlinkImage = internalMutation({
   args: {
@@ -193,13 +219,6 @@ export const setProductionHotlinkImage = internalMutation({
     const production = await ctx.db.get(args.productionId);
     if (!production) return;
 
-    await ctx.db.patch(args.productionId, {
-      hotlinkPosterUrl: args.hotlinkPosterUrl,
-      ticketmasterEventId: args.ticketmasterEventId,
-      ticketmasterEventUrl: args.ticketmasterEventUrl,
-    });
-
-    // Create a review queue entry for the new production poster.
     const existingEntries = await ctx.db
       .query("reviewQueue")
       .withIndex("by_entity_field", (q) =>
@@ -209,16 +228,31 @@ export const setProductionHotlinkImage = internalMutation({
           .eq("field", "hotlinkPosterUrl")
       )
       .collect();
-    if (!existingEntries.some((e) => e.status === "pending")) {
-      await ctx.db.insert("reviewQueue", {
-        entityType: "production",
-        entityId: args.productionId,
-        field: "hotlinkPosterUrl",
-        currentValue: args.hotlinkPosterUrl,
-        source: "ticketmaster",
-        status: "pending",
-        createdAt: Date.now(),
-      });
-    }
+
+    // Skip entirely if the same source has been rejected before. This stops
+    // the "reject, comes back, reject, comes back" loop admins were hitting.
+    const tmPreviouslyRejected = existingEntries.some(
+      (e) => e.status === "rejected" && e.source === "ticketmaster"
+    );
+    if (tmPreviouslyRejected) return;
+
+    // Skip if there's already a pending proposal waiting for review.
+    if (existingEntries.some((e) => e.status === "pending")) return;
+
+    await ctx.db.patch(args.productionId, {
+      hotlinkPosterUrl: args.hotlinkPosterUrl,
+      ticketmasterEventId: args.ticketmasterEventId,
+      ticketmasterEventUrl: args.ticketmasterEventUrl,
+    });
+
+    await ctx.db.insert("reviewQueue", {
+      entityType: "production",
+      entityId: args.productionId,
+      field: "hotlinkPosterUrl",
+      currentValue: args.hotlinkPosterUrl,
+      source: "ticketmaster",
+      status: "pending",
+      createdAt: Date.now(),
+    });
   },
 });
