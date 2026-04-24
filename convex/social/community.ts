@@ -137,6 +137,56 @@ export const deleteMyPost = mutation({
   },
 });
 
+/**
+ * Popular feed: recent posts ranked by engagement (likes + reviews).
+ *
+ * We pull the last ~30 days of activity and score each post by likeCount,
+ * with a small bonus for posts that carry a written review (notes). A mild
+ * recency decay keeps fresher posts from getting buried under older viral
+ * ones.
+ */
+export const getPopularFeed = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const currentUserId = await requireConvexUserId(ctx);
+    const limit = Math.max(1, Math.min(args.limit ?? 30, MAX_LIMIT));
+    const { hiddenIds } = await getBlockEdgeSets(ctx, currentUserId);
+
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - THIRTY_DAYS_MS;
+
+    const recent = await ctx.db
+      .query("activityPosts")
+      .withIndex("by_createdAt", (q) => q.gte("createdAt", cutoff))
+      .order("desc")
+      .take(MAX_LIMIT * 5);
+
+    const scored = recent
+      .filter((post) => !hiddenIds.has(post.actorUserId))
+      .map((post) => {
+        const likeCount = post.likeCount ?? 0;
+        const reviewBonus = post.notes && post.notes.trim().length > 0 ? 2 : 0;
+        // Recency decay: half-life of ~7 days keeps the feed feeling live.
+        const ageDays = Math.max(
+          0,
+          (Date.now() - post.createdAt) / (1000 * 60 * 60 * 24),
+        );
+        const recencyFactor = Math.pow(0.5, ageDays / 7);
+        const score = (likeCount + reviewBonus) * recencyFactor;
+        return { post, score };
+      })
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.post.createdAt - a.post.createdAt;
+      })
+      .slice(0, limit)
+      .map((entry) => entry.post);
+
+    return await hydratePosts(ctx, scored, currentUserId, hiddenIds);
+  },
+});
+
 export const getFollowingFeed = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {

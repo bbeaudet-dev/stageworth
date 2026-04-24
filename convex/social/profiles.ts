@@ -247,6 +247,43 @@ async function enrichSearchUserRow(ctx: any, u: any, currentUserId: string | nul
   };
 }
 
+/**
+ * Directory listing for the "See All Users" screen.
+ *
+ * Returns the full roster (most recently joined first) with an optional
+ * case-insensitive `q` filter across username / display name. Viewer is
+ * always excluded from the response when filtering; included at the top when
+ * browsing unfiltered so the screen is never confusingly empty for solo users.
+ */
+export const listAllUsers = query({
+  args: {
+    q: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const currentUserId = await getConvexUserId(ctx);
+    const trimmed = (args.q ?? "").trim().toLowerCase().replace(/^@/, "");
+    const limit = Math.max(1, Math.min(args.limit ?? 100, 500));
+    const { hiddenIds } = await getBlockEdgeSets(ctx, currentUserId);
+
+    const users = await ctx.db.query("users").collect();
+
+    const visible = users
+      .filter((u: any) => !hiddenIds.has(u._id))
+      .filter((u: any) => {
+        if (!trimmed) return true;
+        if (currentUserId && u._id === currentUserId) return false;
+        return userMatchesNeedle(u, trimmed);
+      })
+      .sort((a: any, b: any) => b._creationTime - a._creationTime)
+      .slice(0, limit);
+
+    return await Promise.all(
+      visible.map((u: any) => enrichSearchUserRow(ctx, u, currentUserId)),
+    );
+  },
+});
+
 /** Empty `q` returns recently joined users (including you, so the list is never misleadingly empty). Filtered `q` excludes self. */
 export const searchUsers = query({
   args: { q: v.string() },

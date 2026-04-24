@@ -311,6 +311,9 @@ export default function AcceptVisitScreen() {
                   showHasVisit={Boolean(showContext?.hasVisit)}
                   keepCurrentRanking={keepCurrentRanking}
                   setKeepCurrentRanking={setKeepCurrentRanking}
+                  currentRankPosition={showContext?.currentRankPosition ?? null}
+                  rankingTotal={showContext?.rankingTotal ?? 0}
+                  currentTier={(showContext?.currentTier ?? null) as RankedTier | null}
                   shouldShowRankingSection={shouldShowRankingSection}
                   selectedTier={selectedTier}
                   onChangeTier={resetRankingFlow}

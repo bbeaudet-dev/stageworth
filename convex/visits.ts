@@ -848,10 +848,18 @@ export const create = mutation({
 export const getAddVisitContext = query({
   args: { showId: v.optional(v.id("shows")) },
   handler: async (ctx, args) => {
-    if (!args.showId) return { hasRanking: false, hasVisit: false };
+    if (!args.showId) {
+      return {
+        hasRanking: false,
+        hasVisit: false,
+        currentRankPosition: null,
+        rankingTotal: 0,
+        currentTier: null,
+      };
+    }
 
     const userId = await requireConvexUserId(ctx);
-    const [rankings, existingVisit] = await Promise.all([
+    const [rankings, existingVisit, userShow] = await Promise.all([
       ctx.db
         .query("userRankings")
         .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -862,11 +870,24 @@ export const getAddVisitContext = query({
           q.eq("userId", userId).eq("showId", args.showId!)
         )
         .first(),
+      ctx.db
+        .query("userShows")
+        .withIndex("by_user_show", (q) =>
+          q.eq("userId", userId).eq("showId", args.showId!)
+        )
+        .first(),
     ]);
 
+    const rankedShowIds = rankings?.showIds ?? [];
+    const rankIndex = rankedShowIds.indexOf(args.showId);
+    const hasRanking = rankIndex !== -1;
+
     return {
-      hasRanking: rankings?.showIds.includes(args.showId) ?? false,
+      hasRanking,
       hasVisit: existingVisit !== null,
+      currentRankPosition: hasRanking ? rankIndex + 1 : null,
+      rankingTotal: rankedShowIds.length,
+      currentTier: hasRanking ? (userShow?.tier ?? "liked") : null,
     };
   },
 });
