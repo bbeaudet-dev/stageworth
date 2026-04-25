@@ -2,7 +2,6 @@ import Image from "next/image";
 import {
   AndroidApkButton,
   AppStoreButton,
-  TestFlightButton,
 } from "@/components/DownloadPlatformButtons";
 import { TESTFLIGHT_PUBLIC_URL, getAndroidApkUrl } from "@/lib/app-downloads";
 import { BRAND_PURPLE, BRAND_GRADIENT_STYLE } from "@/lib/brand-colors";
@@ -72,12 +71,27 @@ export default function HomePage() {
             favorites, plan trips with friends, and stay on top of what&apos;s
             playing.
           </p>
-          <div className="flex flex-col items-center justify-center gap-5">
+          <div className="flex flex-col items-center justify-center gap-4">
             <AppStoreButton />
-            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
-              <TestFlightButton />
-              <AndroidApkButton />
-            </div>
+            <a
+              href="#get-stageworth"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-white/80 underline-offset-4 hover:text-white hover:underline transition-colors"
+            >
+              Other ways to download
+              <svg
+                aria-hidden
+                width={14}
+                height={14}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 5v14M5 12l7 7 7-7" />
+              </svg>
+            </a>
           </div>
         </div>
       </section>
@@ -113,7 +127,10 @@ export default function HomePage() {
       </section>
 
       {/* CTA — per-platform instructions */}
-      <section className="border-t border-gray-200 bg-linear-to-b from-gray-50 to-white py-16">
+      <section
+        id="get-stageworth"
+        className="border-t border-gray-200 bg-linear-to-b from-gray-50 to-white py-16 scroll-mt-16"
+      >
         <div className="mx-auto max-w-5xl px-4 text-center">
           <h2 className="text-2xl font-bold mb-12 text-gray-900">
             Get Stageworth
@@ -126,7 +143,7 @@ export default function HomePage() {
           >
             {/* iOS */}
             <div className="flex flex-col items-center text-center gap-4">
-              <h3 className="text-lg font-semibold text-gray-900">iPhone &amp; iPad</h3>
+              <h3 className="text-lg font-semibold text-gray-900">iPhone</h3>
               <p className="text-gray-600 text-[15px] leading-relaxed max-w-xs">
                 Available now on the App Store.
               </p>
