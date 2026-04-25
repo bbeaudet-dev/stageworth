@@ -5,7 +5,7 @@ The answers match what the app currently collects and what the code in this
 repo actually does. Update this file _and_ the App Store Connect entry any
 time you add/remove a data collection surface or integrate a new SDK.
 
-Last reviewed: **2026-04**
+Last reviewed: **2026-04** (initial App Store approval — v1.2.0 / build 23)
 
 ## TL;DR for the reviewer
 

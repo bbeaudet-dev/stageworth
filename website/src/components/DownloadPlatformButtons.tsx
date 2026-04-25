@@ -1,4 +1,8 @@
-import { TESTFLIGHT_PUBLIC_URL, getAndroidApkUrl } from "@/lib/app-downloads";
+import {
+  APP_STORE_URL,
+  TESTFLIGHT_PUBLIC_URL,
+  getAndroidApkUrl,
+} from "@/lib/app-downloads";
 
 /** Apple logo — monochrome for use on dark pill (Sign in with Apple / App Store style). */
 export function AppleGlyph({ className }: { className?: string }) {
@@ -41,6 +45,35 @@ const iosBtnClass =
 
 const androidBtnClass =
   "inline-flex items-center justify-center gap-2.5 rounded-full border border-[#dadce0] bg-white px-5 py-2.5 text-sm font-semibold text-[#3c4043] shadow-sm transition-colors hover:bg-[#f8f9fa]";
+
+/**
+ * Primary CTA — App Store badge styled to follow Apple's marketing
+ * guidelines (black pill, "Download on the / App Store" two-line label).
+ * Larger than secondary buttons so it reads as the main entry point.
+ */
+export function AppStoreButton({ className }: { className?: string }) {
+  return (
+    <a
+      href={APP_STORE_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Download Stageworth on the App Store"
+      className={`inline-flex items-center justify-center gap-3 rounded-2xl bg-black px-6 py-3 text-white shadow-lg ring-1 ring-black/10 transition-opacity hover:opacity-90 ${
+        className ?? ""
+      }`}
+    >
+      <AppleGlyph className="shrink-0 text-white" />
+      <span className="flex flex-col items-start leading-none text-left">
+        <span className="text-[10px] font-medium tracking-wide text-white/80">
+          Download on the
+        </span>
+        <span className="text-lg font-semibold tracking-tight">
+          App Store
+        </span>
+      </span>
+    </a>
+  );
+}
 
 export function TestFlightButton({ className }: { className?: string }) {
   return (

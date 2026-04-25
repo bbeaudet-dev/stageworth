@@ -5,10 +5,11 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AndroidApkButton,
+  AppStoreButton,
   TestFlightButton,
 } from "@/components/DownloadPlatformButtons";
 import { BRAND_BLUE, BRAND_GRADIENT_STYLE } from "@/lib/brand-colors";
-import { TESTFLIGHT_PUBLIC_URL, getAndroidApkUrl } from "@/lib/app-downloads";
+import { APP_STORE_URL, getAndroidApkUrl } from "@/lib/app-downloads";
 
 export default function InvitePage() {
   const params = useParams();
@@ -62,19 +63,22 @@ export default function InvitePage() {
         </p>
 
         {status === "fallback" ? (
-          <div className="space-y-3">
-            <p className="text-sm text-white/70 mb-4">
-              Looks like the app isn&apos;t installed yet. Get the beta here:
+          <div className="space-y-4">
+            <p className="text-sm text-white/70 mb-2">
+              Looks like the app isn&apos;t installed yet. Get it here:
             </p>
-            <div className="flex w-full flex-col items-stretch gap-3">
-              <TestFlightButton className="w-full justify-center py-3" />
-              <AndroidApkButton className="w-full justify-center py-3" />
+            <div className="flex w-full flex-col items-center gap-3">
+              <AppStoreButton className="w-full" />
+              <div className="flex w-full flex-col items-stretch gap-2 pt-1">
+                <TestFlightButton className="w-full justify-center py-2.5" />
+                <AndroidApkButton className="w-full justify-center py-2.5" />
+              </div>
             </div>
             {hasAndroidBuildPage ? (
               <p className="text-xs text-white/55 max-w-sm mx-auto leading-snug">
-                Android: opens your build on Expo — download the{" "}
-                <span className="text-white/75 font-medium">.apk</span> from that
-                page to install.
+                Android is still in beta — opens your build on Expo, download
+                the <span className="text-white/75 font-medium">.apk</span>{" "}
+                from that page to install.
               </p>
             ) : null}
           </div>
@@ -94,12 +98,12 @@ export default function InvitePage() {
             <p className="text-xs text-white/60">
               Don&apos;t have the app?{" "}
               <a
-                href={TESTFLIGHT_PUBLIC_URL}
+                href={APP_STORE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline underline-offset-2 hover:text-white transition-colors"
               >
-                Join TestFlight beta
+                Get it on the App Store
               </a>
             </p>
           </div>
