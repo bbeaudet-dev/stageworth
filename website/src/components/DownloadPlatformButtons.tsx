@@ -58,16 +58,17 @@ export function AppStoreButton({ className }: { className?: string }) {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Download Stageworth on the App Store"
-      className={`inline-flex items-center justify-center gap-3 rounded-2xl bg-black px-6 py-3 text-white shadow-lg ring-1 ring-black/10 transition-opacity hover:opacity-90 ${
+      className={`inline-flex items-center justify-center gap-3 rounded-2xl bg-black px-7 py-3 text-white shadow-lg ring-1 ring-black/10 transition-opacity hover:opacity-90 ${
         className ?? ""
       }`}
     >
-      <AppleGlyph className="shrink-0 text-white" />
-      <span className="flex flex-col items-start leading-none text-left">
-        <span className="text-[10px] font-medium tracking-wide text-white/80">
+      {/* w-7/h-7 overrides the SVG's intrinsic 20px size for the larger badge. */}
+      <AppleGlyph className="shrink-0 text-white w-7 h-7" />
+      <span className="flex flex-col items-start text-left leading-tight">
+        <span className="text-[13px] font-medium text-white/85">
           Download on the
         </span>
-        <span className="text-lg font-semibold tracking-tight">
+        <span className="text-[22px] font-semibold tracking-tight leading-none">
           App Store
         </span>
       </span>
