@@ -10,6 +10,38 @@ Mobile app (Expo / React Native) for tracking live theatre: works (**shows**), s
 
 ---
 
+## Distribution & release status
+
+- **iOS:** Live on the App Store — [Stageworth](https://apps.apple.com/us/app/stageworth/id6761304800). First approved build: **v1.2.0 / build 23 / commit `c0ca303`** (Apr 2026).
+- **Android:** Beta only — internal `.apk` distributed via an Expo build page. URL is wired into `website` via `NEXT_PUBLIC_ANDROID_APK_URL` (Vercel env var).
+- **TestFlight:** Public external group at [`testflight.apple.com/join/rw81KHee`](https://testflight.apple.com/join/rw81KHee), kept around for early-build testers.
+
+### Release process
+
+Releases are governed by `app.config.js → runtimeVersion: { policy: "appVersion" }` and `eas.json`:
+
+- **OTA-eligible** (any pure JS/TS/asset change, no native deps): publish via `bun run ota:production` or the **Mobile OTA Update** workflow (channel `production`). Reaches every installed build whose `version` in `app.config.js` matches the bundle's runtime.
+- **Requires a new EAS build + App Store submission** (forces a `version` bump because the `appVersion` runtime invalidates):
+  - Adding/removing/upgrading any native package (`expo-*`, `react-native-*`, `@react-native-*`).
+  - Editing the `plugins` array, `infoPlist`, permissions, app icon, splash, `bundleIdentifier`, `appleTeamId`.
+  - Expo SDK upgrades.
+  - Trigger via the **Mobile Store Candidate** workflow (`platform: ios`, `submit: true`) or `eas build` → `eas submit` locally.
+- **Convex deploys are independent of mobile releases.** A `bunx convex deploy` hits the live App Store version *and* every TestFlight/dev client immediately. Stay backwards-compatible with the oldest live build until you're sure no users are on it (don't remove/rename queries or mutations the old client calls; only add optional schema fields).
+
+Semver as applied here:
+
+- **Patch (1.2.x):** bug-fix-only native rebuild.
+- **Minor (1.x.0):** new features; required whenever you add native deps.
+- **Major (x.0.0):** big visible release / breaking changes — reserve.
+
+> **Heads up for the first post-launch ship:** build 23 *does not* include `expo-updates` (added in `574de5a` after `c0ca303`), so OTA cannot reach the live App Store version. The first OTA-reachable build is the next App Store submission.
+
+### Outstanding ops TODOs
+
+- **Custom email is not set up.** `hello@stageworth.app` and `privacy@stageworth.app` are referenced in `website/src/app/{about,support,terms,privacy}/page.tsx` and in the App Store listing, but `stageworth.app` is not yet configured to receive mail. Need to: (1) confirm we own `stageworth.app`, (2) configure email forwarding (Cloudflare Email Routing / ImprovMX) → personal inbox.
+
+---
+
 ## Data model
 
 ### Show → production → visit
