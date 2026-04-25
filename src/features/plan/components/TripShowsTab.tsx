@@ -307,18 +307,18 @@ export function TripShowsTab({ trip, tripId, closingSoon }: TripShowsTabProps) {
                               <IconSymbol name={labelMeta.icon} size={11} color="#fff" />
                             </View>
                           ) : null}
+                          {badge?.secondary ? (
+                            <View style={styles.badgeOverlay} pointerEvents="none">
+                              <View style={[styles.closingBadgeBelow, styles.previewsBadge, { backgroundColor: badge.secondary.bg }]}>
+                                <Text style={[styles.closingBadgeText, { color: badge.secondary.textCol }]}>{badge.secondary.label}</Text>
+                              </View>
+                            </View>
+                          ) : null}
                         </View>
                       </Pressable>
                       {badge ? (
-                        <View style={badge.secondary ? styles.badgeOverlay : undefined}>
-                          {badge.secondary ? (
-                            <View style={[styles.closingBadgeBelow, styles.previewsBadge, { backgroundColor: badge.secondary.bg }]}>
-                              <Text style={[styles.closingBadgeText, { color: badge.secondary.textCol }]}>{badge.secondary.label}</Text>
-                            </View>
-                          ) : null}
-                          <View style={[styles.closingBadgeBelow, { backgroundColor: badge.primary.bg }]}>
-                            <Text style={[styles.closingBadgeText, { color: badge.primary.textCol }]}>{badge.primary.label}</Text>
-                          </View>
+                        <View style={[styles.closingBadgeBelow, { backgroundColor: badge.primary.bg }]}>
+                          <Text style={[styles.closingBadgeText, { color: badge.primary.textCol }]}>{badge.primary.label}</Text>
                         </View>
                       ) : null}
                     </View>

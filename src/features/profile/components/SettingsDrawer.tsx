@@ -7,6 +7,7 @@ import {
   Dimensions,
   Linking,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,7 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconSymbol, type IconSymbolName } from "@/components/ui/icon-symbol";
-import { LEGAL_URLS } from "@/constants/urls";
+import { APP_STORE_URLS, LEGAL_URLS } from "@/constants/urls";
 import { Colors } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -240,6 +241,26 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
               surfaceColor={c.surfaceElevated}
               iconColor={iconColor}
             />
+            {Platform.OS === "ios" ? (
+              <MenuRow
+                icon="star.fill"
+                label="Rate Stageworth"
+                onPress={() => {
+                  onClose();
+                  // itms-apps:// opens the App Store review composer; if the user
+                  // is on a simulator or somehow can't open it, fall back to the
+                  // public listing in their browser/App Store.
+                  void Linking.openURL(APP_STORE_URLS.writeReview).catch(() => {
+                    void Linking.openURL(APP_STORE_URLS.listing);
+                  });
+                }}
+                textColor={c.text}
+                mutedColor={c.mutedText}
+                borderColor={c.border}
+                surfaceColor={c.surfaceElevated}
+                iconColor={iconColor}
+              />
+            ) : null}
             <MenuRow
               icon="shield"
               label="Privacy Policy"

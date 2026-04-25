@@ -2,6 +2,10 @@ import { TESTFLIGHT_PUBLIC_URL } from "@/lib/testflight";
 
 export { TESTFLIGHT_PUBLIC_URL };
 
+/** Public App Store listing for the shipping iOS build. */
+export const APP_STORE_URL =
+  "https://apps.apple.com/us/app/stageworth/id6761304800";
+
 /**
  * URL for Android beta installs — usually an Expo **build** page (expo.dev/.../builds/...)
  * where testers download the `.apk`. Point `NEXT_PUBLIC_ANDROID_APK_URL` at the current
