@@ -25,11 +25,11 @@ const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 10 } as const;
 
 export function MyShowsRankView({
   listItems,
-  expandedShowId,
-  setExpandedShowId,
   pendingRemoveIds,
   onRemoveShow,
   getShowTier,
+  getRankChangeLabel,
+  isShowMarkedForRemoval,
   onDragEnd,
   onOpenShowDetails,
   tabBarHeight,
@@ -38,14 +38,15 @@ export function MyShowsRankView({
   listHeaderComponent,
   onScroll,
   showCategoryNav = false,
+  bottomAccessoryHeight = 0,
 }: {
   listItems: ListItem[];
-  expandedShowId: Id<"shows"> | null;
-  setExpandedShowId: (id: Id<"shows"> | null) => void;
   pendingRemoveIds: Set<Id<"shows">>;
   onRemoveShow: (showId: Id<"shows">) => void;
   getShowTier: (show: RankedShow) => RankingTier;
-  onDragEnd: (params: { data: ListItem[]; from: number; to: number }) => Promise<void>;
+  getRankChangeLabel: (show: RankedShow) => string | undefined;
+  isShowMarkedForRemoval: (showId: Id<"shows">) => boolean;
+  onDragEnd: (params: { data: ListItem[]; from: number; to: number }) => void;
   onOpenShowDetails: (show: RankedShow) => void;
   tabBarHeight: number;
   tierHeaders: Record<RankingTier, TierHeaderMeta>;
@@ -53,6 +54,7 @@ export function MyShowsRankView({
   listHeaderComponent?: React.ReactNode;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
   showCategoryNav?: boolean;
+  bottomAccessoryHeight?: number;
 }) {
   const flatListRef = useRef<FlatList<ListItem> | null>(null);
 
@@ -153,26 +155,27 @@ export function MyShowsRankView({
             index={showIndex - 1}
             rankLabel={rankLabel}
             tierHeader={null}
-            isExpanded={expandedShowId === item.show._id}
             isRemoving={pendingRemoveIds.has(item.show._id)}
-            onToggle={() => setExpandedShowId(expandedShowId === item.show._id ? null : item.show._id)}
             onViewShowDetails={() => onOpenShowDetails(item.show)}
             onRemove={() => onRemoveShow(item.show._id)}
             drag={drag}
             isActive={isActive}
+            changeLabel={getRankChangeLabel(item.show)}
+            isMarkedForRemoval={isShowMarkedForRemoval(item.show._id)}
+            confirmRemove={false}
           />
         </ScaleDecorator>
       );
     },
     [
-      expandedShowId,
       getShowTier,
+      getRankChangeLabel,
+      isShowMarkedForRemoval,
       lineMeta,
       listItems,
       onOpenShowDetails,
       onRemoveShow,
       pendingRemoveIds,
-      setExpandedShowId,
       tierHeaders,
     ]
   );
@@ -200,7 +203,7 @@ export function MyShowsRankView({
           styles.listContent,
           {
             paddingBottom:
-              tabBarHeight + (showCategoryNav ? 56 : 0) + 24,
+              tabBarHeight + (showCategoryNav ? 56 : 0) + bottomAccessoryHeight + 24,
           },
         ]}
         onScroll={onScroll}

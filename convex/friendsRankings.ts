@@ -1,5 +1,7 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 import { getConvexUserId } from "./auth";
 import { getBlockEdgeSets } from "./social/safety";
 
@@ -10,6 +12,78 @@ function tierSortIndex(tier: string | null): number {
   if (!tier || tier === "unranked") return RANKED_TIERS.length;
   const idx = RANKED_TIERS.indexOf(tier as RankedTier);
   return idx === -1 ? RANKED_TIERS.length : idx;
+}
+
+async function buildShowRankingRow(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+  showId: Id<"shows">,
+) {
+  const [userShow, visit] = await Promise.all([
+    ctx.db
+      .query("userShows")
+      .withIndex("by_user_show", (q) =>
+        q.eq("userId", userId).eq("showId", showId)
+      )
+      .first(),
+    ctx.db
+      .query("visits")
+      .withIndex("by_user_show", (q) =>
+        q.eq("userId", userId).eq("showId", showId)
+      )
+      .first(),
+  ]);
+
+  if (!userShow && !visit) return null;
+
+  const rawTier = userShow?.tier ?? null;
+  const isRanked =
+    rawTier !== null &&
+    rawTier !== "unranked" &&
+    (RANKED_TIERS as readonly string[]).includes(rawTier);
+
+  let tierRank: number | null = null;
+  let tierTotal: number | null = null;
+
+  if (isRanked) {
+    const rankings = await ctx.db
+      .query("userRankings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (rankings && rankings.showIds.includes(showId)) {
+      const userShows = await ctx.db
+        .query("userShows")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+
+      const tierMap = new Map<string, string>();
+      for (const us of userShows) tierMap.set(us.showId, us.tier);
+
+      const inTier = rankings.showIds.filter((id) => tierMap.get(id) === rawTier);
+      tierTotal = inTier.length;
+      const idx = inTier.indexOf(showId);
+      tierRank = idx >= 0 ? idx + 1 : null;
+    }
+  }
+
+  const user = await ctx.db.get(userId);
+  if (!user || !user.username) return null;
+
+  const avatarUrl = user.avatarImage
+    ? await ctx.storage.getUrl(user.avatarImage)
+    : null;
+
+  return {
+    userId: user._id,
+    username: user.username,
+    name: user.name ?? null,
+    avatarUrl,
+    tier: isRanked ? (rawTier as RankedTier) : null,
+    tierRank,
+    tierTotal,
+    hasVisit: visit !== null,
+  };
 }
 
 /**
@@ -35,79 +109,12 @@ export const listForShow = query({
       .map((r) => r.followingUserId)
       .filter((id) => !hiddenIds.has(id));
 
-    const rows = await Promise.all(
-      followedIds.map(async (userId) => {
-        const [userShow, visit] = await Promise.all([
-          ctx.db
-            .query("userShows")
-            .withIndex("by_user_show", (q) =>
-              q.eq("userId", userId).eq("showId", args.showId)
-            )
-            .first(),
-          ctx.db
-            .query("visits")
-            .withIndex("by_user_show", (q) =>
-              q.eq("userId", userId).eq("showId", args.showId)
-            )
-            .first(),
-        ]);
+    const [viewerRow, ...friendRows] = await Promise.all([
+      buildShowRankingRow(ctx, viewerUserId, args.showId),
+      ...followedIds.map((userId) => buildShowRankingRow(ctx, userId, args.showId)),
+    ]);
 
-        if (!userShow && !visit) return null;
-
-        const rawTier = userShow?.tier ?? null;
-        const isRanked =
-          rawTier !== null &&
-          rawTier !== "unranked" &&
-          (RANKED_TIERS as readonly string[]).includes(rawTier);
-
-        let tierRank: number | null = null;
-        let tierTotal: number | null = null;
-
-        if (isRanked) {
-          const rankings = await ctx.db
-            .query("userRankings")
-            .withIndex("by_user", (q) => q.eq("userId", userId))
-            .first();
-
-          if (rankings && rankings.showIds.includes(args.showId)) {
-            const userShows = await ctx.db
-              .query("userShows")
-              .withIndex("by_user", (q) => q.eq("userId", userId))
-              .collect();
-
-            const tierMap = new Map<string, string>();
-            for (const us of userShows) tierMap.set(us.showId, us.tier);
-
-            const inTier = rankings.showIds.filter(
-              (id) => tierMap.get(id) === rawTier
-            );
-            tierTotal = inTier.length;
-            const idx = inTier.indexOf(args.showId);
-            tierRank = idx >= 0 ? idx + 1 : null;
-          }
-        }
-
-        const user = await ctx.db.get(userId);
-        if (!user || !user.username) return null;
-
-        const avatarUrl = user.avatarImage
-          ? await ctx.storage.getUrl(user.avatarImage)
-          : null;
-
-        return {
-          userId: user._id,
-          username: user.username,
-          name: user.name ?? null,
-          avatarUrl,
-          tier: isRanked ? (rawTier as RankedTier) : null,
-          tierRank,
-          tierTotal,
-          hasVisit: visit !== null,
-        };
-      })
-    );
-
-    const filtered = rows.filter((r): r is NonNullable<typeof r> => r !== null);
+    const filtered = friendRows.filter((r): r is NonNullable<typeof r> => r !== null);
 
     filtered.sort((a, b) => {
       const ta = tierSortIndex(a.tier);
@@ -119,6 +126,6 @@ export const listForShow = query({
       return (a.name ?? a.username).localeCompare(b.name ?? b.username);
     });
 
-    return filtered;
+    return viewerRow ? [{ ...viewerRow, isCurrentUser: true }, ...filtered] : filtered;
   },
 });

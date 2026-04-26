@@ -1,5 +1,4 @@
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   LayoutChangeEvent,
@@ -14,7 +13,6 @@ import {
 import { ShowPlaceholder } from "@/components/ShowPlaceholder";
 import { Colors } from "@/constants/theme";
 import { showTypeChip, showTypeLabel } from "@/constants/showTypeColors";
-import type { Id } from "@/convex/_generated/dataModel";
 import { playbillMatBackground } from "@/features/browse/styles";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
@@ -46,23 +44,6 @@ function truncateForPreview(full: string, limit: number): string {
   return slice.trim();
 }
 
-type ListMembership = {
-  _id: string;
-  name: string;
-  systemKey?: string | null;
-  containsShow?: boolean;
-};
-
-// Uncategorized is auto-populated for everyone, so it's excluded from the count.
-function countNonUncategorizedMemberships(
-  lists: ListMembership[] | undefined,
-): number {
-  if (!lists) return 0;
-  return lists.filter(
-    (l) => l.containsShow && l.systemKey !== "uncategorized",
-  ).length;
-}
-
 interface ShowHeroSectionProps {
   show: {
     name: string;
@@ -71,27 +52,14 @@ interface ShowHeroSectionProps {
     description?: string | null;
   } | null | undefined;
   placeholderName?: string;
-  showId: Id<"shows"> | "";
   screenWidth: number;
-  onOpenListSheet: () => void;
-  onOpenTripSheet: () => void;
-  visitCount?: number;
-  listMemberships?: ListMembership[];
-  tripsContainingShowCount?: number;
 }
 
 export function ShowHeroSection({
   show,
   placeholderName,
-  showId,
   screenWidth,
-  onOpenListSheet,
-  onOpenTripSheet,
-  visitCount = 0,
-  listMemberships,
-  tripsContainingShowCount = 0,
 }: ShowHeroSectionProps) {
-  const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const c = Colors[theme];
@@ -241,70 +209,6 @@ export function ShowHeroSection({
         </View>
       )}
 
-      {/* Action buttons */}
-      <Pressable
-        style={[styles.primaryBtn, { backgroundColor: c.accent }]}
-        onPress={() => {
-          if (!showId) {
-            router.push("/add-visit");
-            return;
-          }
-          router.push({
-            pathname: "/add-visit",
-            params: {
-              showId: String(showId),
-              showName: show?.name ?? placeholderName ?? "",
-            },
-          });
-        }}
-      >
-        <Text style={[styles.primaryBtnText, { color: c.onAccent }]}>
-          {visitCount > 0 ? `Add Visit (${visitCount})` : "Add a Visit"}
-        </Text>
-      </Pressable>
-
-      <View style={styles.secondaryBtnRow}>
-        {(() => {
-          const listCount = countNonUncategorizedMemberships(listMemberships);
-          const label =
-            listCount > 0
-              ? `+ Add to List (${listCount})`
-              : "+ Add to List";
-          return (
-            <Pressable
-              style={[
-                styles.secondaryBtn,
-                { backgroundColor: c.accent + "18", borderColor: c.accent + "40" },
-              ]}
-              onPress={onOpenListSheet}
-            >
-              <Text style={[styles.secondaryBtnText, { color: c.accent }]}>
-                {label}
-              </Text>
-            </Pressable>
-          );
-        })()}
-        {(() => {
-          const tripCount = tripsContainingShowCount;
-          const label =
-            tripCount > 0
-              ? `+ Add to Trip (${tripCount})`
-              : "+ Add to Trip";
-          return (
-            <Pressable
-              style={[
-                styles.secondaryBtn,
-                { backgroundColor: c.accent + "18", borderColor: c.accent + "40" },
-              ]}
-              onPress={onOpenTripSheet}
-            >
-              <Text style={[styles.secondaryBtnText, { color: c.accent }]}>
-                {label}
-              </Text>
-            </Pressable>
-          );
-        })()}
-      </View>
     </>
   );
 }
@@ -317,11 +221,6 @@ const styles = StyleSheet.create({
   showName: { fontSize: 22, fontWeight: "800", lineHeight: 26 },
   typeBadge: { alignSelf: "flex-start", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
   typeBadgeText: { fontSize: 12, fontWeight: "700", letterSpacing: 0.3 },
-  primaryBtn: { borderRadius: 10, alignItems: "center", justifyContent: "center", paddingVertical: 13 },
-  primaryBtnText: { fontWeight: "700", fontSize: 15 },
-  secondaryBtnRow: { flexDirection: "row", gap: 10 },
-  secondaryBtn: { flex: 1, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingVertical: 11 },
-  secondaryBtnText: { fontWeight: "600", fontSize: 14 },
   heroTopBlock: { gap: 8 },
   descriptionWrap: { gap: 4, marginTop: 8 },
   descriptionOverflowWrap: { gap: 4, marginTop: 4 },

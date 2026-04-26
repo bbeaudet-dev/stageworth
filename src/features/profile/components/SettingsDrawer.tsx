@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -9,6 +9,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -39,6 +40,23 @@ type MenuRowProps = {
   surfaceColor: string;
   iconColor: string;
 };
+
+function MenuSection({
+  title,
+  children,
+  titleColor,
+}: {
+  title: string;
+  children: ReactNode;
+  titleColor: string;
+}) {
+  return (
+    <View style={styles.menuSection}>
+      <Text style={[styles.menuSectionTitle, { color: titleColor }]}>{title}</Text>
+      <View style={styles.menuSectionRows}>{children}</View>
+    </View>
+  );
+}
 
 function MenuRow({
   icon,
@@ -167,7 +185,6 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
               width: DRAWER_WIDTH,
               transform: [{ translateX }],
               paddingTop: insets.top,
-              paddingBottom: insets.bottom + 16,
             },
           ]}
         >
@@ -180,135 +197,171 @@ export function SettingsDrawer({ visible, onClose }: SettingsDrawerProps) {
           </View>
 
           <View style={styles.drawerBody}>
-            <View style={styles.menuList}>
-              <MenuRow
-                icon="person.fill"
-                label="Account Info"
-                onPress={() => navigate("/edit-profile")}
-                textColor={c.text}
-                mutedColor={c.mutedText}
-                borderColor={c.border}
-                surfaceColor={c.surfaceElevated}
-                iconColor={iconColor}
-              />
-            <MenuRow
-              icon="bell.fill"
-              label="Notifications"
-              onPress={() => navigate("/notification-preferences")}
-              textColor={c.text}
-              mutedColor={c.mutedText}
-              borderColor={c.border}
-              surfaceColor={c.surfaceElevated}
-              iconColor={iconColor}
-            />
-            <MenuRow
-              icon="theatermasks.fill"
-              label="Theatre Preferences"
-              onPress={() => navigate("/preferences")}
-              textColor={c.text}
-              mutedColor={c.mutedText}
-              borderColor={c.border}
-              surfaceColor={c.surfaceElevated}
-              iconColor={iconColor}
-            />
-            <MenuRow
-              icon="clock.arrow.circlepath"
-              label="Recommendation History"
-              onPress={() => navigate("/recommendation-history")}
-              textColor={c.text}
-              mutedColor={c.mutedText}
-              borderColor={c.border}
-              surfaceColor={c.surfaceElevated}
-              iconColor={iconColor}
-            />
-            <MenuRow
-              icon="person.fill.badge.plus"
-              label="Invite a Friend"
-              onPress={() => navigate("/invite-friend")}
-              textColor={c.text}
-              mutedColor={c.mutedText}
-              borderColor={c.border}
-              surfaceColor={c.surfaceElevated}
-              iconColor={iconColor}
-            />
-            <MenuRow
-              icon="hand.raised.fill"
-              label="Blocked Users"
-              onPress={() => navigate("/blocked-users")}
-              textColor={c.text}
-              mutedColor={c.mutedText}
-              borderColor={c.border}
-              surfaceColor={c.surfaceElevated}
-              iconColor={iconColor}
-            />
-            {Platform.OS === "ios" ? (
-              <MenuRow
-                icon="star.fill"
-                label="Rate Stageworth"
-                onPress={() => {
-                  onClose();
-                  // itms-apps:// opens the App Store review composer; if the user
-                  // is on a simulator or somehow can't open it, fall back to the
-                  // public listing in their browser/App Store.
-                  void Linking.openURL(APP_STORE_URLS.writeReview).catch(() => {
-                    void Linking.openURL(APP_STORE_URLS.listing);
-                  });
-                }}
-                textColor={c.text}
-                mutedColor={c.mutedText}
-                borderColor={c.border}
-                surfaceColor={c.surfaceElevated}
-                iconColor={iconColor}
-              />
-            ) : null}
-            <MenuRow
-              icon="shield"
-              label="Privacy Policy"
-              onPress={() => {
-                onClose();
-                void Linking.openURL(LEGAL_URLS.privacyPolicy);
-              }}
-              textColor={c.text}
-              mutedColor={c.mutedText}
-              borderColor={c.border}
-              surfaceColor={c.surfaceElevated}
-              iconColor={iconColor}
-            />
-            <MenuRow
-              icon="doc.text"
-              label="Terms of Service"
-              onPress={() => {
-                onClose();
-                void Linking.openURL(LEGAL_URLS.termsOfService);
-              }}
-              textColor={c.text}
-              mutedColor={c.mutedText}
-              borderColor={c.border}
-              surfaceColor={c.surfaceElevated}
-              iconColor={iconColor}
-            />
-            </View>
+            <ScrollView
+              style={styles.menuScroll}
+              contentContainerStyle={styles.menuScrollContent}
+              showsVerticalScrollIndicator
+              keyboardShouldPersistTaps="handled"
+              bounces
+            >
+              <View style={styles.menuList}>
+              <MenuSection title="Preferences" titleColor={c.mutedText}>
+                <MenuRow
+                  icon="person.fill"
+                  label="Account Info"
+                  onPress={() => navigate("/edit-profile")}
+                  textColor={c.text}
+                  mutedColor={c.mutedText}
+                  borderColor={c.border}
+                  surfaceColor={c.surfaceElevated}
+                  iconColor={iconColor}
+                />
+                <MenuRow
+                  icon="bell.fill"
+                  label="Notifications"
+                  onPress={() => navigate("/notification-preferences")}
+                  textColor={c.text}
+                  mutedColor={c.mutedText}
+                  borderColor={c.border}
+                  surfaceColor={c.surfaceElevated}
+                  iconColor={iconColor}
+                />
+                <MenuRow
+                  icon="theatermasks.fill"
+                  label="Theatre Preferences"
+                  onPress={() => navigate("/preferences")}
+                  textColor={c.text}
+                  mutedColor={c.mutedText}
+                  borderColor={c.border}
+                  surfaceColor={c.surfaceElevated}
+                  iconColor={iconColor}
+                />
+              </MenuSection>
 
-            {/* Account info */}
-            <View style={[styles.accountCard, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
-              <Text style={[styles.signedInLabel, { color: c.mutedText }]}>Signed in as</Text>
-              {myProfile?.username ? (
-                <Text style={[styles.accountUsername, { color: c.text }]}>@{myProfile.username}</Text>
-              ) : null}
-              <Text style={[styles.accountEmail, { color: c.mutedText }]}>
-                {session?.user?.email ?? ""}
-              </Text>
-              <Pressable
-                style={[styles.signOutBtn, { borderColor: c.danger, opacity: isSigningOut ? 0.6 : 1 }]}
-                onPress={handleSignOut}
-                disabled={isSigningOut}
-              >
-                {isSigningOut ? (
-                  <ActivityIndicator size="small" color={c.danger} />
-                ) : (
-                  <Text style={[styles.signOutBtnText, { color: c.danger }]}>Sign Out</Text>
-                )}
-              </Pressable>
+              <MenuSection title="History" titleColor={c.mutedText}>
+                <MenuRow
+                  icon="clock.arrow.circlepath"
+                  label="Recommendation History"
+                  onPress={() => navigate("/recommendation-history")}
+                  textColor={c.text}
+                  mutedColor={c.mutedText}
+                  borderColor={c.border}
+                  surfaceColor={c.surfaceElevated}
+                  iconColor={iconColor}
+                />
+                <MenuRow
+                  icon="list.number"
+                  label="Ranking History"
+                  onPress={() => navigate("/ranking-history")}
+                  textColor={c.text}
+                  mutedColor={c.mutedText}
+                  borderColor={c.border}
+                  surfaceColor={c.surfaceElevated}
+                  iconColor={iconColor}
+                />
+              </MenuSection>
+
+              <MenuSection title="People" titleColor={c.mutedText}>
+                <MenuRow
+                  icon="person.fill.badge.plus"
+                  label="Invite a Friend"
+                  onPress={() => navigate("/invite-friend")}
+                  textColor={c.text}
+                  mutedColor={c.mutedText}
+                  borderColor={c.border}
+                  surfaceColor={c.surfaceElevated}
+                  iconColor={iconColor}
+                />
+                <MenuRow
+                  icon="hand.raised.fill"
+                  label="Blocked Users"
+                  onPress={() => navigate("/blocked-users")}
+                  textColor={c.text}
+                  mutedColor={c.mutedText}
+                  borderColor={c.border}
+                  surfaceColor={c.surfaceElevated}
+                  iconColor={iconColor}
+                />
+              </MenuSection>
+
+              <MenuSection title="About" titleColor={c.mutedText}>
+                {Platform.OS === "ios" ? (
+                  <MenuRow
+                    icon="star.fill"
+                    label="Rate Stageworth"
+                    onPress={() => {
+                      onClose();
+                      // itms-apps:// opens the App Store review composer; if the user
+                      // is on a simulator or somehow can't open it, fall back to the
+                      // public listing in their browser/App Store.
+                      void Linking.openURL(APP_STORE_URLS.writeReview).catch(() => {
+                        void Linking.openURL(APP_STORE_URLS.listing);
+                      });
+                    }}
+                    textColor={c.text}
+                    mutedColor={c.mutedText}
+                    borderColor={c.border}
+                    surfaceColor={c.surfaceElevated}
+                    iconColor={iconColor}
+                  />
+                ) : null}
+                <MenuRow
+                  icon="shield"
+                  label="Privacy Policy"
+                  onPress={() => {
+                    onClose();
+                    void Linking.openURL(LEGAL_URLS.privacyPolicy);
+                  }}
+                  textColor={c.text}
+                  mutedColor={c.mutedText}
+                  borderColor={c.border}
+                  surfaceColor={c.surfaceElevated}
+                  iconColor={iconColor}
+                />
+                <MenuRow
+                  icon="doc.text"
+                  label="Terms of Service"
+                  onPress={() => {
+                    onClose();
+                    void Linking.openURL(LEGAL_URLS.termsOfService);
+                  }}
+                  textColor={c.text}
+                  mutedColor={c.mutedText}
+                  borderColor={c.border}
+                  surfaceColor={c.surfaceElevated}
+                  iconColor={iconColor}
+                />
+              </MenuSection>
+              </View>
+            </ScrollView>
+
+            {/* Account info — safe-area padding only here so nothing stacks under Sign out */}
+            <View
+              style={[
+                styles.accountFooter,
+                { paddingBottom: Math.max(insets.bottom, 10) },
+              ]}
+            >
+              <View style={[styles.accountCard, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
+                <Text style={[styles.signedInLabel, { color: c.mutedText }]}>Signed in as</Text>
+                {myProfile?.username ? (
+                  <Text style={[styles.accountUsername, { color: c.text }]}>@{myProfile.username}</Text>
+                ) : null}
+                <Text style={[styles.accountEmail, { color: c.mutedText }]}>
+                  {session?.user?.email ?? ""}
+                </Text>
+                <Pressable
+                  style={[styles.signOutBtn, { borderColor: c.danger, opacity: isSigningOut ? 0.6 : 1 }]}
+                  onPress={handleSignOut}
+                  disabled={isSigningOut}
+                >
+                  {isSigningOut ? (
+                    <ActivityIndicator size="small" color={c.danger} />
+                  ) : (
+                    <Text style={[styles.signOutBtnText, { color: c.danger }]}>Sign Out</Text>
+                  )}
+                </Pressable>
+              </View>
             </View>
           </View>
         </Animated.View>
@@ -348,7 +401,14 @@ const styles = StyleSheet.create({
   },
   drawerBody: {
     flex: 1,
-    justifyContent: "space-between",
+    minHeight: 0,
+  },
+  menuScroll: {
+    flex: 1,
+    minHeight: 0,
+  },
+  menuScrollContent: {
+    paddingBottom: 12,
   },
   closeBtn: {
     padding: 4,
@@ -357,11 +417,16 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
   },
+  accountFooter: {
+    flexShrink: 0,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
   accountCard: {
-    marginHorizontal: 16,
-    marginBottom: 8,
     borderRadius: 14,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
     borderWidth: StyleSheet.hairlineWidth,
     gap: 3,
   },
@@ -394,8 +459,23 @@ const styles = StyleSheet.create({
   },
   menuList: {
     paddingHorizontal: 16,
-    gap: 8,
+    gap: 20,
     marginTop: 16,
+    paddingBottom: 8,
+  },
+  menuSection: {
+    gap: 8,
+  },
+  menuSectionTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    marginBottom: 2,
+    marginLeft: 2,
+  },
+  menuSectionRows: {
+    gap: 8,
   },
   menuRow: {
     flexDirection: "row",

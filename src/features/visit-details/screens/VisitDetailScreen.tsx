@@ -226,8 +226,19 @@ export default function VisitDetailScreen() {
           <Text style={[styles.emptyText, { color: c.mutedText }]}>Visit not found.</Text>
         ) : (
           <>
-            <View
+            <Pressable
               style={[styles.showHero, { backgroundColor: playbillMatBackground(theme) }]}
+              onPress={() =>
+                router.push({
+                  pathname: "/show/[showId]",
+                  params: {
+                    showId: String(visit.showId),
+                    name: visit.show?.name ?? "Unknown Show",
+                  },
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`Open show details for ${visit.show?.name ?? "this show"}`}
             >
               {visit.show?.images[0] ? (
                 <Image
@@ -246,7 +257,7 @@ export default function VisitDetailScreen() {
                   </Text>
                 )}
               </View>
-            </View>
+            </Pressable>
 
             {isPendingParticipant ? (
               <Pressable

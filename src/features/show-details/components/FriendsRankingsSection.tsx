@@ -26,6 +26,7 @@ type Row = {
   tierRank: number | null;
   tierTotal: number | null;
   hasVisit: boolean;
+  isCurrentUser?: boolean;
 };
 
 export function FriendsRankingsSection({ showId, isSignedIn }: Props) {
@@ -38,14 +39,16 @@ export function FriendsRankingsSection({ showId, isSignedIn }: Props) {
     isSignedIn && showId ? { showId: showId as Id<"shows"> } : "skip"
   ) as Row[] | undefined;
 
-  const { ranked, unranked } = useMemo(() => {
+  const { currentUserRow, ranked, unranked } = useMemo(() => {
+    const current = rows?.find((row) => row.isCurrentUser) ?? null;
     const r: Row[] = [];
     const u: Row[] = [];
     for (const row of rows ?? []) {
+      if (row.isCurrentUser) continue;
       if (row.tier) r.push(row);
       else u.push(row);
     }
-    return { ranked: r, unranked: u };
+    return { currentUserRow: current, ranked: r, unranked: u };
   }, [rows]);
 
   if (!rows || rows.length === 0) return null;
@@ -58,14 +61,22 @@ export function FriendsRankingsSection({ showId, isSignedIn }: Props) {
       ]}
     >
       <Text style={[styles.sectionTitle, { color: c.mutedText }]}>
-        What Your Friends Think
+        Your Circle
       </Text>
+
+      {currentUserRow ? (
+        <FriendRow
+          row={currentUserRow}
+          isFirst
+          onPress={() => {}}
+        />
+      ) : null}
 
       {ranked.map((row, idx) => (
         <FriendRow
           key={String(row.userId)}
           row={row}
-          isFirst={idx === 0}
+          isFirst={!currentUserRow && idx === 0}
           onPress={() =>
             router.push({
               pathname: "/user/[username]",
@@ -120,14 +131,15 @@ function FriendRow({
 
   const displayName = row.name?.trim() || row.username;
   const tierEntry = row.tier ? RANKED_TIER_COLORS[row.tier] : null;
+  const isCurrentUser = row.isCurrentUser === true;
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={isCurrentUser ? undefined : onPress}
       style={({ pressed }) => [
         styles.row,
         !isFirst && { borderTopColor: c.border, borderTopWidth: StyleSheet.hairlineWidth },
-        { opacity: pressed ? 0.7 : 1 },
+        { opacity: pressed && !isCurrentUser ? 0.7 : 1 },
       ]}
     >
       <View style={[styles.avatar, { backgroundColor: c.accent + "22" }]}>
@@ -146,11 +158,17 @@ function FriendRow({
 
       <View style={styles.identity}>
         <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>
-          {displayName}
+          {isCurrentUser ? "You" : displayName}
         </Text>
-        <Text style={[styles.handle, { color: c.mutedText }]} numberOfLines={1}>
-          @{row.username}
-        </Text>
+        {isCurrentUser ? (
+          <Text style={[styles.handle, { color: c.mutedText }]} numberOfLines={1}>
+            {displayName}
+          </Text>
+        ) : (
+          <Text style={[styles.handle, { color: c.mutedText }]} numberOfLines={1}>
+            @{row.username}
+          </Text>
+        )}
       </View>
 
       <View style={styles.rankCol}>

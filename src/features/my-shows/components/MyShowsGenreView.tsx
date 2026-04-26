@@ -20,8 +20,6 @@ const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 10 } as const;
 
 export function MyShowsGenreView({
   items,
-  expandedShowId,
-  setExpandedShowId,
   pendingRemoveIds,
   onRemoveShow,
   onOpenShowDetails,
@@ -29,8 +27,6 @@ export function MyShowsGenreView({
   showCategoryNav = false,
 }: {
   items: GenreListItem[];
-  expandedShowId: Id<"shows"> | null;
-  setExpandedShowId: (id: Id<"shows"> | null) => void;
   pendingRemoveIds: Set<Id<"shows">>;
   onRemoveShow: (showId: Id<"shows">) => void;
   onOpenShowDetails: (show: RankedShow) => void;
@@ -111,25 +107,20 @@ export function MyShowsGenreView({
           index={0}
           rankLabel={item.rankLabel}
           tierHeader={null}
-          isExpanded={expandedShowId === item.show._id}
           isRemoving={pendingRemoveIds.has(item.show._id)}
-          onToggle={() =>
-            setExpandedShowId(expandedShowId === item.show._id ? null : item.show._id)
-          }
           onViewShowDetails={() => onOpenShowDetails(item.show)}
           onRemove={() => onRemoveShow(item.show._id)}
           drag={NOOP}
           isActive={false}
           hideDragHandle
+          disableRemoveActions
         />
       );
     },
     [
-      expandedShowId,
       onOpenShowDetails,
       onRemoveShow,
       pendingRemoveIds,
-      setExpandedShowId,
       theme,
     ]
   );

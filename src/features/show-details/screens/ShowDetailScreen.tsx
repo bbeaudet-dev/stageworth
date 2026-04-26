@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -17,6 +17,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Colors } from "@/constants/theme";
 import { useToast } from "@/components/Toast";
+import { IconSymbol, type IconSymbolName } from "@/components/ui/icon-symbol";
 import { BroadwayShowtimesGrid } from "@/components/BroadwayShowtimesGrid";
 import { CatalogFeedbackLink } from "@/components/CatalogFeedbackLink";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -30,10 +31,22 @@ import { ShowRecommendationBlock } from "@/features/show-details/components/Show
 import { ShowScoreBadgeRow } from "@/features/show-details/components/ShowScoreBadge";
 
 const today = () => new Date().toISOString().split("T")[0];
+const ACTION_BAR_HEIGHT = 78;
+
+type ListMembership = {
+  systemKey?: string | null;
+  containsShow?: boolean;
+};
+
+function countNonUncategorizedMemberships(lists: ListMembership[] | undefined): number {
+  if (!lists) return 0;
+  return lists.filter((list) => list.containsShow && list.systemKey !== "uncategorized").length;
+}
 
 export default function ShowDetailScreen() {
   const params = useLocalSearchParams<{ showId?: string; name?: string }>();
   const showId = (params.showId ?? "") as Id<"shows">;
+  const router = useRouter();
 
   const {
     session,
@@ -43,8 +56,6 @@ export default function ShowDetailScreen() {
     allLists,
     activeTrips,
     broadwayShowtimes,
-    personalRank,
-    myTier,
     addShowToList,
     addShowToTrip,
     removeShowFromTrip,
@@ -69,6 +80,23 @@ export default function ShowDetailScreen() {
   const [optimisticallyOutOfTrips, setOptimisticallyOutOfTrips] = useState<Set<string>>(new Set());
 
   const todayStr = today();
+  const visitCount = visits?.length ?? 0;
+  const listCount = countNonUncategorizedMemberships(allLists);
+  const tripCount = activeTrips.filter((t) => t.containsShow).length;
+
+  const openAddVisit = () => {
+    if (!showId) {
+      router.push("/add-visit");
+      return;
+    }
+    router.push({
+      pathname: "/add-visit",
+      params: {
+        showId: String(showId),
+        showName: show?.name ?? params.name ?? "",
+      },
+    });
+  };
 
   async function handleToggleList(listId: Id<"userLists">, listName: string, alreadyIn: boolean) {
     if (!showId || busyListId) return;
@@ -162,19 +190,16 @@ export default function ShowDetailScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={["bottom"]}>
       <Stack.Screen options={{ title: show?.name ?? (params.name ?? "Show"), headerShown: true, headerBackButtonDisplayMode: "minimal" }} />
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 32 + insets.bottom }]}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: ACTION_BAR_HEIGHT + 24 + insets.bottom },
+        ]}
+      >
         <ShowHeroSection
           show={show}
           placeholderName={params.name}
-          showId={showId}
           screenWidth={screenWidth}
-          onOpenListSheet={() => setListSheetOpen(true)}
-          onOpenTripSheet={() => setTripSheetOpen(true)}
-          visitCount={visits?.length ?? 0}
-          listMemberships={allLists}
-          tripsContainingShowCount={
-            activeTrips.filter((t) => t.containsShow).length
-          }
         />
 
         <ProductionsRail productions={productions} todayStr={todayStr} />
@@ -193,7 +218,7 @@ export default function ShowDetailScreen() {
           </View>
         ) : null}
 
-        <ShowVisitsList visits={visits} personalRank={personalRank} myTier={myTier} />
+        <ShowVisitsList visits={visits} />
 
         <FriendsRankingsSection showId={showId} isSignedIn={!!session} />
 
@@ -219,6 +244,40 @@ export default function ShowDetailScreen() {
           placeholder="What should we fix?"
         />
       </ScrollView>
+
+      <View
+        style={[
+          styles.actionBar,
+          {
+            backgroundColor: c.surfaceElevated,
+            borderColor: c.border,
+            bottom: insets.bottom + 10,
+          },
+        ]}
+      >
+        <ShowActionButton
+          icon="plus.circle.fill"
+          label={visitCount > 0 ? `Visit (${visitCount})` : "Visit"}
+          onPress={openAddVisit}
+          color={c.accent}
+          textColor={c.onAccent}
+          primary
+        />
+        <ShowActionButton
+          icon="list.bullet"
+          label={listCount > 0 ? `List (${listCount})` : "List"}
+          onPress={() => setListSheetOpen(true)}
+          color={c.accent}
+          textColor={c.accent}
+        />
+        <ShowActionButton
+          icon="airplane"
+          label={tripCount > 0 ? `Trip (${tripCount})` : "Trip"}
+          onPress={() => setTripSheetOpen(true)}
+          color={c.accent}
+          textColor={c.accent}
+        />
+      </View>
 
       <Modal visible={listSheetOpen} transparent animationType="slide" onRequestClose={() => setListSheetOpen(false)}>
         <Pressable style={styles.sheetOverlay} onPress={() => setListSheetOpen(false)} />
@@ -307,6 +366,40 @@ export default function ShowDetailScreen() {
   );
 }
 
+function ShowActionButton({
+  icon,
+  label,
+  onPress,
+  color,
+  textColor,
+  primary = false,
+}: {
+  icon: IconSymbolName;
+  label: string;
+  onPress: () => void;
+  color: string;
+  textColor: string;
+  primary?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.actionButton,
+        primary
+          ? { backgroundColor: color, borderColor: color }
+          : { backgroundColor: color + "18", borderColor: color + "40" },
+        { opacity: pressed ? 0.72 : 1 },
+      ]}
+    >
+      <IconSymbol name={icon} size={18} color={textColor} />
+      <Text style={[styles.actionButtonText, { color: textColor }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, gap: 12 },
@@ -323,4 +416,36 @@ const styles = StyleSheet.create({
   sheetRowCount: { fontSize: 14, fontWeight: "500" },
   sheetRowCheck: { fontSize: 19, fontWeight: "700" },
   sheetRowChevron: { fontSize: 18, fontWeight: "300" },
+  actionBar: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    minHeight: ACTION_BAR_HEIGHT,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 7,
+  },
+  actionButton: {
+    flex: 1,
+    minWidth: 0,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    paddingHorizontal: 4,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
 });

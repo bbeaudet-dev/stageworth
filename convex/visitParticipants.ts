@@ -150,6 +150,7 @@ export const acceptVisitTag = mutation({
       selectedTier: args.selectedTier,
       completedInsertionIndex: args.completedInsertionIndex,
       keepCurrentRanking: args.keepCurrentRanking,
+      snapshotSource: "accept_visit",
     });
 
     const trimmedNotes = args.notes?.trim();

@@ -1,7 +1,9 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
+import { createRankingSnapshot } from "./rankingSnapshots";
 
 const TIER_ORDER = ["loved", "liked", "okay", "disliked", "unranked"] as const;
 type Tier = (typeof TIER_ORDER)[number];
@@ -214,6 +216,51 @@ const rankedTierValidator = v.union(
   v.literal("disliked")
 );
 
+function buildRankMap(showIds: Id<"shows">[]) {
+  return new Map(showIds.map((showId, index) => [showId, index + 1]));
+}
+
+function getRankingChangeSummary({
+  previousShowIds,
+  nextShowIds,
+  previousTierByShowId,
+  nextTierByShowId,
+  removedShowIds,
+  removedVisitCount = 0,
+}: {
+  previousShowIds: Id<"shows">[];
+  nextShowIds: Id<"shows">[];
+  previousTierByShowId: Map<Id<"shows">, Tier>;
+  nextTierByShowId: Map<Id<"shows">, Tier>;
+  removedShowIds?: Id<"shows">[];
+  removedVisitCount?: number;
+}) {
+  const previousRankMap = buildRankMap(previousShowIds);
+  const nextRankMap = buildRankMap(nextShowIds);
+  const previousShowIdSet = new Set(previousShowIds);
+  const removedShowIdSet = new Set(removedShowIds ?? []);
+
+  const addedShowIds = nextShowIds.filter((showId) => !previousShowIdSet.has(showId));
+  const reorderedShowIds = nextShowIds.filter((showId) => {
+    if (!previousShowIdSet.has(showId)) return false;
+    if (removedShowIdSet.has(showId)) return false;
+    return (
+      previousRankMap.get(showId) !== nextRankMap.get(showId) ||
+      previousTierByShowId.get(showId) !== nextTierByShowId.get(showId)
+    );
+  });
+
+  return {
+    addedShowIds,
+    removedShowIds: removedShowIds ?? [],
+    reorderedShowIds,
+    addedCount: addedShowIds.length,
+    removedCount: removedShowIds?.length ?? 0,
+    reorderedCount: reorderedShowIds.length,
+    removedVisitCount,
+  };
+}
+
 export const addShow = mutation({
   args: {
     showId: v.id("shows"),
@@ -234,6 +281,7 @@ export const addShow = mutation({
       throw new Error("Show already in rankings");
     }
 
+    const previousShowIds = rankings.showIds;
     const newShowIds = [...rankings.showIds];
     const clampedPosition = Math.max(
       0,
@@ -248,6 +296,17 @@ export const addShow = mutation({
       showId: args.showId,
       tier: args.tier,
       addedAt: Date.now(),
+    });
+
+    await createRankingSnapshot(ctx, {
+      userId,
+      source: "direct_ranking",
+      changeSummary: getRankingChangeSummary({
+        previousShowIds,
+        nextShowIds: newShowIds,
+        previousTierByShowId: new Map(),
+        nextTierByShowId: new Map([[args.showId, args.tier as Tier]]),
+      }),
     });
 
     return { rank: clampedPosition + 1 };
@@ -266,6 +325,12 @@ export const removeShow = mutation({
 
     if (!rankings) throw new Error("Rankings not found");
 
+    const visits = await ctx.db
+      .query("visits")
+      .withIndex("by_user_show", (q) =>
+        q.eq("userId", userId).eq("showId", args.showId)
+      )
+      .collect();
     const newShowIds = rankings.showIds.filter((id) => id !== args.showId);
     await ctx.db.patch(rankings._id, { showIds: newShowIds });
 
@@ -278,14 +343,19 @@ export const removeShow = mutation({
 
     if (userShow) await ctx.db.delete(userShow._id);
 
-    const visits = await ctx.db
-      .query("visits")
-      .withIndex("by_user_show", (q) =>
-        q.eq("userId", userId).eq("showId", args.showId)
-      )
-      .collect();
-
     await Promise.all(visits.map((v) => ctx.db.delete(v._id)));
+    await createRankingSnapshot(ctx, {
+      userId,
+      source: "direct_ranking",
+      changeSummary: getRankingChangeSummary({
+        previousShowIds: rankings.showIds,
+        nextShowIds: newShowIds,
+        previousTierByShowId: new Map(userShow ? [[args.showId, userShow.tier as Tier]] : []),
+        nextTierByShowId: new Map(),
+        removedShowIds: [args.showId],
+        removedVisitCount: visits.length,
+      }),
+    });
   },
 });
 
@@ -307,6 +377,14 @@ export const reorder = mutation({
     const currentIndex = rankings.showIds.indexOf(args.showId);
     if (currentIndex === -1) throw new Error("Show not in rankings");
 
+    const allUserShowsBefore = await ctx.db
+      .query("userShows")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const previousTierByShowId = new Map(
+      allUserShowsBefore.map((userShow) => [userShow.showId, userShow.tier as Tier])
+    );
+
     const newShowIds = [...rankings.showIds];
     newShowIds.splice(currentIndex, 1);
     const clampedPosition = Math.max(
@@ -325,13 +403,7 @@ export const reorder = mutation({
       .first();
 
     if (movedUserShow) {
-      const allUserShows = await ctx.db
-        .query("userShows")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .collect();
-      const tierByShowId = new Map(
-        allUserShows.map((userShow) => [userShow.showId, userShow.tier as Tier])
-      );
+      const tierByShowId = new Map(previousTierByShowId);
 
       const previousShowId =
         clampedPosition > 0 ? newShowIds[clampedPosition - 1] : null;
@@ -348,7 +420,29 @@ export const reorder = mutation({
       const targetTier = nextTier ?? previousTier ?? movedUserShow.tier;
       if (targetTier !== movedUserShow.tier) {
         await ctx.db.patch(movedUserShow._id, { tier: targetTier });
+        tierByShowId.set(args.showId, targetTier as Tier);
       }
+      await createRankingSnapshot(ctx, {
+        userId,
+        source: "direct_ranking",
+        changeSummary: getRankingChangeSummary({
+          previousShowIds: rankings.showIds,
+          nextShowIds: newShowIds,
+          previousTierByShowId,
+          nextTierByShowId: tierByShowId,
+        }),
+      });
+    } else {
+      await createRankingSnapshot(ctx, {
+        userId,
+        source: "direct_ranking",
+        changeSummary: getRankingChangeSummary({
+          previousShowIds: rankings.showIds,
+          nextShowIds: newShowIds,
+          previousTierByShowId,
+          nextTierByShowId: previousTierByShowId,
+        }),
+      });
     }
 
     return { rank: clampedPosition + 1 };
@@ -372,7 +466,16 @@ export const updateTier = mutation({
 
     if (!userShow) throw new Error("Show not found in user's list");
 
+    if (userShow.tier === args.tier) return;
     await ctx.db.patch(userShow._id, { tier: args.tier });
+    await createRankingSnapshot(ctx, {
+      userId,
+      source: "direct_ranking",
+      changeSummary: {
+        reorderedShowIds: [args.showId],
+        reorderedCount: 1,
+      },
+    });
   },
 });
 
@@ -393,6 +496,13 @@ export const rankUnrankedShow = mutation({
     if (rankings.showIds.includes(args.showId)) {
       throw new Error("Show is already ranked");
     }
+    const userShowsBefore = await ctx.db
+      .query("userShows")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const previousTierByShowId = new Map(
+      userShowsBefore.map((userShow) => [userShow.showId, userShow.tier as Tier])
+    );
 
     const userShow = await ctx.db
       .query("userShows")
@@ -411,6 +521,18 @@ export const rankUnrankedShow = mutation({
 
     await ctx.db.patch(rankings._id, { showIds: nextShowIds });
     await ctx.db.patch(userShow._id, { tier: args.tier as RankedTier });
+    const nextTierByShowId = new Map(previousTierByShowId);
+    nextTierByShowId.set(args.showId, args.tier as RankedTier);
+    await createRankingSnapshot(ctx, {
+      userId,
+      source: "direct_ranking",
+      changeSummary: getRankingChangeSummary({
+        previousShowIds: rankings.showIds,
+        nextShowIds,
+        previousTierByShowId,
+        nextTierByShowId,
+      }),
+    });
 
     return { rank: clampedPosition + 1 };
   },
@@ -431,6 +553,13 @@ export const unrankShow = mutation({
     if (!rankings.showIds.includes(args.showId)) return;
 
     const nextShowIds = rankings.showIds.filter((id) => id !== args.showId);
+    const userShowsBefore = await ctx.db
+      .query("userShows")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const previousTierByShowId = new Map(
+      userShowsBefore.map((userShow) => [userShow.showId, userShow.tier as Tier])
+    );
     await ctx.db.patch(rankings._id, { showIds: nextShowIds });
 
     const userShow = await ctx.db
@@ -442,6 +571,18 @@ export const unrankShow = mutation({
     if (userShow) {
       await ctx.db.patch(userShow._id, { tier: "unranked" });
     }
+    const nextTierByShowId = new Map(previousTierByShowId);
+    nextTierByShowId.set(args.showId, "unranked");
+    await createRankingSnapshot(ctx, {
+      userId,
+      source: "direct_ranking",
+      changeSummary: getRankingChangeSummary({
+        previousShowIds: rankings.showIds,
+        nextShowIds,
+        previousTierByShowId,
+        nextTierByShowId,
+      }),
+    });
   },
 });
 
@@ -471,10 +612,153 @@ export const updateSpecialLinePosition = mutation({
 
     if (args.line === "wouldSeeAgain") {
       await ctx.db.patch(rankings._id, { wouldSeeAgainLineIndex: clampedPosition });
+      await createRankingSnapshot(ctx, {
+        userId,
+        source: "direct_ranking",
+      });
       return;
     }
 
     await ctx.db.patch(rankings._id, { stayedHomeLineIndex: clampedPosition });
+    await createRankingSnapshot(ctx, {
+      userId,
+      source: "direct_ranking",
+    });
+  },
+});
+
+export const saveSnapshot = mutation({
+  args: {
+    rankedShowIds: v.array(v.id("shows")),
+    tiers: v.array(
+      v.object({
+        showId: v.id("shows"),
+        tier: tierValidator,
+      })
+    ),
+    removedShowIds: v.optional(v.array(v.id("shows"))),
+    wouldSeeAgainLineIndex: v.number(),
+    stayedHomeLineIndex: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+    const rankings = await ctx.db
+      .query("userRankings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!rankings) throw new Error("Rankings not found");
+
+    const userShows = await ctx.db
+      .query("userShows")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const userShowByShowId = new Map(
+      userShows.map((userShow) => [userShow.showId, userShow])
+    );
+    const previousTierByShowId = new Map(
+      userShows.map((userShow) => [userShow.showId, userShow.tier as Tier])
+    );
+
+    const removedShowIds = args.removedShowIds ?? [];
+    const removedShowIdSet = new Set<string>();
+    for (const showId of removedShowIds) {
+      if (removedShowIdSet.has(showId)) throw new Error("Duplicate removed show");
+      removedShowIdSet.add(showId);
+      if (!userShowByShowId.has(showId)) {
+        throw new Error("Removed show does not belong to user");
+      }
+    }
+
+    const seenRankedIds = new Set<string>();
+    for (const showId of args.rankedShowIds) {
+      if (seenRankedIds.has(showId)) throw new Error("Duplicate ranked show");
+      seenRankedIds.add(showId);
+      if (removedShowIdSet.has(showId)) throw new Error("Removed show cannot be ranked");
+      if (!userShowByShowId.has(showId)) {
+        throw new Error("Ranked show does not belong to user");
+      }
+    }
+
+    const tierByShowId = new Map(args.tiers.map((entry) => [entry.showId, entry.tier]));
+    for (const showId of args.rankedShowIds) {
+      const tier = tierByShowId.get(showId);
+      if (!tier || tier === "unranked") {
+        throw new Error("Ranked show cannot have unranked tier");
+      }
+    }
+
+    const nextShowIds = args.rankedShowIds;
+    const removedVisitCount = (
+      await Promise.all(
+        removedShowIds.map(async (showId) => {
+          const visits = await ctx.db
+            .query("visits")
+            .withIndex("by_user_show", (q) =>
+              q.eq("userId", userId).eq("showId", showId)
+            )
+            .collect();
+          return visits.length;
+        })
+      )
+    ).reduce((total, count) => total + count, 0);
+    const nextTierByShowId = new Map(previousTierByShowId);
+    for (const { showId, tier } of args.tiers) {
+      if (removedShowIdSet.has(showId)) nextTierByShowId.delete(showId);
+      else nextTierByShowId.set(showId, tier as Tier);
+    }
+    for (const showId of removedShowIds) nextTierByShowId.delete(showId);
+    const changeSummary = getRankingChangeSummary({
+      previousShowIds: rankings.showIds,
+      nextShowIds,
+      previousTierByShowId,
+      nextTierByShowId,
+      removedShowIds,
+      removedVisitCount,
+    });
+    const maxLinePosition = nextShowIds.length;
+    await ctx.db.patch(rankings._id, {
+      showIds: nextShowIds,
+      wouldSeeAgainLineIndex: Math.max(
+        0,
+        Math.min(args.wouldSeeAgainLineIndex, maxLinePosition)
+      ),
+      stayedHomeLineIndex: Math.max(
+        0,
+        Math.min(args.stayedHomeLineIndex, maxLinePosition)
+      ),
+    });
+
+    await Promise.all(
+      args.tiers.map(async ({ showId, tier }) => {
+        if (removedShowIdSet.has(showId)) return;
+        const userShow = userShowByShowId.get(showId);
+        if (!userShow) throw new Error("Tiered show does not belong to user");
+        if (userShow.tier !== tier) {
+          await ctx.db.patch(userShow._id, { tier });
+        }
+      })
+    );
+
+    await Promise.all(
+      removedShowIds.map(async (showId) => {
+        const userShow = userShowByShowId.get(showId);
+        if (userShow) await ctx.db.delete(userShow._id);
+
+        const visits = await ctx.db
+          .query("visits")
+          .withIndex("by_user_show", (q) =>
+            q.eq("userId", userId).eq("showId", showId)
+          )
+          .collect();
+        await Promise.all(visits.map((visit) => ctx.db.delete(visit._id)));
+      })
+    );
+    await createRankingSnapshot(ctx, {
+      userId,
+      source: "my_shows_save",
+      changeSummary,
+    });
   },
 });
 
