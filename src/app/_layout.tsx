@@ -110,6 +110,10 @@ export default function RootLayout() {
                     options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
                   />
                   <Stack.Screen
+                    name="ranking-history"
+                    options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+                  />
+                  <Stack.Screen
                     name="find-show"
                     options={{ presentation: "modal", headerShown: false }}
                   />
