@@ -478,6 +478,106 @@ export const updateSpecialLinePosition = mutation({
   },
 });
 
+export const saveSnapshot = mutation({
+  args: {
+    rankedShowIds: v.array(v.id("shows")),
+    tiers: v.array(
+      v.object({
+        showId: v.id("shows"),
+        tier: tierValidator,
+      })
+    ),
+    removedShowIds: v.optional(v.array(v.id("shows"))),
+    wouldSeeAgainLineIndex: v.number(),
+    stayedHomeLineIndex: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireConvexUserId(ctx);
+    const rankings = await ctx.db
+      .query("userRankings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!rankings) throw new Error("Rankings not found");
+
+    const userShows = await ctx.db
+      .query("userShows")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const userShowByShowId = new Map(
+      userShows.map((userShow) => [userShow.showId, userShow])
+    );
+
+    const removedShowIds = args.removedShowIds ?? [];
+    const removedShowIdSet = new Set<string>();
+    for (const showId of removedShowIds) {
+      if (removedShowIdSet.has(showId)) throw new Error("Duplicate removed show");
+      removedShowIdSet.add(showId);
+      if (!userShowByShowId.has(showId)) {
+        throw new Error("Removed show does not belong to user");
+      }
+    }
+
+    const seenRankedIds = new Set<string>();
+    for (const showId of args.rankedShowIds) {
+      if (seenRankedIds.has(showId)) throw new Error("Duplicate ranked show");
+      seenRankedIds.add(showId);
+      if (removedShowIdSet.has(showId)) throw new Error("Removed show cannot be ranked");
+      if (!userShowByShowId.has(showId)) {
+        throw new Error("Ranked show does not belong to user");
+      }
+    }
+
+    const tierByShowId = new Map(args.tiers.map((entry) => [entry.showId, entry.tier]));
+    for (const showId of args.rankedShowIds) {
+      const tier = tierByShowId.get(showId);
+      if (!tier || tier === "unranked") {
+        throw new Error("Ranked show cannot have unranked tier");
+      }
+    }
+
+    const nextShowIds = args.rankedShowIds;
+    const maxLinePosition = nextShowIds.length;
+    await ctx.db.patch(rankings._id, {
+      showIds: nextShowIds,
+      wouldSeeAgainLineIndex: Math.max(
+        0,
+        Math.min(args.wouldSeeAgainLineIndex, maxLinePosition)
+      ),
+      stayedHomeLineIndex: Math.max(
+        0,
+        Math.min(args.stayedHomeLineIndex, maxLinePosition)
+      ),
+    });
+
+    await Promise.all(
+      args.tiers.map(async ({ showId, tier }) => {
+        if (removedShowIdSet.has(showId)) return;
+        const userShow = userShowByShowId.get(showId);
+        if (!userShow) throw new Error("Tiered show does not belong to user");
+        if (userShow.tier !== tier) {
+          await ctx.db.patch(userShow._id, { tier });
+        }
+      })
+    );
+
+    await Promise.all(
+      removedShowIds.map(async (showId) => {
+        const userShow = userShowByShowId.get(showId);
+        if (userShow) await ctx.db.delete(userShow._id);
+
+        const visits = await ctx.db
+          .query("visits")
+          .withIndex("by_user_show", (q) =>
+            q.eq("userId", userId).eq("showId", showId)
+          )
+          .collect();
+        await Promise.all(visits.map((visit) => ctx.db.delete(visit._id)));
+      })
+    );
+  },
+});
+
 export const getInsertionPreview = query({
   args: {
     selectedTier: rankedTierValidator,
