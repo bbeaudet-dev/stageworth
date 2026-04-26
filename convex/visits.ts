@@ -6,6 +6,7 @@ import { getConvexUserId, requireConvexUserId } from "./auth";
 import { resolveShowImageUrls } from "./helpers";
 import { removeShowFromSystemLists } from "./listRules";
 import { notifyUser } from "./notificationDispatch";
+import { createRankingSnapshot, type RankingSnapshotSource } from "./rankingSnapshots";
 import { normalizeShowName, normalizeCityName } from "./showNormalization";
 import { computeTheatreScore } from "./scoreUtils";
 import { getBlockEdgeSets } from "./social/safety";
@@ -350,6 +351,42 @@ function getBottomInsertionIndexForTier(
   return showIds.length;
 }
 
+function buildRankMap(showIds: Id<"shows">[]) {
+  return new Map(showIds.map((showId, index) => [showId, index + 1]));
+}
+
+function getRankingChangeSummary({
+  previousShowIds,
+  nextShowIds,
+  previousTierByShowId,
+  nextTierByShowId,
+  addedShowIds,
+}: {
+  previousShowIds: Id<"shows">[];
+  nextShowIds: Id<"shows">[];
+  previousTierByShowId: Map<Id<"shows">, Tier>;
+  nextTierByShowId: Map<Id<"shows">, Tier>;
+  addedShowIds?: Id<"shows">[];
+}) {
+  const previousRankMap = buildRankMap(previousShowIds);
+  const nextRankMap = buildRankMap(nextShowIds);
+  const addedShowIdSet = new Set(addedShowIds ?? []);
+  const reorderedShowIds = nextShowIds.filter((showId) => {
+    if (addedShowIdSet.has(showId)) return false;
+    return (
+      previousRankMap.get(showId) !== nextRankMap.get(showId) ||
+      previousTierByShowId.get(showId) !== nextTierByShowId.get(showId)
+    );
+  });
+
+  return {
+    addedShowIds: addedShowIds ?? [],
+    reorderedShowIds,
+    addedCount: addedShowIds?.length ?? 0,
+    reorderedCount: reorderedShowIds.length,
+  };
+}
+
 /**
  * Shared ranking application for visit create / accept. Mirrors the behavior
  * of the original inline block in createVisit — centralizing so the
@@ -363,9 +400,17 @@ export async function applyRankingForVisit(
     selectedTier?: RankedTier;
     completedInsertionIndex?: number;
     keepCurrentRanking?: boolean;
+    snapshotSource?: RankingSnapshotSource;
   },
 ): Promise<{ finalRankingShowIds: Id<"shows">[] }> {
-  const { userId, showId, selectedTier, completedInsertionIndex, keepCurrentRanking } = args;
+  const {
+    userId,
+    showId,
+    selectedTier,
+    completedInsertionIndex,
+    keepCurrentRanking,
+    snapshotSource,
+  } = args;
   let rankings = await ctx.db
     .query("userRankings")
     .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -375,6 +420,7 @@ export async function applyRankingForVisit(
     rankings = (await ctx.db.get(newId))!;
   }
   let finalRankingShowIds: Id<"shows">[] = [...rankings.showIds];
+  const previousShowIds = rankings.showIds;
 
   const alreadyRanked = rankings.showIds.includes(showId);
   const allUserShows = await ctx.db
@@ -384,8 +430,11 @@ export async function applyRankingForVisit(
   const tierByShowId = new Map(
     allUserShows.map((userShow) => [userShow.showId, userShow.tier as Tier]),
   );
+  const previousTierByShowId = new Map(tierByShowId);
   const existingUserShow = allUserShows.find((userShow) => userShow.showId === showId);
   const shouldRank = selectedTier !== undefined || completedInsertionIndex !== undefined;
+  const addedShowIds: Id<"shows">[] = [];
+  let didChange = false;
 
   if (!alreadyRanked) {
     if (!shouldRank) {
@@ -396,8 +445,13 @@ export async function applyRankingForVisit(
           tier: "unranked",
           addedAt: Date.now(),
         });
+        tierByShowId.set(showId, "unranked");
+        addedShowIds.push(showId);
+        didChange = true;
       } else if (existingUserShow.tier !== "unranked") {
         await ctx.db.patch(existingUserShow._id, { tier: "unranked" });
+        tierByShowId.set(showId, "unranked");
+        didChange = true;
       }
     } else {
       const effectiveTier = selectedTier ?? "liked";
@@ -418,6 +472,7 @@ export async function applyRankingForVisit(
 
       await ctx.db.patch(rankings._id, { showIds: nextShowIds });
       finalRankingShowIds = nextShowIds;
+      didChange = true;
       if (!existingUserShow) {
         await ctx.db.insert("userShows", {
           userId,
@@ -425,8 +480,11 @@ export async function applyRankingForVisit(
           tier: effectiveTier,
           addedAt: Date.now(),
         });
+        addedShowIds.push(showId);
+        tierByShowId.set(showId, effectiveTier);
       } else if (existingUserShow.tier !== effectiveTier) {
         await ctx.db.patch(existingUserShow._id, { tier: effectiveTier });
+        tierByShowId.set(showId, effectiveTier);
       }
     }
   } else if (keepCurrentRanking) {
@@ -450,9 +508,25 @@ export async function applyRankingForVisit(
     nextShowIds.splice(insertionIndex, 0, showId);
     await ctx.db.patch(rankings._id, { showIds: nextShowIds });
     finalRankingShowIds = nextShowIds;
+    didChange = true;
     if (existingUserShow && existingUserShow.tier !== effectiveTier) {
       await ctx.db.patch(existingUserShow._id, { tier: effectiveTier });
+      tierByShowId.set(showId, effectiveTier);
     }
+  }
+
+  if (snapshotSource && didChange) {
+    await createRankingSnapshot(ctx, {
+      userId,
+      source: snapshotSource,
+      changeSummary: getRankingChangeSummary({
+        previousShowIds,
+        nextShowIds: finalRankingShowIds,
+        previousTierByShowId,
+        nextTierByShowId: tierByShowId,
+        addedShowIds,
+      }),
+    });
   }
 
   return { finalRankingShowIds };
@@ -977,6 +1051,7 @@ export const createVisit = mutation({
       selectedTier: args.selectedTier as RankedTier | undefined,
       completedInsertionIndex: args.completedInsertionIndex,
       keepCurrentRanking: args.keepCurrentRanking,
+      snapshotSource: "add_visit",
     });
 
     const { hiddenIds: blockHiddenIds } = await getBlockEdgeSets(ctx, userId);

@@ -273,6 +273,49 @@ export default defineSchema({
     stayedHomeLineIndex: v.optional(v.number()),
   }).index("by_user", ["userId"]),
 
+  // Append-only history of a user's ranking state after meaningful changes.
+  // `userRankings` remains the hot current-state document; snapshots power
+  // timeline/date views and future per-show rank history charts.
+  userRankingSnapshots: defineTable({
+    userId: v.id("users"),
+    capturedAt: v.number(),
+    source: v.union(
+      v.literal("my_shows_save"),
+      v.literal("add_visit"),
+      v.literal("accept_visit"),
+      v.literal("direct_ranking"),
+      v.literal("migration")
+    ),
+    showIds: v.array(v.id("shows")),
+    tiers: v.array(
+      v.object({
+        showId: v.id("shows"),
+        tier: v.union(
+          v.literal("loved"),
+          v.literal("liked"),
+          v.literal("okay"),
+          v.literal("disliked"),
+          v.literal("unranked")
+        ),
+      })
+    ),
+    wouldSeeAgainLineIndex: v.optional(v.number()),
+    stayedHomeLineIndex: v.optional(v.number()),
+    totalRanked: v.number(),
+    totalShows: v.number(),
+    changeSummary: v.object({
+      addedShowIds: v.array(v.id("shows")),
+      removedShowIds: v.array(v.id("shows")),
+      reorderedShowIds: v.array(v.id("shows")),
+      addedCount: v.number(),
+      removedCount: v.number(),
+      reorderedCount: v.number(),
+      removedVisitCount: v.number(),
+    }),
+  })
+    .index("by_user_capturedAt", ["userId", "capturedAt"])
+    .index("by_user_source_capturedAt", ["userId", "source", "capturedAt"]),
+
   // Junction table: per-show metadata for each user.
   // Stores the tier (loved/liked/okay/disliked/unranked) and when the show was added.
   userShows: defineTable({
