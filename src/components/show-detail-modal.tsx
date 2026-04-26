@@ -1,6 +1,5 @@
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import type { Id } from "@/convex/_generated/dataModel";
-import { VisitsList } from "@/components/show-row-accordion";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
@@ -58,7 +57,6 @@ export function ShowDetailModal({
               View Show Details
             </Text>
           </Pressable>
-          {showId && <VisitsList showId={showId} />}
         </View>
       </View>
     </Modal>
