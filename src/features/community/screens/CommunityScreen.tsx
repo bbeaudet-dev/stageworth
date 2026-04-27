@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { ScrollView, Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -211,6 +211,7 @@ export default function CommunityScreen() {
     taggedUsers: TaggedUser[];
     taggedGuestNames: string[];
   } | null>(null);
+  const [selectedPhotoUri, setSelectedPhotoUri] = useState<string | null>(null);
 
   const confirmDeletePost = (postId: Id<"activityPosts">, label: string) => {
     Alert.alert(
@@ -714,7 +715,7 @@ export default function CommunityScreen() {
                     </Text>
                   }
                   body={
-                    (location || post.notes || post.rankAtPost) ? (
+                    (location || post.notes || post.photos?.length || post.rankAtPost) ? (
                       <>
                         {!!location && (
                           <Text
@@ -739,6 +740,28 @@ export default function CommunityScreen() {
                             color={notesTextColor}
                           />
                         )}
+                        {post.photos && post.photos.length > 0 ? (
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.visitPhotosRow}
+                          >
+                            {post.photos.map((uri) => (
+                              <Pressable
+                                key={uri}
+                                onPress={() => setSelectedPhotoUri(uri)}
+                                accessibilityRole="imagebutton"
+                                accessibilityLabel="Open visit photo"
+                              >
+                                <Image
+                                  source={{ uri }}
+                                  style={styles.visitPhotoThumb}
+                                  contentFit="cover"
+                                />
+                              </Pressable>
+                            ))}
+                          </ScrollView>
+                        ) : null}
                         {!!post.rankAtPost && (
                           <Text style={[styles.rankText, { color: mutedTextColor }]}>
                             Ranked #{post.rankAtPost} of {post.rankingTotal}
@@ -812,6 +835,31 @@ export default function CommunityScreen() {
           target={reportTarget}
         />
       )}
+
+      <Modal
+        visible={selectedPhotoUri !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedPhotoUri(null)}
+      >
+        <Pressable
+          style={styles.photoModalBackdrop}
+          onPress={() => setSelectedPhotoUri(null)}
+          accessibilityRole="button"
+          accessibilityLabel="Close photo"
+        >
+          {selectedPhotoUri ? (
+            <Image
+              source={{ uri: selectedPhotoUri }}
+              style={styles.photoModalImage}
+              contentFit="contain"
+            />
+          ) : null}
+          <View style={styles.photoModalClose}>
+            <Text style={styles.photoModalCloseText}>x</Text>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -930,6 +978,45 @@ const styles = StyleSheet.create({
   notesText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  visitPhotosRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingTop: 4,
+    paddingBottom: 2,
+  },
+  visitPhotoThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 8,
+  },
+  photoModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.92)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  photoModalImage: {
+    width: "100%",
+    height: "82%",
+  },
+  photoModalClose: {
+    position: "absolute",
+    top: 54,
+    right: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoModalCloseText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "700",
+    lineHeight: 22,
   },
   rankText: {
     fontSize: 12,

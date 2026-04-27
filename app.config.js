@@ -103,7 +103,7 @@ module.exports = {
       "expo-image-picker",
       {
         photosPermission:
-          "Stageworth needs access to your photos so you can set a profile picture.",
+          "Stageworth needs access to your photos so you can set a profile picture and attach photos to visits.",
         cameraPermission: false,
         microphonePermission: false,
       },

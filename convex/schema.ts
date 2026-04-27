@@ -383,6 +383,7 @@ export default defineSchema({
     cast: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    photos: v.optional(v.array(v.id("_storage"))),
     // Free-text labels for people not on the app (e.g. "mom", "dad"). These
     // are not linked to any user record and never trigger notifications.
     taggedGuestNames: v.optional(v.array(v.string())),
@@ -525,6 +526,7 @@ export default defineSchema({
     theatre: v.optional(v.string()),
     rankAtPost: v.optional(v.number()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
+    photos: v.optional(v.array(v.id("_storage"))),
     // Free-text guest names carried over from the visit for feed display.
     taggedGuestNames: v.optional(v.array(v.string())),
     // Challenge-specific metadata (present on challenge_started / challenge_milestone / challenge_completed).

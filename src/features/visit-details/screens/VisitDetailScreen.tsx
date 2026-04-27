@@ -54,6 +54,7 @@ export default function VisitDetailScreen() {
   const [editingMyNotes, setEditingMyNotes] = useState(false);
   const [myNotesDraft, setMyNotesDraft] = useState("");
   const [savingMyNotes, setSavingMyNotes] = useState(false);
+  const [selectedPhotoUri, setSelectedPhotoUri] = useState<string | null>(null);
 
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -330,6 +331,31 @@ export default function VisitDetailScreen() {
               </DetailCard>
             ) : null}
 
+            {visit.photos && visit.photos.length > 0 ? (
+              <DetailCard title="Photos">
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.visitPhotosRow}
+                >
+                  {visit.photos.map((uri) => (
+                    <Pressable
+                      key={uri}
+                      onPress={() => setSelectedPhotoUri(uri)}
+                      accessibilityRole="imagebutton"
+                      accessibilityLabel="Open visit photo"
+                    >
+                      <Image
+                        source={{ uri }}
+                        style={styles.visitPhoto}
+                        contentFit="cover"
+                      />
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </DetailCard>
+            ) : null}
+
             {(() => {
               const acceptedParticipants = (participants ?? []).filter(
                 (p) => p.status === "accepted",
@@ -548,6 +574,31 @@ export default function VisitDetailScreen() {
       </ScrollView>
 
       <Modal
+        visible={selectedPhotoUri !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedPhotoUri(null)}
+      >
+        <Pressable
+          style={styles.photoModalBackdrop}
+          onPress={() => setSelectedPhotoUri(null)}
+          accessibilityRole="button"
+          accessibilityLabel="Close photo"
+        >
+          {selectedPhotoUri ? (
+            <Image
+              source={{ uri: selectedPhotoUri }}
+              style={styles.photoModalImage}
+              contentFit="contain"
+            />
+          ) : null}
+          <View style={styles.photoModalClose}>
+            <Text style={styles.photoModalCloseText}>x</Text>
+          </View>
+        </Pressable>
+      </Modal>
+
+      <Modal
         visible={editingMyNotes}
         animationType="slide"
         transparent
@@ -696,6 +747,44 @@ const styles = StyleSheet.create({
   sharedByLabel: {
     fontSize: 12,
     fontWeight: "500",
+  },
+  visitPhotosRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingVertical: 2,
+  },
+  visitPhoto: {
+    width: 116,
+    height: 116,
+    borderRadius: 12,
+  },
+  photoModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.92)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  photoModalImage: {
+    width: "100%",
+    height: "82%",
+  },
+  photoModalClose: {
+    position: "absolute",
+    top: 54,
+    right: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoModalCloseText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "700",
+    lineHeight: 22,
   },
   acceptBanner: {
     flexDirection: "row",
