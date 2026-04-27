@@ -63,8 +63,13 @@ function inboxForType(type: string): InboxTab | null {
     case "trip_invite":
     case "trip_invite_accepted":
     case "trip_invite_declined":
+    case "trip_starting_tomorrow":
+    case "trip_starts_today":
+    case "trip_ends_today":
       return "trips";
     case "show_announced":
+    case "show_opened":
+    case "previews_started":
     case "closing_soon":
       return "shows";
     default:
@@ -127,9 +132,16 @@ export default function NotificationsScreen() {
       case "follows":
         return ["new_follow"];
       case "trips":
-        return ["trip_invite", "trip_invite_accepted", "trip_invite_declined"];
+        return [
+          "trip_invite",
+          "trip_invite_accepted",
+          "trip_invite_declined",
+          "trip_starting_tomorrow",
+          "trip_starts_today",
+          "trip_ends_today",
+        ];
       case "shows":
-        return ["show_announced", "closing_soon"];
+        return ["show_announced", "show_opened", "previews_started", "closing_soon"];
     }
   }, [activeTab]);
 
@@ -178,12 +190,20 @@ export default function NotificationsScreen() {
     } else if (notif.type === "new_follow" && notif.actor) {
       router.push({ pathname: "/user/[username]", params: { username: notif.actor.username } });
     } else if (
-      (notif.type === "trip_invite" || notif.type === "trip_invite_accepted" || notif.type === "trip_invite_declined") &&
+      (notif.type === "trip_invite" ||
+        notif.type === "trip_invite_accepted" ||
+        notif.type === "trip_invite_declined" ||
+        notif.type === "trip_starting_tomorrow" ||
+        notif.type === "trip_starts_today" ||
+        notif.type === "trip_ends_today") &&
       notif.tripId
     ) {
       router.push({ pathname: "/(tabs)/plan/[tripId]", params: { tripId: notif.tripId } });
     } else if (
-      (notif.type === "closing_soon" || notif.type === "show_announced") &&
+      (notif.type === "closing_soon" ||
+        notif.type === "show_announced" ||
+        notif.type === "show_opened" ||
+        notif.type === "previews_started") &&
       notif.show
     ) {
       router.push({ pathname: "/show/[showId]", params: { showId: notif.show._id } });
@@ -293,7 +313,7 @@ export default function NotificationsScreen() {
           <Text style={[styles.emptyText, { color: emptyTextColor }]}>Loading...</Text>
         )}
         {notifications !== undefined && notifications.length === 0 && (
-          <EmptyState icon="bell.fill" title="No notifications yet" subtitle="You'll be notified when someone follows you or tags you in a visit." />
+          <EmptyState icon="bell.fill" title="No notifications yet" subtitle="You'll be notified about social activity, shows, and trips here." />
         )}
         {notifications !== undefined &&
           notifications.length > 0 &&
@@ -304,7 +324,14 @@ export default function NotificationsScreen() {
           )}
         {(filteredNotifications ?? []).map((notif) => {
           const timeStr = formatRelativeTime(notif.createdAt);
-          const isSystemNotif = notif.type === "closing_soon" || notif.type === "show_announced";
+          const isSystemNotif =
+            notif.type === "closing_soon" ||
+            notif.type === "show_announced" ||
+            notif.type === "show_opened" ||
+            notif.type === "previews_started" ||
+            notif.type === "trip_starting_tomorrow" ||
+            notif.type === "trip_starts_today" ||
+            notif.type === "trip_ends_today";
           const actorLabel = isSystemNotif
             ? ""
             : getDisplayName(notif.actor?.name, notif.actor?.username ?? "Someone");
@@ -369,6 +396,15 @@ export default function NotificationsScreen() {
                     {notif.type === "trip_invite_declined" && (
                       <>{" declined your invitation to "}<Text style={styles.boldName}>{notif.trip?.name ?? "your trip"}</Text></>
                     )}
+                    {notif.type === "trip_starting_tomorrow" && (
+                      <><Text style={styles.boldName}>{notif.trip?.name ?? "Your trip"}</Text>{" starts tomorrow"}</>
+                    )}
+                    {notif.type === "trip_starts_today" && (
+                      <>{"Enjoy "}<Text style={styles.boldName}>{notif.trip?.name ?? "your trip"}</Text>{" - it starts today!"}</>
+                    )}
+                    {notif.type === "trip_ends_today" && (
+                      <><Text style={styles.boldName}>{notif.trip?.name ?? "Your trip"}</Text>{" ends today. How was it?"}</>
+                    )}
                     {notif.type === "closing_soon" && notif.show && (
                       <><Text style={styles.boldName}>{notif.show.name}</Text>{" is closing soon!"}</>
                     )}
@@ -377,6 +413,14 @@ export default function NotificationsScreen() {
                       <>{"New show announced: "}<Text style={styles.boldName}>{notif.show.name}</Text></>
                     )}
                     {notif.type === "show_announced" && !notif.show && "A new show has been announced"}
+                    {notif.type === "show_opened" && notif.show && (
+                      <><Text style={styles.boldName}>{notif.show.name}</Text>{" opens today!"}</>
+                    )}
+                    {notif.type === "show_opened" && !notif.show && "A show opens today"}
+                    {notif.type === "previews_started" && notif.show && (
+                      <><Text style={styles.boldName}>{notif.show.name}</Text>{" starts previews today"}</>
+                    )}
+                    {notif.type === "previews_started" && !notif.show && "A show on your Want to See list starts previews today"}
                   </Text>
                   <Text style={[styles.timeText, { color: mutedText }]}>{timeStr}</Text>
 

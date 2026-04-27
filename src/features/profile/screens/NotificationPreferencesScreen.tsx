@@ -22,8 +22,11 @@ type NotifSettings = {
   follows: boolean;
   visitTags: boolean;
   tripInvites: boolean;
+  tripReminders: boolean;
   closingSoon: boolean;
   showAnnounced: boolean;
+  showOpenings: boolean;
+  previewsStarted: boolean;
   postLikes: boolean;
 };
 
@@ -31,8 +34,11 @@ const DEFAULT_SETTINGS: NotifSettings = {
   follows: true,
   visitTags: true,
   tripInvites: true,
+  tripReminders: true,
   closingSoon: true,
   showAnnounced: true,
+  showOpenings: true,
+  previewsStarted: true,
   postLikes: true,
 };
 
@@ -189,6 +195,14 @@ export default function NotificationPreferencesScreen() {
             onValueChange={() => toggle("tripInvites")}
             {...commonProps}
           />
+          <ToggleRow
+            icon="calendar.badge.clock"
+            label="Trip Reminders"
+            subtitle="When your trip starts or ends"
+            value={settings.tripReminders}
+            onValueChange={() => toggle("tripReminders")}
+            {...commonProps}
+          />
         </View>
 
         <View style={styles.section}>
@@ -199,6 +213,22 @@ export default function NotificationPreferencesScreen() {
             subtitle="Shows you've saved that are closing"
             value={settings.closingSoon}
             onValueChange={() => toggle("closingSoon")}
+            {...commonProps}
+          />
+          <ToggleRow
+            icon="sparkles"
+            label="Opening Nights"
+            subtitle="Shows opening today"
+            value={settings.showOpenings}
+            onValueChange={() => toggle("showOpenings")}
+            {...commonProps}
+          />
+          <ToggleRow
+            icon="ticket.fill"
+            label="Preview Starts"
+            subtitle="Saved shows entering previews"
+            value={settings.previewsStarted}
+            onValueChange={() => toggle("previewsStarted")}
             {...commonProps}
           />
           <ToggleRow
