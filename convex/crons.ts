@@ -566,13 +566,20 @@ crons.daily(
   {}
 );
 
-// Enrich NYC production images from Ticketmaster daily at 6:00 AM ET (11:00 UTC).
-crons.daily(
-  "enrich-production-images",
-  { hourUTC: 11, minuteUTC: 0 },
-  internal.imageEnrichment.ticketmaster.enrichProductionImages,
-  {}
-);
+// Daily Ticketmaster enrichment is disabled.
+//
+// Rationale: TM Discovery posters are usually the wrong aspect ratio for our
+// playbill cards, and the daily re-fetch was undoing admin "Clear" actions
+// (Clear bypasses the review queue, so the rejected-source guard in
+// `setProductionHotlinkImage` doesn't fire on the next run). New productions
+// still get a single TM proposal at bot-ingestion time via
+// `enrichProductionTicketmaster`, which is enough exposure for admin to keep
+// or discard. Re-enable here only if we add a "checked" timestamp / Clear
+// also stages a rejected entry, so an admin's removal stays sticky.
+//
+// The action `internal.imageEnrichment.ticketmaster.enrichProductionImages`
+// remains exported and can be invoked manually from the Convex dashboard if
+// a one-off batch backfill is ever needed.
 
 // Recompute global theatre ranks daily at 3:00 AM ET (8:00 UTC).
 crons.daily(
