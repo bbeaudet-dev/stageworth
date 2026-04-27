@@ -76,11 +76,16 @@ function getRouteFromNotificationData(
     case "trip_invite":
     case "trip_invite_accepted":
     case "trip_invite_declined":
+    case "trip_starting_tomorrow":
+    case "trip_starts_today":
+    case "trip_ends_today":
       if (data.tripId) {
         return { pathname: "/(tabs)/plan/[tripId]", params: { tripId: data.tripId } };
       }
       return null;
     case "show_announced":
+    case "show_opened":
+    case "previews_started":
     case "closing_soon":
       if (data.showId) {
         return { pathname: "/show/[showId]", params: { showId: data.showId } };
