@@ -75,6 +75,14 @@ export const getAllUsersWithPushTokens = internalQuery({
   },
 });
 
+export const getAllUserIdsForNotifications = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    return users.map((user) => user._id);
+  },
+});
+
 // ─── Main ingestion mutation ──────────────────────────────────────────────────
 
 export const ingestProduction = internalMutation({
@@ -295,17 +303,17 @@ export const fanOutShowAnnouncedNotifications = internalAction({
     showName: v.string(),
   },
   handler: async (ctx, args) => {
-    const users = (await ctx.runQuery(
-      internal.botIngestion.getAllUsersWithPushTokens,
+    const userIds = (await ctx.runQuery(
+      internal.botIngestion.getAllUserIdsForNotifications,
       {}
-    )) as UserWithToken[];
+    )) as Id<"users">[];
 
     await Promise.allSettled(
-      users.map((user) =>
+      userIds.map((userId) =>
         // `insertSystemNotification` now uses the shared `notifyUser` helper
         // which gates on preferences and fans out the push in a single step.
         ctx.runMutation(internal.botIngestion.insertSystemNotification, {
-          recipientUserId: user._id,
+          recipientUserId: userId,
           type: "show_announced",
           showId: args.showId,
           productionId: args.productionId,
