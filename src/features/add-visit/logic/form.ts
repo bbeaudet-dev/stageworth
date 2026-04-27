@@ -29,6 +29,7 @@ export function getInitialAddVisitFormState(): AddVisitFormState {
     skippedComparisonIndices: [],
     taggedUserIds: [],
     taggedGuestNames: [],
+    photoUris: [],
   };
 }
 
@@ -50,6 +51,7 @@ export function hasUnsavedAddVisitChanges(state: AddVisitFormState) {
     state.searchHigh !== 0 ||
     state.rankingResultIndex !== null ||
     state.taggedUserIds.length > 0 ||
-    state.taggedGuestNames.length > 0
+    state.taggedGuestNames.length > 0 ||
+    state.photoUris.length > 0
   );
 }

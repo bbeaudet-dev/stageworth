@@ -35,7 +35,8 @@ type Action =
   | { type: "RESET_FORM" }
   | { type: "TOGGLE_TAGGED_USER"; userId: Id<"users"> }
   | { type: "ADD_TAGGED_GUEST"; name: string }
-  | { type: "REMOVE_TAGGED_GUEST"; name: string };
+  | { type: "REMOVE_TAGGED_GUEST"; name: string }
+  | { type: "SET_PHOTO_URIS"; value: string[] };
 
 function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
   switch (action.type) {
@@ -87,6 +88,7 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
         searchHigh: 0,
         rankingResultIndex: null,
         skippedComparisonIndices: [],
+        photoUris: [],
       };
     case "APPLY_SUGGESTED_RANKING":
       return {
@@ -113,6 +115,7 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
         searchHigh: 0,
         rankingResultIndex: null,
         skippedComparisonIndices: [],
+        photoUris: [],
       };
     case "SELECT_CUSTOM_SHOW":
       return {
@@ -130,6 +133,7 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
         searchHigh: 0,
         rankingResultIndex: null,
         skippedComparisonIndices: [],
+        photoUris: [],
       };
     case "CLEAR_SELECTION":
       return {
@@ -174,6 +178,8 @@ function reducer(state: AddVisitFormState, action: Action): AddVisitFormState {
         ...state,
         taggedGuestNames: state.taggedGuestNames.filter((n) => n !== action.name),
       };
+    case "SET_PHOTO_URIS":
+      return { ...state, photoUris: action.value };
     default:
       return state;
   }
@@ -215,5 +221,6 @@ export function useAddVisitFormState() {
     toggleTaggedUser: (userId: Id<"users">) => dispatch({ type: "TOGGLE_TAGGED_USER", userId }),
     addTaggedGuest: (name: string) => dispatch({ type: "ADD_TAGGED_GUEST", name }),
     removeTaggedGuest: (name: string) => dispatch({ type: "REMOVE_TAGGED_GUEST", name }),
+    setPhotoUris: (value: string[]) => dispatch({ type: "SET_PHOTO_URIS", value }),
   };
 }

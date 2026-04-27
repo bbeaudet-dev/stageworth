@@ -39,6 +39,8 @@ import { NotesSection } from "@/features/add-visit/components/NotesSection";
 import { SeatSection } from "@/features/add-visit/components/SeatSection";
 import { SaveVisitButton } from "@/features/add-visit/components/SaveVisitButton";
 import { TagFriendsSection } from "@/features/add-visit/components/TagFriendsSection";
+import { PhotoPickerSection } from "@/features/add-visit/components/PhotoPickerSection";
+import { uploadVisitPhotos } from "@/features/add-visit/utils/uploadVisitPhotos";
 
 function routeParamString(v: string | string[] | undefined): string | undefined {
   if (v === undefined) return undefined;
@@ -82,6 +84,7 @@ export default function AddVisitScreen() {
     toggleTaggedUser,
     addTaggedGuest,
     removeTaggedGuest,
+    setPhotoUris,
   } = useAddVisitFormState();
 
   const selectExistingShowRef = useRef(selectExistingShow);
@@ -109,6 +112,7 @@ export default function AddVisitScreen() {
     shouldForceOtherLocation,
     myFollowing,
     createVisit,
+    generateVisitPhotoUploadUrl,
   } = useAddVisitData({
     query: state.query,
     selectedShowId: state.selectedShowId,
@@ -261,6 +265,10 @@ export default function AddVisitScreen() {
     if (!hasSelectedShow || state.isSaving) return;
     setIsSaving(true);
     try {
+      const photoStorageIds =
+        state.photoUris.length > 0
+          ? await uploadVisitPhotos(state.photoUris, generateVisitPhotoUploadUrl)
+          : undefined;
       await createVisit({
         showId: state.selectedShowId ?? undefined,
         customShowName: state.customShowName ?? undefined,
@@ -284,6 +292,8 @@ export default function AddVisitScreen() {
         taggedUserIds: state.taggedUserIds.length > 0 ? state.taggedUserIds : undefined,
         taggedGuestNames:
           state.taggedGuestNames.length > 0 ? state.taggedGuestNames : undefined,
+        photoStorageIds:
+          photoStorageIds && photoStorageIds.length > 0 ? photoStorageIds : undefined,
       });
       const isNewShow = state.customShowName !== null || !showContext?.hasVisit;
       const celebrationData = isNewShow
@@ -302,6 +312,11 @@ export default function AddVisitScreen() {
       } else {
         showToast({ message: "Visit saved!" });
       }
+    } catch (error) {
+      Alert.alert(
+        "Couldn't save visit",
+        error instanceof Error ? error.message : "Please try again.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -428,6 +443,10 @@ export default function AddVisitScreen() {
               )}
               <SeatSection seat={state.seat} setSeat={setSeat} />
               <NotesSection notes={state.notes} setNotes={setNotes} />
+              <PhotoPickerSection
+                photoUris={state.photoUris}
+                setPhotoUris={setPhotoUris}
+              />
               <TagFriendsSection
                 following={myFollowing}
                 taggedUserIds={state.taggedUserIds}
