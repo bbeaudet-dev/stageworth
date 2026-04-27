@@ -253,7 +253,9 @@ export default function VisitDetailScreen() {
                 </Text>
                 {!isMine && (isPendingParticipant || isAcceptedParticipant) && (
                   <Text style={[styles.sharedByLabel, { color: c.mutedText }]}>
-                    Shared visit — tagged you
+                    {visit.creator?.name?.trim() || visit.creator?.username
+                      ? `Shared visit from ${visit.creator?.name?.trim() || visit.creator?.username} — tagged you`
+                      : "Shared visit — tagged you"}
                   </Text>
                 )}
               </View>
@@ -294,23 +296,24 @@ export default function VisitDetailScreen() {
                       params: { venueId: String(visit.venueId) },
                     })
                   }
+                  style={styles.locationRow}
                   accessibilityRole="link"
                   accessibilityLabel={`Open venue ${visit.theatre ?? ""}`}
                 >
-                  <Text
-                    style={[
-                      detailCardStyles.value,
-                      styles.locationLink,
-                      { color: c.accent },
-                    ]}
-                  >
-                    {visit.theatre ?? "Venue"}
-                  </Text>
-                  {visit.city ? (
-                    <Text style={[detailCardStyles.subtle, { color: c.mutedText }]}>
-                      {visit.city}
+                  <View style={styles.locationRowText}>
+                    <Text
+                      style={[detailCardStyles.value, { color: c.text }]}
+                      numberOfLines={3}
+                    >
+                      {visit.theatre ?? "Venue"}
                     </Text>
-                  ) : null}
+                    {visit.city ? (
+                      <Text style={[detailCardStyles.subtle, { color: c.mutedText }]}>
+                        {visit.city}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <IconSymbol name="chevron.right" size={18} color={c.mutedText} />
                 </Pressable>
               ) : (
                 <Text style={[detailCardStyles.value, { color: c.text }]} numberOfLines={2}>
@@ -327,131 +330,219 @@ export default function VisitDetailScreen() {
               </DetailCard>
             ) : null}
 
-            {(participants && participants.length > 0) ||
-            (visit.taggedGuestNames && visit.taggedGuestNames.length > 0) ? (
-              <DetailCard title="With">
-                <View style={styles.guestWrap}>
-                  {(participants ?? []).map((p) => {
-                    const isPending = p.status === "pending";
-                    const isDeclined = p.status === "declined";
-                    return (
-                      <View
-                        key={p._id}
-                        style={[
-                          styles.guestChip,
-                          {
-                            backgroundColor: isPending ? c.surface : c.surface,
-                            borderColor: isPending
-                              ? c.accent
-                              : isDeclined
-                                ? c.border
-                                : c.border,
-                            borderStyle: isPending ? "dashed" : "solid",
-                            opacity: isDeclined ? 0.55 : 1,
-                          },
-                        ]}
+            {(() => {
+              const acceptedParticipants = (participants ?? []).filter(
+                (p) => p.status === "accepted",
+              );
+              const otherParticipants = (participants ?? []).filter(
+                (p) => p.status !== "accepted",
+              );
+              const guests = visit.taggedGuestNames ?? [];
+              const hasAnyone =
+                acceptedParticipants.length > 0 ||
+                otherParticipants.length > 0 ||
+                guests.length > 0 ||
+                Boolean(visit.notes) ||
+                isMine ||
+                isAcceptedParticipant;
+              if (!hasAnyone) return null;
+
+              const openProfile = (username?: string | null) => {
+                if (!username) return;
+                router.push({
+                  pathname: "/user/[username]",
+                  params: { username },
+                });
+              };
+
+              type RoleKind =
+                | "creator"
+                | "attendee"
+                | "pending"
+                | "declined"
+                | "guest";
+
+              const renderAttendeeRow = (args: {
+                key: string;
+                username?: string | null;
+                displayName: string;
+                isYou?: boolean;
+                role: RoleKind;
+                notes?: string | null;
+                emptyNotesPlaceholder?: string;
+                showEditMyNotes?: boolean;
+              }) => {
+                const {
+                  key,
+                  username,
+                  displayName,
+                  isYou,
+                  role,
+                  notes,
+                  emptyNotesPlaceholder,
+                  showEditMyNotes,
+                } = args;
+                const isDeclined = role === "declined";
+                const isGuest = role === "guest";
+                const isPending = role === "pending";
+                const tappable = !isGuest && !!username;
+                return (
+                  <View key={key} style={styles.attendeeRow}>
+                    <View style={styles.attendeeHeader}>
+                      <Pressable
+                        onPress={tappable ? () => openProfile(username) : undefined}
+                        disabled={!tappable}
+                        style={styles.attendeeNameWrap}
+                        hitSlop={6}
+                        accessibilityRole={tappable ? "link" : undefined}
+                        accessibilityLabel={
+                          tappable ? `Open ${displayName}'s profile` : undefined
+                        }
                       >
                         <Text
-                          style={[styles.guestChipText, { color: c.text }]}
+                          style={[
+                            styles.attendeeName,
+                            {
+                              color: tappable ? c.accent : c.text,
+                              opacity: isDeclined ? 0.55 : 1,
+                            },
+                          ]}
                           numberOfLines={1}
                         >
-                          {p.user?.name ?? p.user?.username ?? "Someone"}
+                          {displayName}
+                          {isYou ? " (you)" : ""}
                         </Text>
-                        {p.status !== "accepted" ? (
-                          <Text
+                      </Pressable>
+                      <View style={styles.attendeeBadges}>
+                        {role === "creator" ? (
+                          <View
                             style={[
-                              styles.participantStatus,
-                              {
-                                color: isDeclined ? c.mutedText : c.accent,
-                              },
+                              styles.rolePill,
+                              { backgroundColor: "#536DFE", borderColor: "#3355E0" },
                             ]}
                           >
-                            {isPending ? "pending" : "declined"}
+                            <Text style={[styles.rolePillText, { color: "#FFFFFF" }]}>
+                              Creator
+                            </Text>
+                          </View>
+                        ) : null}
+                        {isPending ? (
+                          <Text style={[styles.attendeeStatusText, { color: c.accent }]}>
+                            Invited
                           </Text>
                         ) : null}
+                        {isDeclined ? (
+                          <Text style={[styles.attendeeStatusText, { color: c.mutedText }]}>
+                            Declined
+                          </Text>
+                        ) : null}
+                        {showEditMyNotes ? (
+                          <Pressable onPress={openEditMyNotes} hitSlop={10}>
+                            <Text style={[styles.editLink, { color: c.accent }]}>
+                              {notes ? "Edit" : "Add notes"}
+                            </Text>
+                          </Pressable>
+                        ) : null}
                       </View>
-                    );
-                  })}
-                  {(visit.taggedGuestNames ?? []).map((name) => (
-                    <View
-                      key={`guest-${name}`}
-                      style={[
-                        styles.guestChip,
-                        {
-                          backgroundColor: c.surface,
-                          borderColor: c.border,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[styles.guestChipText, { color: c.text }]}
-                        numberOfLines={1}
-                      >
-                        {name}
-                      </Text>
                     </View>
-                  ))}
-                </View>
-              </DetailCard>
-            ) : null}
+                    {notes ? (
+                      <NotesText
+                        text={notes}
+                        style={[detailCardStyles.subtle, styles.attendeeNotes]}
+                        color={c.mutedText}
+                      />
+                    ) : emptyNotesPlaceholder ? (
+                      <Text
+                        style={[
+                          detailCardStyles.subtle,
+                          styles.attendeeNotes,
+                          { color: c.mutedText, fontStyle: "italic" },
+                        ]}
+                      >
+                        {emptyNotesPlaceholder}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              };
 
-            {/* Creator-owned notes — shown to everyone. */}
-            {visit.notes ? (
-              <DetailCard title={isMine ? "Notes" : "Notes from tagger"}>
-                <NotesText
-                  text={visit.notes}
-                  style={detailCardStyles.subtle}
-                  color={c.mutedText}
-                />
-              </DetailCard>
-            ) : null}
+              type AttendeeEntry = {
+                key: string;
+                username?: string | null;
+                displayName: string;
+                isYou: boolean;
+                role: RoleKind;
+                notes?: string | null;
+                emptyNotesPlaceholder?: string;
+                showEditMyNotes?: boolean;
+              };
+              const entries: AttendeeEntry[] = [];
 
-            {/* Viewer's own participant notes (shared visits only). */}
-            {isAcceptedParticipant ? (
-              <DetailCard
-                title="Your notes"
-                rightAccessory={
-                  <Pressable onPress={openEditMyNotes} hitSlop={10}>
-                    <Text style={[styles.editLink, { color: c.accent }]}>
-                      {visit.viewerParticipantNotes ? "Edit" : "Add"}
-                    </Text>
-                  </Pressable>
-                }
-              >
-                {visit.viewerParticipantNotes ? (
-                  <NotesText
-                    text={visit.viewerParticipantNotes}
-                    style={detailCardStyles.subtle}
-                    color={c.mutedText}
-                  />
-                ) : (
-                  <Text style={[detailCardStyles.subtle, { color: c.mutedText }]}>
-                    Add your own thoughts about this visit.
-                  </Text>
-                )}
-              </DetailCard>
-            ) : null}
+              if (visit.creator) {
+                entries.push({
+                  key: `creator-${visit.creator._id}`,
+                  username: visit.creator.username,
+                  displayName:
+                    visit.creator.name?.trim() ||
+                    visit.creator.username ||
+                    "Someone",
+                  isYou: isMine,
+                  role: "creator",
+                  notes: visit.notes ?? null,
+                });
+              }
+              for (const p of acceptedParticipants) {
+                const isYou = p.userId === myProfile?._id;
+                entries.push({
+                  key: p._id,
+                  username: p.user?.username,
+                  displayName:
+                    p.user?.name?.trim() || p.user?.username || "Someone",
+                  isYou,
+                  role: "attendee",
+                  notes: p.notes ?? null,
+                  emptyNotesPlaceholder: isYou
+                    ? "Add your own thoughts about this visit."
+                    : undefined,
+                  showEditMyNotes: isYou,
+                });
+              }
+              for (const p of otherParticipants) {
+                entries.push({
+                  key: p._id,
+                  username: p.user?.username,
+                  displayName:
+                    p.user?.name?.trim() || p.user?.username || "Someone",
+                  isYou: p.userId === myProfile?._id,
+                  role: p.status === "pending" ? "pending" : "declined",
+                });
+              }
+              for (const name of guests) {
+                entries.push({
+                  key: `guest-${name}`,
+                  displayName: name,
+                  isYou: false,
+                  role: "guest",
+                });
+              }
 
-            {/* Other participants' notes (only shown for shared visits with actual notes). */}
-            {participants
-              ?.filter(
-                (p) =>
-                  p.status === "accepted" &&
-                  p.notes &&
-                  p.userId !== myProfile?._id,
-              )
-              .map((p) => (
-                <DetailCard
-                  key={`notes-${p._id}`}
-                  title={`Notes from ${p.user?.name ?? p.user?.username ?? "Someone"}`}
-                >
-                  <NotesText
-                    text={p.notes ?? ""}
-                    style={detailCardStyles.subtle}
-                    color={c.mutedText}
-                  />
+              // Always surface the viewer at the top of the list, then the
+              // creator (if not the viewer), then everyone else in original
+              // order.
+              entries.sort((a, b) => {
+                const aRank = a.isYou ? 0 : a.role === "creator" ? 1 : 2;
+                const bRank = b.isYou ? 0 : b.role === "creator" ? 1 : 2;
+                return aRank - bRank;
+              });
+
+              return (
+                <DetailCard title="With">
+                  <View style={styles.attendeeList}>
+                    {entries.map(renderAttendeeRow)}
+                  </View>
                 </DetailCard>
-              ))}
+              );
+            })()}
           </>
         )}
       </ScrollView>
@@ -549,33 +640,58 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 24,
   },
-  locationLink: {
-    textDecorationLine: "underline",
-  },
-  guestWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  guestChip: {
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  locationRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 10,
   },
-  guestChipText: {
-    fontSize: 14,
+  locationRowText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  attendeeList: {
+    gap: 14,
+  },
+  attendeeRow: {
+    gap: 4,
+  },
+  attendeeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  attendeeNameWrap: {
+    flexShrink: 1,
+  },
+  attendeeName: {
+    fontSize: 15,
     fontWeight: "600",
-    maxWidth: 180,
   },
-  participantStatus: {
+  attendeeBadges: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  rolePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  rolePillText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  attendeeStatusText: {
     fontSize: 11,
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.4,
+  },
+  attendeeNotes: {
+    marginTop: 2,
   },
   sharedByLabel: {
     fontSize: 12,

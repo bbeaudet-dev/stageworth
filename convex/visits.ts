@@ -572,9 +572,22 @@ export const getById = query({
     if (!show) return null;
 
     const images = await resolveShowImageUrls(ctx, show);
+    const creatorUser = await ctx.db.get(visit.userId);
+    const creatorAvatarUrl = creatorUser?.avatarImage
+      ? await ctx.storage.getUrl(creatorUser.avatarImage)
+      : null;
+
     return {
       ...visit,
       show: { ...show, images },
+      creator: creatorUser
+        ? {
+            _id: creatorUser._id,
+            username: creatorUser.username,
+            name: creatorUser.name,
+            avatarUrl: creatorAvatarUrl,
+          }
+        : null,
       viewerParticipantStatus: myParticipant?.status ?? null,
       viewerParticipantNotes: myParticipant?.notes ?? null,
     };
