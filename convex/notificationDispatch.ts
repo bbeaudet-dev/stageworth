@@ -29,16 +29,24 @@ export type NotifType =
   | "trip_invite"
   | "trip_invite_accepted"
   | "trip_invite_declined"
+  | "trip_starting_tomorrow"
+  | "trip_starts_today"
+  | "trip_ends_today"
   | "post_like"
   | "show_announced"
+  | "show_opened"
+  | "previews_started"
   | "closing_soon";
 
 type NotifSettingsKey =
   | "follows"
   | "visitTags"
   | "tripInvites"
+  | "tripReminders"
   | "closingSoon"
   | "showAnnounced"
+  | "showOpenings"
+  | "previewsStarted"
   | "postLikes";
 
 const PREF_KEY_BY_TYPE: Record<NotifType, NotifSettingsKey | null> = {
@@ -49,8 +57,13 @@ const PREF_KEY_BY_TYPE: Record<NotifType, NotifSettingsKey | null> = {
   trip_invite: "tripInvites",
   trip_invite_accepted: "tripInvites",
   trip_invite_declined: "tripInvites",
+  trip_starting_tomorrow: "tripReminders",
+  trip_starts_today: "tripReminders",
+  trip_ends_today: "tripReminders",
   post_like: "postLikes",
   show_announced: "showAnnounced",
+  show_opened: "showOpenings",
+  previews_started: "previewsStarted",
   closing_soon: "closingSoon",
 };
 

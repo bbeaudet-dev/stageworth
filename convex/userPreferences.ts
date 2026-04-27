@@ -59,8 +59,11 @@ export const updateNotificationSettings = mutation({
     follows: v.boolean(),
     visitTags: v.boolean(),
     tripInvites: v.boolean(),
+    tripReminders: v.optional(v.boolean()),
     closingSoon: v.boolean(),
     showAnnounced: v.boolean(),
+    showOpenings: v.optional(v.boolean()),
+    previewsStarted: v.optional(v.boolean()),
     postLikes: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -74,8 +77,11 @@ export const updateNotificationSettings = mutation({
       follows: args.follows,
       visitTags: args.visitTags,
       tripInvites: args.tripInvites,
+      tripReminders: args.tripReminders ?? true,
       closingSoon: args.closingSoon,
       showAnnounced: args.showAnnounced,
+      showOpenings: args.showOpenings ?? true,
+      previewsStarted: args.previewsStarted ?? true,
       postLikes: args.postLikes,
     };
 
