@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { requireConvexUserId } from "../auth";
-import { resolveShowImageUrls } from "../helpers";
+import { resolveImageUrls, resolveShowImageUrls } from "../helpers";
 import { getBlockEdgeSets } from "./safety";
 
 const MAX_LIMIT = 200;
@@ -73,6 +73,7 @@ async function hydratePosts(
         const user = await ctx.db.get(uid);
         if (user) taggedUsers.push({ _id: user._id, username: user.username, name: user.name });
       }
+      const photos = await resolveImageUrls(ctx, post.photos ?? visit?.photos ?? []);
 
       return {
         _id: post._id,
@@ -94,6 +95,7 @@ async function hydratePosts(
         challengeProgress: post.challengeProgress ?? null,
         actor,
         show,
+        photos,
         taggedUsers,
         // Fall back to the visit's guest names for posts created before
         // activityPosts carried them inline.

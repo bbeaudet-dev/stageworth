@@ -3,7 +3,7 @@ import { mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { getConvexUserId, requireConvexUserId } from "./auth";
-import { resolveShowImageUrls } from "./helpers";
+import { resolveImageUrls, resolveShowImageUrls } from "./helpers";
 import { removeShowFromSystemLists } from "./listRules";
 import { notifyUser } from "./notificationDispatch";
 import { createRankingSnapshot, type RankingSnapshotSource } from "./rankingSnapshots";
@@ -37,6 +37,7 @@ function getTierRank(tier: Tier): number {
 
 const MAX_GUEST_NAME_LENGTH = 40;
 const MAX_GUEST_NAMES_PER_VISIT = 20;
+const MAX_VISIT_PHOTOS = 5;
 
 // Trim, drop empties, cap length, and de-dupe (case-insensitive) while
 // preserving caller's casing/ordering for display purposes.
@@ -576,9 +577,11 @@ export const getById = query({
     const creatorAvatarUrl = creatorUser?.avatarImage
       ? await ctx.storage.getUrl(creatorUser.avatarImage)
       : null;
+    const photoUrls = await resolveImageUrls(ctx, visit.photos ?? []);
 
     return {
       ...visit,
+      photos: photoUrls,
       show: { ...show, images },
       creator: creatorUser
         ? {
@@ -606,6 +609,14 @@ export const listByShow = query({
       .collect();
 
     return visits.sort((a, b) => b.date.localeCompare(a.date));
+  },
+});
+
+export const generateVisitPhotoUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireConvexUserId(ctx);
+    return await ctx.storage.generateUploadUrl();
   },
 });
 
@@ -1006,9 +1017,11 @@ export const createVisit = mutation({
     completedInsertionIndex: v.optional(v.number()),
     taggedUserIds: v.optional(v.array(v.id("users"))),
     taggedGuestNames: v.optional(v.array(v.string())),
+    photoStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   handler: async (ctx, args) => {
     const userId = await requireConvexUserId(ctx);
+    const visitPhotos = (args.photoStorageIds ?? []).slice(0, MAX_VISIT_PHOTOS);
 
     const trimmedCustomShowName = args.customShowName?.trim();
     const hasShowId = args.showId !== undefined;
@@ -1093,6 +1106,7 @@ export const createVisit = mutation({
       notes: args.notes,
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
       taggedGuestNames: cleanGuestNames.length > 0 ? cleanGuestNames : undefined,
+      photos: visitPhotos.length > 0 ? visitPhotos : undefined,
     });
 
     const show = await ctx.db.get(showId);
@@ -1139,6 +1153,7 @@ export const createVisit = mutation({
       rankAtPost: rankingIndex === -1 ? undefined : rankingIndex + 1,
       taggedUserIds: validTaggedUserIds.length > 0 ? validTaggedUserIds : undefined,
       taggedGuestNames: cleanGuestNames.length > 0 ? cleanGuestNames : undefined,
+      photos: visitPhotos.length > 0 ? visitPhotos : undefined,
       createdAt: Date.now(),
     });
 
